@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+      /* 기본 옵션 */
+      "target": "ES2020",
+      "module": "ESNext",
+      "lib": ["DOM", "DOM.Iterable", "ESNext"],
+      "jsx": "react-jsx", // 최신 React JSX 변환 방식 사용
+  
+      "allowJs": true,   // .js, .jsx 파일을 컴파일 대상에 포함시킵니다.
+      "checkJs": true,   // (선택사항, 강력 추천) .js 파일에서도 간단한 타입 오류를 검사합니다.
+      "noEmit": true,
+
+      "skipLibCheck": true,
+      "esModuleInterop": true,
+      "moduleResolution": "bundler",
+      "allowImportingTsExtensions": true,
+      "resolveJsonModule": true,
+      "isolatedModules": true,
+  
+      /* 라이브러리 제작을 위한 핵심 옵션 */
+      // "noEmit": true, 로 설정하면 타입 검사만 하고 실제 파일은 생성하지 않습니다. 
+      // 하지만 우리는 타입 선언 파일(.d.ts)이 필요하므로 이 옵션은 false(기본값) 또는 주석 처리합니다.
+      "declaration": true,             // ✅ .d.ts 타입 선언 파일 생성 활성화
+      "emitDeclarationOnly": true,     // ✅ JS 파일은 Vite가 만드니, tsc는 타입 선언 파일만 생성
+      "declarationDir": "dist",        // ✅ 생성된 타입 선언 파일을 dist 폴더에 위치시킴
+  
+      /* 엄격한 타입 검사 (권장) */
+      "strict": false,
+      "noUnusedLocals": false,
+      "noUnusedParameters": false,
+      "noFallthroughCasesInSwitch": false
+    },
+    "include": ["src"], // 컴파일할 소스 코드가 src 폴더에 있음을 명시
+    "exclude": ["node_modules", "dist"] // 불필요한 폴더는 컴파일에서 제외
+}

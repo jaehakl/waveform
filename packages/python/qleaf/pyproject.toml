@@ -1,0 +1,45 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qleaf"                       
+version = "0.0.19"                    
+authors = [                         
+  { name="Jaehak Lee", email="leejaehak87@gmail.com" },
+]
+description = "Productive GUI Framework for Python" 
+readme = "README.md"                  
+requires-python = ">=3.9"             
+keywords = ["data", "database", "array", "matrix", "gui", "pyside"]
+license = { text = "LGPL-3.0-or-later" }
+classifiers = [                       
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "requests",
+    "opencv-python",
+    "Pillow",
+    "PySide6",
+    "matform"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/jaehakl/qleaf"
+"Bug Tracker" = "https://github.com/jaehakl/qleaf/issues"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.package-data]
+"*" = ["style/Qutat/*"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

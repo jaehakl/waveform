@@ -1,0 +1,47 @@
+@import './layout.css';
+@import './landingPage.css';
+@import './component/spreadSheet.css';
+@import './component/structure3D.css';
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+  --left-sidebar-width: 200px;
+  --right-sidebar-width: 200px;
+  --bottom-bar-height: 50px;
+
+  white-space: 'pre-line';
+  font-family: "HCRDotum";
+  display:"flex"; 
+  justify-content:"center"; 
+  align-items:"center";
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    color: white;
+    background: black;
+  }
+}
+
+@font-face {
+  font-family: 'HCRDotum';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_four@1.0/HCRDotum.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}

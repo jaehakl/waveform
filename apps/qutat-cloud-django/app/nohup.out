@@ -1,0 +1,1036 @@
+Watching for file changes with StatReloader
+Performing system checks...
+
+System check identified no issues (0 silenced).
+September 01, 2023 - 17:58:02
+Django version 4.2.4, using settings 'backend.settings'
+Starting development server at http://0.0.0.0:8000/
+Quit the server with CONTROL-C.
+
+Unauthorized: /users/user/
+[01/Sep/2023 17:58:15] "GET //users/user/ HTTP/1.1" 401 96
+[01/Sep/2023 17:58:18] "OPTIONS //users/login/ HTTP/1.1" 200 0
+[01/Sep/2023 17:58:19] "POST //users/login/ HTTP/1.1" 200 559
+[01/Sep/2023 17:58:19] "GET //users/user/ HTTP/1.1" 200 68
+[01/Sep/2023 17:58:21] "GET //qutat/worker/list/ HTTP/1.1" 200 158
+[01/Sep/2023 17:58:21] "GET //qutat/input/list/ HTTP/1.1" 200 744
+[01/Sep/2023 17:58:21] "GET //qutat/output/list/ HTTP/1.1" 200 149
+[01/Sep/2023 17:58:21] "GET //qutat/process/list/ HTTP/1.1" 204 0
+[01/Sep/2023 17:58:35] "GET //stock/update/ HTTP/1.1" 200 37
+[01/Sep/2023 17:58:36] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 17:59:39] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[01/Sep/2023 17:59:39] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 251
+[01/Sep/2023 17:59:40] "GET //stock/detail/00088K/ HTTP/1.1" 200 68199
+[01/Sep/2023 17:59:42] "OPTIONS //stock/user/trade/00088K/ HTTP/1.1" 200 0
+[01/Sep/2023 17:59:42] "POST //stock/user/trade/00088K/ HTTP/1.1" 201 0
+[01/Sep/2023 17:59:42] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 336
+[01/Sep/2023 17:59:42] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[01/Sep/2023 17:59:42] "GET //stock/detail/00088K/ HTTP/1.1" 200 68199
+[01/Sep/2023 17:59:44] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 17:59:49] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 336
+[01/Sep/2023 17:59:49] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[01/Sep/2023 17:59:49] "GET //stock/detail/00088K/ HTTP/1.1" 200 68199
+[01/Sep/2023 17:59:52] "OPTIONS //stock/user/trade/00088K/48/ HTTP/1.1" 200 0
+[01/Sep/2023 17:59:52] "DELETE //stock/user/trade/00088K/48/ HTTP/1.1" 204 0
+[01/Sep/2023 17:59:52] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 253
+[01/Sep/2023 17:59:52] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[01/Sep/2023 17:59:52] "GET //stock/detail/00088K/ HTTP/1.1" 200 68199
+[01/Sep/2023 17:59:53] "OPTIONS //stock/user/trade/00088K/98/ HTTP/1.1" 200 0
+[01/Sep/2023 17:59:53] "DELETE //stock/user/trade/00088K/98/ HTTP/1.1" 204 0
+[01/Sep/2023 17:59:53] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[01/Sep/2023 17:59:53] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 170
+[01/Sep/2023 17:59:53] "GET //stock/detail/00088K/ HTTP/1.1" 200 68199
+[01/Sep/2023 17:59:54] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 17:59:59] "GET //stock/user/detail/005385/ HTTP/1.1" 200 51
+[01/Sep/2023 17:59:59] "GET //stock/user/trade/005385/ HTTP/1.1" 200 252
+[01/Sep/2023 17:59:59] "GET //stock/detail/005385/ HTTP/1.1" 200 70976
+[01/Sep/2023 18:00:02] "OPTIONS //stock/user/trade/005385/ HTTP/1.1" 200 0
+[01/Sep/2023 18:00:02] "POST //stock/user/trade/005385/ HTTP/1.1" 201 0
+[01/Sep/2023 18:00:03] "GET //stock/user/trade/005385/ HTTP/1.1" 200 337
+[01/Sep/2023 18:00:03] "GET //stock/user/detail/005385/ HTTP/1.1" 200 51
+[01/Sep/2023 18:00:03] "GET //stock/detail/005385/ HTTP/1.1" 200 70976
+[01/Sep/2023 18:00:04] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 18:00:06] "GET //stock/user/trade/005935/ HTTP/1.1" 200 249
+[01/Sep/2023 18:00:06] "GET //stock/user/detail/005935/ HTTP/1.1" 200 52
+[01/Sep/2023 18:00:06] "GET //stock/detail/005935/ HTTP/1.1" 200 71492
+[01/Sep/2023 18:00:10] "OPTIONS //stock/user/trade/005935/ HTTP/1.1" 200 0
+[01/Sep/2023 18:00:11] "POST //stock/user/trade/005935/ HTTP/1.1" 201 0
+[01/Sep/2023 18:00:11] "GET //stock/user/trade/005935/ HTTP/1.1" 200 333
+[01/Sep/2023 18:00:11] "GET //stock/user/detail/005935/ HTTP/1.1" 200 52
+[01/Sep/2023 18:00:11] "GET //stock/detail/005935/ HTTP/1.1" 200 71492
+[01/Sep/2023 18:00:16] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 18:00:17] "GET //stock/user/trade/005935/ HTTP/1.1" 200 333
+[01/Sep/2023 18:00:17] "GET //stock/user/detail/005935/ HTTP/1.1" 200 52
+[01/Sep/2023 18:00:17] "GET //stock/detail/005935/ HTTP/1.1" 200 71492
+[01/Sep/2023 18:00:29] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 18:00:33] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 250
+[01/Sep/2023 18:00:33] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[01/Sep/2023 18:00:33] "GET //stock/detail/00680K/ HTTP/1.1" 200 66341
+[01/Sep/2023 18:00:38] "GET //stock/user/list/ HTTP/1.1" 200 1466
+[01/Sep/2023 18:00:44] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 250
+[01/Sep/2023 18:00:45] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 51
+[01/Sep/2023 18:00:45] "GET //stock/detail/02826K/ HTTP/1.1" 200 70619
+[01/Sep/2023 18:00:53] "OPTIONS //stock/user/trade/02826K/ HTTP/1.1" 200 0
+[01/Sep/2023 18:00:53] "POST //stock/user/trade/02826K/ HTTP/1.1" 201 0
+[01/Sep/2023 18:00:53] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[01/Sep/2023 18:00:53] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 334
+[01/Sep/2023 18:00:53] "GET //stock/detail/02826K/ HTTP/1.1" 200 70619
+[01/Sep/2023 18:00:54] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:00:56] "GET //stock/user/trade/035420/ HTTP/1.1" 200 252
+[01/Sep/2023 18:00:56] "GET //stock/user/detail/035420/ HTTP/1.1" 200 51
+[01/Sep/2023 18:00:57] "GET //stock/detail/035420/ HTTP/1.1" 200 74791
+[01/Sep/2023 18:00:57] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:01] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:01] "GET //stock/user/trade/051905/ HTTP/1.1" 200 253
+[01/Sep/2023 18:01:01] "GET //stock/detail/051905/ HTTP/1.1" 200 72860
+[01/Sep/2023 18:01:02] "OPTIONS //stock/user/trade/051905/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:03] "POST //stock/user/trade/051905/ HTTP/1.1" 201 0
+[01/Sep/2023 18:01:03] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:03] "GET //stock/user/trade/051905/ HTTP/1.1" 200 338
+[01/Sep/2023 18:01:03] "GET //stock/detail/051905/ HTTP/1.1" 200 72860
+[01/Sep/2023 18:01:03] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:05] "GET //stock/user/trade/051905/ HTTP/1.1" 200 338
+[01/Sep/2023 18:01:05] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:05] "GET //stock/detail/051905/ HTTP/1.1" 200 72860
+[01/Sep/2023 18:01:06] "OPTIONS //stock/user/trade/051905/66/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:07] "DELETE //stock/user/trade/051905/66/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:07] "GET //stock/user/trade/051905/ HTTP/1.1" 200 254
+[01/Sep/2023 18:01:07] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:07] "GET //stock/detail/051905/ HTTP/1.1" 200 72860
+[01/Sep/2023 18:01:08] "OPTIONS //stock/user/trade/051905/102/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:08] "DELETE //stock/user/trade/051905/102/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:08] "GET //stock/user/trade/051905/ HTTP/1.1" 200 170
+[01/Sep/2023 18:01:08] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:08] "GET //stock/detail/051905/ HTTP/1.1" 200 72860
+[01/Sep/2023 18:01:08] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:12] "GET //stock/user/trade/055550/ HTTP/1.1" 200 250
+[01/Sep/2023 18:01:12] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[01/Sep/2023 18:01:12] "GET //stock/detail/055550/ HTTP/1.1" 200 71879
+[01/Sep/2023 18:01:14] "OPTIONS //stock/user/trade/055550/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:15] "POST //stock/user/trade/055550/ HTTP/1.1" 201 0
+[01/Sep/2023 18:01:15] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[01/Sep/2023 18:01:15] "GET //stock/user/trade/055550/ HTTP/1.1" 200 334
+[01/Sep/2023 18:01:15] "GET //stock/detail/055550/ HTTP/1.1" 200 71879
+[01/Sep/2023 18:01:17] "OPTIONS //stock/user/trade/055550/54/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:17] "DELETE //stock/user/trade/055550/54/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:17] "GET //stock/user/trade/055550/ HTTP/1.1" 200 251
+[01/Sep/2023 18:01:17] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[01/Sep/2023 18:01:17] "GET //stock/detail/055550/ HTTP/1.1" 200 71879
+[01/Sep/2023 18:01:18] "OPTIONS //stock/user/trade/055550/97/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:18] "DELETE //stock/user/trade/055550/97/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:18] "GET //stock/user/trade/055550/ HTTP/1.1" 200 169
+[01/Sep/2023 18:01:18] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[01/Sep/2023 18:01:18] "GET //stock/detail/055550/ HTTP/1.1" 200 71879
+[01/Sep/2023 18:01:19] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:25] "GET //stock/user/trade/097955/ HTTP/1.1" 200 252
+[01/Sep/2023 18:01:25] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:25] "GET //stock/detail/097955/ HTTP/1.1" 200 71800
+[01/Sep/2023 18:01:27] "OPTIONS //stock/user/trade/097955/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:27] "POST //stock/user/trade/097955/ HTTP/1.1" 201 0
+[01/Sep/2023 18:01:27] "GET //stock/user/trade/097955/ HTTP/1.1" 200 337
+[01/Sep/2023 18:01:27] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:27] "GET //stock/detail/097955/ HTTP/1.1" 200 71800
+[01/Sep/2023 18:01:28] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:30] "GET //stock/user/trade/097955/ HTTP/1.1" 200 337
+[01/Sep/2023 18:01:30] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:30] "GET //stock/detail/097955/ HTTP/1.1" 200 71800
+[01/Sep/2023 18:01:32] "OPTIONS //stock/user/trade/097955/55/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:32] "DELETE //stock/user/trade/097955/55/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:32] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:32] "GET //stock/user/trade/097955/ HTTP/1.1" 200 253
+[01/Sep/2023 18:01:32] "GET //stock/detail/097955/ HTTP/1.1" 200 71800
+[01/Sep/2023 18:01:33] "OPTIONS //stock/user/trade/097955/83/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:33] "DELETE //stock/user/trade/097955/83/ HTTP/1.1" 204 0
+[01/Sep/2023 18:01:33] "GET //stock/user/trade/097955/ HTTP/1.1" 200 170
+[01/Sep/2023 18:01:33] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[01/Sep/2023 18:01:33] "GET //stock/detail/097955/ HTTP/1.1" 200 71800
+[01/Sep/2023 18:01:34] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 18:01:39] "GET //users/user/ HTTP/1.1" 200 68
+[01/Sep/2023 18:01:40] "OPTIONS //users/logout/ HTTP/1.1" 200 0
+[01/Sep/2023 18:01:40] "POST //users/logout/ HTTP/1.1" 200 41
+Unauthorized: /users/user/
+[01/Sep/2023 18:01:40] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+[01/Sep/2023 18:01:45] "GET //users/user/ HTTP/1.1" 401 96
+[01/Sep/2023 18:02:12] "OPTIONS //users/registration/ HTTP/1.1" 200 0
+create
+Internal Server Error: /users/registration/
+Traceback (most recent call last):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/views/decorators/csrf.py", line 56, in wrapper_view
+    return view_func(*args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/utils/decorators.py", line 46, in _wrapper
+    return bound_method(*args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/views/decorators/debug.py", line 92, in sensitive_post_parameters_wrapper
+    return view(request, *args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/dj_rest_auth/registration/views.py", line 42, in dispatch
+    return super().dispatch(*args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/rest_framework/views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/rest_framework/views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/rest_framework/views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/rest_framework/views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/rest_framework/generics.py", line 190, in post
+    return self.create(request, *args, **kwargs)
+  File "/home/ubuntu/bin/server/users/views.py", line 25, in create
+    user = self.perform_create(serializer)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/dj_rest_auth/registration/views.py", line 90, in perform_create
+    complete_signup(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/utils.py", line 186, in complete_signup
+    return perform_login(
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/utils.py", line 168, in perform_login
+    response = adapter.pre_login(request, user, **hook_kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/adapter.py", line 412, in pre_login
+    send_email_confirmation(request, user, signup=signup, email=email)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/utils.py", line 319, in send_email_confirmation
+    email_address.send_confirmation(request, signup=signup)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/models.py", line 60, in send_confirmation
+    confirmation.send(request, signup=signup)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/models.py", line 168, in send
+    get_adapter(request).send_confirmation_mail(request, self, signup)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/adapter.py", line 549, in send_confirmation_mail
+    self.send_mail(email_template, emailconfirmation.email_address.email, ctx)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/allauth/account/adapter.py", line 140, in send_mail
+    msg.send()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/mail/message.py", line 298, in send
+    return self.get_connection(fail_silently).send_messages([self])
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/mail/backends/smtp.py", line 127, in send_messages
+    new_conn_created = self.open()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/mail/backends/smtp.py", line 94, in open
+    self.connection.login(self.username, self.password)
+  File "/usr/lib/python3.10/smtplib.py", line 750, in login
+    raise last_exception
+  File "/usr/lib/python3.10/smtplib.py", line 739, in login
+    (code, resp) = self.auth(
+  File "/usr/lib/python3.10/smtplib.py", line 662, in auth
+    raise SMTPAuthenticationError(code, resp)
+smtplib.SMTPAuthenticationError: (535, b'5.7.8 Username and Password not accepted. Learn more at\n5.7.8  https://support.google.com/mail/?p=BadCredentials ji5-20020a170903324500b001b80d399730sm2532663plb.242 - gsmtp')
+[01/Sep/2023 18:02:15] "POST //users/registration/ HTTP/1.1" 500 182006
+Unauthorized: /users/user/
+[01/Sep/2023 18:36:39] "GET //users/user/ HTTP/1.1" 401 96
+[01/Sep/2023 18:40:40] code 400, message Bad HTTP/0.9 request type ("\x16\x03\x01\x00Ê\x01\x00\x00Æ\x03\x03\x11&\x15âÛæ\x17\x00\x8c¹äÕ\x9d\x9aS¡\x01Øï£$\x8eçÀ\x17\x83\x7f\x08=!\x0fÛ\x00\x00hÌ\x14Ì\x13À/À+À0À,À\x11À\x07À'À#À\x13À")
+[01/Sep/2023 18:40:40] You're accessing the development server over HTTPS, but it only supports HTTP.
+[01/Sep/2023 19:39:44] code 400, message Bad request version ('À\x14À')
+[01/Sep/2023 19:39:44] You're accessing the development server over HTTPS, but it only supports HTTP.
+[01/Sep/2023 20:00:29] code 400, message Bad request syntax ('MGLNDD_13.124.218.68_8000')
+[01/Sep/2023 20:00:29] "MGLNDD_13.124.218.68_8000" 400 -
+Unauthorized: /stock/update/
+[01/Sep/2023 22:03:32] "GET //stock/update/ HTTP/1.1" 401 96
+Unauthorized: /stock/user/list/
+[01/Sep/2023 22:03:34] "GET //stock/user/list/ HTTP/1.1" 401 96
+Unauthorized: /stock/user/list/
+[01/Sep/2023 22:03:36] "GET //stock/user/list/ HTTP/1.1" 401 96
+Unauthorized: /stock/user/list/
+[01/Sep/2023 22:03:40] "GET //stock/user/list/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+[01/Sep/2023 22:03:43] "GET //users/user/ HTTP/1.1" 401 96
+[01/Sep/2023 22:03:52] "OPTIONS //users/login/ HTTP/1.1" 200 0
+[01/Sep/2023 22:03:52] "POST //users/login/ HTTP/1.1" 200 559
+[01/Sep/2023 22:03:53] "GET //users/user/ HTTP/1.1" 200 68
+[01/Sep/2023 22:04:08] "GET //stock/update/ HTTP/1.1" 200 37
+[01/Sep/2023 22:04:11] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[01/Sep/2023 22:05:49] "GET //stock/user/detail/005935/ HTTP/1.1" 200 52
+[01/Sep/2023 22:05:49] "GET //stock/user/trade/005935/ HTTP/1.1" 200 333
+[01/Sep/2023 22:05:50] "GET //stock/detail/005935/ HTTP/1.1" 200 71492
+Not Found: /
+[01/Sep/2023 22:06:03] "GET / HTTP/1.0" 404 2778
+Not Found: /
+[01/Sep/2023 22:08:38] "GET / HTTP/1.1" 404 2744
+Not Found: /favicon.ico
+[01/Sep/2023 22:08:39] "GET /favicon.ico HTTP/1.1" 404 2795
+Not Found: /
+[02/Sep/2023 00:30:37] "GET / HTTP/1.1" 404 2749
+Not Found: /
+[02/Sep/2023 00:49:34] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 02:44:44] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[02/Sep/2023 02:44:44] "  /*à     Cookie: mstshash=Administr" 400 -
+Not Found: /robots.txt
+[02/Sep/2023 03:23:59] "GET /robots.txt HTTP/1.1" 404 2792
+Unauthorized: /users/user/
+[02/Sep/2023 03:23:59] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /
+[02/Sep/2023 04:18:31] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 04:20:09] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:20:09] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 04:20:20] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:20:20] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /favicon.ico
+[02/Sep/2023 04:20:26] "GET /favicon.ico HTTP/1.1" 404 2795
+[02/Sep/2023 04:20:29] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:20:29] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /manage/account/login
+[02/Sep/2023 04:20:34] "GET /manage/account/login HTTP/1.1" 404 2822
+[02/Sep/2023 04:20:37] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:20:37] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 04:20:42] "GET /admin/index.html HTTP/1.1" 302 0
+[02/Sep/2023 04:20:45] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:20:45] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /index.html
+[02/Sep/2023 04:20:50] "GET /index.html HTTP/1.1" 404 2792
+[02/Sep/2023 04:20:54] code 400, message Bad request syntax ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03åÕÍ\x14j\x15y\x11,`\x8dT\xadZ·ê')
+[02/Sep/2023 04:20:54] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /+CSCOE+/logon.html
+[02/Sep/2023 04:20:59] "GET /+CSCOE+/logon.html HTTP/1.1" 404 2816
+[02/Sep/2023 04:21:02] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:21:02] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /cgi-bin/login.cgi
+[02/Sep/2023 04:21:07] "GET /cgi-bin/login.cgi HTTP/1.1" 404 2813
+[02/Sep/2023 04:21:11] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 04:21:11] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[02/Sep/2023 04:21:16] "GET / HTTP/1.1" 404 2744
+Not Found: /
+[02/Sep/2023 04:51:00] "GET / HTTP/1.1" 404 2742
+[02/Sep/2023 05:56:57,189] - Broken pipe from ('104.152.52.153', 41770)
+[02/Sep/2023 06:25:46] code 400, message Bad request version ('ÍS¾\x89D¶)Xº0[\x10²-Û\x0e\x8b\x84b')
+[02/Sep/2023 06:25:46] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[02/Sep/2023 06:25:46] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 06:25:46] code 400, message Bad request version ('l?s!×¥ß\x82*')
+[02/Sep/2023 06:25:46] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 06:25:46] code 400, message Bad request version (']n·ÑÚA\x8c|')
+[02/Sep/2023 06:25:46] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 06:25:47] code 400, message Bad request version ('À\x13À')
+[02/Sep/2023 06:25:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 06:25:47] code 400, message Bad request version ('À\x13À')
+[02/Sep/2023 06:25:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 06:25:47] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00î\x01\x00\x00ê\x03\x03B')
+[02/Sep/2023 06:25:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 06:25:47] code 400, message Bad request version ('À\x13À')
+[02/Sep/2023 06:25:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+Unauthorized: /users/user/
+[02/Sep/2023 08:54:01] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+[02/Sep/2023 09:23:53] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /
+[02/Sep/2023 10:07:43] "GET / HTTP/1.1" 404 2744
+Not Found: /
+[02/Sep/2023 12:09:30] "GET / HTTP/1.1" 404 2744
+Not Found: /favicon.ico
+[02/Sep/2023 12:09:43] "GET /favicon.ico HTTP/1.1" 404 2795
+Not Found: /http:/api.ipify.org/
+[02/Sep/2023 12:09:46] "GET http://api.ipify.org/?format=json HTTP/1.1" 404 1818
+Not Found: /www.shadowserver.org:443
+[02/Sep/2023 12:09:49] "CONNECT www.shadowserver.org:443 HTTP/1.1" 404 1827
+Not Found: /
+[02/Sep/2023 12:59:30] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 17:01:03] code 400, message Bad request version ('À(À$À\x14À')
+[02/Sep/2023 17:01:03] You're accessing the development server over HTTPS, but it only supports HTTP.
+Unauthorized: /users/user/
+[02/Sep/2023 17:15:47] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /
+[02/Sep/2023 17:40:46] "GET / HTTP/1.1" 404 2744
+Not Found: /
+[02/Sep/2023 17:51:31] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 18:34:07] code 400, message Bad request syntax ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03(')
+[02/Sep/2023 18:34:07] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[02/Sep/2023 18:38:19] "GET / HTTP/1.1" 404 2756
+[02/Sep/2023 21:53:11] code 400, message Bad request version ('ñ¬}')
+[02/Sep/2023 21:53:11] You're accessing the development server over HTTPS, but it only supports HTTP.
+[02/Sep/2023 21:53:12] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 21:53:12] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[02/Sep/2023 21:53:12] "GET / HTTP/1.1" 404 2744
+[02/Sep/2023 21:53:13] code 400, message Bad request version ('À\x14À')
+[02/Sep/2023 21:53:13] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /api/islogged
+[02/Sep/2023 21:53:13] "GET /api/islogged HTTP/1.1" 404 2798
+[02/Sep/2023 22:05:29] code 400, message Bad request syntax ('MGLNDD_13.124.218.68_8000')
+[02/Sep/2023 22:05:29] "MGLNDD_13.124.218.68_8000" 400 -
+Not Found: /robots.txt
+[03/Sep/2023 04:29:42] "GET /robots.txt HTTP/1.1" 404 2792
+Unauthorized: /users/user/
+[03/Sep/2023 04:29:43] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /
+[03/Sep/2023 05:06:35] "GET / HTTP/1.1" 404 2744
+Unauthorized: /users/user/
+[03/Sep/2023 05:14:39] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+[03/Sep/2023 05:59:45] "GET //users/user/ HTTP/1.1" 401 96
+[03/Sep/2023 07:54:53] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[03/Sep/2023 07:54:53] "  /*à     Cookie: mstshash=Administr" 400 -
+[03/Sep/2023 07:55:48] code 400, message Bad request version ('<XHPh9¥\\|\x07¢Ñ')
+[03/Sep/2023 07:55:48] "   àZ          =K  Î¨À )üPYo root                                            0 ùóñ>Jºr¬dS%/VÖ¡ôîÐmõ(Ö<XHPh9¥\|¢Ñ" 400 -
+[03/Sep/2023 07:55:48] code 400, message Bad request version ('+\x0f\x97¹Æ¿\x99[\x9dr\x82»9!1,\x99\x95%ì%ÕK\x00"ºº\x13\x01\x13\x02\x13\x03À+À/À,À0Ì©Ì¨À\x13À\x14\x00\x9c\x00\x9d\x00/\x005\x00')
+[03/Sep/2023 07:55:48] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[03/Sep/2023 07:55:49] "GET / HTTP/1.1" 404 2744
+[03/Sep/2023 10:30:56] code 400, message Bad request version ('À\x14À')
+[03/Sep/2023 10:30:56] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[03/Sep/2023 11:06:00] "GET / HTTP/1.1" 404 2744
+[03/Sep/2023 11:06:10] code 505, message Invalid HTTP version (2.0)
+[03/Sep/2023 11:06:10] "PRI * HTTP/2.0" 505 -
+[03/Sep/2023 11:56:56] code 400, message Bad request version ('À\x14À')
+[03/Sep/2023 11:56:56] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin/scripts/setup.php
+[03/Sep/2023 14:52:59] "GET http://13.124.218.68:8000/phpMyAdmin/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/phpmyadmin/scripts/setup.php
+[03/Sep/2023 14:52:59] "GET http://13.124.218.68:8000/phpmyadmin/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.11.4/scripts/setup.php
+[03/Sep/2023 14:52:59] "GET http://13.124.218.68:8000/phpMyAdmin-2.11.4/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.11.3/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.11.3/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.10.0.2/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.10.0.2/scripts/setup.php HTTP/1.0" 404 1971
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.10.3/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.10.3/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.8.0.2/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.8.0.2/scripts/setup.php HTTP/1.0" 404 1968
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.10.2/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.10.2/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.11.9.2/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.11.9.2/scripts/setup.php HTTP/1.0" 404 1971
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.11.0/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.11.0/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.11.7/scripts/setup.php
+[03/Sep/2023 14:53:00] "GET http://13.124.218.68:8000/phpMyAdmin-2.11.7/scripts/setup.php HTTP/1.0" 404 1965
+Not Found: /http:/13.124.218.68:8000/pma/scripts/setup.php
+[03/Sep/2023 14:53:05] "GET http://13.124.218.68:8000/pma/scripts/setup.php HTTP/1.0" 404 1923
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin3/scripts/setup.php
+[03/Sep/2023 14:53:05] "GET http://13.124.218.68:8000/phpMyAdmin3/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /http:/13.124.218.68:8000/myadmin/scripts/setup.php
+[03/Sep/2023 14:53:05] "GET http://13.124.218.68:8000/myadmin/scripts/setup.php HTTP/1.0" 404 1935
+Not Found: /http:/13.124.218.68:8000/MyAdmin/scripts/setup.php
+[03/Sep/2023 14:53:05] "GET http://13.124.218.68:8000/MyAdmin/scripts/setup.php HTTP/1.0" 404 1935
+Not Found: /http:/13.124.218.68:8000/PHPMYADMIN/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/PHPMYADMIN/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/mysqladmin/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/mysqladmin/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/SQL/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/SQL/scripts/setup.php HTTP/1.0" 404 1923
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.5.5-pl1/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/phpMyAdmin-2.5.5-pl1/scripts/setup.php HTTP/1.0" 404 1974
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.5.5/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/phpMyAdmin-2.5.5/scripts/setup.php HTTP/1.0" 404 1962
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.5.4/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/phpMyAdmin-2.5.4/scripts/setup.php HTTP/1.0" 404 1962
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin-2.5.7-pl1/scripts/setup.php
+[03/Sep/2023 14:53:06] "GET http://13.124.218.68:8000/phpMyAdmin-2.5.7-pl1/scripts/setup.php HTTP/1.0" 404 1974
+Not Found: /http:/13.124.218.68:8000/admin/pma/scripts/setup.php
+[03/Sep/2023 14:53:07] "GET http://13.124.218.68:8000/admin/pma/scripts/setup.php HTTP/1.0" 404 1941
+Not Found: /http:/13.124.218.68:8000/web/phpMyAdmin/scripts/setup.php
+[03/Sep/2023 14:53:12] "GET http://13.124.218.68:8000/web/phpMyAdmin/scripts/setup.php HTTP/1.0" 404 1956
+Not Found: /http:/13.124.218.68:8000/webadmin/scripts/setup.php
+[03/Sep/2023 14:53:12] "GET http://13.124.218.68:8000/webadmin/scripts/setup.php HTTP/1.0" 404 1938
+Not Found: /http:/13.124.218.68:8000/admin/scripts/setup.php
+[03/Sep/2023 14:53:12] "GET http://13.124.218.68:8000/admin/scripts/setup.php HTTP/1.0" 404 1929
+Not Found: /http:/13.124.218.68:8000/dbadmin/scripts/setup.php
+[03/Sep/2023 14:53:12] "GET http://13.124.218.68:8000/dbadmin/scripts/setup.php HTTP/1.0" 404 1935
+Not Found: /http:/13.124.218.68:8000/mysql/scripts/setup.php
+[03/Sep/2023 14:53:12] "GET http://13.124.218.68:8000/mysql/scripts/setup.php HTTP/1.0" 404 1929
+Not Found: /http:/13.124.218.68:8000/phpMyAdmin2/scripts/setup.php
+[03/Sep/2023 14:53:13] "GET http://13.124.218.68:8000/phpMyAdmin2/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /http:/13.124.218.68:8000/phpma/scripts/setup.php
+[03/Sep/2023 14:53:13] "GET http://13.124.218.68:8000/phpma/scripts/setup.php HTTP/1.0" 404 1929
+Not Found: /http:/13.124.218.68:8000/sqlweb/scripts/setup.php
+[03/Sep/2023 14:53:13] "GET http://13.124.218.68:8000/sqlweb/scripts/setup.php HTTP/1.0" 404 1932
+Not Found: /http:/13.124.218.68:8000/websql/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/websql/scripts/setup.php HTTP/1.0" 404 1932
+Not Found: /http:/13.124.218.68:8000/_phpMyAdmin/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/_phpMyAdmin/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /http:/13.124.218.68:8000/php/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/php/scripts/setup.php HTTP/1.0" 404 1923
+Not Found: /http:/13.124.218.68:8000/admin/phpmyadmin/scripts/setup.txt
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/admin/phpmyadmin/scripts/setup.txt HTTP/1.0" 404 1962
+Not Found: /http:/13.124.218.68:8000/db/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/db/scripts/setup.php HTTP/1.0" 404 1920
+Not Found: /http:/13.124.218.68:8000/sqlmanager/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/sqlmanager/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/mysqlmanager/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/mysqlmanager/scripts/setup.php HTTP/1.0" 404 1950
+Not Found: /http:/13.124.218.68:8000/phpmanager/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/phpmanager/scripts/setup.php HTTP/1.0" 404 1944
+Not Found: /http:/13.124.218.68:8000/php-myadmin/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/php-myadmin/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /http:/13.124.218.68:8000/phpmy-admin/scripts/setup.php
+[03/Sep/2023 14:53:18] "GET http://13.124.218.68:8000/phpmy-admin/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /http:/13.124.218.68:8000/mysql-admin/scripts/setup.php
+[03/Sep/2023 14:53:19] "GET http://13.124.218.68:8000/mysql-admin/scripts/setup.php HTTP/1.0" 404 1947
+Not Found: /
+[03/Sep/2023 17:38:36] "GET / HTTP/1.1" 404 2744
+[03/Sep/2023 18:46:29] code 400, message Bad request version ('À\x13À')
+[03/Sep/2023 18:46:29] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[03/Sep/2023 18:46:29] "GET / HTTP/1.1" 404 2744
+[03/Sep/2023 18:46:29] code 400, message Bad request version ('e')
+[03/Sep/2023 18:46:29] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 18:46:33] code 400, message Bad request version ('RåÛ1')
+[03/Sep/2023 18:46:33] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 18:46:33] code 400, message Bad request syntax ('\x16\x03\x01\x00î\x01\x00\x00ê\x03\x03')
+[03/Sep/2023 18:46:33] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 18:46:33] code 400, message Bad request version ('À\x13À')
+[03/Sep/2023 18:46:33] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 18:46:33] code 400, message Bad request version ('À\x13À')
+[03/Sep/2023 18:46:33] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 18:46:33] code 400, message Bad request version ('À\x13À')
+[03/Sep/2023 18:46:33] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 19:12:07] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[03/Sep/2023 19:12:07] "  /*à     Cookie: mstshash=Administr" 400 -
+Not Found: /aaa9
+[03/Sep/2023 19:13:22] "GET /aaa9 HTTP/1.1" 404 2774
+Not Found: /aab8
+[03/Sep/2023 19:13:23] "GET /aab8 HTTP/1.1" 404 2774
+Not Found: /
+[03/Sep/2023 19:13:23] "GET / HTTP/1.1" 404 2744
+[03/Sep/2023 19:17:20] code 400, message Bad request version ('À(À$À\x14À')
+[03/Sep/2023 19:17:20] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+[03/Sep/2023 19:48:04] "GET / HTTP/1.1" 404 2744
+Not Found: /favicon.ico
+[03/Sep/2023 19:48:42] "GET /favicon.ico HTTP/1.1" 404 2795
+Not Found: /http:/api.ipify.org/
+[03/Sep/2023 19:49:02] "GET http://api.ipify.org/?format=json HTTP/1.1" 404 1818
+Not Found: /www.shadowserver.org:443
+[03/Sep/2023 19:49:25] "CONNECT www.shadowserver.org:443 HTTP/1.1" 404 1827
+[03/Sep/2023 20:16:42] code 400, message Bad request version ('À\x14À')
+[03/Sep/2023 20:16:42] You're accessing the development server over HTTPS, but it only supports HTTP.
+[03/Sep/2023 23:47:05] code 400, message Bad request syntax ('MGLNDD_13.124.218.68_8000')
+[03/Sep/2023 23:47:05] "MGLNDD_13.124.218.68_8000" 400 -
+Unauthorized: /users/user/
+[04/Sep/2023 02:09:28] "GET //users/user/ HTTP/1.1" 401 96
+[04/Sep/2023 04:54:34] code 400, message Bad request version ('À(À$À\x14À')
+[04/Sep/2023 04:54:34] You're accessing the development server over HTTPS, but it only supports HTTP.
+Unauthorized: /users/user/
+[04/Sep/2023 06:16:04] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /robots.txt
+[04/Sep/2023 07:24:31] "GET /robots.txt HTTP/1.1" 404 2792
+Unauthorized: /users/user/
+[04/Sep/2023 07:24:31] "GET //users/user/ HTTP/1.1" 401 96
+Not Found: /
+[04/Sep/2023 08:05:52] "GET / HTTP/1.1" 404 2739
+[04/Sep/2023 08:05:53,094] - Broken pipe from ('171.67.71.80', 33864)
+Unauthorized: /users/user/
+[04/Sep/2023 08:48:07] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+[04/Sep/2023 09:22:09] "GET //users/user/ HTTP/1.1" 401 96
+[04/Sep/2023 09:22:16] "OPTIONS //users/login/ HTTP/1.1" 200 0
+[04/Sep/2023 09:22:16] "POST //users/login/ HTTP/1.1" 200 559
+[04/Sep/2023 09:22:16] "GET //users/user/ HTTP/1.1" 200 68
+[04/Sep/2023 09:22:20] "GET //stock/user/list/ HTTP/1.1" 200 1467
+[04/Sep/2023 09:22:23] "GET //stock/user/detail/005935/ HTTP/1.1" 200 52
+[04/Sep/2023 09:22:23] "GET //stock/user/trade/005935/ HTTP/1.1" 200 333
+[04/Sep/2023 09:22:23] "GET //stock/detail/005935/ HTTP/1.1" 200 71417
+[04/Sep/2023 09:22:25] "GET //stock/user/register/005935/ HTTP/1.1" 204 0
+[04/Sep/2023 09:22:25] "GET //stock/user/detail/005935/ HTTP/1.1" 200 53
+[04/Sep/2023 09:22:26] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:22:38] "GET //stock/update/ HTTP/1.1" 200 37
+[04/Sep/2023 09:25:47] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:34:20] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[04/Sep/2023 09:34:20] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 334
+[04/Sep/2023 09:34:20] "GET //stock/detail/02826K/ HTTP/1.1" 200 70546
+[04/Sep/2023 09:34:29] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[04/Sep/2023 09:34:29] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 334
+[04/Sep/2023 09:34:29] "GET //stock/detail/02826K/ HTTP/1.1" 200 70546
+[04/Sep/2023 09:34:32] "GET //stock/user/trade/035420/ HTTP/1.1" 200 252
+[04/Sep/2023 09:34:32] "GET //stock/user/detail/035420/ HTTP/1.1" 200 51
+[04/Sep/2023 09:34:32] "GET //stock/detail/035420/ HTTP/1.1" 200 74715
+[04/Sep/2023 09:34:52] "OPTIONS //stock/user/trade/035420/ HTTP/1.1" 200 0
+[04/Sep/2023 09:34:52] "POST //stock/user/trade/035420/ HTTP/1.1" 201 0
+[04/Sep/2023 09:34:52] "GET //stock/user/detail/035420/ HTTP/1.1" 200 51
+[04/Sep/2023 09:34:52] "GET //stock/user/trade/035420/ HTTP/1.1" 200 336
+[04/Sep/2023 09:34:53] "GET //stock/detail/035420/ HTTP/1.1" 200 74715
+[04/Sep/2023 09:34:56] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:35:08] "GET //stock/detail/017670/ HTTP/1.1" 200 69334
+[04/Sep/2023 09:35:08] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[04/Sep/2023 09:35:08] "GET //stock/user/trade/017670/ HTTP/1.1" 200 168
+[04/Sep/2023 09:35:32] "OPTIONS //stock/user/trade/017670/ HTTP/1.1" 200 0
+[04/Sep/2023 09:35:32] "POST //stock/user/trade/017670/ HTTP/1.1" 201 0
+[04/Sep/2023 09:35:33] "GET //stock/user/trade/017670/ HTTP/1.1" 200 252
+[04/Sep/2023 09:35:33] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[04/Sep/2023 09:35:33] "GET //stock/detail/017670/ HTTP/1.1" 200 69334
+[04/Sep/2023 09:35:35] "GET //stock/user/list/ HTTP/1.1" 200 1344
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[04/Sep/2023 09:48:39] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[04/Sep/2023 09:48:42] "GET //users/user/ HTTP/1.1" 401 96
+[04/Sep/2023 09:48:46] "OPTIONS //users/login/ HTTP/1.1" 200 0
+[04/Sep/2023 09:48:47] "POST //users/login/ HTTP/1.1" 200 559
+[04/Sep/2023 09:48:47] "GET //users/user/ HTTP/1.1" 200 68
+[04/Sep/2023 09:48:47] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:48:56] "GET //stock/user/trade/013580/ HTTP/1.1" 200 252
+[04/Sep/2023 09:48:56] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[04/Sep/2023 09:48:56] "GET //stock/detail/013580/ HTTP/1.1" 200 69679
+[04/Sep/2023 09:49:05] "OPTIONS //stock/user/trade/013580/ HTTP/1.1" 200 0
+[04/Sep/2023 09:49:05] "POST //stock/user/trade/013580/ HTTP/1.1" 201 0
+[04/Sep/2023 09:49:05] "GET //stock/user/trade/013580/ HTTP/1.1" 200 336
+[04/Sep/2023 09:49:05] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[04/Sep/2023 09:49:05] "GET //stock/detail/013580/ HTTP/1.1" 200 69662
+[04/Sep/2023 09:49:07] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:49:17] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 334
+[04/Sep/2023 09:49:17] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[04/Sep/2023 09:49:18] "GET //stock/detail/02826K/ HTTP/1.1" 200 70546
+[04/Sep/2023 09:49:24] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:49:31] "GET //users/user/ HTTP/1.1" 200 68
+[04/Sep/2023 09:49:44] "GET //stock/update/ HTTP/1.1" 200 37
+[04/Sep/2023 09:49:45] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:49:56] "GET //stock/user/trade/017670/ HTTP/1.1" 200 252
+[04/Sep/2023 09:49:56] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[04/Sep/2023 09:49:56] "GET //stock/detail/017670/ HTTP/1.1" 200 69351
+[04/Sep/2023 09:49:59] "OPTIONS //stock/user/trade/017670/ HTTP/1.1" 200 0
+[04/Sep/2023 09:49:59] "POST //stock/user/trade/017670/ HTTP/1.1" 201 0
+[04/Sep/2023 09:49:59] "GET //stock/user/trade/017670/ HTTP/1.1" 200 336
+[04/Sep/2023 09:49:59] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[04/Sep/2023 09:49:59] "GET //stock/detail/017670/ HTTP/1.1" 200 69351
+[04/Sep/2023 09:50:01] "OPTIONS //stock/user/trade/017670/111/ HTTP/1.1" 200 0
+[04/Sep/2023 09:50:01] "DELETE //stock/user/trade/017670/111/ HTTP/1.1" 204 0
+[04/Sep/2023 09:50:01] "GET //stock/user/trade/017670/ HTTP/1.1" 200 252
+[04/Sep/2023 09:50:01] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:01] "GET //stock/detail/017670/ HTTP/1.1" 200 69351
+[04/Sep/2023 09:50:02] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:50:05] "GET //stock/user/trade/013580/ HTTP/1.1" 200 336
+[04/Sep/2023 09:50:05] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:05] "GET //stock/detail/013580/ HTTP/1.1" 200 69662
+[04/Sep/2023 09:50:09] "OPTIONS //stock/user/trade/013580/112/ HTTP/1.1" 200 0
+[04/Sep/2023 09:50:09] "DELETE //stock/user/trade/013580/112/ HTTP/1.1" 204 0
+[04/Sep/2023 09:50:09] "GET //stock/user/trade/013580/ HTTP/1.1" 200 252
+[04/Sep/2023 09:50:09] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:09] "GET //stock/detail/013580/ HTTP/1.1" 200 69662
+[04/Sep/2023 09:50:22] "POST //stock/user/trade/013580/ HTTP/1.1" 201 0
+[04/Sep/2023 09:50:22] "GET //stock/user/trade/013580/ HTTP/1.1" 200 336
+[04/Sep/2023 09:50:22] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:22] "GET //stock/detail/013580/ HTTP/1.1" 200 69662
+[04/Sep/2023 09:50:23] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:50:34] "GET //stock/user/trade/011785/ HTTP/1.1" 200 250
+[04/Sep/2023 09:50:34] "GET //stock/user/detail/011785/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:34] "GET //stock/detail/011785/ HTTP/1.1" 200 70055
+[04/Sep/2023 09:50:38] "OPTIONS //stock/user/trade/011785/ HTTP/1.1" 200 0
+[04/Sep/2023 09:50:38] "POST //stock/user/trade/011785/ HTTP/1.1" 201 0
+[04/Sep/2023 09:50:38] "GET //stock/user/trade/011785/ HTTP/1.1" 200 334
+[04/Sep/2023 09:50:38] "GET //stock/user/detail/011785/ HTTP/1.1" 200 52
+[04/Sep/2023 09:50:38] "GET //stock/detail/011785/ HTTP/1.1" 200 70055
+[04/Sep/2023 09:50:39] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:50:42] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 250
+[04/Sep/2023 09:50:42] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[04/Sep/2023 09:50:42] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[04/Sep/2023 09:50:49] "OPTIONS //stock/user/trade/00680K/ HTTP/1.1" 200 0
+[04/Sep/2023 09:50:49] "POST //stock/user/trade/00680K/ HTTP/1.1" 201 0
+[04/Sep/2023 09:50:50] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 333
+[04/Sep/2023 09:50:50] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[04/Sep/2023 09:50:50] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[04/Sep/2023 09:50:51] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:50:52] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 333
+[04/Sep/2023 09:50:52] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[04/Sep/2023 09:50:52] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[04/Sep/2023 09:50:53] "OPTIONS //stock/user/trade/00680K/116/ HTTP/1.1" 200 0
+[04/Sep/2023 09:50:53] "DELETE //stock/user/trade/00680K/116/ HTTP/1.1" 204 0
+[04/Sep/2023 09:50:53] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[04/Sep/2023 09:50:53] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 250
+[04/Sep/2023 09:50:53] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[04/Sep/2023 09:50:57] "POST //stock/user/trade/00680K/ HTTP/1.1" 201 0
+[04/Sep/2023 09:50:58] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[04/Sep/2023 09:50:58] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 334
+[04/Sep/2023 09:50:58] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[04/Sep/2023 09:50:58] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:51:05] "GET //stock/user/trade/005385/ HTTP/1.1" 200 337
+[04/Sep/2023 09:51:05] "GET //stock/user/detail/005385/ HTTP/1.1" 200 51
+[04/Sep/2023 09:51:05] "GET //stock/detail/005385/ HTTP/1.1" 200 70908
+[04/Sep/2023 09:51:08] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:51:14] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 170
+[04/Sep/2023 09:51:14] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[04/Sep/2023 09:51:14] "GET //stock/detail/00088K/ HTTP/1.1" 200 68125
+[04/Sep/2023 09:51:20] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:52:34] "GET //stock/user/trade/055550/ HTTP/1.1" 200 169
+[04/Sep/2023 09:52:34] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[04/Sep/2023 09:52:34] "GET //stock/detail/055550/ HTTP/1.1" 200 71807
+[04/Sep/2023 09:52:36] "OPTIONS //stock/user/trade/055550/ HTTP/1.1" 200 0
+[04/Sep/2023 09:52:36] "POST //stock/user/trade/055550/ HTTP/1.1" 201 0
+[04/Sep/2023 09:52:36] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[04/Sep/2023 09:52:36] "GET //stock/user/trade/055550/ HTTP/1.1" 200 252
+[04/Sep/2023 09:52:36] "GET //stock/detail/055550/ HTTP/1.1" 200 71807
+[04/Sep/2023 09:52:37] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 09:52:38] "GET //stock/user/trade/097955/ HTTP/1.1" 200 170
+[04/Sep/2023 09:52:38] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[04/Sep/2023 09:52:38] "GET //stock/detail/097955/ HTTP/1.1" 200 71741
+[04/Sep/2023 09:52:40] "OPTIONS //stock/user/trade/097955/ HTTP/1.1" 200 0
+[04/Sep/2023 09:52:40] "POST //stock/user/trade/097955/ HTTP/1.1" 201 0
+[04/Sep/2023 09:52:40] "GET //stock/user/trade/097955/ HTTP/1.1" 200 254
+[04/Sep/2023 09:52:40] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[04/Sep/2023 09:52:40] "GET //stock/detail/097955/ HTTP/1.1" 200 71741
+[04/Sep/2023 09:52:41] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[04/Sep/2023 10:02:59] "GET //users/user/ HTTP/1.1" 200 68
+[04/Sep/2023 10:13:48,966] - Broken pipe from ('167.248.133.50', 51578)
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 10:13:50] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 10:13:50,335] - Broken pipe from ('167.248.133.50', 50524)
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 10:13:50] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 10:13:50] code 505, message Invalid HTTP version (2.0)
+[04/Sep/2023 10:13:50] "PRI * HTTP/2.0" 505 -
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 11:16:53] "GET / HTTP/1.1" 404 2739
+[04/Sep/2023 11:16:54,005] - Broken pipe from ('171.67.71.80', 57472)
+[04/Sep/2023 11:45:23] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:45:23] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 11:45:37] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:45:37] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 11:45:43] "GET /favicon.ico HTTP/1.1" 404 2795
+[04/Sep/2023 11:45:47] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:45:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /manage/account/login
+WARNING:django.request:Not Found: /manage/account/login
+[04/Sep/2023 11:45:53] "GET /manage/account/login HTTP/1.1" 404 2822
+[04/Sep/2023 11:45:57] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03\x90uÔþÒÝñH\x9e¢Q\x02´{hÙBî/Äÿ\x03REÈ\x80\x17É\x7f2·|\x00\x00\x1aÀ/À+À\x11À\x07À\x13À')
+[04/Sep/2023 11:45:57] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 11:46:03] "GET /admin/index.html HTTP/1.1" 302 0
+[04/Sep/2023 11:46:08] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:46:08] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /index.html
+WARNING:django.request:Not Found: /index.html
+[04/Sep/2023 11:46:14] "GET /index.html HTTP/1.1" 404 2792
+[04/Sep/2023 11:46:19] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:46:19] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /+CSCOE+/logon.html
+WARNING:django.request:Not Found: /+CSCOE+/logon.html
+[04/Sep/2023 11:46:25] "GET /+CSCOE+/logon.html HTTP/1.1" 404 2816
+[04/Sep/2023 11:46:29] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:46:29] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /cgi-bin/login.cgi
+WARNING:django.request:Not Found: /cgi-bin/login.cgi
+[04/Sep/2023 11:46:35] "GET /cgi-bin/login.cgi HTTP/1.1" 404 2813
+[04/Sep/2023 11:46:40] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 11:46:40] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 11:46:46] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 12:13:44,521] - Broken pipe from ('162.142.125.223', 58944)
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 12:13:45] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 12:13:45,996] - Broken pipe from ('162.142.125.223', 57138)
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 12:13:46] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 12:13:46] code 505, message Invalid HTTP version (2.0)
+[04/Sep/2023 12:13:46] "PRI * HTTP/2.0" 505 -
+[04/Sep/2023 12:56:17] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:56:17] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 12:56:35] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03eêÝ×ÊB\x96Oa\x90_\x9eA²è;IóEOb\x12L\x159N;º¹J62\x00\x00\x1aÀ/À+À\x11À\x07À\x13À')
+[04/Sep/2023 12:56:35] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 12:56:40] "GET /favicon.ico HTTP/1.1" 404 2795
+[04/Sep/2023 12:56:43] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:56:43] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /manage/account/login
+WARNING:django.request:Not Found: /manage/account/login
+[04/Sep/2023 12:56:49] "GET /manage/account/login HTTP/1.1" 404 2822
+[04/Sep/2023 12:56:52] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:56:52] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 12:56:57] "GET /admin/index.html HTTP/1.1" 302 0
+[04/Sep/2023 12:57:01] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:57:01] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /index.html
+WARNING:django.request:Not Found: /index.html
+[04/Sep/2023 12:57:06] "GET /index.html HTTP/1.1" 404 2792
+[04/Sep/2023 12:57:09] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:57:09] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /+CSCOE+/logon.html
+WARNING:django.request:Not Found: /+CSCOE+/logon.html
+[04/Sep/2023 12:57:14] "GET /+CSCOE+/logon.html HTTP/1.1" 404 2816
+[04/Sep/2023 12:57:18] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:57:18] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /cgi-bin/login.cgi
+WARNING:django.request:Not Found: /cgi-bin/login.cgi
+[04/Sep/2023 12:57:23] "GET /cgi-bin/login.cgi HTTP/1.1" 404 2813
+[04/Sep/2023 12:57:26] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 12:57:26] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 12:57:32] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 13:07:38] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:07:38] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 13:07:59] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03Ëß\x07\x00Ò\x00-*m¥?\x8d\x0f)\x1aWf]\x96´62¿ÖÉ~PÈÄ\x94£ä\x00\x00\x1aÀ/À+À\x11À\x07À\x13À')
+[04/Sep/2023 13:07:59] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 13:08:09] "GET /favicon.ico HTTP/1.1" 404 2795
+[04/Sep/2023 13:08:14] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:08:14] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /manage/account/login
+WARNING:django.request:Not Found: /manage/account/login
+[04/Sep/2023 13:08:23] "GET /manage/account/login HTTP/1.1" 404 2822
+[04/Sep/2023 13:08:30] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:08:30] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 13:08:40] "GET /admin/index.html HTTP/1.1" 302 0
+[04/Sep/2023 13:08:47] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03Ô\x15ÿ\x12\x17Ñu\x14Ã~ß\x1a(m9s"S\x89/ÓKN8\x8e\x02\x19:Ç\x18xÏ\x00\x00\x1aÀ/À+À\x11À\x07À\x13À')
+[04/Sep/2023 13:08:47] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /index.html
+WARNING:django.request:Not Found: /index.html
+[04/Sep/2023 13:08:57] "GET /index.html HTTP/1.1" 404 2792
+[04/Sep/2023 13:09:05] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:09:05] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /+CSCOE+/logon.html
+WARNING:django.request:Not Found: /+CSCOE+/logon.html
+[04/Sep/2023 13:09:15] "GET /+CSCOE+/logon.html HTTP/1.1" 404 2816
+[04/Sep/2023 13:09:21] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:09:21] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /cgi-bin/login.cgi
+WARNING:django.request:Not Found: /cgi-bin/login.cgi
+[04/Sep/2023 13:09:31] "GET /cgi-bin/login.cgi HTTP/1.1" 404 2813
+[04/Sep/2023 13:09:38] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03\x9cn!Ê')
+[04/Sep/2023 13:09:38] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:09:48] "GET / HTTP/1.1" 404 2744
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:15:32] "GET / HTTP/1.1" 404 2749
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:15:32] "GET / HTTP/1.1" 404 2746
+[04/Sep/2023 13:24:19] code 400, message Bad request syntax ('\x16\x03\x01\x00{\x01\x00\x00w\x03\x03Ó;\x99þ|»ì@àêi')
+[04/Sep/2023 13:24:19] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 13:24:50] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:24:50] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:25:02] "GET / HTTP/1.1" 404 2746
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 13:25:04] "GET /favicon.ico HTTP/1.1" 404 2795
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:25:06] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 13:25:12] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:25:12] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /manage/account/login
+WARNING:django.request:Not Found: /manage/account/login
+[04/Sep/2023 13:25:25] "GET /manage/account/login HTTP/1.1" 404 2822
+Not Found: /robots.txt
+WARNING:django.request:Not Found: /robots.txt
+[04/Sep/2023 13:25:32] "GET /robots.txt HTTP/1.1" 404 2794
+[04/Sep/2023 13:25:37] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:25:37] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 13:25:51] "GET /admin/index.html HTTP/1.1" 302 0
+[04/Sep/2023 13:26:01] code 400, message Bad HTTP/0.9 request type ("\x16\x03\x01\x00{\x01\x00\x00w\x03\x03\xad\x01\x98©k\x1bdM\x17ûW~F«\x06\x00\x13ËD£\x83\x96\x17'tS\x13ä´X\x00Ô\x00\x00\x1aÀ/À+À\x11À\x07À\x13À")
+[04/Sep/2023 13:26:01] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /index.html
+WARNING:django.request:Not Found: /index.html
+[04/Sep/2023 13:26:15] "GET /index.html HTTP/1.1" 404 2792
+[04/Sep/2023 13:26:27] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:26:27] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /+CSCOE+/logon.html
+WARNING:django.request:Not Found: /+CSCOE+/logon.html
+[04/Sep/2023 13:26:40] "GET /+CSCOE+/logon.html HTTP/1.1" 404 2816
+[04/Sep/2023 13:26:50] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:26:50] You're accessing the development server over HTTPS, but it only supports HTTP.
+[04/Sep/2023 13:27:19] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 13:27:19] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 13:27:33] "GET / HTTP/1.1" 404 2744
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 14:46:21] "GET / HTTP/1.1" 404 2744
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 14:46:38] "GET /favicon.ico HTTP/1.1" 404 2795
+Not Found: /http:/api.ipify.org/
+WARNING:django.request:Not Found: /http:/api.ipify.org/
+[04/Sep/2023 14:46:41] "GET http://api.ipify.org/?format=json HTTP/1.1" 404 1818
+Not Found: /www.shadowserver.org:443
+WARNING:django.request:Not Found: /www.shadowserver.org:443
+[04/Sep/2023 14:46:44] "CONNECT www.shadowserver.org:443 HTTP/1.1" 404 1827
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 14:49:54] "GET / HTTP/1.1" 404 2739
+[04/Sep/2023 14:49:56] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 14:49:56] You're accessing the development server over HTTPS, but it only supports HTTP.
+----------------------------------------
+Exception occurred during processing of request from ('171.67.70.84', 39008)
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/socketserver.py", line 683, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.10/socketserver.py", line 360, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/usr/lib/python3.10/socketserver.py", line 747, in __init__
+    self.handle()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/servers/basehttp.py", line 229, in handle
+    self.handle_one_request()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/django/core/servers/basehttp.py", line 237, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+  File "/usr/lib/python3.10/socket.py", line 705, in readinto
+    return self._sock.recv_into(b)
+TimeoutError: [Errno 110] Connection timed out
+----------------------------------------
+[04/Sep/2023 20:39:16] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[04/Sep/2023 20:39:16] "  /*à     Cookie: mstshash=Administr" 400 -
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 21:19:31] "GET / HTTP/1.1" 404 2746
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 21:19:37] "GET / HTTP/1.1" 404 2746
+Not Found: /favicon.ico
+WARNING:django.request:Not Found: /favicon.ico
+[04/Sep/2023 21:19:40] "GET /favicon.ico HTTP/1.1" 404 2797
+Not Found: /
+WARNING:django.request:Not Found: /
+[04/Sep/2023 22:19:09] "GET / HTTP/1.1" 404 2744
+[04/Sep/2023 22:23:04] code 400, message Bad request version ('À\x14À')
+[04/Sep/2023 22:23:04] You're accessing the development server over HTTPS, but it only supports HTTP.
+[05/Sep/2023 01:53:12] code 400, message Bad request syntax ('MGLNDD_13.124.218.68_8000')
+[05/Sep/2023 01:53:12] "MGLNDD_13.124.218.68_8000" 400 -
+Not Found: /
+WARNING:django.request:Not Found: /
+[05/Sep/2023 03:44:15] "GET / HTTP/1.1" 404 2744
+[05/Sep/2023 04:12:21] code 400, message Bad request syntax ('\x03\x00\x00\x13\x0eà\x00\x00\x00\x00\x00\x01\x00\x08\x00\x02\x00\x00\x00')
+[05/Sep/2023 04:12:21] "  à          " 400 -
+Not Found: /
+WARNING:django.request:Not Found: /
+[05/Sep/2023 04:12:23] "GET / HTTP/1.1" 404 2744
+[05/Sep/2023 04:27:54] code 400, message Bad HTTP/0.9 request type ('\x16\x03\x01\x00î\x01\x00\x00ê\x03\x037rR@Eêþ>£/')
+[05/Sep/2023 04:27:54] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[05/Sep/2023 05:44:00] "GET / HTTP/1.1" 404 2739
+[05/Sep/2023 05:44:00,971] - Broken pipe from ('171.67.70.84', 53920)
+[05/Sep/2023 06:28:00] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[05/Sep/2023 06:28:00] "  /*à     Cookie: mstshash=Administr" 400 -
+[05/Sep/2023 09:07:36] code 400, message Bad HTTP/0.9 request type ('\x03\x00\x00/*à\x00\x00\x00\x00\x00Cookie:')
+[05/Sep/2023 09:07:36] "  /*à     Cookie: mstshash=Administr" 400 -
+[05/Sep/2023 10:26:32] code 400, message Bad request version ('\x9cèï~\x99')
+[05/Sep/2023 10:26:32] You're accessing the development server over HTTPS, but it only supports HTTP.
+[05/Sep/2023 10:26:32] code 400, message Bad request version ('À\x14À')
+[05/Sep/2023 10:26:32] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /
+WARNING:django.request:Not Found: /
+[05/Sep/2023 10:26:33] "GET / HTTP/1.1" 404 2744
+[05/Sep/2023 10:26:34] code 400, message Bad request version ('À\x14À')
+[05/Sep/2023 10:26:34] You're accessing the development server over HTTPS, but it only supports HTTP.
+Not Found: /api/islogged
+WARNING:django.request:Not Found: /api/islogged
+[05/Sep/2023 10:26:34] "GET /api/islogged HTTP/1.1" 404 2798
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[05/Sep/2023 11:28:36] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[05/Sep/2023 11:58:20] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[05/Sep/2023 11:58:22] "GET //users/user/ HTTP/1.1" 401 96
+[05/Sep/2023 11:58:25] "OPTIONS //users/login/ HTTP/1.1" 200 0
+[05/Sep/2023 11:58:26] "POST //users/login/ HTTP/1.1" 200 559
+[05/Sep/2023 11:58:26] "GET //users/user/ HTTP/1.1" 200 68
+[05/Sep/2023 11:59:03] "GET //stock/update/ HTTP/1.1" 200 37
+[05/Sep/2023 11:59:29] "GET //stock/update/ HTTP/1.1" 200 37
+[05/Sep/2023 11:59:36] "GET //stock/update/ HTTP/1.1" 200 37
+[05/Sep/2023 11:59:37] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:02] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:02] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 170
+[05/Sep/2023 12:02:02] "GET //stock/detail/00088K/ HTTP/1.1" 200 68127
+[05/Sep/2023 12:02:05] "OPTIONS //stock/user/trade/00088K/ HTTP/1.1" 200 0
+[05/Sep/2023 12:02:05] "POST //stock/user/trade/00088K/ HTTP/1.1" 201 0
+[05/Sep/2023 12:02:05] "GET //stock/user/detail/00088K/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:05] "GET //stock/user/trade/00088K/ HTTP/1.1" 200 254
+[05/Sep/2023 12:02:05] "GET //stock/detail/00088K/ HTTP/1.1" 200 68127
+[05/Sep/2023 12:02:09] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:21] "GET //stock/user/trade/005385/ HTTP/1.1" 200 337
+[05/Sep/2023 12:02:21] "GET //stock/user/detail/005385/ HTTP/1.1" 200 51
+[05/Sep/2023 12:02:21] "GET //stock/detail/005385/ HTTP/1.1" 200 70895
+[05/Sep/2023 12:02:23] "OPTIONS //stock/user/trade/005385/ HTTP/1.1" 200 0
+[05/Sep/2023 12:02:23] "POST //stock/user/trade/005385/ HTTP/1.1" 201 0
+[05/Sep/2023 12:02:23] "GET //stock/user/detail/005385/ HTTP/1.1" 200 51
+[05/Sep/2023 12:02:23] "GET //stock/user/trade/005385/ HTTP/1.1" 200 421
+[05/Sep/2023 12:02:24] "GET //stock/detail/005385/ HTTP/1.1" 200 70895
+[05/Sep/2023 12:02:25] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:26] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 334
+[05/Sep/2023 12:02:26] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[05/Sep/2023 12:02:26] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[05/Sep/2023 12:02:30] "OPTIONS //stock/user/trade/00680K/ HTTP/1.1" 200 0
+[05/Sep/2023 12:02:30] "POST //stock/user/trade/00680K/ HTTP/1.1" 201 0
+[05/Sep/2023 12:02:31] "GET //stock/user/trade/00680K/ HTTP/1.1" 200 417
+[05/Sep/2023 12:02:31] "GET //stock/user/detail/00680K/ HTTP/1.1" 200 53
+[05/Sep/2023 12:02:31] "GET //stock/detail/00680K/ HTTP/1.1" 200 66272
+[05/Sep/2023 12:02:32] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:33] "GET //stock/user/trade/011785/ HTTP/1.1" 200 334
+[05/Sep/2023 12:02:33] "GET //stock/user/detail/011785/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:33] "GET //stock/detail/011785/ HTTP/1.1" 200 70054
+[05/Sep/2023 12:02:36] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:37] "GET //stock/user/trade/013580/ HTTP/1.1" 200 336
+[05/Sep/2023 12:02:37] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:37] "GET //stock/detail/013580/ HTTP/1.1" 200 69693
+[05/Sep/2023 12:02:41] "OPTIONS //stock/user/trade/013580/ HTTP/1.1" 200 0
+[05/Sep/2023 12:02:41] "POST //stock/user/trade/013580/ HTTP/1.1" 201 0
+[05/Sep/2023 12:02:41] "GET //stock/user/detail/013580/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:41] "GET //stock/user/trade/013580/ HTTP/1.1" 200 420
+[05/Sep/2023 12:02:42] "GET //stock/detail/013580/ HTTP/1.1" 200 69693
+[05/Sep/2023 12:02:43] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:48] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:48] "GET //stock/user/trade/017670/ HTTP/1.1" 200 252
+[05/Sep/2023 12:02:48] "GET //stock/detail/017670/ HTTP/1.1" 200 69367
+[05/Sep/2023 12:02:50] "OPTIONS //stock/user/trade/017670/ HTTP/1.1" 200 0
+[05/Sep/2023 12:02:50] "POST //stock/user/trade/017670/ HTTP/1.1" 201 0
+[05/Sep/2023 12:02:50] "GET //stock/user/detail/017670/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:50] "GET //stock/user/trade/017670/ HTTP/1.1" 200 335
+[05/Sep/2023 12:02:50] "GET //stock/detail/017670/ HTTP/1.1" 200 69367
+[05/Sep/2023 12:02:51] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:02:54] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 334
+[05/Sep/2023 12:02:54] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[05/Sep/2023 12:02:54] "GET //stock/detail/02826K/ HTTP/1.1" 200 70546
+[05/Sep/2023 12:03:09] "OPTIONS //stock/user/trade/02826K/ HTTP/1.1" 200 0
+[05/Sep/2023 12:03:09] "POST //stock/user/trade/02826K/ HTTP/1.1" 201 0
+[05/Sep/2023 12:03:09] "GET //stock/user/detail/02826K/ HTTP/1.1" 200 52
+[05/Sep/2023 12:03:09] "GET //stock/user/trade/02826K/ HTTP/1.1" 200 417
+[05/Sep/2023 12:03:09] "GET //stock/detail/02826K/ HTTP/1.1" 200 70546
+[05/Sep/2023 12:03:20] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:03:21] "GET //stock/user/detail/035420/ HTTP/1.1" 200 51
+[05/Sep/2023 12:03:21] "GET //stock/user/trade/035420/ HTTP/1.1" 200 336
+[05/Sep/2023 12:03:21] "GET //stock/detail/035420/ HTTP/1.1" 200 74715
+[05/Sep/2023 12:03:24] "OPTIONS //stock/user/trade/035420/ HTTP/1.1" 200 0
+[05/Sep/2023 12:03:24] "POST //stock/user/trade/035420/ HTTP/1.1" 201 0
+[05/Sep/2023 12:03:24] "GET //stock/user/trade/035420/ HTTP/1.1" 200 420
+[05/Sep/2023 12:03:24] "GET //stock/user/detail/035420/ HTTP/1.1" 200 51
+[05/Sep/2023 12:03:24] "GET //stock/detail/035420/ HTTP/1.1" 200 74715
+[05/Sep/2023 12:03:26] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:03:27] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[05/Sep/2023 12:03:27] "GET //stock/user/trade/051905/ HTTP/1.1" 200 170
+[05/Sep/2023 12:03:28] "GET //stock/detail/051905/ HTTP/1.1" 200 72785
+[05/Sep/2023 12:03:40] "OPTIONS //stock/user/trade/051905/ HTTP/1.1" 200 0
+[05/Sep/2023 12:03:40] "POST //stock/user/trade/051905/ HTTP/1.1" 201 0
+[05/Sep/2023 12:03:40] "GET //stock/user/trade/051905/ HTTP/1.1" 200 254
+[05/Sep/2023 12:03:40] "GET //stock/user/detail/051905/ HTTP/1.1" 200 51
+[05/Sep/2023 12:03:40] "GET //stock/detail/051905/ HTTP/1.1" 200 72785
+[05/Sep/2023 12:03:41] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:03:53] "GET //stock/user/trade/055550/ HTTP/1.1" 200 252
+[05/Sep/2023 12:03:53] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[05/Sep/2023 12:03:53] "GET //stock/detail/055550/ HTTP/1.1" 200 71809
+[05/Sep/2023 12:03:55] "OPTIONS //stock/user/trade/055550/ HTTP/1.1" 200 0
+[05/Sep/2023 12:03:56] "POST //stock/user/trade/055550/ HTTP/1.1" 201 0
+[05/Sep/2023 12:03:56] "GET //stock/user/detail/055550/ HTTP/1.1" 200 52
+[05/Sep/2023 12:03:56] "GET //stock/user/trade/055550/ HTTP/1.1" 200 335
+[05/Sep/2023 12:03:56] "GET //stock/detail/055550/ HTTP/1.1" 200 71809
+[05/Sep/2023 12:03:57] "GET //stock/user/list/ HTTP/1.1" 200 1344
+[05/Sep/2023 12:04:05] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[05/Sep/2023 12:04:05] "GET //stock/user/trade/097955/ HTTP/1.1" 200 254
+[05/Sep/2023 12:04:05] "GET //stock/detail/097955/ HTTP/1.1" 200 71726
+[05/Sep/2023 12:04:07] "OPTIONS //stock/user/trade/097955/ HTTP/1.1" 200 0
+[05/Sep/2023 12:04:07] "POST //stock/user/trade/097955/ HTTP/1.1" 201 0
+[05/Sep/2023 12:04:07] "GET //stock/user/trade/097955/ HTTP/1.1" 200 338
+[05/Sep/2023 12:04:07] "GET //stock/user/detail/097955/ HTTP/1.1" 200 51
+[05/Sep/2023 12:04:07] "GET //stock/detail/097955/ HTTP/1.1" 200 71726
+[05/Sep/2023 12:04:08] "GET //stock/user/list/ HTTP/1.1" 200 1344
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[05/Sep/2023 12:50:46] "GET //users/user/ HTTP/1.1" 401 96
+Unauthorized: /users/user/
+WARNING:django.request:Unauthorized: /users/user/
+[05/Sep/2023 12:50:46] "GET //users/user/ HTTP/1.1" 401 96

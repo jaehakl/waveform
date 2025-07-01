@@ -1,0 +1,136 @@
+# .github/workflows/dynamic-publish.yml
+
+name: Dynamic Publish to PyPI and NPM
+
+# 1. 실행 조건: v1.2.3 형식의 태그가 푸시될 때 실행..
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: 변경된 패키지 감지 (Python & JavaScript)
+  # ------------------------------------------------------------------
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-python-packages: ${{ steps.filter-python.outputs.changes }}
+      changed-js-packages: ${{ steps.filter-js.outputs.changes }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous tag using git sort
+        id: previoustag
+        run: |
+          git fetch --tags --force
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | head -n 2 | tail -n 1)
+          echo "Current tag is: ${{ github.ref_name }}"
+          echo "Previous tag found: $PREVIOUS_TAG"          
+          echo "tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+      - name: Detect changed Python packages
+        id: filter-python
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ steps.previoustag.outputs.tag }}
+          ref: ${{ github.ref }}
+          list-files: none
+          filters: |
+            matform:
+              - 'packages/python/matform/**'
+            qleaf:
+              - 'packages/python/qleaf/**'
+
+      - name: Detect changed JavaScript packages
+        id: filter-js
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ steps.previoustag.outputs.tag }}
+          ref: ${{ github.ref }}
+          list-files: none
+          filters: |
+            qutat-3d:
+              - 'packages/javascript/qutat-3d/**'
+
+  # ------------------------------------------------------------------
+  # JOB 2: Python 패키지 배포
+  # ------------------------------------------------------------------
+  publish-python:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed-python-packages != '[]' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.changed-python-packages) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package - ${{ matrix.package }}
+        run: python -m build packages/python/${{ matrix.package }}
+
+      - name: Publish package - ${{ matrix.package }} to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: packages/python/${{ matrix.package }}/dist/
+
+  # ------------------------------------------------------------------
+  # JOB 3: JavaScript 패키지 배포
+  # ------------------------------------------------------------------
+  publish-js:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.changed-js-packages != '[]' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.changed-js-packages) }}
+      fail-fast: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Set up Node.js and authenticate with npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build package - ${{ matrix.package }}
+        run: pnpm --filter ${{ matrix.package }} build
+
+      - name: Publish package - ${{ matrix.package }} to npm
+        run: |
+          cd packages/javascript/${{ matrix.package }}
+          pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}

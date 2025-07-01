@@ -1,0 +1,80 @@
+
+.top-area {
+
+  background-color: black;
+    color: white;
+    height: 50px;
+    justify-content: left;
+    display: stack;
+    padding: 8px;
+    column-gap: 14px;
+    row-gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 400px));
+  
+    position: sticky; 
+    top: 0;
+    z-index: 99;
+  }
+  
+  .left-area {
+    background:gray;
+    opacity: 0.5;
+    position: fixed; 
+    left: 0;
+    width: var(--left-sidebar-width);
+    height:100%;
+    transition: 0.4s ease-in;
+  }
+  
+  .left-area-toggled {
+    background:gray;
+    display: block;
+    position: fixed; 
+    left: 0;
+    width: 0;
+    height:100%;
+    transition: 0.4s ease-in;
+  }
+  
+  .main-area {  
+    /*margin-left: calc(var(--left-sidebar-width) + 25px);*/
+    /*margin-right:var(--right-sidebar-width);*/
+    display: block;
+    margin-bottom: 100px;
+    transition: 0.4s ease-in;
+  }
+  
+  .main-area-toggled {  
+    /*margin-right:var(--right-sidebar-width);*/
+    display: block;
+    margin-bottom: var(--bottom-bar-height);
+    transition: 0.4s ease-in;
+  }
+  
+  .right-area {
+    background:yellowgreen;
+    display: block;
+    position: fixed; 
+    right: 0;
+    width: var(--right-sidebar-width);
+    height:100%;
+  }
+  
+  .bottom-area {
+    background-color: black;
+    color: white;
+    width: 100%;
+    padding: 10px;
+    justify-content: space-around;
+    display: grid;
+    column-gap: 14px;
+    row-gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 400px));
+  
+    position: fixed; 
+    bottom: 0;
+    height: var(--bottom-bar-height);
+    z-index: 99;
+  }
+  
+  

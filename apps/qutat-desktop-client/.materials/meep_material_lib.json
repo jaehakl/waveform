@@ -1,0 +1,6161 @@
+{
+    "cSi": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    8.0,
+                    8.0,
+                    8.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.0912445471200003,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.85,
+                    2.85,
+                    2.85
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.82742718408,
+                "gamma": 0.037773849708000004
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    -0.107,
+                    -0.107,
+                    -0.107
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.5186409523400001,
+                "gamma": 1.4989622900000001
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.29979245800000004,
+            0.7494811450000001
+        ]
+    },
+    "aSi": {
+        "epsilon_diag": [
+            3.109,
+            3.109,
+            3.109
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    14.571,
+                    14.571,
+                    14.571
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.9502698137818262,
+                "gamma": 0.4642539548247094
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.4275831333333335
+        ]
+    },
+    "aSi_H": {
+        "epsilon_diag": [
+            3.22,
+            3.22,
+            3.22
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    12.31,
+                    12.31,
+                    12.31
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.8970740481248295,
+                "gamma": 0.5174497204817072
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.4275831333333335
+        ]
+    },
+    "ITO": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.5,
+                    2.5,
+                    2.5
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.6442327566708472,
+                "gamma": 0.15402592147048957
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.4275831333333335
+        ]
+    },
+    "Al2O3": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.52,
+                    1.52,
+                    1.52
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.9542993854418285,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.1448272743961353,
+            1.4275831333333335
+        ]
+    },
+    "AlN": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.306,
+                    3.306,
+                    3.306
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1558793027172354,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.18169239878787882,
+            1.1530479153846154
+        ]
+    },
+    "AlAs": {
+        "epsilon_diag": [
+            2.0792,
+            2.0792,
+            2.0792
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    6.084,
+                    6.084,
+                    6.084
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.062340389794472,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.9,
+                    1.9,
+                    1.9
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.010854180231716148,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.1362692990909091,
+            0.535343675
+        ]
+    },
+    "BK7": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.03961212,
+                    1.03961212,
+                    1.03961212
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.870078671412305,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.231792344,
+                    0.231792344,
+                    0.231792344
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1189040400487196,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.01046945,
+                    1.01046945,
+                    1.01046945
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.029459360352363125,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.11991698320000002,
+            0.9993081933333335
+        ]
+    },
+    "fused_quartz": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.6961663,
+                    0.6961663,
+                    0.6961663
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.3826551547198065,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.4079426,
+                    0.4079426,
+                    0.4079426
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.579050648047942,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.8974794,
+                    0.8974794,
+                    0.8974794
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.030293813732416044,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.04474514298507463,
+            1.4275831333333335
+        ]
+    },
+    "GaAs": {
+        "epsilon_diag": [
+            5.372514,
+            5.372514,
+            5.372514
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    5.466742,
+                    5.466742,
+                    5.466742
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.6765328107486123,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0242996,
+                    0.0242996,
+                    0.0242996
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.34275889666359616,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.957522,
+                    1.957522,
+                    1.957522
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.008120803595130647,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.01763485047058824,
+            0.30906438969072175
+        ]
+    },
+    "Si3N4_VISNIR": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.8939,
+                    2.8939,
+                    2.8939
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1464341519295487,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.24176811129032263,
+            1.448272743961353
+        ]
+    },
+    "Si3N4_NIR": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.0249,
+                    3.0249,
+                    3.0249
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.215096268229933,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    40314.0,
+                    40314.0,
+                    40314.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.0002417989211528566,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05446810646802327,
+            0.9670724451612905
+        ]
+    },
+    "Ag": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    4.4624529661502874e+21,
+                    4.4624529661502874e+21,
+                    4.4624529661502874e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.011606348870617726
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    7.924696180555555,
+                    7.924696180555555,
+                    7.924696180555555
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.19730793080050132,
+                "gamma": 0.9396306606504268
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.5013273280957495,
+                    0.5013273280957495,
+                    0.5013273280957495
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.0835010268591256,
+                "gamma": 0.10929311853165026
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.013329225019022157,
+                    0.013329225019022157,
+                    0.013329225019022157
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.9791242813751269,
+                "gamma": 0.01571693076229484
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.8265521114566412,
+                    0.8265521114566412,
+                    0.8265521114566412
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1962597248296003,
+                "gamma": 0.22148782428095493
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.1133362804150078,
+                    1.1133362804150078,
+                    1.1133362804150078
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.906100387184034,
+                "gamma": 0.5849116232921725
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.2089868048554264
+        ]
+    },
+    "Au": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    4.031405219136197e+21,
+                    4.031405219136197e+21,
+                    4.031405219136197e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.012815343544640406
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    11.362935694585572,
+                    11.362935694585572,
+                    11.362935694585572
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.1003465579438824,
+                "gamma": 0.05827354328789316
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.1836391348526638,
+                    1.1836391348526638,
+                    1.1836391348526638
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.2006931158877648,
+                "gamma": 0.0834206325075649
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.656770222806431,
+                    0.656770222806431,
+                    0.656770222806431
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7179010374346673,
+                "gamma": 0.21036507327994627
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.645485876585798,
+                    2.645485876585798,
+                    2.645485876585798
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.0407026153987229,
+                "gamma": 0.6030465434025126
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.0148262316370427,
+                    2.0148262316370427,
+                    2.0148262316370427
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.220761811596419,
+                "gamma": 0.5353428416572426
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.04835986224028908,
+            1.2089868048554264
+        ]
+    },
+    "Cu": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    4.387247334157936e+21,
+                    4.387247334157936e+21,
+                    4.387247334157936e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.007253968044136079
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    84.48911680306092,
+                    84.48911680306092,
+                    84.48911680306092
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.07036349002811995,
+                "gamma": 0.09139999735611458
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.3950430296772052,
+                    1.3950430296772052,
+                    1.3950430296772052
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7149994502170128,
+                "gamma": 0.25533967515358996
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.018863463866145,
+                    3.018863463866145,
+                    3.018863463866145
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.2815343544640405,
+                "gamma": 0.776899977526974
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.5986789452798733,
+                    0.5986789452798733,
+                    0.5986789452798733
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.7033120911147117,
+                "gamma": 1.0409444143335271
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Al": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    7.634712305081818e+21,
+                    7.634712305081818e+21,
+                    7.634712305081818e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.01136454993581319
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1940.9728242645942,
+                    1940.9728242645942,
+                    1940.9728242645942
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.03917142743833483,
+                "gamma": 0.08051904528991048
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    4.706510577465167,
+                    4.706510577465167,
+                    4.706510577465167
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.3733375553382035,
+                "gamma": 0.07544126765901522
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    11.395538755971492,
+                    11.395538755971492,
+                    11.395538755971492
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.43717247412660104,
+                "gamma": 0.32667036092092805
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.5581299331132378,
+                    0.5581299331132378,
+                    0.5581299331132378
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.8397677005761534,
+                "gamma": 0.8177639975089407
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Be": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.872231226146716e+21,
+                    1.872231226146716e+21,
+                    1.872231226146716e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.008462962718158759
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1062.12231,
+                    1062.12231,
+                    1062.12231
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.024179893480453598,
+                "gamma": 0.4023534275147478
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    45.03824702541916,
+                    45.03824702541916,
+                    45.03824702541916
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.2495365007182811,
+                "gamma": 0.8209073836613996
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    17.923195001248093,
+                    17.923195001248093,
+                    17.923195001248093
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7696460094828379,
+                "gamma": 1.0769724556194031
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.1012879009753167,
+                    2.1012879009753167,
+                    2.1012879009753167
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.1132422958400836,
+                "gamma": 0.4357216805177738
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Cr": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.262971559879761e+21,
+                    1.262971559879761e+21,
+                    1.262971559879761e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.01136454993581319
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1191.8542107779522,
+                    1191.8542107779522,
+                    1191.8542107779522
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.02925767111134885,
+                "gamma": 0.7677116180044016
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    58.79068607999346,
+                    58.79068607999346,
+                    58.79068607999346
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.13129682159886302,
+                "gamma": 0.3155476099199194
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    34.21405150867067,
+                    34.21405150867067,
+                    34.21405150867067
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.4763439015649358,
+                "gamma": 0.6470539495369382
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.2381595928604472,
+                    1.2381595928604472,
+                    1.2381595928604472
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.121785652909803,
+                "gamma": 0.3228015779640555
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Ni": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.5827951858031544e+21,
+                    1.5827951858031544e+21,
+                    1.5827951858031544e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.011606348870617726
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    837.1198308891534,
+                    837.1198308891534,
+                    837.1198308891534
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.042073014655989255,
+                "gamma": 1.0907549949032618
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    101.01222234031248,
+                    101.01222234031248,
+                    101.01222234031248
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.1407269800562399,
+                "gamma": 0.322559779029251
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    10.53372945280541,
+                    10.53372945280541,
+                    10.53372945280541
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.38615289888284393,
+                "gamma": 0.5266380800042793
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    4.983353632671727,
+                    4.983353632671727,
+                    4.983353632671727
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.4723137140248195,
+                "gamma": 1.5213988977901403
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Pd": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    2.0282142539633535e+21,
+                    2.0282142539633535e+21,
+                    2.0282142539633535e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.0019343914784362875
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    543.1235969387756,
+                    543.1235969387756,
+                    543.1235969387756
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.08124444209432408,
+                "gamma": 0.7133068576733811
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    45.54518268851519,
+                    45.54518268851519,
+                    45.54518268851519
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.1211412663370725,
+                "gamma": 0.13419840881651746
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    21.900823062761397,
+                    21.900823062761397,
+                    21.900823062761397
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.40114443284072515,
+                "gamma": 1.1173528777317607
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.3103830367660734,
+                    1.3103830367660734,
+                    1.3103830367660734
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.381880912407923,
+                "gamma": 0.7824613530274784
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Pt": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.9922728136437832e+21,
+                    1.9922728136437832e+21,
+                    1.9922728136437832e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.019343914784362877
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    28.87229963839579,
+                    28.87229963839579,
+                    28.87229963839579
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.18860316914753805,
+                "gamma": 0.1250100492939451
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    35.10200295842223,
+                    35.10200295842223,
+                    35.10200295842223
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.3177238003331603,
+                "gamma": 0.44442644217073707
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    5.0990429237895745,
+                    5.0990429237895745,
+                    5.0990429237895745
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7594904542210473,
+                "gamma": 0.8869184928630379
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.8445469203620712,
+                    3.8445469203620712,
+                    3.8445469203620712
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.236398348007153,
+                "gamma": 2.0594015277302327
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Ti": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    5.116631413407551e+20,
+                    5.116631413407551e+20,
+                    5.116631413407551e+20
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.019827512653971948
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    79.13574782725362,
+                    79.13574782725362,
+                    79.13574782725362
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.18787777234312444,
+                "gamma": 0.5503343756151238
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    8.749649165802623,
+                    8.749649165802623,
+                    8.749649165802623
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.37357935427300804,
+                "gamma": 0.6088497178378215
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.5786844839645435,
+                    1.5786844839645435,
+                    1.5786844839645435
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.6066735274245807,
+                "gamma": 0.40211162857994326
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.00014076978763519972,
+                    0.00014076978763519972,
+                    0.00014076978763519972
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.698153303252133,
+                "gamma": 0.4260497231255923
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "W": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    2.342057166846025e+21,
+                    2.342057166846025e+21,
+                    2.342057166846025e+21
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.997924580000001e-11,
+                "gamma": 0.0154751318274903
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    9.362444246916718,
+                    9.362444246916718,
+                    9.362444246916718
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.2427661305437541,
+                "gamma": 0.12815343544640406
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    7.894538964306133,
+                    7.894538964306133,
+                    7.894538964306133
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.46352855802029547,
+                "gamma": 0.3097444354846105
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    9.627234668081522,
+                    9.627234668081522,
+                    9.627234668081522
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.8656401866002388,
+                "gamma": 0.8056740507687138
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    8.05140739584437,
+                    8.05140739584437,
+                    8.05140739584437
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.8130084131644106,
+                "gamma": 1.411138583519272
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024180711243748994,
+            1.4507958672086725
+        ]
+    },
+    "Au_JC_visible": {
+        "epsilon_diag": [
+            6.1599,
+            6.1599,
+            6.1599
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.14475680144909,
+                "gamma": 0.26569326199760934
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.0711853487944,
+                    2.0711853487944,
+                    2.0711853487944
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7419420400063751,
+                "gamma": 0.0114744347771533
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            -2.9979245800000004e+19,
+            2.9979245800000004e+19
+        ]
+    },
+    "Au_visible": {
+        "epsilon_diag": [
+            0.6888,
+            0.6888,
+            0.6888
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 6.329686330440988,
+                "gamma": 1.1734653109108562
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    -169.060953137985,
+                    -169.060953137985,
+                    -169.060953137985
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.3744506909907487,
+                "gamma": 0.7850635877893917
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.37474057250000004,
+            0.7494811450000001
+        ]
+    },
+    "Ag_visible": {
+        "epsilon_diag": [
+            0.0067526,
+            0.0067526,
+            0.0067526
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1104689604249436,
+                "gamma": 0.016622142256517522
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.74465275944019,
+                    3.74465275944019,
+                    3.74465275944019
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.5912946846965856,
+                "gamma": 1.1629133381838606
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.37474057250000004,
+            0.7494811450000001
+        ]
+    },
+    "Al_visible": {
+        "epsilon_diag": [
+            0.13313,
+            0.13313,
+            0.13313
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.790228545322984,
+                "gamma": 0.494701309612538
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    -44.4456675577921,
+                    -44.4456675577921,
+                    -44.4456675577921
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.567583212745773,
+                "gamma": 1.0271700872207847
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.37474057250000004,
+            0.7494811450000001
+        ]
+    },
+    "Cr_visible": {
+        "epsilon_diag": [
+            2.7767,
+            2.7767,
+            2.7767
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.531814504092376,
+                "gamma": 0.47692370246917326
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    13.2912419951294,
+                    13.2912419951294,
+                    13.2912419951294
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.5299405539875675,
+                "gamma": 0.4100467953819595
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.37474057250000004,
+            0.7494811450000001
+        ]
+    },
+    "Ti_visible": {
+        "epsilon_diag": [
+            -54742000.0,
+            -54742000.0,
+            -54742000.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.9585272944325696,
+                "gamma": 0.8196797879118789
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    54742662.1963414,
+                    54742662.1963414,
+                    54742662.1963414
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 65623194.12950326,
+                "gamma": 511205677.211168
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.37474057250000004,
+            0.7494811450000001
+        ]
+    },
+    "Al_drude": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.7967268743008242,
+                "gamma": 0.16829205862395735
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.5778550421052635
+        ]
+    },
+    "Co": {
+        "epsilon_diag": [
+            3.694,
+            3.694,
+            3.694
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.7967268743008242,
+                "gamma": 1.4021920229315055
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.18169239878787882,
+            1.1530479153846154
+        ]
+    },
+    "Mo": {
+        "epsilon_diag": [
+            -1.366,
+            -1.366,
+            -1.366
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.829208325916196,
+                "gamma": 2.020713698161511
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.1991698320000002
+        ]
+    },
+    "NiCr": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.4504707996607262,
+                "gamma": 0.9720317179142335
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.1991698320000002
+        ]
+    },
+    "NiFe": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.5762062457590877,
+                "gamma": 1.1557989083656806
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.1991698320000002
+        ]
+    },
+    "Ti_drude": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "DrudeSusceptibility",
+                "sigma_diag": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.635608389369439,
+                "gamma": 0.6117513050554763
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.24176811129032263,
+            1.4275831333333335
+        ]
+    },
+    "SiN": {
+        "epsilon_diag": [
+            2.32,
+            2.32,
+            2.32
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.265,
+                    1.265,
+                    1.265
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.5704840815554617,
+                "gamma": 0.09623597605220519
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.1448272743961353,
+            1.4275831333333335
+        ]
+    },
+    "Si3N4": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    4.377,
+                    4.377,
+                    4.377
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.7703714062872519,
+                "gamma": 0.4320946964957056
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.36119573253012055,
+            1.3034454695652176
+        ]
+    },
+    "SiO2": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.12,
+                    1.12,
+                    1.12
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.9015872176544413,
+                "gamma": 0.024179893480453598
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.16937427005649722,
+            1.1991698320000002
+        ]
+    },
+    "InP": {
+        "epsilon_diag": [
+            7.255,
+            7.255,
+            7.255
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.316,
+                    2.316,
+                    2.316
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.4786722944275907,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.765,
+                    2.765,
+                    2.765
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.009102549202975558,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.029979245800000005,
+            0.3155710084210527
+        ]
+    },
+    "Ge": {
+        "epsilon_diag": [
+            9.28156,
+            9.28156,
+            9.28156
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    6.7288,
+                    6.7288,
+                    6.7288
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.4514158718380332,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.21307,
+                    0.21307,
+                    0.21307
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.004819029834161889,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.024982704833333334,
+            0.11991698320000002
+        ]
+    },
+    "Si": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    10.6684293,
+                    10.6684293,
+                    10.6684293
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.9942821467953901,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0030434748,
+                    0.0030434748,
+                    0.0030434748
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.2641922486705566,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.54133408,
+                    1.54133408,
+                    1.54133408
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.00027155113949275364,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.027253859818181823,
+            0.22043563088235296
+        ]
+    },
+    "PMMA": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.1819,
+                    1.1819,
+                    1.1819
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.8185893678165654,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.284973819391635,
+            0.6860239313501145
+        ]
+    },
+    "PC": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.4182,
+                    1.4182,
+                    1.4182
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.0539512249140692,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.284973819391635,
+            0.6860239313501145
+        ]
+    },
+    "PS": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.4435,
+                    1.4435,
+                    1.4435
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1084974905541634,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.284973819391635,
+            0.6860239313501145
+        ]
+    },
+    "CLS": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.124,
+                    1.124,
+                    1.124
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.8471718370059986,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.284973819391635,
+            0.6860239313501145
+        ]
+    },
+    "BaB2O4": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.90291,
+                    0.90291,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.7845991115875774,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.83155,
+                    0.83155,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1872757797353137,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.76536,
+                    0.76536,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.038699815054861475,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    1.151075
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 3.5474050504878236,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.21803
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.9946311057587274,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.656
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.01848599489138373,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05765239576923077,
+            1.5946407340425535
+        ]
+    },
+    "LiNbO3": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.6734,
+                    2.6734,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.2572071252865884,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.229,
+                    1.229,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.232764282422887,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    12.614,
+                    12.614,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.01376121676906499,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    2.9804
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.0953751137451455,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.5981
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.1616721785235207,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    8.9543
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.014697121434815788,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05995849160000001,
+            0.7494811450000001
+        ]
+    },
+    "CaWO4": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.5493,
+                    2.5493,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.225630720118783,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.92,
+                    0.92,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.027720060841423956,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    2.6041
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1739844670050767,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    4.1237
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.014028003275466756,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.07494811450000001,
+            0.6662054622222223
+        ]
+    },
+    "CaCO3": {
+        "epsilon_diag": [
+            1.73358749,
+            1.73358749,
+            1.35859695
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.96464345,
+                    0.96464345,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.1505826506073396,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.82831454,
+                    1.82831454,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.027367181969420017,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.8242783
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.902416775253085,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.14429128
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.027367181969420017,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.13802599355432782,
+            1.46957087254902
+        ]
+    },
+    "SiO2_aniso": {
+        "epsilon_diag": [
+            1.28604141,
+            1.28604141,
+            1.28851804
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.07044083,
+                    1.07044083,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.989179123320073,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.10202242,
+                    1.10202242,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.029979245800000005,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    1.09509924
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.966906551268879,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    1.15662475
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.029979245800000005,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.14601941356972384,
+            1.5141033232323233
+        ]
+    },
+    "GaN": {
+        "epsilon_diag": [
+            3.6,
+            3.6,
+            5.35
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.75,
+                    1.75,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.1710642890625003,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    4.1,
+                    4.1,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.016785691937290036,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    5.08
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.015980408208955226,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.029979245800000005,
+            0.8565498800000001
+        ]
+    },
+    "AlN_aniso": {
+        "epsilon_diag": [
+            3.1399,
+            3.1399,
+            3.0729
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.3786,
+                    1.3786,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.748060979591837,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.861,
+                    3.861,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.019946271324018636,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    1.6173
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 1.717024387170676,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    4.139
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.019946271324018636,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05995849160000001,
+            1.3626929909090912
+        ]
+    },
+    "Al2O3_aniso": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.4313493,
+                    1.4313493,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.125786788617607,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.65054713,
+                    0.65054713,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.512419593007957,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    5.3414021,
+                    5.3414021,
+                    0.0
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.016629038203929945,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    1.5039759
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 4.049673343347454,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    0.55069141
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.464326440224607,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    0.0,
+                    0.0,
+                    6.5927379
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.014935669288263082,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05995849160000001,
+            1.4989622900000001
+        ]
+    },
+    "Y2O3": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.578,
+                    2.578,
+                    2.578
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.161445263157895,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.935,
+                    3.935,
+                    3.935
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.01307082568887339,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.031228381041666673,
+            1.1991698320000002
+        ]
+    },
+    "YAG": {
+        "epsilon_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    2.282,
+                    2.282,
+                    2.282
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 2.75398472909245,
+                "gamma": 0.0
+            },
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    3.27644,
+                    3.27644,
+                    3.27644
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.017829192917531374,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.05995849160000001,
+            0.7494811450000001
+        ]
+    },
+    "CdTe": {
+        "epsilon_diag": [
+            5.68,
+            5.68,
+            5.68
+        ],
+        "epsilon_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "mu_diag": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "mu_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi2_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "H_chi3_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "D_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_diag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "B_conductivity_offdiag": [
+            0.0,
+            0.0,
+            0.0
+        ],
+        "E_susceptibilities": [
+            {
+                "sus_class": "LorentzianSusceptibility",
+                "sigma_diag": [
+                    1.53,
+                    1.53,
+                    1.53
+                ],
+                "sigma_offdiag": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "frequency": 0.49554164733656064,
+                "gamma": 0.0
+            }
+        ],
+        "H_susceptibilities": [],
+        "valid_freq_range": [
+            0.11991698320000002,
+            0.3485958813953489
+        ]
+    }
+}

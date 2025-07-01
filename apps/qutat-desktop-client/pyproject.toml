@@ -1,0 +1,26 @@
+# /apps/backend-fastapi/pyproject.toml
+
+[tool.poetry]
+name = "qutat-desktop-client"
+version = "0.0.1"
+description = "Desktop GUI Client"
+authors = ["Jaehak Lee <leejaehak87@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+matform = { path = "../../packages/python/matform", develop = true }
+qleaf = { path = "../../packages/python/qleaf", develop = true }
+python = ">=3.10, <3.13"
+scipy = "^1.15.3"
+pyopengl = "^3.1.9"
+tqdm = "^4.67.1"
+scikit-learn = "^1.7.0"
+torch = "^2.7.1"
+dotenv = "^0.9.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

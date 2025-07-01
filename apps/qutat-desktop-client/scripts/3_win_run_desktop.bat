@@ -1,0 +1,1 @@
+poetry run python ..\app\main_window.py

@@ -1,0 +1,37 @@
+{
+  "name": "qutat-web-client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/material": "^5.14.9",
+    "@silevis/reactgrid": "^4.0.5",
+    "axios": "^1.4.0",
+    "mathjs": "^11.9.1",
+    "next": "13.4.7",
+    "plotly.js": "^2.25.0",
+    "qutat-3d": "workspace:^",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^8.0.7",
+    "react-plotly.js": "^2.6.0",
+    "react-spreadsheet": "^0.8.3",
+    "scheduler": "^0.23.0",
+    "three": "^0.154.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.3.1",
+    "@types/react": "18.2.13",
+    "@types/react-dom": "18.2.6",
+    "eslint": "8.43.0",
+    "eslint-config-next": "13.4.7",
+    "typescript": "5.1.3"
+  }
+}

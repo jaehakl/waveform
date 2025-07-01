@@ -1,0 +1,28 @@
+# /apps/backend-fastapi/pyproject.toml
+
+[tool.poetry]
+name = "qutat-cloud-django"
+version = "0.0.1"
+description = "Qutat Cloud Server"
+authors = ["Jaehak Lee <leejaehak87@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+matform = { path = "../../packages/python/matform", develop = true }
+python = ">=3.10, <3.13"
+django = "^5.2.3"
+pymysql = "^1.1.1"
+dotenv = "^0.9.9"
+djangorestframework = "^3.16.0"
+django-cors-headers = "^4.7.0"
+django-allauth = "^65.9.0"
+dj-rest-auth = "^7.0.1"
+djangorestframework-simplejwt = "^5.5.0"
+requests = "^2.32.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,29 @@
+# /packages/python/core-algorithms/pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matform"
+version = "0.1.18"
+authors = [ { name="Jaehak Lee", email="leejaehak87@gmail.com" } ]
+description = "Matrix transform library"
+readme = "README.md"
+license = { file="LICENSE" }
+requires-python = ">=3.6"
+classifiers=[
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3 :: Only',
+    'License :: OSI Approved :: Apache Software License'
+]
+dependencies = [
+    "numpy",'pandas', 'matplotlib'
+]
+
+[project.urls]
+"Homepage" = "https://github.com/jaehakl/matform"
+"Bug Tracker" = "https://github.com/jaehakl/matform/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

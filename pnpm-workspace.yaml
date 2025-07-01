@@ -1,0 +1,7 @@
+# /pnpm-workspace.yaml
+
+packages:
+  # apps 폴더 내의 모든 하위 폴더
+  - 'apps/*'
+  # packages/javascript 폴더 내의 모든 하위 폴더
+  - 'packages/javascript/*'

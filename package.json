@@ -1,0 +1,14 @@
+{
+  "name": "qutat-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter qutat-web-client dev",
+    "build": "pnpm --filter qutat-web-client build",
+    "start": "pnpm --filter qutat-web-client start"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "prettier": "^3.0.0"
+  }
+}
+
