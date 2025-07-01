@@ -24,6 +24,7 @@ poetry install
 poetry run python -m manage.py runserver
 ```
 
+
 ## qutat-desktop-client
 
 @ \apps\qutat-desktop-client\app
