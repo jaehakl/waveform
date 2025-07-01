@@ -1,5 +1,5 @@
 {
-  "name": "qutat-monorepo",
+  "name": "nemoforge-monorepo",
   "private": true,
   "scripts": {
     "dev": "pnpm --filter qutat-web-client dev",
