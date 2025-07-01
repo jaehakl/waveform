@@ -1,0 +1,28 @@
+{
+    "meta":{
+        "type":"dict",
+        "key":"_constants",
+        "title":"Constants",
+        "order":0,
+        "display":true
+    },
+    "keys":{
+        "LIGHT_SPEED":{
+            "type":"float",
+            "title":"Speed of light in vacuum (m/s)"
+        },
+        "UNIT_LENGTH":{
+            "type":"float",
+            "title":"Unit Length (m)"
+        },
+        "UNIT_TIME":{
+            "type":"float",
+            "title":"Unit Time (s)"
+        }
+    },
+    "default_values":{
+        "LIGHT_SPEED":"299_792_458",
+        "UNIT_LENGTH":"1e-6",
+        "UNIT_TIME":"1e-15"
+    }
+}

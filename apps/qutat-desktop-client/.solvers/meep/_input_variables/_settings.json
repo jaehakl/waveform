@@ -1,0 +1,44 @@
+{
+    "meta":{
+        "type":"dict",
+        "key":"_settings",
+        "title":"Settings",
+        "order":1,
+        "display":true
+    },
+    "keys":{
+        "dx":{
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']",
+            "title":"Unit Cell size (um)"
+        },
+        "cell_size":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']",
+            "title":"x, y, z width (um)"
+        },
+        "len_pml":{
+            "type":"vector",
+            "dtype":"int",
+            "title":"PML Length (x, y, z)"
+        },
+        "simulationTime":{
+            "dtype":"float",
+            "unit":"c['UNIT_TIME']",
+            "title":"Simulation Time (fs)"
+        },
+        "phase_pbc":{
+            "type":"vector",
+            "dtype":"float",
+            "title":"Phaseshift of Bloch PBC (x, y, z)"
+        }    
+    },
+    "default_values":{
+        "dx":0.01,
+        "cell_size":"0.3,0.6,0.2",
+        "len_pml":"10,10,10",
+        "simulationTime":10,
+        "phase_pbc":"10,10,10"
+    }
+}

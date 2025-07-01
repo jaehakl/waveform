@@ -1,0 +1,170 @@
+{
+    "meta":{
+        "type":"table",
+        "key":"detectors",
+        "title":"Detectors",
+        "order":8,
+        "display":true,
+        "color":[0,1,1,0.3]     
+    },
+    "columns":{
+        "type":{
+            "dtype":"str"
+        },
+        "name":{
+            "dtype":"str"
+        },
+        "target":{
+            "dtype":"str"
+        },
+        "position":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        },
+        "size":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        },
+        "direction":{
+            "type":"vector",
+            "dtype":"int"
+        },
+        "fstart":{
+            "dtype":"float",            
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "fend":{
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "nfreqs":{
+            "dtype":"int"
+        },
+        "res_ff":{
+            "dtype":"float"
+        },
+        "nbloch":{
+            "dtype":"int"
+        }
+    },
+    "default_values":{
+        "type":"flux","name":"flux_spectra",
+        "target":"_",
+        "position":"0,0.2,0",
+        "size":"0.2,0,0.2",
+        "direction":"0,1,0",
+        "fstart":0.4, "fend":0.8,"nfreqs":25,
+        "res_ff":"_","nbloch":"_"
+    },
+    "init_values":{
+        "0":{
+            "type":"flux","name":"flux_spectra",
+            "target":"_",
+            "position":"0,0.2,0",
+            "size":"0.2,0,0.2",
+            "direction":"0,1,0",
+            "fstart":0.4, "fend":0.8,"nfreqs":25,
+            "res_ff":"_","nbloch":"_"
+        }
+    },
+    "options":{
+        "Absolute Spectra":{
+            "Flux":{
+                "type":"flux","name":"flux_spectra",
+                "target":"_",
+                "position":"0,0.2,0",
+                "size":"0.2,0,0.2",
+                "direction":"0,1,0",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            },
+            "Energy":{
+                "type":"energy","name":"energy_spectra",
+                "target":"_",
+                "position":"0,0.2,0",
+                "size":"0.2,0,0.2",
+                "direction":"_",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            },
+            "Force":{
+                "type":"force","name":"force_spectra",
+                "target":"_",
+                "position":"0.05,0.2,0.05",
+                "size":"0.05",
+                "direction":"1",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            }
+        },
+        "Normalized Spectra":{
+            "Transmission":{
+                "type":"transmission","name":"transmission_spectra",
+                "target":"_",
+                "position":"0,0.2,0",
+                "size":"-1,0,-1",
+                "direction":"0,1,0",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            },
+            "Reflection":{
+                "type":"reflection","name":"reflection_spectra",
+                "target":"_",
+                "position":"0,-0.2,0",
+                "size":"-1,0,-1",
+                "direction":"0,1,0",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            },
+            "Scattering":{
+                "type":"scattering","name":"scattering_spectra",
+                "target":"_",
+                "position":"0,0,0",
+                "size":"0.15",
+                "direction":"0,1,0",
+                "fstart":0.4, "fend":0.8,"nfreqs":25,
+                "res_ff":"_","nbloch":"_"
+            }
+        },
+        "Image Data":{
+            "Near to Far Region":{
+                "type":"nf_box","name":"near_far_box",
+                "target":"_",
+                "position":"0,0.2,0",
+                "size":"0.1,0.05,0.1",
+                "direction":"0,0,0",
+                "fstart":0.4, "fend":0.8,"nfreqs":3,
+                "res_ff":10,"nbloch":2
+            },
+            "Far Field":{
+                "type":"ff_angle","name":"far_field_angle",
+                "target":"near_far_box",
+                "position":"0,0,0",
+                "size":"0,0,0",
+                "direction":"_",
+                "fstart":"_", "fend":"_","nfreqs":"_",
+                "res_ff":20,"nbloch":"_"
+            },
+            "Fresnel Field Plane":{
+                "type":"ff_plane","name":"fresnel_field_plane",
+                "target":"near_far_box",
+                "position":"0,1,0",
+                "size":"2,0,2",
+                "direction":"_",
+                "fstart":"_", "fend":"_","nfreqs":"_",
+                "res_ff":10,"nbloch":"_"
+            },
+            "Field Slice":{
+                "type":"slice","name":"field_slice",
+                "target":"E^2",
+                "position":"0,0.2,0",
+                "size":"0.2,0,0.2",
+                "direction":"_",
+                "fstart":0, "fend":0,"nfreqs":0,
+                "res_ff":"_","nbloch":"_"
+            }
+        }
+    }
+}

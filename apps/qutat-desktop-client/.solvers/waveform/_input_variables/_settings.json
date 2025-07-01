@@ -1,0 +1,50 @@
+{
+    "meta":{
+        "type":"dict",
+        "key":"_settings",
+        "title":"Settings",
+        "order":1,
+        "display":true
+    },
+    "keys":{
+        "dx":{
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']",
+            "title":"Unit Cell size"
+        },
+        "cell_size":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']",
+            "title":"x, y, z width"
+        },
+        "pbc":{
+            "type":"vector",
+            "dtype":"int",
+            "title":"Periodic Boundary Condition (0/1), (x, y, z)"
+        },
+        "simulation_time":{
+            "dtype":"float",
+            "unit":"c['UNIT_TIME']",
+            "title":"Simulation Time"
+        },
+        "f_p":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']",
+            "title":"Plasma and Collision Frequencies (1/[unit time])"
+        },
+        "eps_inf":{
+            "dtype":"float",
+            "title":"Epsilon at infinity of Metal"
+        }
+    },
+    "default_values":{
+        "dx":0.01,
+        "cell_size":"0.5,0.5,0.6",
+        "pbc":"0,0,0",        
+        "simulation_time":1,
+        "f_p":"2.15,0.01714",
+        "eps_inf":"1.0"
+    }
+}

@@ -1,0 +1,90 @@
+{    
+    "meta":{
+        "type":"table",
+        "key":"sources",
+        "title":"Sources",
+        "order":7,
+        "display":true,
+        "color":[1,0,0,0.05]
+    },
+    "columns":{
+        "name":{
+            "dtype":"str"
+        },
+        "position":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        },
+        "size":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        },
+        "comp":{
+            "dtype":"str"
+        },
+        "type":{
+            "dtype":"str"
+        },
+        "amp":{
+            "dtype":"float"
+        },
+        "freq":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "time":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_TIME']"
+        }
+    },
+    "default_values":{
+        "name": "source_0",
+        "position":"0,0,0.25",
+        "size":"-1,-1,0",
+        "comp": "Ex",
+        "type": "gaussian",
+        "amp":1.0, 
+        "freq":"0.6,0.6", 
+        "time":"0,1"
+    },
+    "init_values":{
+        "0":{
+            "name": "source_0",
+            "position":"0,0,0.25",
+            "size":"-1,-1,0",
+            "comp": "Ex",
+            "type": "gaussian",
+            "amp":1.0, 
+            "freq":"0.6,0.6", 
+            "time":"0,1"
+        }
+    },
+    "options":{
+        "New":{
+            "CW":{
+                "name": "source_0",
+                "position":"0,0,0.25",
+                "size":"-1,-1,0",
+                "comp": "Ex",
+                "type": "cw",
+                "amp":1.0, 
+                "freq":"0.6,0.6", 
+                "time":"0,1"
+            },            
+            "GAUSSIAN":{
+                "name": "source_0",
+                "position":"0,0,0.25",
+                "size":"-1,-1,0",
+                "comp": "Ex",
+                "type": "gaussian",
+                "amp":1.0, 
+                "freq":"0.6,0.6", 
+                "time":"0,1"
+            }            
+        }
+    }
+}

@@ -1,0 +1,85 @@
+{    
+    "meta":{
+        "type":"table",
+        "key":"sources",
+        "title":"Sources",
+        "order":7,
+        "display":true,
+        "color":[1,0,0,0.3]
+    },
+    "columns":{
+        "type":{
+            "dtype":"str"
+        },
+        "comp":{
+            "dtype":"str"
+        },
+        "amp":{
+            "dtype":"float"
+        },
+        "fc":{
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "fw":{
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "ts":{
+            "dtype":"float",
+            "unit":"c['UNIT_TIME']"
+        },
+        "te":{
+            "dtype":"float",
+            "unit":"c['UNIT_TIME']"
+        },
+        "position":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        },
+        "size":{
+            "type":"vector",
+            "dtype":"float",
+            "unit":"c['UNIT_LENGTH']"
+        }
+    },
+    "default_values":{
+        "type": "cw", "comp": "Ez",
+        "amp":1.0, "fc":0.6, "fw":0, "ts":0, "te":1,
+        "t_func":1,
+        "position":"0,-0.15,0",
+        "size":"0",
+        "s_func":1
+    },
+    "init_values":{
+        "0":{
+            "type": "gaussian", "comp": "Ez",
+            "amp":1.0, "fc":0.6, "fw":0.6, "ts":0, "te":1,
+            "t_func":1,
+            "position":"0,-0.15,0",
+            "size":"-1,0,-1",
+            "s_func":1
+        }
+    },
+    "options":{
+        "New":{
+            "CW":{
+                "type": "cw", "comp": "Ez",
+                "amp":1.0, "fc":0.6, "fw":0, "ts":0, "te":1,
+                "t_func":1,
+                "position":"0,-0.15,0",
+                "size":"0",
+                "s_func":1
+            },            
+            "GAUSSIAN":{
+                "type": "gaussian", "comp": "Ez",
+                "amp":1.0, "fc":0.6, "fw":0.6, "ts":0, "te":1,
+                "t_func":1,
+                "position":"0,-0.15,0",
+                "size":"-1,0,-1",
+                "s_func":1
+            }            
+        }
+    }
+}

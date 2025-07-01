@@ -1,0 +1,43 @@
+
+{
+    "meta":{
+        "type":"table",
+        "key":"materials_sus",
+        "title":"Material_sus",
+        "order":6,
+        "display":false
+    },
+    "columns":{
+        "material_id":{
+            "dtype":"str",
+            "required":true
+        },
+        "sus_class":{
+            "dtype":"str"
+        },
+        "sigma":{
+            "type":"matrix"
+        },
+        "frequency":{
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        },
+        "gamma":{
+            "dtype":"float",
+            "unit":"1/c['UNIT_TIME']"
+        }
+    },
+    "default_values":{
+        "material_id":"cSi",
+        "sus_class":"LorentzianSusceptibility",
+        "sigma":"0",
+        "frequency":"0.5",
+        "gamma":"0"
+    },
+    "init_values":{
+
+    },
+    "options":{
+
+    }
+}

@@ -1,0 +1,33 @@
+{
+    "meta":{
+        "type":"dict",
+        "key":"_constants",
+        "title":"Constants",
+        "order":0,
+        "display":true
+    },
+    "keys":{
+        "LIGHT_SPEED":{
+            "type":"float",
+            "title":"Speed of light in vacuum (m/s)"
+        },
+        "UNIT_LENGTH_MATERIAL":{
+            "type":"float",
+            "title":"Unit length for material (m)"
+        },
+        "UNIT_LENGTH":{
+            "type":"float",
+            "title":"Unit Length (m)"
+        },
+        "UNIT_TIME":{
+            "type":"float",
+            "title":"Unit Time (s)"
+        }
+    },
+    "default_values":{
+        "LIGHT_SPEED":"299_792_458",
+        "UNIT_LENGTH_MATERIAL":"1e-6",
+        "UNIT_LENGTH":"1e-6/c['UNIT_LENGTH_MATERIAL']",
+        "UNIT_TIME":"(1e-15)*c['LIGHT_SPEED']/c['UNIT_LENGTH_MATERIAL']"
+    }
+}
