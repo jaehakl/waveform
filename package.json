@@ -2,9 +2,9 @@
   "name": "nemoforge-monorepo",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter qutat-web-client dev",
-    "build": "pnpm --filter qutat-web-client build",
-    "start": "pnpm --filter qutat-web-client start"
+    "dev": "pnpm --filter waveform-web dev",
+    "build": "pnpm --filter waveform-web build",
+    "start": "pnpm --filter waveform-web start"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

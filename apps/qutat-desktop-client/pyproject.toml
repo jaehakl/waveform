@@ -15,11 +15,17 @@ scipy = "^1.15.3"
 pyopengl = "^3.1.9"
 tqdm = "^4.67.1"
 scikit-learn = "^1.7.0"
-torch = "^2.7.1"
 dotenv = "^0.9.9"
+torch = {version = "^2.7.1", source = "pytorch_gpu"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
+
+
+[[tool.poetry.source]]
+name = "pytorch_gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

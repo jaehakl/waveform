@@ -167,6 +167,3 @@ Modifications of the packages will **not** be applied to the app before re-build
 
 `v0.1.1` 같은 태그 달아 Push 하면, PyPI 및 npm 배포가 자동으로 완료
 
-
-
-
