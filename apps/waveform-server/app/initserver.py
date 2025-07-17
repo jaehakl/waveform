@@ -3,14 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db import Base, engine, AsyncSessionLocal, User
 from sqlalchemy import select
-import bcrypt
 import os
-
-def hash_password(raw_password: str) -> str:
-    return bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def check_password_hashes(raw_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(raw_password.encode('utf-8'), hashed_password.encode('utf-8'))
+from service.auth_service import hash_password
 
 def server():
     @asynccontextmanager

@@ -1,14 +1,26 @@
 from initserver import server
+from service import auth_service
+from fastapi import Request, HTTPException, status, Response
 
 # Add this import for the actor service
 #from service import article_service
 
 app = server()
 
-#@app.post("/analyze-article/")
-#async def analyze_article(data: dict):
-#    return await article_service.analyze_article(data)
-#
+@app.post("/auth/login/")
+async def login(data: dict, response: Response):
+    result = await auth_service.authenticate_user(data['name'], data['password'], response)    
+    return {"message": "Login successful", "session_id": result}
+
+@app.get("/auth/check-session/")
+async def check_session(request: Request):
+    return await auth_service.check_session(request)
+
+@app.get("/auth/logout/")
+async def logout(request: Request, response: Response):
+    return await auth_service.logout(request, response)
+
+
 #@app.post("/save-article/")
 #async def save_article(data: dict):
 #    return await article_service.save_article(data)
@@ -23,4 +35,3 @@ app = server()
 #
 #@app.post("/find-articles/")
 #async def find_articles(query: dict):
-#    return await article_service.find_articles_by_filters(query)

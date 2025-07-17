@@ -1,0 +1,102 @@
+// Import variables
+@import './variables.less';
+
+// Button Mixins
+.button-base() {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: @spacing-sm @spacing-md;
+  border-radius: @radius-sm;
+  font-size: @font-size-sm;
+  font-weight: @font-weight-medium;
+  transition: all @transition-normal;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.button-primary() {
+  .button-base();
+  background-color: @primary-color;
+  border-color: @primary-color;
+  color: @text-inverse;
+
+  &:hover {
+    background-color: @primary-hover;
+    border-color: @primary-hover;
+  }
+}
+
+.button-secondary() {
+  .button-base();
+  background-color: @bg-primary;
+  border-color: @border-medium;
+  color: @text-primary;
+
+  &:hover {
+    background-color: @bg-secondary;
+    border-color: @border-dark;
+  }
+}
+
+// Dropdown Mixins
+.dropdown-base() {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: @bg-primary;
+  border: 1px solid @border-medium;
+  border-radius: @radius-sm;
+  box-shadow: @shadow-md;
+  z-index: @z-dropdown;
+}
+
+// Form Mixins
+.form-group-base() {
+  margin-bottom: @spacing-lg;
+}
+
+// Typography Mixins
+.text-primary() {
+  color: @text-primary;
+  font-weight: @font-weight-semibold;
+}
+
+.text-secondary() {
+  color: @text-secondary;
+  font-size: @font-size-sm;
+}
+
+.text-tertiary() {
+  color: @text-tertiary;
+  font-size: @font-size-xs;
+}
+
+// Layout Mixins
+.flex-center() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between() {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// Interactive Mixins
+.hover-lift() {
+  transition: transform @transition-normal;
+  
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.focus-ring() {
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px fade(@primary-color, 20%);
+  }
+} 

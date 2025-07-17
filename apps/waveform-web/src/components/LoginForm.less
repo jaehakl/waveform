@@ -1,0 +1,19 @@
+// Import variables and mixins
+@import '../styles/variables.less';
+@import '../styles/mixins.less';
+
+// LoginForm Component Styles
+.login-form {
+  .error-message {
+    margin-bottom: @spacing-lg;
+  }
+
+  .form-group {
+    .form-group-base();
+  }
+
+  .login-submit-button {
+    .button-primary();
+    width: 100%;
+  }
+} 

@@ -1,0 +1,121 @@
+// Import variables and mixins
+@import '../styles/variables.less';
+@import '../styles/mixins.less';
+
+// Navbar Component Styles
+.navbar {
+  background: @bg-primary;
+  border-bottom: 1px solid @border-light;
+  padding: 0 @spacing-xl;
+  height: 60px;
+  .flex-between();
+}
+
+.brand {
+  font-size: @font-size-xl;
+  background: linear-gradient(135deg, @primary-color 0%, @secondary-color 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: @font-weight-semibold;
+}
+
+.navbar-right {
+  position: relative;
+}
+
+// User Dropdown Styles
+.user-dropdown-trigger {
+  .flex-center();
+  gap: @spacing-sm;
+  cursor: pointer;
+  padding: @spacing-sm @spacing-md;
+  border-radius: @radius-sm;
+  border: 1px solid @border-medium;
+  transition: all @transition-normal;
+  user-select: none;
+
+  &:hover {
+    background-color: @bg-secondary;
+    border-color: @border-dark;
+  }
+}
+
+.user-dropdown-menu {
+  .dropdown-base();
+  min-width: 200px;
+}
+
+.user-info {
+  padding: @spacing-md;
+  border-bottom: 1px solid @border-light;
+}
+
+.user-name {
+  .text-primary();
+  margin-bottom: @spacing-xs;
+}
+
+.user-email, .user-grade {
+  .text-tertiary();
+  margin-bottom: 2px;
+}
+
+.logout-button {
+  width: 100%;
+  padding: @spacing-sm @spacing-md;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: @text-primary;
+  transition: background-color @transition-normal;
+
+  &:hover:not(:disabled) {
+    background-color: @bg-secondary;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    color: @text-disabled;
+  }
+}
+
+// Login Button Styles
+.login-button {
+  .button-primary();
+}
+
+// Login Dropdown Styles
+.login-dropdown {
+  .dropdown-base();
+  min-width: 280px;
+  padding: @spacing-lg;
+}
+
+.login-header {
+  .flex-between();
+  margin-bottom: @spacing-lg;
+
+  h4 {
+    margin: 0;
+  }
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: @font-size-lg;
+  cursor: pointer;
+  color: @text-tertiary;
+  transition: color @transition-normal;
+
+  &:hover {
+    color: @text-primary;
+  }
+}
+
+// Dropdown Arrow
+.dropdown-arrow {
+  font-size: @font-size-xs;
+} 
