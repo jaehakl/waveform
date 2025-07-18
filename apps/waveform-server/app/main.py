@@ -9,6 +9,7 @@ app = server()
 
 @app.post("/auth/login/")
 async def login(data: dict, response: Response):
+    print(data)
     result = await auth_service.authenticate_user(data['name'], data['password'], response)    
     return {"message": "Login successful", "session_id": result}
 
