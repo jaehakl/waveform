@@ -1,0 +1,261 @@
+// rsuite 컴포넌트 오버라이드 스타일
+// 이 파일은 rsuite의 기본 스타일을 우리 테마 시스템에 맞게 커스터마이징합니다.
+
+// Input 컴포넌트 오버라이드
+.rs-input {
+  background-color: var(--rs-input-bg) !important;
+  border-color: var(--rs-input-border) !important;
+  color: var(--rs-input-text) !important;
+  transition: all 0.2s ease !important;
+
+  &::placeholder {
+    color: var(--rs-text-tertiary) !important;
+  }
+
+  &:hover {
+    border-color: var(--rs-border-secondary) !important;
+  }
+
+  &:focus {
+    border-color: var(--rs-input-focus-border) !important;
+    box-shadow: 0 0 0 2px var(--rs-input-focus-shadow) !important;
+    background-color: var(--rs-input-bg) !important;
+  }
+
+  &:disabled {
+    background-color: var(--rs-bg-secondary) !important;
+    color: var(--rs-text-disabled) !important;
+    border-color: var(--rs-border-primary) !important;
+  }
+}
+
+// InputNumber 컴포넌트 오버라이드
+.rs-input-number {
+  background-color: var(--rs-input-bg) !important;
+  border-color: var(--rs-input-border) !important;
+  color: var(--rs-input-text) !important;
+
+  .rs-input {
+    background-color: transparent !important;
+    border: none !important;
+    color: var(--rs-input-text) !important;
+    
+    &:focus {
+      border: none !important;
+      box-shadow: none !important;
+    }
+  }
+
+  .rs-input-number-btn-group {
+    .rs-btn {
+      background-color: var(--rs-bg-secondary) !important;
+      border-color: var(--rs-border-primary) !important;
+      color: var(--rs-text-primary) !important;
+
+      &:hover {
+        background-color: var(--rs-bg-tertiary) !important;
+        color: var(--primary-color) !important;
+      }
+
+      &:disabled {
+        background-color: var(--rs-bg-secondary) !important;
+        color: var(--rs-text-disabled) !important;
+      }
+    }
+  }
+
+  &:focus-within {
+    border-color: var(--rs-input-focus-border) !important;
+    box-shadow: 0 0 0 2px var(--rs-input-focus-shadow) !important;
+  }
+}
+
+// Form 컴포넌트 오버라이드
+.rs-form {
+  .rs-form-group {
+    .rs-form-control-label {
+      color: var(--rs-text-primary) !important;
+    }
+
+    .rs-form-help-text {
+      color: var(--rs-text-secondary) !important;
+    }
+
+    .rs-form-error-message {
+      color: var(--error-color) !important;
+    }
+  }
+}
+
+// Button 컴포넌트 오버라이드
+.rs-btn {
+  &.rs-btn-primary {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: var(--text-inverse) !important;
+
+    &:hover {
+      background-color: var(--primary-hover) !important;
+      border-color: var(--primary-hover) !important;
+    }
+
+    &:active {
+      background-color: var(--primary-hover) !important;
+      border-color: var(--primary-hover) !important;
+    }
+  }
+
+  &.rs-btn-subtle {
+    background-color: transparent !important;
+    border-color: var(--rs-border-primary) !important;
+    color: var(--rs-text-primary) !important;
+
+    &:hover {
+      background-color: var(--rs-bg-secondary) !important;
+      color: var(--rs-text-primary) !important;
+    }
+  }
+
+  &.rs-btn-ghost {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: var(--rs-text-primary) !important;
+
+    &:hover {
+      background-color: var(--rs-bg-secondary) !important;
+    }
+  }
+}
+
+// SelectPicker 컴포넌트 오버라이드
+.rs-picker {
+  .rs-picker-toggle {
+    background-color: var(--rs-input-bg) !important;
+    border-color: var(--rs-input-border) !important;
+    color: var(--rs-input-text) !important;
+
+    &:hover {
+      border-color: var(--rs-border-secondary) !important;
+    }
+
+    &.rs-picker-toggle-active {
+      border-color: var(--rs-input-focus-border) !important;
+      box-shadow: 0 0 0 2px var(--rs-input-focus-shadow) !important;
+    }
+  }
+
+  .rs-picker-menu {
+    background-color: var(--rs-bg-primary) !important;
+    border-color: var(--rs-border-primary) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+
+    .rs-picker-select-menu-item {
+      color: var(--rs-text-primary) !important;
+
+      &:hover {
+        background-color: var(--rs-bg-secondary) !important;
+      }
+
+      &.rs-picker-select-menu-item-active {
+        background-color: var(--primary-color-10) !important;
+        color: var(--primary-color) !important;
+      }
+    }
+  }
+}
+
+// Checkbox 컴포넌트 오버라이드
+.rs-checkbox {
+  .rs-checkbox-checker {
+    color: var(--rs-text-primary) !important;
+
+    .rs-checkbox-wrapper {
+      .rs-checkbox-inner {
+        background-color: var(--rs-input-bg) !important;
+        border-color: var(--rs-input-border) !important;
+
+        &::before {
+          color: var(--text-inverse) !important;
+        }
+      }
+    }
+
+    &:hover .rs-checkbox-wrapper .rs-checkbox-inner {
+      border-color: var(--rs-border-secondary) !important;
+    }
+  }
+
+  &.rs-checkbox-checked .rs-checkbox-checker .rs-checkbox-wrapper .rs-checkbox-inner {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+  }
+}
+
+// Tabs 컴포넌트 오버라이드
+.rs-tabs {
+  .rs-tabs-tab {
+    color: var(--rs-text-secondary) !important;
+
+    &:hover {
+      color: var(--rs-text-primary) !important;
+    }
+
+    &.rs-tabs-tab-active {
+      color: var(--primary-color) !important;
+    }
+  }
+
+  .rs-tabs-tab-btn {
+    &:focus {
+      color: var(--primary-color) !important;
+    }
+  }
+
+  .rs-tabs-content {
+    background-color: var(--rs-bg-primary) !important;
+  }
+}
+
+// Panel 컴포넌트 오버라이드
+.rs-panel {
+  background-color: var(--rs-bg-primary) !important;
+  border-color: var(--rs-border-primary) !important;
+
+  .rs-panel-header {
+    background-color: var(--rs-bg-secondary) !important;
+    border-bottom-color: var(--rs-border-primary) !important;
+    color: var(--rs-text-primary) !important;
+  }
+
+  .rs-panel-body {
+    background-color: var(--rs-bg-primary) !important;
+    color: var(--rs-text-primary) !important;
+  }
+}
+
+// Message 컴포넌트 오버라이드
+.rs-message {
+  &.rs-message-error {
+    background-color: rgba(234, 67, 53, 0.1) !important;
+    border-color: var(--error-color) !important;
+    color: var(--error-color) !important;
+  }
+
+  &.rs-message-success {
+    background-color: rgba(52, 168, 83, 0.1) !important;
+    border-color: var(--success-color) !important;
+    color: var(--success-color) !important;
+  }
+
+  &.rs-message-warning {
+    background-color: rgba(251, 188, 4, 0.1) !important;
+    border-color: var(--warning-color) !important;
+    color: var(--warning-color) !important;
+  }
+
+  &.rs-message-info {
+    background-color: rgba(66, 133, 244, 0.1) !important;
+    border-color: var(--info-color) !important;
+    color: var(--info-color) !important;
+  }
+} 

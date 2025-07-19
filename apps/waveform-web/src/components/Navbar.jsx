@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import LoginForm from './LoginForm';
 import './Navbar.less';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout, loading } = useAuth();
+  const { themeMode, toggleTheme, isDark } = useTheme();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
@@ -38,6 +40,15 @@ const Navbar = () => {
         </div>
         
         <div className="navbar-right" ref={dropdownRef}>
+          {/* 테마 전환 버튼 */}
+          <button 
+            className="theme-toggle-button"
+            onClick={toggleTheme}
+            title={isDark ? '밝은 모드로 전환' : '어두운 모드로 전환'}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
+
           {isAuthenticated ? (
             <>
               <div 

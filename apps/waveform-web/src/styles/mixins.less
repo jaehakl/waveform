@@ -17,25 +17,25 @@
 
 .button-primary() {
   .button-base();
-  background-color: @primary-color;
-  border-color: @primary-color;
-  color: @text-inverse;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--text-inverse);
 
   &:hover {
-    background-color: @primary-hover;
-    border-color: @primary-hover;
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
   }
 }
 
 .button-secondary() {
   .button-base();
-  background-color: @bg-primary;
-  border-color: @border-medium;
-  color: @text-primary;
+  background-color: var(--bg-primary);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
 
   &:hover {
-    background-color: @bg-secondary;
-    border-color: @border-dark;
+    background-color: var(--bg-secondary);
+    border-color: var(--border-dark);
   }
 }
 
@@ -44,8 +44,8 @@
   position: absolute;
   top: 100%;
   right: 0;
-  background: @bg-primary;
-  border: 1px solid @border-medium;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-medium);
   border-radius: @radius-sm;
   box-shadow: @shadow-md;
   z-index: @z-dropdown;
@@ -58,17 +58,17 @@
 
 // Typography Mixins
 .text-primary() {
-  color: @text-primary;
+  color: var(--text-primary);
   font-weight: @font-weight-semibold;
 }
 
 .text-secondary() {
-  color: @text-secondary;
+  color: var(--text-secondary);
   font-size: @font-size-sm;
 }
 
 .text-tertiary() {
-  color: @text-tertiary;
+  color: var(--text-tertiary);
   font-size: @font-size-xs;
 }
 
@@ -97,6 +97,6 @@
 .focus-ring() {
   &:focus {
     outline: none;
-    box-shadow: 0 0 0 3px fade(@primary-color, 20%);
+    box-shadow: 0 0 0 3px var(--primary-color-20);
   }
 } 

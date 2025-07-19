@@ -172,3 +172,102 @@ async def get_user_setups(request) -> dict:
     except Exception as e:
         print(f"Setup 목록 조회 중 오류 발생: {str(e)}")
         return {"success": False, "message": "목록 조회 중 오류가 발생했습니다."}
+
+async def delete_setup(setup_id: str, request) -> dict:
+    """
+    Setup을 삭제하는 함수
+    
+    Args:
+        setup_id: 삭제할 Setup ID
+        request: FastAPI request 객체
+    
+    Returns:
+        dict: 삭제 결과
+    """
+    try:
+        # 1. 사용자 인증 확인
+        user = await get_current_user(request)
+        if not user:
+            return {"success": False, "message": "로그인이 필요합니다."}
+        
+        # 2. DB에서 setup 조회 및 권한 확인
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Setup).where(Setup.id == setup_id))
+            setup = result.scalar_one_or_none()
+            
+            if not setup:
+                return {"success": False, "message": "Setup을 찾을 수 없습니다."}
+            
+            # 3. 권한 확인 (본인만 삭제 가능)
+            if setup.user_id != user.id:
+                return {"success": False, "message": "삭제 권한이 없습니다."}
+            
+            # 4. Setup 삭제
+            await session.delete(setup)
+            await session.commit()
+            
+            return {
+                "success": True,
+                "message": "Setup이 성공적으로 삭제되었습니다."
+            }
+            
+    except Exception as e:
+        print(f"Setup 삭제 중 오류 발생: {str(e)}")
+        return {"success": False, "message": "삭제 중 오류가 발생했습니다."}
+
+async def update_setup(setup_id: str, data: dict, request) -> dict:
+    """
+    Setup 데이터를 업데이트하는 함수
+    
+    Args:
+        setup_id: 업데이트할 Setup ID
+        data: 업데이트할 데이터
+        request: FastAPI request 객체
+    
+    Returns:
+        dict: 업데이트 결과
+    """
+    try:
+        # 1. 사용자 인증 확인
+        user = await get_current_user(request)
+        if not user:
+            return {"success": False, "message": "로그인이 필요합니다."}
+        
+        # 2. 필수 필드 검증
+        required_fields = ["title", "solver", "setup_data"]
+        for field in required_fields:
+            if field not in data:
+                return {"success": False, "message": f"필수 필드가 누락되었습니다: {field}"}
+        
+        # 3. DB에서 setup 조회 및 권한 확인
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(Setup).where(Setup.id == setup_id))
+            setup = result.scalar_one_or_none()
+            
+            if not setup:
+                return {"success": False, "message": "Setup을 찾을 수 없습니다."}
+            
+            # 4. 권한 확인 (본인만 업데이트 가능)
+            if setup.user_id != user.id:
+                return {"success": False, "message": "수정 권한이 없습니다."}
+            
+            # 5. 데이터 업데이트
+            setup_data_json = json.dumps(data["setup_data"], ensure_ascii=False)
+            
+            setup.title = data["title"]
+            setup.solver = data["solver"]
+            setup.public = data.get("public", False)
+            setup.description = data.get("description", "")
+            setup.data = setup_data_json
+            
+            await session.commit()
+            
+            return {
+                "success": True,
+                "message": "Setup이 성공적으로 업데이트되었습니다.",
+                "setup_id": setup_id
+            }
+            
+    except Exception as e:
+        print(f"Setup 업데이트 중 오류 발생: {str(e)}")
+        return {"success": False, "message": "업데이트 중 오류가 발생했습니다."}

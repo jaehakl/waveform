@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Content, Panel, Tabs, Form, Input, InputNumber, Button, SelectPicker, Checkbox, Message } from 'rsuite';
-import { saveSetup, checkSession, getSetup } from './api/api';
+import { Content, Panel, Tabs, Form, Input, InputNumber, Button, SelectPicker, Checkbox, Grid, Row, Col } from 'rsuite';
+import { saveSetup, updateSetup, checkSession, getSetup } from './api/api';
 import Spreadsheet from './components/Spreadsheet';
+import SetupList from './components/SetupList';
 import { GeometryPainter } from "./lib/qutat3d/3d/geometry_painter";
-import { Experiment3D } from './lib/experiment3D';
+import { Experiment3D } from './components/experiment3D';
 import structuresData from '../input_variables/structures.json';
 import componentsData from '../input_variables/components.json';
 import sourcesData from '../input_variables/sources.json';
@@ -13,6 +14,7 @@ import constantsData from '../input_variables/constants.json';
 import materialsData from '../input_variables/materials.json';
 import materialSusData from '../input_variables/material_sus.json';
 import { evalStructure } from './lib/structureToGeometry';
+import './SetupEditor.less';
 
 // 각 JSON 파일에서 데이터 추출
 const structuresColumnNames = Object.keys(structuresData.columns);
@@ -61,8 +63,10 @@ const solverOptions = [
   { label: 'Analytical', value: 'analytical' }
 ];
 
-function SetupEditor({ selectedSetup }) {
+function SetupEditor() {
+  const [selectedSetup, setSelectedSetup] = useState(null);
   const [activeTab, setActiveTab] = useState('constants');
+  const [setupListKey, setSetupListKey] = useState(0); // SetupList 강제 새로고침용
   
   // 각 탭별 데이터 상태
   const [structuresData, setStructuresData] = useState(structuresInitialData);
@@ -86,11 +90,26 @@ function SetupEditor({ selectedSetup }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
+  // Setup 선택 핸들러
+  const handleSetupSelect = (setup) => {
+    setSelectedSetup(setup);
+  };
+
+  // 새 Setup 생성 핸들러
+  const handleNewSetup = () => {
+    setSelectedSetup(null);
+  };
+
+  // 구조 재생성 함수
+  const regenerateStructure = () => {
     const structure = matrixToDictList(structuresData, structuresColumnNames);
     const components = matrixToDictList(componentsData, componentsColumnNames);
     const [entityList, arrayDicts] = evalStructure(structure, components);
     setStructureEvaluated(entityList);
+  };
+
+  useEffect(() => {
+    regenerateStructure();
   }, [structuresData, componentsData]);
 
   // 로그인 상태 확인
@@ -129,7 +148,7 @@ function SetupEditor({ selectedSetup }) {
           setSetupInfo({
             title: setup.title,
             solver: setup.solver,
-            public: setup.public,
+            public: setup.public === true, // 명시적으로 boolean으로 변환
             description: setup.description || ''
           });
 
@@ -167,11 +186,11 @@ function SetupEditor({ selectedSetup }) {
             }
           }
         } else {
-          Message.error(response.data.message || 'Setup을 불러오는데 실패했습니다.');
+          alert(response.data.message || 'Setup을 불러오는데 실패했습니다.');
         }
       } catch (error) {
         console.error('Setup 로드 중 오류:', error);
-        Message.error('Setup을 불러오는데 실패했습니다.');
+        alert('Setup을 불러오는데 실패했습니다.');
       }
     };
 
@@ -188,6 +207,15 @@ function SetupEditor({ selectedSetup }) {
       dictList.push(row);
     }
     return dictList;
+  }
+
+  function dictListToMatrix(dictList, columnNames) {
+    if (!dictList || dictList.length === 0) {
+      return [];
+    }
+    return dictList.map(row => 
+      columnNames.map(col => row[col] || '')
+    );
   }
 
   // 각 탭별 데이터 변경 핸들러
@@ -229,15 +257,25 @@ function SetupEditor({ selectedSetup }) {
     }));
   };
 
-  // Setup 저장 함수
+  // Setup 저장 함수 (기존 Setup 업데이트 또는 새 Setup 생성)
   const handleSaveSetup = async () => {
     if (!isLoggedIn) {
-      Message.error('로그인이 필요합니다.');
+      alert('로그인이 필요합니다.');
       return;
     }
 
     if (!setupInfo.title.trim()) {
-      Message.error('제목을 입력해주세요.');
+      alert('제목을 입력해주세요.');
+      return;
+    }
+
+    // 저장 전 확인 메시지
+    const action = selectedSetup ? '업데이트' : '저장';
+    const confirmMessage = selectedSetup 
+      ? `"${selectedSetup.title}" Setup을 ${action}하시겠습니까?`
+      : `새 Setup을 ${action}하시겠습니까?`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
@@ -263,17 +301,108 @@ function SetupEditor({ selectedSetup }) {
         setup_data: allData
       };
 
-      const response = await saveSetup(setupData);
+      let response;
+      if (selectedSetup) {
+        // 기존 Setup 업데이트
+        response = await updateSetup(selectedSetup.id, setupData);
+      } else {
+        // 새 Setup 생성
+        response = await saveSetup(setupData);
+      }
       
       if (response.data.success) {
-        Message.success('Setup이 성공적으로 저장되었습니다.');
         console.log('저장된 Setup ID:', response.data.setup_id);
+        
+        // SetupList 새로고침
+        setSetupListKey(prev => prev + 1);
+        
+        // 저장된 Setup을 선택 상태로 설정
+        const savedSetup = {
+          id: response.data.setup_id,
+          title: setupInfo.title,
+          solver: setupInfo.solver,
+          public: setupInfo.public,
+          description: setupInfo.description,
+          created_at: new Date().toISOString()
+        };
+        setSelectedSetup(savedSetup);
       } else {
-        Message.error(response.data.message || '저장에 실패했습니다.');
+        alert(response.data.message || '저장에 실패했습니다.');
       }
     } catch (error) {
       console.error('Setup 저장 중 오류:', error);
-      Message.error('저장 중 오류가 발생했습니다.');
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Setup을 새로 저장하는 함수 (Save As)
+  const handleSaveAsSetup = async () => {
+    if (!isLoggedIn) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!setupInfo.title.trim()) {
+      alert('제목을 입력해주세요.');
+      return;
+    }
+
+    // 저장 전 확인 메시지
+    const confirmMessage = `새 Setup을 저장하시겠습니까?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const allData = {
+        constants: constantsData,
+        settings: settingsData,
+        structures: matrixToDictList(structuresData, structuresColumnNames),
+        components: matrixToDictList(componentsData, componentsColumnNames),
+        sources: sourcesData,
+        detectors: detectorsData,
+        materials: matrixToDictList(materialsData, materialsColumnNames),
+        material_sus: matrixToDictList(materialSusData, materialSusColumnNames),
+        structureEvaluated: structureEvaluated
+      };
+
+      const setupData = {
+        title: setupInfo.title,
+        solver: setupInfo.solver,
+        public: setupInfo.public,
+        description: setupInfo.description,
+        setup_data: allData
+      };
+
+      // 항상 새 Setup 생성
+      const response = await saveSetup(setupData);
+      
+      if (response.data.success) {
+        console.log('저장된 Setup ID:', response.data.setup_id);
+        
+        // SetupList 새로고침
+        setSetupListKey(prev => prev + 1);
+        
+        // 저장된 Setup을 선택 상태로 설정
+        const savedSetup = {
+          id: response.data.setup_id,
+          title: setupInfo.title,
+          solver: setupInfo.solver,
+          public: setupInfo.public,
+          description: setupInfo.description,
+          created_at: new Date().toISOString()
+        };
+        setSelectedSetup(savedSetup);
+      } else {
+        alert(response.data.message || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Setup 저장 중 오류:', error);
+      alert('저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -328,7 +457,7 @@ function SetupEditor({ selectedSetup }) {
               onChangeHandler(newData);
             }}
             step={0.01}
-            style={{ width: '100%' }}
+            className="input-number"
           />
         </Form.Group>
       );
@@ -343,7 +472,7 @@ function SetupEditor({ selectedSetup }) {
               onChangeHandler(newData);
             }}
             step={1}
-            style={{ width: '100%' }}
+            className="input-number"
           />
         </Form.Group>
       );
@@ -365,85 +494,40 @@ function SetupEditor({ selectedSetup }) {
   };
 
   return (
-    <Content>
-      <Panel header="Setup 편집기">
-        {/* Setup 정보 입력 폼 */}
-        <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
-          <h4>Setup 정보</h4>
-          <Form fluid>
-            <Form.Group>
-              <Form.ControlLabel>제목 *</Form.ControlLabel>
-              <Input 
-                value={setupInfo.title}
-                onChange={(value) => handleSetupInfoChange('title', value)}
-                placeholder="Setup 제목을 입력하세요"
-                style={{ width: '300px' }}
-              />
-            </Form.Group>
-            
-            <Form.Group>
-              <Form.ControlLabel>Solver</Form.ControlLabel>
-              <SelectPicker
-                data={solverOptions}
-                value={setupInfo.solver}
-                onChange={(value) => handleSetupInfoChange('solver', value)}
-                style={{ width: '200px' }}
-              />
-            </Form.Group>
-            
-            <Form.Group>
-              <Form.ControlLabel>공개 여부</Form.ControlLabel>
-              <Checkbox
-                checked={setupInfo.public}
-                onChange={(checked) => handleSetupInfoChange('public', checked)}
-              >
-                공개
-              </Checkbox>
-            </Form.Group>
-            
-            <Form.Group>
-              <Form.ControlLabel>설명</Form.ControlLabel>
-              <Input
-                as="textarea"
-                value={setupInfo.description}
-                onChange={(value) => handleSetupInfoChange('description', value)}
-                placeholder="Setup에 대한 설명을 입력하세요"
-                rows={3}
-                style={{ width: '500px' }}
-              />
-            </Form.Group>
-          </Form>
-        </div>
-
-        <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-          <Button appearance="primary" onClick={logAllData} style={{ marginRight: '10px' }}>
-            모든 데이터 Console 출력
-          </Button>
-          <Button 
-            appearance="primary" 
-            color="green"
-            onClick={handleSaveSetup}
-            disabled={!isLoggedIn || isSaving}
-            loading={isSaving}
-          >
-            {isSaving ? '저장 중...' : 'Setup 저장'}
-          </Button>
-          {!isLoggedIn && (
-            <span style={{ marginLeft: '10px', color: '#999' }}>
-              저장하려면 로그인이 필요합니다.
-            </span>
-          )}
+    <Content className="setup-editor">
+      <Grid fluid>
+        <Row>
+          <Col xs={24} md={6} className="setup-list-container">
+            <SetupList 
+              key={setupListKey}
+              refreshKey={setupListKey}
+              onSetupSelect={handleSetupSelect}
+              onNewSetup={handleNewSetup}
+            />
+          </Col>
+          <Col xs={24} md={18} className="editor-container">
+            <Panel header="Setup 편집기">        
+        <div className="experiment-3d-container">
+          <div>
+            <Experiment3D id="experiment3D" setupData={{"structureEvaluated" : structureEvaluated, "sources" : sourcesData, "detectors" : detectorsData, "settings" : settingsData, "constants" : constantsData}} width={800} height={500}/>
+          </div>
+          <div>
+            <Button 
+              appearance="primary" 
+              color="blue"
+              onClick={regenerateStructure}
+              size="sm"
+              className="regenerate-button"
+            >
+              구조 재생성
+            </Button>
+          </div>
         </div>
         
-        <div style={{ marginTop: '20px' }}>
-         <h4>3D 지오메트리</h4>
-         <Experiment3D id="experiment3D" setupData={{"structureEvaluated" : structureEvaluated, "sources" : sourcesData, "detectors" : detectorsData, "settings" : settingsData, "constants" : constantsData}} width={800} height={500}/>
-         </div>
-        
-        <div style={{ marginBottom: '20px' }}>
+        <div className="tabs-container">
           <Tabs activeKey={activeTab} onSelect={setActiveTab}>
             <Tabs.Tab eventKey="constants" title="Constants">
-              <div style={{ padding: '20px 0', width: '600px' }}>
+              <div className="tab-content">
                 <Form fluid>
                   {Object.keys(constantsKeys).map(key =>            
                     renderFormField(key, constantsKeys[key], constantsData, handleConstantsChange)                  
@@ -453,7 +537,7 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="settings" title="Settings">
-              <div style={{ padding: '20px 0', width: '600px' }}>
+              <div className="tab-content">
                 <Form fluid>
                   {Object.keys(settingsKeys).map(key =>            
                     renderFormField(key, settingsKeys[key], settingsData, handleSettingsChange)                  
@@ -463,14 +547,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="structures" title="Structures">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={structuresInitialData}
+                  initialData={structuresData}
                   rowOptions={structuresRowOptions}
                   columnNames={structuresColumnNames}
                   rows={0} 
                   cols={structuresColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={setStructuresData}
                 />
@@ -478,14 +562,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="components" title="Components">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={componentsInitialData}
+                  initialData={componentsData}
                   rowOptions={componentsRowOptions}
                   columnNames={componentsColumnNames}
                   rows={0} 
                   cols={componentsColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={setComponentsData}
                 />
@@ -493,14 +577,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="sources" title="Sources">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={sourcesInitialData}
+                  initialData={dictListToMatrix(sourcesData, sourcesColumnNames)}
                   rowOptions={sourcesRowOptions}
                   columnNames={sourcesColumnNames}
                   rows={0} 
                   cols={sourcesColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={handleSourcesChange}
                 />
@@ -508,14 +592,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="detectors" title="Detectors">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={detectorsInitialData}
+                  initialData={dictListToMatrix(detectorsData, detectorsColumnNames)}
                   rowOptions={detectorsRowOptions}
                   columnNames={detectorsColumnNames}
                   rows={0} 
                   cols={detectorsColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={handleDetectorsChange}
                 />
@@ -523,14 +607,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="materials" title="Materials">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={materialsInitialData}
+                  initialData={materialsData}
                   rowOptions={materialsRowOptions}
                   columnNames={materialsColumnNames}
                   rows={0} 
                   cols={materialsColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={handleMaterialsChange}
                 />
@@ -538,14 +622,14 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
             
             <Tabs.Tab eventKey="material_sus" title="Material Susceptibility">
-              <div style={{ padding: '20px 0' }}>
+              <div className="spreadsheet-tab-content">
                 <Spreadsheet 
-                  initialData={materialSusInitialData}
+                  initialData={materialSusData}
                   rowOptions={materialSusRowOptions}
                   columnNames={materialSusColumnNames}
                   rows={0} 
                   cols={materialSusColumnNames.length} 
-                  width={1200} 
+                  width={800} 
                   height={400}
                   onDataChange={handleMaterialSusChange}
                 />
@@ -553,7 +637,94 @@ function SetupEditor({ selectedSetup }) {
             </Tabs.Tab>
           </Tabs>
         </div>            
-      </Panel>          
+        {/* Setup 정보 입력 폼 */}
+        <div className="setup-info-container">
+          <h4 className="setup-info-title">Setup 정보</h4>
+          <Form fluid>
+            <Row>
+              <Col xs={24} md={8}>
+                <Form.Group className="form-group">
+                  <Form.ControlLabel>제목 *</Form.ControlLabel>
+                  <Input 
+                    value={setupInfo.title}
+                    onChange={(value) => handleSetupInfoChange('title', value)}
+                    placeholder="Setup 제목을 입력하세요"
+                    size="sm"
+                  />
+                </Form.Group>
+              </Col>
+              <Col xs={24} md={6}>
+                <Form.Group className="form-group">
+                  <Form.ControlLabel>Solver</Form.ControlLabel>
+                  <SelectPicker
+                    data={solverOptions}
+                    value={setupInfo.solver}
+                    onChange={(value) => handleSetupInfoChange('solver', value)}
+                    size="sm"
+                    className="select-picker"
+                  />
+                </Form.Group>
+              </Col>
+              <Col xs={24} md={4}>
+                <Form.Group className="form-group checkbox-group">
+                  <Checkbox
+                    checked={Boolean(setupInfo.public)}
+                    onChange={(value, checked) => {
+                      console.log('Checkbox changed:', checked); // 디버깅용
+                      setSetupInfo(prev => ({
+                        ...prev,
+                        public: checked
+                      }));
+                    }}
+                  >
+                    공개
+                  </Checkbox>
+                </Form.Group>
+              </Col>
+            </Row>
+            <Form.Group className="form-group">
+              <Form.ControlLabel>설명</Form.ControlLabel>
+              <Input
+                as="textarea"
+                value={setupInfo.description}
+                onChange={(value) => handleSetupInfoChange('description', value)}
+                placeholder="Setup에 대한 설명을 입력하세요"
+                rows={2}
+                size="sm"
+              />
+            </Form.Group>
+          </Form>
+        </div>
+                 <div className="save-buttons-container">
+           <Button 
+             appearance="primary" 
+             color="green"
+             onClick={handleSaveSetup}
+             disabled={!isLoggedIn || isSaving}
+             loading={isSaving}
+           >
+             {isSaving ? '저장 중...' : 'Save'}
+           </Button>
+           <Button 
+             appearance="ghost" 
+             color="blue"
+             onClick={handleSaveAsSetup}
+             disabled={!isLoggedIn || isSaving}
+             loading={isSaving}
+           >
+             {isSaving ? '저장 중...' : 'Save As'}
+           </Button>
+           {!isLoggedIn && (
+             <span className="login-notice">
+               저장하려면 로그인이 필요합니다.
+             </span>
+           )}
+         </div>
+
+            </Panel>
+          </Col>
+        </Row>
+      </Grid>          
     </Content>
   );
 }

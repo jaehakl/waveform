@@ -1,8 +1,12 @@
+// Import variables and mixins
+@import '../styles/variables.less';
+@import '../styles/mixins.less';
+
 .spreadsheet-container {
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-md;
+  background: var(--bg-secondary);
+  box-shadow: @shadow-lg;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -12,17 +16,17 @@
 .spreadsheet-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #d9d9d9;
+  gap: @spacing-md;
+  padding: @spacing-md @spacing-lg;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-medium);
   flex-wrap: wrap;
   min-height: 60px;
 }
 
 .dropdown-group {
   display: flex;
-  gap: 8px;
+  gap: @spacing-lg;
   align-items: center;
 }
 
@@ -31,20 +35,21 @@
 }
 
 .dropdown-btn {
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 500;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  padding: 6px @spacing-md;
+  font-size: @font-size-xs;
+  font-weight: @font-weight-medium;
   cursor: pointer;
   min-width: 120px;
   height: 32px;
-  transition: all 0.2s;
+  transition: all @transition-normal;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #f5f5f5;
-    border-color: #1890ff;
+    background-color: var(--bg-tertiary);
+    border-color: var(--primary-color);
   }
 }
 
@@ -52,34 +57,35 @@
   position: absolute;
   top: 100%;
   left: 0;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  box-shadow: @shadow-lg;
   z-index: 1000;
   min-width: 120px;
   overflow: visible;
 }
 
 .dropdown-item {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: @spacing-lg @spacing-md;
+  font-size: @font-size-xs;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
   position: relative;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
+    background-color: var(--bg-tertiary);
   }
   
   &:first-child {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: @radius-sm;
+    border-top-right-radius: @radius-sm;
   }
   
   &:last-child {
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: @radius-sm;
+    border-bottom-right-radius: @radius-sm;
   }
 }
 
@@ -88,34 +94,35 @@
   position: absolute;
   left: 100%;
   top: 0;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  box-shadow: @shadow-lg;
   z-index: 1001;
   min-width: 120px;
   overflow: visible;
 }
 
 .submenu-item {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: @spacing-lg @spacing-md;
+  font-size: @font-size-xs;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
   position: relative;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
+    background-color: var(--bg-tertiary);
   }
   
   &:first-child {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: @radius-sm;
+    border-top-right-radius: @radius-sm;
   }
   
   &:last-child {
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: @radius-sm;
+    border-bottom-right-radius: @radius-sm;
   }
 }
 
@@ -124,41 +131,42 @@
   position: absolute;
   left: 100%;
   top: 0;
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  box-shadow: @shadow-lg;
   z-index: 1002;
   min-width: 120px;
   overflow: visible;
 }
 
 .submenu-item-level2 {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: @spacing-lg @spacing-md;
+  font-size: @font-size-xs;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
+    background-color: var(--bg-tertiary);
   }
   
   &:first-child {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: @radius-sm;
+    border-top-right-radius: @radius-sm;
   }
   
   &:last-child {
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: @radius-sm;
+    border-bottom-right-radius: @radius-sm;
   }
 }
 
 .spreadsheet-info {
   margin-left: auto;
-  font-size: 12px;
-  color: #666;
-  font-weight: 500;
+  font-size: @font-size-xs;
+  color: var(--text-secondary);
+  font-weight: @font-weight-medium;
 }
 
 .spreadsheet-table-container {
@@ -168,8 +176,8 @@
 }
 
 .spreadsheet-table-wrapper {
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
   overflow: auto;
   width: 100%;
   height: 100%;
@@ -178,16 +186,16 @@
 .spreadsheet-table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--bg-secondary);
   table-layout: fixed;
   
   th {
-    background-color: #f0f0f0;
-    border: 1px solid #d9d9d9;
-    padding: 8px 12px;
-    font-weight: 600;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-medium);
+    padding: @spacing-lg @spacing-md;
+    font-weight: @font-weight-semibold;
     text-align: center;
-    color: #333;
+    color: var(--text-primary);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -196,17 +204,18 @@
   }
   
   td {
-    border: 1px solid #d9d9d9;
-    padding: 4px 8px;
+    border: 1px solid var(--border-medium);
+    padding: @spacing-xs @spacing-lg;
     vertical-align: middle;
     height: 36px;
     position: relative;
     cursor: pointer;
     width: 120px;
     max-width: 120px;
+    color: var(--text-primary);
     
     &:hover {
-      background-color: #f5f5f5;
+      background-color: var(--bg-tertiary);
     }
   }
   
@@ -214,22 +223,14 @@
     height: 36px;
     
     &:hover {
-      background-color: #fafafa;
+      background-color: var(--bg-tertiary);
     }
   }
   
-  // 편집 중인 셀 스타일
+  // 편집 중인 셀 스타일 - 전역 rsuite 스타일 사용
   .rs-input {
-    border: 2px solid #1890ff !important;
-    border-radius: 3px !important;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
     margin: -2px !important;
     width: 100% !important;
-    
-    &:focus {
-      border-color: #1890ff !important;
-      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
-    }
   }
 }
 
@@ -240,12 +241,13 @@
   align-items: center;
   justify-content: flex-start;
   min-height: 24px;
-  padding: 2px 4px;
+  padding: 2px @spacing-xs;
   border-radius: 3px;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
+    background-color: var(--bg-tertiary);
   }
 }
 
@@ -253,14 +255,15 @@
   min-height: 28px;
   align-items: center;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px @spacing-xs;
   border-radius: 3px;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
   width: 100%;
   height: 100%;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
+    background-color: var(--bg-tertiary);
   }
   
   &:empty::before {
@@ -270,48 +273,37 @@
   }
 }
 
-// 편집 중인 셀 스타일
-.rs-input {
-  border: 2px solid #1890ff;
-  border-radius: 3px;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  
-  &:focus {
-    border-color: #1890ff;
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-  }
-}
-
 // 버튼 그룹 스타일
 .button-group {
   display: flex;
-  border-radius: 4px;
+  border-radius: @radius-sm;
   overflow: hidden;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--border-medium);
   
   .spreadsheet-btn {
     border: none;
-    background: #fff;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 500;
+    background: var(--bg-secondary);
+    padding: 6px @spacing-md;
+    font-size: @font-size-xs;
+    font-weight: @font-weight-medium;
     cursor: pointer;
     min-width: 60px;
     height: 32px;
-    transition: all 0.2s;
-    border-right: 1px solid #d9d9d9;
+    transition: all @transition-normal;
+    border-right: 1px solid var(--border-medium);
+    color: var(--text-primary);
     
     &:last-child {
       border-right: none;
     }
     
     &:hover {
-      background-color: #e6f7ff;
-      color: #1890ff;
+      background-color: var(--bg-tertiary);
+      color: var(--primary-color);
     }
     
     &:active {
-      background-color: #bae7ff;
+      background-color: var(--primary-color-10);
     }
   }
 }
@@ -325,29 +317,29 @@
   justify-content: center;
   
   &:hover {
-    background-color: #e6f7ff;
-    color: #1890ff;
+    background-color: var(--primary-color-10);
+    color: var(--primary-color);
   }
 }
 
 // 컬럼 리사이즈 핸들 스타일
 .column-resize-handle {
   &:hover {
-    background: #1890ff !important;
+    background: var(--primary-color) !important;
   }
   
   &:active {
-    background: #096dd9 !important;
+    background: var(--primary-hover) !important;
   }
 }
 
 // 리사이즈 핸들 스타일
 .resize-handle {
-  background: #1890ff;
-  border-radius: 4px;
-  transition: background 0.2s;
+  background: var(--primary-color);
+  border-radius: @radius-sm;
+  transition: background @transition-normal;
   position: relative;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: @shadow-md;
   
   &::before {
     content: '';
@@ -359,55 +351,56 @@
     height: 0;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 6px solid white;
+    border-top: 6px solid var(--text-inverse);
   }
   
   &:hover {
-    background: #40a9ff;
+    background: var(--primary-color-80);
   }
   
   &:active {
-    background: #096dd9;
+    background: var(--primary-hover);
   }
 }
 
 // 컨텍스트 메뉴 스타일
 .context-menu {
-  background: #fff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  box-shadow: @shadow-lg;
   min-width: 120px;
   overflow: hidden;
 }
 
 .context-menu-item {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: @spacing-lg @spacing-md;
+  font-size: @font-size-xs;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color @transition-normal;
+  color: var(--text-primary);
   
   &:hover {
-    background-color: #e6f7ff;
-    color: #1890ff;
+    background-color: var(--bg-tertiary);
+    color: var(--primary-color);
   }
   
   &:first-child {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-top-left-radius: @radius-sm;
+    border-top-right-radius: @radius-sm;
   }
   
   &:last-child {
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
+    border-bottom-left-radius: @radius-sm;
+    border-bottom-right-radius: @radius-sm;
   }
 }
 
 // 반응형 디자인
 @media (max-width: 768px) {
   .spreadsheet-toolbar {
-    padding: 8px 12px;
-    gap: 8px;
+    padding: @spacing-lg @spacing-md;
+    gap: @spacing-lg;
   }
   
   .spreadsheet-info {
@@ -416,50 +409,10 @@
   
   .spreadsheet-table {
     .rs-table-cell {
-      padding: 6px 8px;
+      padding: 6px @spacing-lg;
       font-size: 13px;
     }
   }
 }
 
-// 다크 모드 지원 (선택적)
-@media (prefers-color-scheme: dark) {
-  .spreadsheet-container {
-    background: #1f1f1f;
-    border-color: #434343;
-  }
-  
-  .spreadsheet-toolbar {
-    background: #262626;
-    border-color: #434343;
-  }
-  
-  .spreadsheet-table {
-    .rs-table-row {
-      &:hover {
-        background-color: #2a2a2a;
-      }
-    }
-    
-    .rs-table-cell {
-      border-color: #434343;
-      color: #fff;
-    }
-    
-    .rs-table-header-row {
-      background-color: #262626;
-      
-      .rs-table-cell {
-        background-color: #262626;
-        border-color: #434343;
-        color: #fff;
-      }
-    }
-  }
-  
-  .spreadsheet-cell {
-    &:hover {
-      background-color: #177ddc;
-    }
-  }
-} 
+ 

@@ -28,8 +28,10 @@ export class GeometryPainter extends React.Component {
       camera.position.set(1, 0, 0);
       camera.up.set(0, 0, 1);
 
-      const renderer = new THREE.WebGLRenderer();
-      renderer.setSize( this.props.width, this.props.height );    
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize( this.props.width, this.props.height );
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
       this.setState({renderer:renderer, camera:camera});
 

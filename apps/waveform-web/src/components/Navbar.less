@@ -4,8 +4,8 @@
 
 // Navbar Component Styles
 .navbar {
-  background: @bg-primary;
-  border-bottom: 1px solid @border-light;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-light);
   padding: 0 @spacing-xl;
   height: 60px;
   .flex-between();
@@ -13,7 +13,7 @@
 
 .brand {
   font-size: @font-size-xl;
-  background: linear-gradient(135deg, @primary-color 0%, @secondary-color 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -22,6 +22,36 @@
 
 .navbar-right {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: @spacing-md;
+}
+
+// Theme Toggle Button
+.theme-toggle-button {
+  .button-base();
+  background: none;
+  border: 1px solid var(--border-medium);
+  border-radius: @radius-sm;
+  padding: @spacing-sm;
+  font-size: @font-size-lg;
+  cursor: pointer;
+  transition: all @transition-normal;
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-dark);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
 }
 
 // User Dropdown Styles
@@ -31,13 +61,13 @@
   cursor: pointer;
   padding: @spacing-sm @spacing-md;
   border-radius: @radius-sm;
-  border: 1px solid @border-medium;
+  border: 1px solid var(--border-medium);
   transition: all @transition-normal;
   user-select: none;
 
   &:hover {
-    background-color: @bg-secondary;
-    border-color: @border-dark;
+    background-color: var(--bg-secondary);
+    border-color: var(--border-dark);
   }
 }
 
@@ -48,7 +78,7 @@
 
 .user-info {
   padding: @spacing-md;
-  border-bottom: 1px solid @border-light;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .user-name {
@@ -68,16 +98,16 @@
   background: none;
   cursor: pointer;
   text-align: left;
-  color: @text-primary;
+  color: var(--text-primary);
   transition: background-color @transition-normal;
 
   &:hover:not(:disabled) {
-    background-color: @bg-secondary;
+    background-color: var(--bg-secondary);
   }
 
   &:disabled {
     cursor: not-allowed;
-    color: @text-disabled;
+    color: var(--text-disabled);
   }
 }
 
@@ -107,11 +137,11 @@
   border: none;
   font-size: @font-size-lg;
   cursor: pointer;
-  color: @text-tertiary;
+  color: var(--text-tertiary);
   transition: color @transition-normal;
 
   &:hover {
-    color: @text-primary;
+    color: var(--text-primary);
   }
 }
 

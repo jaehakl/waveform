@@ -1,0 +1,89 @@
+// Import variables and mixins
+@import './styles/variables.less';
+@import './styles/mixins.less';
+
+.setup-editor {
+  .setup-list-container {
+    padding-right: @spacing-md;
+  }
+
+  .editor-container {
+    padding-left: @spacing-md;
+  }
+
+  .experiment-3d-container {
+    display: flex;
+    align-items: flex-start;
+    gap: @spacing-md;
+
+    .regenerate-button {
+      margin-top: @spacing-md;
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: var(--text-inverse);
+    }
+  }
+
+  .tabs-container {
+    margin-bottom: @spacing-xl;
+
+    .tab-content {
+      padding: @spacing-xl 0;
+      width: 600px;
+    }
+
+    .spreadsheet-tab-content {
+      padding: @spacing-xl 0;
+    }
+  }
+
+  .setup-info-container {
+    margin-bottom: @spacing-xl;
+    padding: @spacing-lg;
+    border: 1px solid var(--border-medium);
+    border-radius: @radius-lg;
+    background-color: var(--bg-secondary);
+
+    .setup-info-title {
+      margin: 0 0 @spacing-lg 0;
+      color: var(--text-primary);
+    }
+
+    .form-group {
+      margin-bottom: @spacing-md;
+
+      &.checkbox-group {
+        margin-top: 25px;
+      }
+    }
+
+    .input-number {
+      width: 100%;
+    }
+
+    .select-picker {
+      width: 100%;
+    }
+  }
+
+  .save-buttons-container {
+    margin-top: @spacing-xl;
+    margin-bottom: @spacing-xl;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: @spacing-md;
+
+    .login-notice {
+      margin-left: @spacing-md;
+      color: var(--text-secondary);
+    }
+  }
+
+  // Form 필드 스타일
+  .form-field {
+    .input-number {
+      width: 100%;
+    }
+  }
+} 

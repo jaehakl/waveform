@@ -1,0 +1,139 @@
+// Import variables and mixins
+@import '../styles/variables.less';
+@import '../styles/mixins.less';
+
+.setup-list {
+  height: 100%;
+
+  .header-actions {
+    margin-bottom: @spacing-md;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .new-setup-button {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: var(--text-inverse);
+      
+      &:hover {
+        background-color: var(--primary-hover);
+        border-color: var(--primary-hover);
+      }
+    }
+
+    .refresh-button {
+      // 새로고침 버튼 스타일
+    }
+  }
+
+  .setup-list-container {
+    height: calc(100% - 60px);
+    overflow-y: auto;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: @spacing-xl;
+    color: var(--text-tertiary);
+  }
+
+  .setup-item {
+    cursor: pointer;
+    padding: @spacing-md;
+    border-radius: @radius-sm;
+    margin-bottom: @spacing-lg;
+    border: 1px solid var(--border-medium);
+    background-color: var(--bg-secondary);
+
+    &.selected {
+      border: 2px solid var(--primary-color);
+      background-color: var(--primary-color-10);
+    }
+
+    .setup-title {
+      font-weight: @font-weight-bold;
+      margin-bottom: @spacing-xs;
+      color: var(--text-primary);
+    }
+
+    .setup-solver {
+      font-size: @font-size-xs;
+      color: var(--text-secondary);
+      margin-bottom: @spacing-xs;
+
+      .public-badge {
+        margin-left: @spacing-lg;
+        color: var(--primary-color);
+      }
+    }
+
+    .setup-description {
+      font-size: @font-size-xs;
+      color: var(--text-secondary);
+      margin-bottom: @spacing-xs;
+    }
+
+    .setup-date {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .setup-actions {
+      margin-top: @spacing-lg;
+      text-align: right;
+
+      .delete-button {
+        // 삭제 버튼 스타일
+        &.rs-btn-ghost.rs-btn-red {
+          color: var(--error-color) !important;
+          border-color: var(--error-color) !important;
+          
+          &:hover {
+            background-color: var(--error-color) !important;
+            color: var(--text-inverse) !important;
+          }
+        }
+      }
+    }
+  }
+
+  // 모달 스타일
+  .delete-modal {
+    .modal-body {
+      .warning-text {
+        color: var(--text-secondary);
+        font-size: @font-size-sm;
+      }
+    }
+
+    .modal-footer {
+      .cancel-button {
+        // 취소 버튼 스타일
+        &.rs-btn-subtle {
+          color: var(--text-secondary);
+          border-color: var(--border-medium);
+          
+          &:hover {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+          }
+        }
+      }
+
+      .confirm-delete-button {
+        // 삭제 확인 버튼 스타일
+        &.rs-btn-red {
+          background-color: var(--error-color);
+          border-color: var(--error-color);
+          color: var(--text-inverse);
+          
+          &:hover {
+            background-color: var(--error-color-80);
+            border-color: var(--error-color-80);
+          }
+        }
+      }
+    }
+  }
+} 

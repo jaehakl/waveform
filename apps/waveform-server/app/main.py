@@ -36,6 +36,14 @@ async def get_setup(setup_id: str, request: Request):
 async def get_setup_list(request: Request):
     return await setup_service.get_user_setups(request)
 
+@app.delete("/setup/{setup_id}")
+async def delete_setup(setup_id: str, request: Request):
+    return await setup_service.delete_setup(setup_id, request)
+
+@app.put("/setup/{setup_id}")
+async def update_setup(setup_id: str, data: dict, request: Request):
+    return await setup_service.update_setup(setup_id, data, request)
+
 
 #@app.post("/save-article/")
 #async def save_article(data: dict):

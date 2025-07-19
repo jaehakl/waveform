@@ -35,6 +35,13 @@ const Spreadsheet = ({
     return emptyData;
   });
 
+  // initialData가 변경될 때 data 상태 업데이트
+  React.useEffect(() => {
+    if (initialData.length > 0) {
+      setData(initialData);
+    }
+  }, [initialData]);
+
   const [currentCols, setCurrentCols] = useState(cols);
   const [defaultRowValue] = useState('새 데이터');
   const [showDropdown, setShowDropdown] = useState(false);
