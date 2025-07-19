@@ -3,9 +3,9 @@
     "meta":{
         "type":"table",
         "key":"materials_sus",
-        "title":"Material_sus",
+        "title":"Susceptibility",
         "order":6,
-        "display":false
+        "display":true
     },
     "columns":{
         "material_id":{
@@ -27,17 +27,15 @@
             "unit":"1/c['UNIT_TIME']"
         }
     },
-    "default_values":{
-        "material_id":"cSi",
-        "sus_class":"LorentzianSusceptibility",
-        "sigma":"0",
-        "frequency":"0.5",
-        "gamma":"0"
-    },
-    "init_values":{
-
-    },
+    "init_values":[],
     "options":{
-
+        "New":{
+            "Lorentzian":{
+                "cSi":["cSi","LorentzianSusceptibility","0","0.5","0"]
+            },
+            "Drude":{
+                "Au_JC_visible":["Au_JC_visible","DrudeSusceptibility","0","0.5","0"]
+            }
+        }
     }
 }

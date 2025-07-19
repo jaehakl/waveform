@@ -7,3 +7,8 @@ axios.defaults.withCredentials = true;
 export const login = (name, password) => axios.post('http://localhost:8000/auth/login/', { name, password });
 export const checkSession = () => axios.get('http://localhost:8000/auth/check-session/');
 export const logout = () => axios.get('http://localhost:8000/auth/logout/');
+
+// === Setup ===
+export const saveSetup = (setupData) => axios.post('http://localhost:8000/setup/save/', setupData);
+export const getSetup = (setupId) => axios.get(`http://localhost:8000/setup/${setupId}`);
+export const getSetupList = () => axios.get('http://localhost:8000/setup/list/');

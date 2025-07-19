@@ -1,6 +1,6 @@
 # db.py
 from sqlalchemy import (
-    Column, Integer, String, ForeignKey, Date, JSON,
+    Column, Integer, String, ForeignKey, Date, Text,
     create_engine, DateTime
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -72,7 +72,7 @@ class Setup(Base):
     public = Column(Boolean, nullable=False, default=False)
     work_request = Column(Integer, nullable=False, default=0)
     description = Column(String, nullable=True)
-    file_urls = Column(JSON, nullable=True)
+    data = Column(Text, nullable=True)
     user = relationship("User", back_populates="setups")
     entities = relationship("Entity", back_populates="setup", cascade="all, delete-orphan")
 
@@ -82,7 +82,7 @@ class Entity(Base):
     id = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     setup_id = Column(String, ForeignKey("setup.id"), nullable=False)
-    file_urls = Column(JSON, nullable=True)
+    data = Column(Text, nullable=True)
     user = relationship("User", back_populates="entities")
     setup = relationship("Setup", back_populates="entities")
     outputs = relationship("Output", back_populates="entity", cascade="all, delete-orphan")
@@ -94,7 +94,7 @@ class Output(Base):
     id = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     entity_id = Column(String, ForeignKey("entity.id"), nullable=False)
-    file_urls = Column(JSON, nullable=True)
+    file_urls = Column(Text, nullable=True)
     user = relationship("User", back_populates="outputs")
     entity = relationship("Entity", back_populates="outputs")
 
@@ -106,7 +106,7 @@ class Process(Base):
     ip_address = Column(String, nullable=False)
     entity_id = Column(String, ForeignKey("entity.id"), nullable=True)
     status = Column(String, nullable=True)
-    file_urls = Column(JSON, nullable=True)
+    file_urls = Column(Text, nullable=True)
     user = relationship("User", back_populates="processes")
     entity = relationship("Entity", back_populates="processes")
 
