@@ -37,7 +37,7 @@
             "type":"matrix"
         }
     },
-    "init_values":[],
+    "init_values":[["cone_1","cone","0","0,0,1,0","0.1,0.1,0.05","0","cSi","1|0"]],
     "options":{
         "Geometry":{
             "Basic Geometry":{    

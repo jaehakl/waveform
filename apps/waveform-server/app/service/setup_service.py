@@ -300,10 +300,17 @@ def get_input_variables_data():
                 # 파일 타입에 따라 데이터 구조화
                 if filename in ["structures.json", "components.json", "sources.json", "detectors.json", "materials.json", "material_sus.json"]:
                     # 스프레드시트 형태의 데이터
+                    init_values = data.get("init_values", [])
+                    initial_data = []
+                    for item in init_values:
+                        item_dict = {}
+                        for i, colname in enumerate(data.get("columns", {}).keys()):
+                            item_dict[colname] = item[i]
+                        initial_data.append(item_dict)
                     result[filename.replace('.json', '')] = {
                         "columnNames": list(data.get("columns", {}).keys()),
                         "rowOptions": data.get("options", {}),
-                        "initialData": data.get("init_values", [])
+                        "initialData": initial_data
                     }
                 elif filename in ["settings.json", "constants.json"]:
                     # 폼 형태의 데이터

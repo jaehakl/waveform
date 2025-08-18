@@ -41,7 +41,7 @@
             "unit":"c['UNIT_LENGTH']"
         }
     },
-    "init_values":[],
+    "init_values":[["vffs","spectral","0.4,0.8,0.1","Ex,Ey,Ez","source_0","0,0,-0.25","-1,-1,0","0.025"]],
     "options":{
         "New":{
             "Volume":{
