@@ -37,7 +37,7 @@
             "type":"matrix"
         }
     },
-    "init_values":[["block_1","block","0","0,0,1,0","0.2,0.2,0.1","1,0,0|0,1,0|0,0,1","cSi","1|0"]],
+    "init_values":[],
     "options":{
         "Geometry":{
             "Basic Geometry":{    

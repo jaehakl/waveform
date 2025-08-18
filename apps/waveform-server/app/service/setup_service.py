@@ -4,6 +4,8 @@ from datetime import datetime
 from sqlalchemy import select
 from db import AsyncSessionLocal, Setup, User, UserSession
 from service import auth_service
+import os
+from pathlib import Path
 
 async def get_current_user(request) -> User:
     """
@@ -271,3 +273,58 @@ async def update_setup(setup_id: str, data: dict, request) -> dict:
     except Exception as e:
         print(f"Setup 업데이트 중 오류 발생: {str(e)}")
         return {"success": False, "message": "업데이트 중 오류가 발생했습니다."}
+
+def get_input_variables_data():
+    """
+    input_variables JSON 파일들을 읽어서 클라이언트에 필요한 데이터를 반환합니다.
+    """
+    # input_variables 디렉토리 경로 (waveform-server의 input_variables 디렉토리)
+    input_vars_dir = Path(__file__).parent.parent.parent / "input_variables"
+    
+    result = {}
+    
+    # 각 JSON 파일 처리
+    json_files = [
+        "structures.json", "components.json", "sources.json", 
+        "detectors.json", "settings.json", "constants.json", 
+        "materials.json", "material_sus.json"
+    ]
+    
+    for filename in json_files:
+        file_path = input_vars_dir / filename
+        if file_path.exists():
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # 파일 타입에 따라 데이터 구조화
+                if filename in ["structures.json", "components.json", "sources.json", "detectors.json", "materials.json", "material_sus.json"]:
+                    # 스프레드시트 형태의 데이터
+                    result[filename.replace('.json', '')] = {
+                        "columnNames": list(data.get("columns", {}).keys()),
+                        "rowOptions": data.get("options", {}),
+                        "initialData": data.get("init_values", [])
+                    }
+                elif filename in ["settings.json", "constants.json"]:
+                    # 폼 형태의 데이터
+                    keys = data.get("keys", {})
+                    initial_data = {}
+                    for key, config in keys.items():
+                        initial_data[key] = config.get("default_value", "")
+                    
+                    result[filename.replace('.json', '')] = {
+                        "keys": keys,
+                        "initialData": initial_data
+                    }
+                    
+            except Exception as e:
+                print(f"Error reading {filename}: {e}")
+                result[filename.replace('.json', '')] = {
+                    "error": f"Failed to read {filename}: {str(e)}"
+                }
+        else:
+            result[filename.replace('.json', '')] = {
+                "error": f"File {filename} not found at {file_path}"
+            }
+    
+    return result

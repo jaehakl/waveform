@@ -14,3 +14,6 @@ export const updateSetup = (setupId, setupData) => axios.put(`http://localhost:8
 export const getSetup = (setupId) => axios.get(`http://localhost:8000/setup/${setupId}`);
 export const getSetupList = () => axios.get('http://localhost:8000/setup/list/');
 export const deleteSetup = (setupId) => axios.delete(`http://localhost:8000/setup/${setupId}`);
+
+// === Input Variables ===
+export const getInputVariables = () => axios.get('http://localhost:8000/input-variables/');

@@ -1,66 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Content, Panel, Tabs, Form, Input, InputNumber, Button, SelectPicker, Checkbox, Grid, Row, Col } from 'rsuite';
-import { saveSetup, updateSetup, checkSession, getSetup } from './api/api';
+import { saveSetup, updateSetup, checkSession, getSetup, getInputVariables } from './api/api';
 import Spreadsheet from './components/Spreadsheet';
 import SetupList from './components/SetupList';
-import { GeometryPainter } from "./lib/qutat3d/3d/geometry_painter";
 import { Experiment3D } from './components/experiment3D';
-import structuresData from '../input_variables/structures.json';
-import componentsData from '../input_variables/components.json';
-import sourcesData from '../input_variables/sources.json';
-import detectorsData from '../input_variables/detectors.json';
-import settingsData from '../input_variables/settings.json';
-import constantsData from '../input_variables/constants.json';
-import materialsData from '../input_variables/materials.json';
-import materialSusData from '../input_variables/material_sus.json';
 import { evalStructure } from './lib/structureToGeometry';
 import './SetupEditor.less';
 
-// 각 JSON 파일에서 데이터 추출
-const structuresColumnNames = Object.keys(structuresData.columns);
-const structuresRowOptions = structuresData.options;
-const structuresInitialData = structuresData.init_values;
-
-const componentsColumnNames = Object.keys(componentsData.columns);
-const componentsRowOptions = componentsData.options;
-const componentsInitialData = componentsData.init_values;
-
-const sourcesColumnNames = Object.keys(sourcesData.columns);
-const sourcesRowOptions = sourcesData.options;
-const sourcesInitialData = sourcesData.init_values;
-
-const detectorsColumnNames = Object.keys(detectorsData.columns);
-const detectorsRowOptions = detectorsData.options;
-const detectorsInitialData = detectorsData.init_values;
-
-const materialsColumnNames = Object.keys(materialsData.columns);
-const materialsRowOptions = materialsData.options;
-const materialsInitialData = materialsData.init_values;
-
-const materialSusColumnNames = Object.keys(materialSusData.columns);
-const materialSusRowOptions = materialSusData.options;
-const materialSusInitialData = materialSusData.init_values;
-
-// settings 데이터에서 초기값 추출 (다른 JSON들과 유사한 방식)
-const settingsKeys = settingsData.keys;
-const settingsInitialData = {};
-Object.keys(settingsKeys).forEach(key => {
-  settingsInitialData[key] = settingsData.keys[key].default_value;
-});
-
-// constants 데이터에서 초기값 추출 (다른 JSON들과 유사한 방식)
-const constantsKeys = constantsData.keys;
-const constantsInitialData = {};
-Object.keys(constantsKeys).forEach(key => {
-  constantsInitialData[key] = constantsData.keys[key].default_value;
-});
-
 // Solver 옵션 정의
-const solverOptions = [
+const SOLVER_OPTIONS = [
   { label: 'FDTD', value: 'fdtd' },
   { label: 'FEM', value: 'fem' },
   { label: 'BEM', value: 'bem' },
   { label: 'Analytical', value: 'analytical' }
+];
+
+// InputVariables 섹션 정의 및 상태/세터 매핑
+const SECTIONS = [
+  { key: 'constants', title: 'Constants', type: 'form' },
+  { key: 'settings', title: 'Settings', type: 'form' },
+  { key: 'structures', title: 'Structures', type: 'sheet' },
+  { key: 'components', title: 'Components', type: 'sheet' },
+  { key: 'sources', title: 'Sources', type: 'sheet' },
+  { key: 'detectors', title: 'Detectors', type: 'sheet' },
+  { key: 'materials', title: 'Materials', type: 'sheet' },
+  { key: 'material_sus', title: 'Material Susceptibility', type: 'sheet' }
 ];
 
 function SetupEditor() {
@@ -68,17 +32,17 @@ function SetupEditor() {
   const [activeTab, setActiveTab] = useState('constants');
   const [setupListKey, setSetupListKey] = useState(0); // SetupList 강제 새로고침용
   
-  // 각 탭별 데이터 상태
-  const [structuresData, setStructuresData] = useState(structuresInitialData);
-  const [componentsData, setComponentsData] = useState(componentsInitialData);
-  const [sourcesData, setSourcesData] = useState(matrixToDictList(sourcesInitialData, sourcesColumnNames));
-  const [detectorsData, setDetectorsData] = useState(matrixToDictList(detectorsInitialData, detectorsColumnNames));
-  const [materialsData, setMaterialsData] = useState(materialsInitialData);
-  const [materialSusData, setMaterialSusData] = useState(materialSusInitialData);
-  const [settingsData, setSettingsData] = useState(settingsInitialData);
-  const [constantsData, setConstantsData] = useState(constantsInitialData);
+  // Input Variables 데이터 상태
+  const [inputVariablesData, setInputVariablesData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(false);
   
-  const [structureEvaluated, setStructureEvaluated] = useState([]);
+  // InputVariables 데이터를 하나의 state로 관리 (SECTIONS에서 자동 생성)
+  const [inputData, setInputData] = useState(
+    SECTIONS.reduce((acc, section) => ({ ...acc, [section.key]: {} }), {})
+  );
+  
+  const [structureEvaluated, setStructureEvaluated] = useState(null);
 
   // Setup 정보 및 인증 상태
   const [setupInfo, setSetupInfo] = useState({
@@ -89,6 +53,49 @@ function SetupEditor() {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // 섹션별 데이터 설정을 위한 공통 setter 생성기
+  const getSectionSetter = (sectionKey) => (nextData) => {
+    setInputData((prev) => ({ ...prev, [sectionKey]: nextData }));
+  };
+
+  // Input Variables 데이터 로드
+  useEffect(() => {
+    const loadInputVariables = async () => {
+      try {
+        setLoading(true);
+        const response = await getInputVariables();
+        const data = response.data;
+        setInputVariablesData(data);
+        setBackendAvailable(true);
+        
+        // 각 탭별 초기 데이터 설정 (루프 처리, 단일 state로 설정)
+        const nextInputData = { ...inputData };
+        SECTIONS.forEach(({ key }) => {
+          const section = data[key];
+          nextInputData[key] = section && !section.error ? (section.initialData || {}) : {};
+        });
+        setInputData(nextInputData);
+        
+        // 에러가 있는 경우 콘솔에 출력
+        Object.keys(data).forEach(key => {
+          if (data[key] && data[key].error) {
+            console.error(`Error in ${key}:`, data[key].error);
+          }
+        });
+        
+      } catch (error) {
+        console.error('Input Variables 로드 중 오류:', error);
+        console.log('백엔드 서버에 연결할 수 없어 input-variables를 설정하지 않습니다.');
+        setBackendAvailable(false);
+        setInputVariablesData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInputVariables();
+  }, []);
 
   // Setup 선택 핸들러
   const handleSetupSelect = (setup) => {
@@ -102,15 +109,15 @@ function SetupEditor() {
 
   // 구조 재생성 함수
   const regenerateStructure = () => {
-    const structure = matrixToDictList(structuresData, structuresColumnNames);
-    const components = matrixToDictList(componentsData, componentsColumnNames);
+    const structure = inputData.structures;
+    const components = inputData.components;
     const [entityList, arrayDicts] = evalStructure(structure, components);
     setStructureEvaluated(entityList);
   };
 
   useEffect(() => {
     regenerateStructure();
-  }, [structuresData, componentsData]);
+  }, [inputData.structures, inputData.components]);
 
   // 로그인 상태 확인
   useEffect(() => {
@@ -152,38 +159,18 @@ function SetupEditor() {
             description: setup.description || ''
           });
 
-          // Setup 데이터 로드
+          // Setup 데이터 로드 (루프 처리, 단일 state로 설정)
           const setupData = setup.setup_data;
           if (setupData) {
-            if (setupData.constants) setConstantsData(setupData.constants);
-            if (setupData.settings) setSettingsData(setupData.settings);
-            if (setupData.structures) {
-              // 딕셔너리 리스트를 매트릭스로 변환
-              const structuresMatrix = setupData.structures.map(row => 
-                structuresColumnNames.map(col => row[col] || '')
-              );
-              setStructuresData(structuresMatrix);
-            }
-            if (setupData.components) {
-              const componentsMatrix = setupData.components.map(row => 
-                componentsColumnNames.map(col => row[col] || '')
-              );
-              setComponentsData(componentsMatrix);
-            }
-            if (setupData.sources) setSourcesData(setupData.sources);
-            if (setupData.detectors) setDetectorsData(setupData.detectors);
-            if (setupData.materials) {
-              const materialsMatrix = setupData.materials.map(row => 
-                materialsColumnNames.map(col => row[col] || '')
-              );
-              setMaterialsData(materialsMatrix);
-            }
-            if (setupData.material_sus) {
-              const materialSusMatrix = setupData.material_sus.map(row => 
-                materialSusColumnNames.map(col => row[col] || '')
-              );
-              setMaterialSusData(materialSusMatrix);
-            }
+            setInputData((prev) => {
+              const updated = { ...prev };
+              SECTIONS.forEach(({ key }) => {
+                if (key in setupData) {
+                  updated[key] = setupData[key];
+                }
+              });
+              return updated;
+            });
           }
         } else {
           alert(response.data.message || 'Setup을 불러오는데 실패했습니다.');
@@ -197,57 +184,10 @@ function SetupEditor() {
     loadSelectedSetup();
   }, [selectedSetup]);
 
-  function matrixToDictList(matrix, columnNames) {
-    const dictList = [];
-    for (let i = 0; i < matrix.length; i++) {
-      let row = {};
-      for (let j = 0; j < columnNames.length; j++) {
-        row[columnNames[j]] = matrix[i][j];
-      }
-      dictList.push(row);
-    }
-    return dictList;
-  }
-
-  function dictListToMatrix(dictList, columnNames) {
-    if (!dictList || dictList.length === 0) {
-      return [];
-    }
-    return dictList.map(row => 
-      columnNames.map(col => row[col] || '')
-    );
-  }
-
-  // 각 탭별 데이터 변경 핸들러
-  const handleSourcesChange = (data) => {
-    setSourcesData(matrixToDictList(data, sourcesColumnNames));
-    // sources 데이터 변경 시 필요한 로직 추가
-  };
-
-  const handleDetectorsChange = (data) => {
-    setDetectorsData(matrixToDictList(data, detectorsColumnNames));
-    // detectors 데이터 변경 시 필요한 로직 추가
-  };
-
-  const handleMaterialsChange = (data) => {
-    setMaterialsData(data);
-    // materials 데이터 변경 시 필요한 로직 추가
-  };
-
-  const handleMaterialSusChange = (data) => {
-    setMaterialSusData(data);
-    // material_sus 데이터 변경 시 필요한 로직 추가
-  };
-
-  const handleSettingsChange = (formData) => {
-    setSettingsData(formData);
-    // settings 데이터 변경 시 필요한 로직 추가
-  };
-
-  const handleConstantsChange = (formData) => {
-    setConstantsData(formData);
-    // constants 데이터 변경 시 필요한 로직 추가
-  };
+  // 시트 타입 섹션 onDataChange 핸들러 매핑 (공통 setter 사용)
+  const onDataChangeHandlers = SECTIONS
+    .filter((s) => s.type === 'sheet')
+    .reduce((acc, s) => ({ ...acc, [s.key]: getSectionSetter(s.key) }), {});
 
   // Setup 정보 변경 핸들러
   const handleSetupInfoChange = (field, value) => {
@@ -282,14 +222,7 @@ function SetupEditor() {
     setIsSaving(true);
     try {
       const allData = {
-        constants: constantsData,
-        settings: settingsData,
-        structures: matrixToDictList(structuresData, structuresColumnNames),
-        components: matrixToDictList(componentsData, componentsColumnNames),
-        sources: sourcesData,
-        detectors: detectorsData,
-        materials: matrixToDictList(materialsData, materialsColumnNames),
-        material_sus: matrixToDictList(materialSusData, materialSusColumnNames),
+        ...inputData,
         structureEvaluated: structureEvaluated
       };
 
@@ -359,14 +292,7 @@ function SetupEditor() {
     setIsSaving(true);
     try {
       const allData = {
-        constants: constantsData,
-        settings: settingsData,
-        structures: matrixToDictList(structuresData, structuresColumnNames),
-        components: matrixToDictList(componentsData, componentsColumnNames),
-        sources: sourcesData,
-        detectors: detectorsData,
-        materials: matrixToDictList(materialsData, materialsColumnNames),
-        material_sus: matrixToDictList(materialSusData, materialSusColumnNames),
+        ...inputData,
         structureEvaluated: structureEvaluated
       };
 
@@ -411,14 +337,7 @@ function SetupEditor() {
   // 모든 데이터를 취합하여 console.log로 출력하는 함수
   const logAllData = () => {
     const allData = {
-      constants: constantsData,
-      settings: settingsData,
-      structures: matrixToDictList(structuresData, structuresColumnNames),
-      components: matrixToDictList(componentsData, componentsColumnNames),
-      sources: sourcesData,
-      detectors: detectorsData,
-      materials: matrixToDictList(materialsData, materialsColumnNames),
-      material_sus: matrixToDictList(materialSusData, materialSusColumnNames),
+      ...inputData,
       structureEvaluated: structureEvaluated
     };
     
@@ -493,6 +412,48 @@ function SetupEditor() {
     }
   };
 
+  // 로딩 중일 때 표시
+  if (loading) {
+    return (
+      <Content className="setup-editor">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <p>설정 데이터를 불러오는 중...</p>
+        </div>
+      </Content>
+    );
+  }
+
+  // 백엔드가 사용 불가능한 경우 표시
+  if (!backendAvailable) {
+    return (
+      <Content className="setup-editor">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <div style={{ 
+            backgroundColor: '#f8d7da', 
+            color: '#721c24', 
+            padding: '20px', 
+            borderRadius: '4px',
+            border: '1px solid #f5c6cb',
+            maxWidth: '600px',
+            margin: '0 auto'
+          }}>
+            <h3>백엔드 서버 연결 실패</h3>
+            <p>백엔드 서버에 연결할 수 없어 input-variables를 설정할 수 없습니다.</p>
+            <p>다음 사항을 확인해주세요:</p>
+            <ul style={{ textAlign: 'left', display: 'inline-block' }}>
+              <li>백엔드 서버가 실행 중인지 확인</li>
+              <li>서버 주소가 올바른지 확인 (http://localhost:8000)</li>
+              <li>네트워크 연결 상태 확인</li>
+            </ul>
+            <p style={{ marginTop: '20px' }}>
+              <strong>백엔드 서버를 실행한 후 페이지를 새로고침해주세요.</strong>
+            </p>
+          </div>
+        </div>
+      </Content>
+    );
+  }
+
   return (
     <Content className="setup-editor">
       <Grid fluid>
@@ -509,7 +470,13 @@ function SetupEditor() {
             <Panel header="Setup 편집기">        
         <div className="experiment-3d-container">
           <div>
-            <Experiment3D id="experiment3D" setupData={{"structureEvaluated" : structureEvaluated, "sources" : sourcesData, "detectors" : detectorsData, "settings" : settingsData, "constants" : constantsData}} width={800} height={500}/>
+            <Experiment3D id="experiment3D" setupData={{
+              structureEvaluated: structureEvaluated,
+              sources: inputData.sources,
+              detectors: inputData.detectors,
+              settings: inputData.settings,
+              constants: inputData.constants
+            }} width={800} height={500}/>
           </div>
           <div>
             <Button 
@@ -526,115 +493,38 @@ function SetupEditor() {
         
         <div className="tabs-container">
           <Tabs activeKey={activeTab} onSelect={setActiveTab}>
-            <Tabs.Tab eventKey="constants" title="Constants">
-              <div className="tab-content">
-                <Form fluid>
-                  {Object.keys(constantsKeys).map(key =>            
-                    renderFormField(key, constantsKeys[key], constantsData, handleConstantsChange)                  
+            {SECTIONS.map((section) => (
+              <Tabs.Tab eventKey={section.key} title={section.title} key={section.key}>
+                <div className={section.type === 'form' ? 'tab-content' : 'spreadsheet-tab-content'}>
+                  {section.type === 'form' ? (
+                    <Form fluid>
+                      {inputVariablesData?.[section.key]?.keys &&
+                        Object.keys(inputVariablesData[section.key].keys).map((key) =>
+                          renderFormField(
+                            key,
+                            inputVariablesData[section.key].keys[key],
+                            inputData[section.key],
+                            getSectionSetter(section.key)
+                          )
+                        )}
+                    </Form>
+                  ) : (
+                    inputVariablesData?.[section.key] && (
+                      <Spreadsheet
+                        initialData={inputData[section.key]}
+                        rowOptions={inputVariablesData[section.key].rowOptions}
+                        columnNames={inputVariablesData[section.key].columnNames}
+                        rows={0}
+                        cols={(inputVariablesData[section.key].columnNames || []).length}
+                        width={800}
+                        height={400}
+                        onDataChange={onDataChangeHandlers[section.key]}
+                      />
+                    )
                   )}
-                </Form>
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="settings" title="Settings">
-              <div className="tab-content">
-                <Form fluid>
-                  {Object.keys(settingsKeys).map(key =>            
-                    renderFormField(key, settingsKeys[key], settingsData, handleSettingsChange)                  
-                  )}
-                </Form>
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="structures" title="Structures">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={structuresData}
-                  rowOptions={structuresRowOptions}
-                  columnNames={structuresColumnNames}
-                  rows={0} 
-                  cols={structuresColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={setStructuresData}
-                />
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="components" title="Components">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={componentsData}
-                  rowOptions={componentsRowOptions}
-                  columnNames={componentsColumnNames}
-                  rows={0} 
-                  cols={componentsColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={setComponentsData}
-                />
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="sources" title="Sources">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={dictListToMatrix(sourcesData, sourcesColumnNames)}
-                  rowOptions={sourcesRowOptions}
-                  columnNames={sourcesColumnNames}
-                  rows={0} 
-                  cols={sourcesColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={handleSourcesChange}
-                />
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="detectors" title="Detectors">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={dictListToMatrix(detectorsData, detectorsColumnNames)}
-                  rowOptions={detectorsRowOptions}
-                  columnNames={detectorsColumnNames}
-                  rows={0} 
-                  cols={detectorsColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={handleDetectorsChange}
-                />
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="materials" title="Materials">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={materialsData}
-                  rowOptions={materialsRowOptions}
-                  columnNames={materialsColumnNames}
-                  rows={0} 
-                  cols={materialsColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={handleMaterialsChange}
-                />
-              </div>
-            </Tabs.Tab>
-            
-            <Tabs.Tab eventKey="material_sus" title="Material Susceptibility">
-              <div className="spreadsheet-tab-content">
-                <Spreadsheet 
-                  initialData={materialSusData}
-                  rowOptions={materialSusRowOptions}
-                  columnNames={materialSusColumnNames}
-                  rows={0} 
-                  cols={materialSusColumnNames.length} 
-                  width={800} 
-                  height={400}
-                  onDataChange={handleMaterialSusChange}
-                />
-              </div>
-            </Tabs.Tab>
+                </div>
+              </Tabs.Tab>
+            ))}
           </Tabs>
         </div>            
         {/* Setup 정보 입력 폼 */}
@@ -657,7 +547,7 @@ function SetupEditor() {
                 <Form.Group className="form-group">
                   <Form.ControlLabel>Solver</Form.ControlLabel>
                   <SelectPicker
-                    data={solverOptions}
+                    data={SOLVER_OPTIONS}
                     value={setupInfo.solver}
                     onChange={(value) => handleSetupInfoChange('solver', value)}
                     size="sm"

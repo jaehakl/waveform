@@ -37,10 +37,31 @@ const Spreadsheet = ({
 
   // initialData가 변경될 때 data 상태 업데이트
   React.useEffect(() => {
-    if (initialData.length > 0) {
-      setData(initialData);
+    if (initialData) {
+      setData(dictListToMatrix(initialData));
     }
   }, [initialData]);
+
+  function matrixToDictList(matrix) {
+    const dictList = [];
+    for (let i = 0; i < matrix.length; i++) {
+      let row = {};
+      for (let j = 0; j < columnNames.length; j++) {
+        row[columnNames[j]] = matrix[i][j];
+      }
+      dictList.push(row);
+    }
+    return dictList;
+  }
+
+  function dictListToMatrix(dictList) {
+    if (!dictList || dictList.length === 0) {
+      return [];
+    }
+    return dictList.map(row => 
+      columnNames.map(col => row[col] || '')
+    );
+  }
 
   const [currentCols, setCurrentCols] = useState(cols);
   const [defaultRowValue] = useState('새 데이터');
@@ -187,7 +208,7 @@ const Spreadsheet = ({
     const newData = data.filter((_, index) => index !== rowIndex);
     setData(newData);
     if (onDataChange) {
-      onDataChange(newData);
+      onDataChange(matrixToDictList(newData));
     }
     closeContextMenu();
   }, [data, onDataChange, closeContextMenu]);
@@ -201,7 +222,7 @@ const Spreadsheet = ({
     setEditingCell(null);
     setEditValue('');
     if (onDataChange) {
-      onDataChange(newData);
+      onDataChange(matrixToDictList(newData));
     }
   }, [data, onDataChange]);
 
@@ -224,7 +245,7 @@ const Spreadsheet = ({
     const newData = [...data, newRow];
     setData(newData);
     if (onDataChange) {
-      onDataChange(newData);
+      onDataChange(matrixToDictList(newData));
     }
     closeDropdown();
   }, [data, currentCols, defaultRowValue, onDataChange, closeDropdown]);
@@ -297,7 +318,7 @@ const Spreadsheet = ({
       }
       
       if (onDataChange) {
-        onDataChange(newData);
+        onDataChange(matrixToDictList(newData));
       }
     } catch (error) {
       console.error('클립보드 붙여넣기 실패:', error);

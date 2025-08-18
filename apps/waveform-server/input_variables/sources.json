@@ -41,7 +41,7 @@
             "unit":"c['UNIT_TIME']"
         }
     },
-    "init_values":[["source_0","0,0,0.25","-1,-1,0","Ex","cw","1.0","0.6,0.6","0,1"]],
+    "init_values":[],
     "options":{
         "New":{
             "Sources":{

@@ -10,7 +10,6 @@ app = server()
 
 @app.post("/auth/login/")
 async def login(data: dict, response: Response):
-    print(data)
     result = await auth_service.authenticate_user(data['name'], data['password'], response)    
     return {"message": "Login successful", "session_id": result}
 
@@ -44,18 +43,9 @@ async def delete_setup(setup_id: str, request: Request):
 async def update_setup(setup_id: str, data: dict, request: Request):
     return await setup_service.update_setup(setup_id, data, request)
 
-
-#@app.post("/save-article/")
-#async def save_article(data: dict):
-#    return await article_service.save_article(data)
-#
-#@app.get("/delete-article/{articleId}")
-#async def delete_article(articleId: int):
-#    return await article_service.delete_article(articleId)
-#
-#@app.get("/get-article/{articleId}")
-#async def get_article(articleId: int):
-#    return await article_service.get_article(articleId)
-#
-#@app.post("/find-articles/")
-#async def find_articles(query: dict):
+@app.get("/input-variables/")
+async def get_input_variables():
+    """
+    input_variables JSON 파일들의 데이터를 반환합니다.
+    """
+    return setup_service.get_input_variables_data()
