@@ -9,6 +9,7 @@ from . import dataio
 
 from . import puppet
 from . import gui
+from . import service
 
 def show_output(result):
     if result != None:

@@ -2,7 +2,7 @@ from initserver import server
 from service import auth_service
 from service import setup_service
 from fastapi import Request, HTTPException, status, Response
-from pydantic_models import LoginRequest, SetupData
+from pydantic_models import LoginRequest
 
 app = server()
 
@@ -26,8 +26,9 @@ async def logout(request: Request, response: Response):
 #path('results_wo_output/<str:setup_id>/',SetupResultsWoOutputView.as_view()),
 
 @app.post("/setup/save/")
-async def save_setup(data: SetupData, request: Request):
-    return await setup_service.save_setup(data.dict(), request)
+async def save_setup(data: dict, request: Request):
+    print(data, "save_setup")
+    return await setup_service.save_setup(data, request)
 
 @app.get("/setup/{setup_id}")
 async def get_setup(setup_id: str, request: Request):
@@ -42,8 +43,8 @@ async def delete_setup(setup_id: str, request: Request):
     return await setup_service.delete_setup(setup_id, request)
 
 @app.put("/setup/{setup_id}")
-async def update_setup(setup_id: str, data: SetupData, request: Request):
-    return await setup_service.update_setup(setup_id, data.dict(), request)
+async def update_setup(setup_id: str, data: dict, request: Request):
+    return await setup_service.update_setup(setup_id, data, request)
 
 @app.get("/input-variables/")
 async def get_input_variables():

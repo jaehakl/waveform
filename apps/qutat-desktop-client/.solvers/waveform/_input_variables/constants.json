@@ -1,7 +1,7 @@
 {
     "meta":{
         "type":"dict",
-        "key":"_constants",
+        "key":"constants",
         "title":"Constants",
         "order":0,
         "display":true

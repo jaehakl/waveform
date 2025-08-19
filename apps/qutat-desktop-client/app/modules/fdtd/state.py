@@ -12,6 +12,7 @@ from state import MainState
 
 SOLVERS = configparser.ConfigParser()
 SOLVERS.read(os.getenv('QUTAT_BASE_DIR')+'/SOLVERS.ini')
+print(SOLVERS)
 
 class State(metaclass=MetaSingleton):
     def __init__(self):

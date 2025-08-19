@@ -1,7 +1,7 @@
 {
     "meta":{
         "type":"dict",
-        "key":"_settings",
+        "key":"settings",
         "title":"Settings",
         "order":1,
         "display":true

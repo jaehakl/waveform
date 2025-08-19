@@ -9,10 +9,8 @@ import './SetupEditor.less';
 
 // Solver 옵션 정의
 const SOLVER_OPTIONS = [
-  { label: 'FDTD', value: 'fdtd' },
-  { label: 'FEM', value: 'fem' },
-  { label: 'BEM', value: 'bem' },
-  { label: 'Analytical', value: 'analytical' }
+  { label: 'FDTD(Waveform)', value: 'FDTD:Waveform' },
+  { label: 'FDTD(MEEP)', value: 'FDTD:MEEP' }
 ];
 
 // InputVariables 섹션 정의 및 상태/세터 매핑
@@ -47,7 +45,7 @@ function SetupEditor() {
   // Setup 정보 및 인증 상태
   const [setupInfo, setSetupInfo] = useState({
     title: '',
-    solver: 'fdtd',
+    solver: 'FDTD:Waveform',
     public: false,
     description: ''
   });
@@ -139,7 +137,7 @@ function SetupEditor() {
         // 새 Setup인 경우 초기값으로 리셋
         setSetupInfo({
           title: '',
-          solver: 'fdtd',
+          solver: 'FDTD:Waveform',
           public: false,
           description: ''
         });

@@ -7,10 +7,10 @@ from matform.array.text_matrix_expression import parse_vectors, import_vector_se
 
 def input_variables():
     input_vars = {}
-    input_vars["_constants"] = json.load(open(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables/_constants.json"))
-    input_vars["_settings"] = json.load(open(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables/_settings.json"))
+    input_vars["constants"] = json.load(open(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables/constants.json"))
+    input_vars["settings"] = json.load(open(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables/settings.json"))
     for filename in os.listdir(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables"):
-        if filename not in ["_settings.json","_constants.json"] and filename.endswith(".json"):
+        if filename not in ["settings.json","constants.json"] and filename.endswith(".json"):
             json_data = json.load(open(os.path.dirname(os.path.realpath(__file__))+"/../_input_variables/"+filename))
             key = json_data["meta"]["key"]
             input_vars[key] = json_data["columns"]
@@ -45,10 +45,10 @@ def import_df(df, item_dict, constants):
 
 def import_parameters(input_dict):
     input_vars = input_variables()
-    keys_constants = input_vars["_constants"]["keys"]
+    keys_constants = input_vars["constants"]["keys"]
     c = {}
     for key in keys_constants.keys():
-        value = eval(input_dict["_constants"][key])
+        value = eval(input_dict["constants"][key])
         if keys_constants[key]["type"] == "int":
             c[key] = int(value)
         elif keys_constants[key]["type"] == "float":
@@ -57,9 +57,9 @@ def import_parameters(input_dict):
             c[key] = value
 
     rv = {}
-    rv["_constants"] = c
+    rv["constants"] = c
 
-    keys_settings = input_vars["_settings"]["keys"]
+    keys_settings = input_vars["settings"]["keys"]
     setting = {}
     for key in keys_settings.keys():
         item = keys_settings[key] 
@@ -67,32 +67,31 @@ def import_parameters(input_dict):
             if item["type"] == "vector":
                 if "unit" in item.keys():
                     unit = eval(item["unit"])
-                    setting[key] = [v*unit for v in parse_vectors(input_dict["_settings"][key])[0]]
+                    setting[key] = [v*unit for v in parse_vectors(input_dict["settings"][key])[0]]
                 else:
-                    setting[key] = parse_vectors(input_dict["_settings"][key])[0]
+                    setting[key] = parse_vectors(input_dict["settings"][key])[0]
         else:
             if "dtype" in item.keys():
                 if item["dtype"] == "float":
                     if "unit" in item.keys():
                         unit = eval(item["unit"])
-                        setting[key] = float(input_dict["_settings"][key])*unit
+                        setting[key] = float(input_dict["settings"][key])*unit
                     else:
-                        setting[key] = float(input_dict["_settings"][key])
+                        setting[key] = float(input_dict["settings"][key])
                 elif item["dtype"] == "int":
-                    setting[key] = int(input_dict["_settings"][key])
+                    setting[key] = int(input_dict["settings"][key])
 
-    rv["_settings"] = setting
+    rv["settings"] = setting
     rv["structure_evaluated"] = import_df(pd.DataFrame(input_dict["structure_evaluated"]), input_vars["structures"], c)
-    rv["material"] = import_df(pd.DataFrame(input_dict["material"]), input_vars["materials"], c)
-    rv["material_sus"] = import_df(pd.DataFrame(input_dict["material_sus"]), input_vars["materials_sus"], c)
+    rv["materials"] = import_df(pd.DataFrame(input_dict["materials"]), input_vars["materials"], c)
+    rv["material_sus"] = import_df(pd.DataFrame(input_dict["material_sus"]), input_vars["material_sus"], c)
 
     for key in input_vars.keys():
-        if key in ["_constants","_settings"]:
+        if key in ["constants","settings"]:
             continue
         try:
             rv[key] = import_df(pd.DataFrame(input_dict[key]), input_vars[key], c)
         except:
             rv[key] = pd.DataFrame(input_dict[key])
-
     return rv
 

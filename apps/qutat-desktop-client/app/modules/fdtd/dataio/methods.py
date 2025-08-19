@@ -49,7 +49,7 @@ def import_setup_data_from_url(url):
         #"component":default_structure(),
         #"source":setup.source.NEW_SOURCE_GAUSSIAN,        
         #"simulation":setup.simulation.DEFAULT_PARS,
-        "material":setup.material.NEW_MATERIAL,
+        "materials":setup.material.NEW_MATERIAL,
         "material_sus":setup.material.NEW_SUSCEPTIBILITY
     }
 
@@ -124,14 +124,20 @@ def delete_current_setup_data():
     return resp
 
 
+
+
+
+
+
 def get_setup_data_list_online():
-    resp = get(RestApi.model_setup("100_0"))
+    resp = get(RestApi.setup_list())
     if resp == None:
         return
     elif resp.status_code != 200:
         return
     else:
-        setup_list = resp.json()
+        setup_list = resp.json()['setups']
+        print(setup_list)
         setup_data_dict = {}
         for setup in setup_list:
             solver = setup["solver"]

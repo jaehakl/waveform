@@ -2,7 +2,7 @@
 {
     "meta":{
         "type":"table",
-        "key":"materials_sus",
+        "key":"material_sus",
         "title":"Material_sus",
         "order":6,
         "display":false

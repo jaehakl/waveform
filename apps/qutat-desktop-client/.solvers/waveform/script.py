@@ -28,9 +28,9 @@ class Simulation(AbstractSimulation):
 
         self._status = "Waveform : Generating Matrix"
         self.dm=sb.domain_matrix(
-            main_dim = pars["_settings"]["cell_size"],
-            dr = [pars["_settings"]["dx"] for i in range(3)],
-            pbc= pars["_settings"]["pbc"],
+            main_dim = pars["settings"]["cell_size"],
+            dr = [pars["settings"]["dx"] for i in range(3)],
+            pbc= pars["settings"]["pbc"],
             device = "cuda:0",
             device_cutoff=1e5
         )
@@ -41,10 +41,10 @@ class Simulation(AbstractSimulation):
         self._status = "Waveform : Setting PML"        
         self.dm.op_nonlocal("border",fdtd.CPML.set,WAVELENGTH)
 
-        f_p = pars["_settings"]["f_p"]
+        f_p = pars["settings"]["f_p"]
         w_p = f_p[0]*2*np.pi
         w_c = f_p[1]*2*np.pi
-        eps_inf = pars["_settings"]["eps_inf"]
+        eps_inf = pars["settings"]["eps_inf"]
         #if par["metalType"] == "Au":
         #    w_p = 2.15e15*2*np.pi
         #    w_c = 17.14*1e12*2*np.pi
@@ -57,9 +57,9 @@ class Simulation(AbstractSimulation):
         waveform_api.make_geometry(self.dm,pars)
         #self.dm.op("main", waveform_api.make_geometry, pars)
 
-        dx = pars["_settings"]["dx"]
-        dt = dx*0.5/pars["_constants"]["LIGHT_SPEED"]
-        total_step = int(pars["_settings"]["simulation_time"]/dt)
+        dx = pars["settings"]["dx"]
+        dt = dx*0.5/pars["constants"]["LIGHT_SPEED"]
+        total_step = int(pars["settings"]["simulation_time"]/dt)
 
         sources = waveform_api.make_sources(self.dm,pars)
         detectors = waveform_api.make_detectors(self.dm,pars)
@@ -141,7 +141,7 @@ class Simulation(AbstractSimulation):
         eps_y = np.zeros((1,1))
         eps_z = np.zeros((1,1))
         try:
-            pbc = self._pars["_settings"]["pbc"]
+            pbc = self._pars["settings"]["pbc"]
             #efield_x = self.dm.b[1][1][1].cross_section("Ez",0,0).numpy()
             #efield_y = self.dm.b[1][1][1].cross_section("Ez",1,0).numpy()
             #efield_z = self.dm.b[1][1][1].cross_section("Ez",2,0).numpy()

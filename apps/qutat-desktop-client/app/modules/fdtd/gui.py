@@ -39,6 +39,7 @@ from api import api as RestApi
 
 from .state import State
 from . import dataio, setup
+from .service import setup_io
 
 import configparser
 
@@ -222,15 +223,14 @@ class LeftWidget(QWidget):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_F5:
             print("F5 key pressed")
-            dataio.get_setup_data_list_online()
+            setup_io.setup_list_online()
 
 
 class SetupListTabsWidget(QTabWidget):
     def __init__(self):
         super().__init__()        
-        add_post_login_func(dataio.get_setup_data_list_online)
+        add_post_login_func(setup_io.setup_list_online)
         State().setup_data_list.updated.connect(self.update_tabs)
-        dataio.get_setup_data_list_online()
 
     def update_tabs(self):
         self.clear()
@@ -275,7 +275,7 @@ class HandleSetupSelected(QThread):
         cout("recieving data")
 
         setup_item = self.setup_item
-        setup_data = dataio.import_setup_data_from_url(setup_item["setup_data"])
+        setup_data = setup_io.get_setup(setup_item["id"])
         cout("recieving data ■")
 
         if setup_data != None:
@@ -283,12 +283,11 @@ class HandleSetupSelected(QThread):
             setup.set_setup_data(setup_data)
             cout("recieving data ■■ ")
 
-            setup_id = setup_item["id"]
-            dataio.import_entity_list(setup_id)
-            cout("recieving data ■■■ ")
-
-            dataio.import_process_list(setup_id)
-            cout("recieving data ■■■■ done")
+            #setup_id = setup_item["id"]
+            #dataio.import_entity_list(setup_id)
+            #cout("recieving data ■■■ ")
+            #dataio.import_process_list(setup_id)
+            #cout("recieving data ■■■■ done")
 
 
 
@@ -412,7 +411,7 @@ class Input3Dview(GeometryPainterWidget):
 
     def connect_data(self):
         def setSpaceData(*args):
-            form_prop = State().data_form_dicts["_settings"]
+            form_prop = State().data_form_dicts["settings"]
             if State().display["space"].get():           
                 self.show_space(form_prop.get())
             else:
@@ -432,8 +431,8 @@ class Input3Dview(GeometryPainterWidget):
             else:
                 self.show_geometry(table_name,[])
 
-        State().data_form_dicts["_settings"].updated.connect(setSpaceData)
-        State().data_form_dicts["_settings"].updated.connect(setStructureData)
+        State().data_form_dicts["settings"].updated.connect(setSpaceData)
+        State().data_form_dicts["settings"].updated.connect(setStructureData)
 
         setSpaceData()
         State().display["space"].updated.connect(setSpaceData)
@@ -442,7 +441,7 @@ class Input3Dview(GeometryPainterWidget):
 
         for table_name in State().color_regions_rendered.keys():
             color = State().color_regions_rendered[table_name]
-            State().data_form_dicts["_settings"].updated.connect(
+            State().data_form_dicts["settings"].updated.connect(
                 partial(setRegion, table_name, color))
             State().data_table_models[table_name].get().dataChanged.connect(
                 partial(setRegion, table_name, color))

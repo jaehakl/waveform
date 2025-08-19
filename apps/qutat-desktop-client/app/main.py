@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QApplication, QMenuBar, QMenu, QFileDialog, QMessa
 from PySide6.QtCore import QDate
 
 import api.auth as auth
+from api.ui_login import LoginDialog
 
 from qleaf.core.main_window import MainWindow
 from qleaf.core import setStyle
@@ -30,7 +31,7 @@ from state import MainState
 
 
 modules = {
-    "Inverse Design": inverse_design,
+    #"Inverse Design": inverse_design,
     #"Model Builder": model_builder,
     "FDTD": fdtd
 }
@@ -89,11 +90,11 @@ class MenuBar(QMenuBar):
             fdtd.State().solver.set(solver)
         elif commands[0] == "Modules":
             MainState().main_window.loadModule(modules[commands[1]])            
-        #elif commands[0] == "Cloud":
-        #    if commands[1] == "Login":
-        #        auth.gui.LoginDialog(self.parent())
-        #    elif commands[1] == "Serve as a Puppet":
-        #        fdtd.puppet.PuppetDialog(self.parent()).exec()
+        elif commands[0] == "Cloud":
+            if commands[1] == "Login":
+                LoginDialog(self.parent())
+            elif commands[1] == "Serve as a Puppet":
+                fdtd.puppet.PuppetDialog(self.parent()).exec()
         elif commands[0] == "Help":
             if commands[1] == "About":
                 with open("INFO.txt", "r") as f:
@@ -170,12 +171,9 @@ if __name__=="__main__":
         #    dialog = InitLoginDialog(window)
         #    user_info = auth.get_user_info()
 
-        print(user_info)
-        if user_info and "user" in user_info.keys():
-            print("Authorized by : ",user_info["user"]["name"])
-            #window.showMaximized()
-            window.resize(1920,1080)
-            #window.showFullScreen()
-            #window.loadModule(inverse_design)
-            window.show()
-            app.exec()
+        #window.showMaximized()
+        window.resize(1920,1080)
+        #window.showFullScreen()
+        #window.loadModule(inverse_design)
+        window.show()
+        app.exec()

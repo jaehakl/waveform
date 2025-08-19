@@ -18,7 +18,7 @@ UNIT_TIME = TIME_UNIT*LIGHT_SPEED/LENGTH_UNIT_OF_MATERIALS
 
 def make_geometry(dm, pars):
     geometry_df = pars["structure_evaluated"]
-    material_df = pars["material"]
+    materials_df = pars["materials"]
 
     for i in range(len(geometry_df)):
         values = {}
@@ -79,7 +79,7 @@ def make_geometry(dm, pars):
             dm.op("main",func)
         elif s.component == "so_revol_func":
             values["props"] = parse_vectors(s['props'])
-            unit_length = pars["_constants"]["UNIT_LENGTH"]
+            unit_length = pars["constants"]["UNIT_LENGTH"]
             def func(box):
                 sb.solid.so_revol_func(box,unit_length,values["position"],values["size"],values["props"],
                                 values["vname"],values["epsilon"])
@@ -116,7 +116,7 @@ def make_sources(dm,pars):
                 group_range.append(1)
                 group_range.append(2)
             if source["size"][j] == 0:
-                source["size"][j] = pars["_settings"]["dx"]
+                source["size"][j] = pars["settings"]["dx"]
             elif source["size"][j] < 0:
                 source["size"][j] = 1e6
                 group_range[2*j] = 0
@@ -166,17 +166,17 @@ def make_detectors(dm,pars):
         detector["position"] = parse_vectors(s["position"])[0]
         detector["size"] = parse_vectors(s["size"])[0]
         detector["dr"] = parse_vectors(s["dr"])[0]
-        detector["dx"] = int(detector["dr"][0]/pars["_settings"]["dx"])
-        detector["dy"] = int(detector["dr"][1]/pars["_settings"]["dx"])
-        detector["dz"] = int(detector["dr"][2]/pars["_settings"]["dx"])
+        detector["dx"] = int(detector["dr"][0]/pars["settings"]["dx"])
+        detector["dy"] = int(detector["dr"][1]/pars["settings"]["dx"])
+        detector["dz"] = int(detector["dr"][2]/pars["settings"]["dx"])
         detectors_list.append(detector)
 
         for j in range(3):
             if detector["size"][j] == 0:
-                detector["size"][j] = pars["_settings"]["dx"]
+                detector["size"][j] = pars["settings"]["dx"]
             elif detector["size"][j] < 0:
-                detector["size"][j] = pars["_settings"]["cell_size"][j]\
-                                      - pars["_settings"]["dx"]
+                detector["size"][j] = pars["settings"]["cell_size"][j]\
+                                      - pars["settings"]["dx"]
 
     return detectors_list
 

@@ -1,1 +1,1 @@
-poetry run python .\app\main_window.py
+poetry run python .\app\main.py

@@ -10,6 +10,7 @@ class AbstractSimulation(AbstractSubprocessModel):
 
     def run(self, *args):
         self._pars = import_parameters(args[0])
+        print(self._pars)
         rv = self.run_simulation()
         return rv
     
