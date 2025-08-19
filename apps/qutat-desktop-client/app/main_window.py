@@ -18,7 +18,7 @@ from PySide6.QtGui import QIcon, QAction
 from PySide6.QtWidgets import QApplication, QMenuBar, QMenu, QFileDialog, QMessageBox
 from PySide6.QtCore import QDate
 
-import core.network.auth as auth
+import api.auth as auth
 
 from qleaf.core.main_window import MainWindow
 from qleaf.core import setStyle
@@ -89,11 +89,11 @@ class MenuBar(QMenuBar):
             fdtd.State().solver.set(solver)
         elif commands[0] == "Modules":
             MainState().main_window.loadModule(modules[commands[1]])            
-        elif commands[0] == "Cloud":
-            if commands[1] == "Login":
-                auth.gui.LoginDialog(self.parent())
-            elif commands[1] == "Serve as a Puppet":
-                fdtd.puppet.PuppetDialog(self.parent()).exec()
+        #elif commands[0] == "Cloud":
+        #    if commands[1] == "Login":
+        #        auth.gui.LoginDialog(self.parent())
+        #    elif commands[1] == "Serve as a Puppet":
+        #        fdtd.puppet.PuppetDialog(self.parent()).exec()
         elif commands[0] == "Help":
             if commands[1] == "About":
                 with open("INFO.txt", "r") as f:
@@ -103,62 +103,33 @@ class MenuBar(QMenuBar):
 
 
 
-class InitLoginDialog(auth.gui.LoginDialog):
-    def closeEvent(self, e):
-        if "email" in auth.get_user_info().keys():
-            e.accept()
-        else:
-            print("Failed to Authorize")
-            exit()
-if __name__=="__main__":
-    app = QApplication()
-    window = MainWindow(MenuBar)
-    window.setWindowIcon(QIcon("logo.png"))
-    window.setWindowTitle("QUTAT")
+#class InitLoginDialog(auth.gui.LoginDialog):
+#    def closeEvent(self, e):
+#        user_info = auth.get_user_info()
+#        if user_info and "user" in user_info.keys():
+#            e.accept()
+#        else:
+#            print("Failed to Authorize")
+#            exit()
 
-    app.setStyle('Fusion')
-    setStyle(window, "Qutat")
-    #setStyle(window, "Adaptic")
 
-    MainState().main_window = window
 
-    def close_event(e):
-        for key in MainState().sub_windows:
-            MainState().sub_windows[key].close()
-    MainState().main_window.closeEvent = close_event
-
-    window.loadModule(fdtd)
-    #window.loadModule(inverse_design)
-
-    #window.showMaximized()
-    window.resize(1920,1080)
-    #window.showFullScreen()
-    #window.loadModule(inverse_design)
-    window.show()
-    app.exec()
-
-'''
 if __name__=="__main__":
     def login_cmd():
-        account_login = False
-        if 'username' in CONFIG['AUTH']._options():
-            if 'password' in CONFIG['AUTH']._options():
-                user_auth_info = {"email":CONFIG['AUTH']['USERNAME'],
-                                "password":CONFIG['AUTH']['PASSWORD']}
-                resp = auth.login(user_auth_info)
-                if resp == None:
-                    pass
-                elif resp.status_code != 200:
-                    pass                
-                else:
-                    print("Authorizing by your account info...",
-                        CONFIG['AUTH']['USERNAME'])
-                    account_login = True
+        login_success = False
+        
+        if ('QUTAT_USERNAME' in os.environ) and ('QUTAT_PASSWORD' in os.environ):
+            username = os.environ['QUTAT_USERNAME']
+            password = os.environ['QUTAT_PASSWORD']
+            print(f"로그인 시도: {username}")
+            
+            # waveform-server 로그인 시도
+            user_auth_info = {"name": username, "password": password}
+            resp = auth.login(user_auth_info)
+            if resp and resp.status_code == 200:
+                print("Waveform 서버 로그인 성공")
 
-        if account_login == False:
-            print("Trying to Authorizing by ID token...")
-            auth.check_login_user()
-        user_info = auth.get_user_info()
+        user_info = auth.check_session()
         return user_info
 
     if len(sys.argv) > 2:
@@ -167,7 +138,7 @@ if __name__=="__main__":
             window = MainWindow(MenuBar)
             max_puppet = int(sys.argv[2])
             user_info = login_cmd()
-            if "email" not in user_info.keys():
+            if not user_info or "user" not in user_info.keys():
                 print("Failed to Authorize")
                 exit()
             threads = []
@@ -194,18 +165,17 @@ if __name__=="__main__":
         window.loadModule(fdtd)
         #window.loadModule(inverse_design)
 
-
         user_info = login_cmd()
-        while "email" not in user_info.keys():
-            dialog = InitLoginDialog(window)
-            user_info = auth.get_user_info()
+        #while not user_info or "user" not in user_info.keys():
+        #    dialog = InitLoginDialog(window)
+        #    user_info = auth.get_user_info()
 
-        if "email" in user_info.keys():
-            print("Authorized by : ",user_info["email"])
+        print(user_info)
+        if user_info and "user" in user_info.keys():
+            print("Authorized by : ",user_info["user"]["name"])
             #window.showMaximized()
             window.resize(1920,1080)
             #window.showFullScreen()
             #window.loadModule(inverse_design)
             window.show()
             app.exec()
-'''

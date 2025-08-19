@@ -34,7 +34,8 @@ from matform import eval_structure
 from lib.physics.structure.geometry_painter import GeometryPainterWidget
 from lib.labeled_tensor_list import LabeledTensorListViewer
 
-from core.network.auth import add_post_login_func, get, post, put, delete
+from api.auth import add_post_login_func, get, post, put, delete
+from api import api as RestApi
 
 from .state import State
 from . import dataio, setup
@@ -50,7 +51,6 @@ if platform.system() == "Windows":
 else:
     CURRENT_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-from core.network.backend_api import RestApi
 
 class ToolBar(QToolBar):
     def __init__(self, parent):

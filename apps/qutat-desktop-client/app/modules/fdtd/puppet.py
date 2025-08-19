@@ -18,7 +18,7 @@ from qleaf.comp.basic import LineEditComp
 from qleaf.core.prop import Prop
 from qleaf.proc import SubprocDict
 
-from core.network import auth
+from api import auth
 
 from matform import eval_structure
 
@@ -30,7 +30,7 @@ SOLVERS = configparser.ConfigParser()
 SOLVERS.optionxform = str
 SOLVERS.read(os.getenv('QUTAT_BASE_DIR')+'/SOLVERS.ini')
 
-from core.network.backend_api import RestApi
+from api import api as RestApi
 
 class PuppetDialogState(metaclass=MetaSingleton):
     def __init__(self):

@@ -16,7 +16,7 @@ from qleaf.core.prop import Prop
 from matform import ArrayDictData, LabeledTensor, eval_structure
 from qleaf.core.main_window import show_status
 
-from core.network.auth import get, post
+from api.auth import get, post
 
 from .state import State
 from state import MainState
@@ -30,7 +30,7 @@ from qleaf.comp.mplchart import ChartWithList, ImShowWithList
 
 from lib.physics.structure.geometry_painter import GeometryPainterWidget
 
-from core.network.backend_api import RestApi
+from api import api as RestApi
 
 from lib.labeled_tensor_list import LabeledTensorListViewer
 

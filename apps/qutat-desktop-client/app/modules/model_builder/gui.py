@@ -36,7 +36,7 @@ from qleaf.comp.mplchart import ChartWithList
 from matform import ArrayDictData, LabeledTensor, eval_structure
 
 
-from core.network.auth import get, post
+from api.auth import get, post
 from lib.physics.structure.geometry_painter import GeometryPainterWidget
 from lib.labeled_tensor_list import LabeledTensorListViewer, LabeledTensorViewer
 
@@ -51,7 +51,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 
-from core.network.backend_api import RestApi
+from api import api as RestApi
 
 class ToolBar(QToolBar):
     def __init__(self, parent):

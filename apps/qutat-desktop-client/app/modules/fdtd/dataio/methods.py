@@ -3,12 +3,11 @@
 import json, io, requests, time
 import pandas as pd
 
-from core.network.auth import get, post, put, delete
+from api.auth import get, post, put, delete
+from api import api as RestApi
 
 from .. import State
 from .. import setup
-
-from core.network.backend_api import RestApi
 
 def save_setup_local(filename=''):
     data_json = json.dumps(setup.get_setup_data())
