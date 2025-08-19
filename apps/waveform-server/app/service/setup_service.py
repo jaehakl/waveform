@@ -45,13 +45,12 @@ async def save_setup(data: dict, request) -> dict:
         user = await get_current_user(request)
         if not user:
             return {"success": False, "message": "로그인이 필요합니다."}
-        
+
         # 2. 필수 필드 검증
         required_fields = ["title", "solver", "setup_data"]
-        for field in required_fields:
-            if field not in data:
+        for field in required_fields:            
+            if field not in data:    
                 return {"success": False, "message": f"필수 필드가 누락되었습니다: {field}"}
-        
         # 3. 데이터 준비
         setup_id = str(uuid.uuid4())
         setup_data_json = json.dumps(data["setup_data"], ensure_ascii=False)

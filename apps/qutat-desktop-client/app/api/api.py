@@ -1,13 +1,12 @@
-# Auth endpoints
-def auth_login(): return "/auth/login/"
-def auth_check_session(): return "/auth/check-session/"
-def auth_logout(): return "/auth/logout/"
+from .auth import get, post, delete, put
+
+
 
 # Setup endpoints
-def setup_save(): return "/setup/save/"
+def setup_save(data): return post("/setup/save/", data)
 def setup_get(setup_id: str): return f"/setup/{setup_id}"
 def setup_list(): return "/setup/list/"
-def setup_delete(setup_id: str): return f"/setup/{setup_id}"
+def setup_delete(setup_id: str): return delete(f"/setup/{setup_id}")
 def setup_update(setup_id: str): return f"/setup/{setup_id}"
 
 # Input variables

@@ -4,7 +4,6 @@
 
 from .state import State
 
-from . import setup
 from . import dataio
 
 from . import puppet

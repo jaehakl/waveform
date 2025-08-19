@@ -7,7 +7,10 @@ import requests, json, os
 from matform import MetaSingleton
 from qleaf.core.prop import Prop
 
-from . import api
+# Auth endpoints
+def auth_login(): return "/auth/login/"
+def auth_check_session(): return "/auth/check-session/"
+def auth_logout(): return "/auth/logout/"
 
 WAVEFORM_COOKIE_PATH = os.getenv('QUTAT_BASE_DIR')+"/waveform_cookies.json"
 
@@ -61,7 +64,7 @@ def http_request(url, http_method, *args, **kwargs):
 
 
 def login(user_auth_info):
-    resp = post(api.auth_login(), user_auth_info)
+    resp = post(auth_login(), user_auth_info)
     if resp == None:
         print("로그인 요청 실패: 응답이 None")
         return None
@@ -77,7 +80,7 @@ def login(user_auth_info):
         return resp
 
 def logout():
-    resp = post(api.auth_logout(), {})    
+    resp = post(auth_logout(), {})    
     if resp and resp.status_code == 200:
         if os.path.exists(WAVEFORM_COOKIE_PATH):
             os.remove(WAVEFORM_COOKIE_PATH)        
@@ -90,7 +93,7 @@ def get_user_info():
     return AuthState().user_info.get()
 
 def check_session():
-    resp = get(api.auth_check_session())
+    resp = get(auth_check_session())
     if resp != None:
         if resp.status_code == 401:
             if os.path.exists(WAVEFORM_COOKIE_PATH):

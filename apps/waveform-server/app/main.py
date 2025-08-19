@@ -27,7 +27,6 @@ async def logout(request: Request, response: Response):
 
 @app.post("/setup/save/")
 async def save_setup(data: dict, request: Request):
-    print(data, "save_setup")
     return await setup_service.save_setup(data, request)
 
 @app.get("/setup/{setup_id}")

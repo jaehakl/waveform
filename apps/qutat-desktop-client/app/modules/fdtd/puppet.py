@@ -22,8 +22,7 @@ from api import auth
 
 from matform import eval_structure
 
-from . import dataio
-
+from .service import setup_io
 
 import configparser
 SOLVERS = configparser.ConfigParser()
@@ -89,7 +88,7 @@ class ServeAsPuppetRepeat(QThread):
             if task == None:
                 time.sleep(0.5+5*np.random.rand())
                 continue
-            setup_data = dataio.import_setup_data_from_url(task["setup_data"])
+            setup_data = setup_io.get_setup(task["setup_id"])
             input_data = requests.get(task["input_data"]).json()
             if setup_data == None or input_data == None:
                 auth.put(RestApi.model_input(task["input_id"]),
