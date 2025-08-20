@@ -10,6 +10,12 @@ start cmd /k "call run.bat"
 cd ../..
 
 
+REM 데스크탑 클라이언트 실행 (새 창)
+cd ./apps/qutat-desktop-client  
+start cmd /k "call run.bat"
+cd ../..
+
+
 
 
 

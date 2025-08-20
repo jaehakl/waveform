@@ -1,4 +1,5 @@
 # Copyright (C) 2023 Jaehak Lee
+# Legacy Methods (2025.08.19)
 
 import json, io, requests, time
 import pandas as pd
