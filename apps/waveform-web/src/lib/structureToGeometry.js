@@ -75,7 +75,7 @@ function rotatedAxisFromAxisAndAngleInv(rotations, axis = createIdentityMatrix()
     let result = axis;
     for (const rotation of rotations) {
         const rotAxis = rotation.slice(0, -1);
-        const rotAngle = -rotation[rotation.length - 1]; // 역회전
+        const rotAngle = rotation[rotation.length - 1]; // 역회전
         const rotMatrix = rotationMatrixFromAxisAndAngle(rotAxis, rotAngle);
         result = matrixMultiply(rotMatrix, result);
     }
