@@ -4,7 +4,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from context import Context
+from state import State
 from ui.main_window import MainWindow
 
 
@@ -12,8 +12,8 @@ def main() -> int:
     """Application entry point."""
     app = QApplication(sys.argv)
 
-    context = Context()
-    context.set_status_message("Launching Rayform Studio...")
+    state = State()
+    state.set_status_message("Launching Rayform Studio...")
 
     window = MainWindow()
     window.show()

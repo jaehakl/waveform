@@ -1,0 +1,24 @@
+name = "CleanOpticSim"
+uuid = "083f6f4d-712f-4fd4-9438-bc3b8e8761ca"
+authors = ["jaehakl <leejaehak87@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+AGFFileReader = "36dd7d7d-c279-4b5c-a024-2ba417cea492"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+StringEncodings = "69024149-9ee7-55f6-a4c4-859efe599b68"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+
+[compat]
+AGFFileReader = "1.1.3"
+DataFrames = "1.8.0"
+Distributions = "0.25.120"
+FileIO = "1.17.0"
+Images = "0.26.2"
+StaticArrays = "1.9.15"
+StringEncodings = "0.3.7"
+Unitful = "1.25.0"
