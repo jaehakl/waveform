@@ -341,12 +341,7 @@ class CGSTreeWidget(QWidget):
             return
         
         menu = QMenu(self)
-        
-        # Add Branch Node 액션
-        add_branch_action = QAction("➕ Add Branch Node", self)
-        add_branch_action.triggered.connect(lambda: self._add_branch_node(item))
-        menu.addAction(add_branch_action)
-        
+
         # Remove Node 액션
         remove_action = QAction("➖ Remove Node", self)
         remove_action.triggered.connect(lambda: self._remove_node(item))
@@ -367,22 +362,6 @@ class CGSTreeWidget(QWidget):
         # 메뉴 표시
         menu.exec(self._tree.mapToGlobal(position))
 
-    def _add_branch_node(self, parent_item: CGSNodeItem):
-        """브랜치 노드 추가"""
-        if self._app_view_model is None or not self._current_workspace:
-            return
-
-        # 부모 노드의 인덱스 찾기
-        parent_index = self._find_node_index(parent_item)
-        if parent_index < 0:
-            return
-
-        # 새로운 브랜치 노드 생성
-        branch_node = self._app_view_model.create_branch_geometry_node()
-
-        # ApplicationViewModel을 통해 브랜치 노드 추가
-        branch_index = self._app_view_model.add_branch_node(self._current_workspace, parent_index, branch_node)
-        # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _remove_node(self, item: CGSNodeItem):
         """노드 제거"""

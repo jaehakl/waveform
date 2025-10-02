@@ -52,33 +52,6 @@ class CGSTree:
         self.nodes[from_index], self.nodes[to_index] = self.nodes[to_index], self.nodes[from_index]
         return True
 
-    def add_branch_node(self, parent_index: int, branch_node: GeometryNode) -> Optional[int]:
-        if not (0 <= parent_index < len(self.nodes)):
-            return None
-        parent_node = self.nodes[parent_index]
-
-        if isinstance(parent_node.geometry, str):
-            original_geometry = parent_node.geometry
-            original_geometry_type = parent_node.geometry_type
-            original_node = GeometryNode(
-                role=GeometryRole.UNION,
-                geometry_type=original_geometry_type,
-                geometry=original_geometry,
-                pos=parent_node.pos,
-                rotation=parent_node.rotation,
-                material=parent_node.material,
-            )
-            parent_node.role = GeometryRole.UNION
-            parent_node.geometry_type = GeometryType.TREE
-            parent_node.geometry = [original_node]
-            parent_node.pos = [0, 0, 0]
-            parent_node.rotation = [0, 0, 0]
-            parent_node.material = "Default"
-
-        if isinstance(parent_node.geometry, list):
-            parent_node.geometry.append(branch_node)
-            return len(parent_node.geometry) - 1
-        return None
 
     def find_node_index(self, target_node: GeometryNode) -> int:
         for index, node in enumerate(self.nodes):
@@ -101,17 +74,6 @@ class CGSTree:
 
     @staticmethod
     def create_default_geometry_node() -> GeometryNode:
-        return GeometryNode(
-            role=GeometryRole.UNION,
-            geometry_type=GeometryType.SPHERE,
-            geometry="sphere",
-            pos=[0, 0, 0],
-            rotation=[0, 0, 0],
-            material="SiO2",
-        )
-
-    @staticmethod
-    def create_branch_geometry_node() -> GeometryNode:
         return GeometryNode(
             role=GeometryRole.UNION,
             geometry_type=GeometryType.SPHERE,

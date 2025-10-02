@@ -45,21 +45,9 @@ class GeometryService():
             vm._notify_workspace_data(workspace, workspace_data)
         return moved
 
-    def add_branch_node(vm, workspace: str, parent_index: int, branch_node: GeometryNode) -> Optional[int]:
-        """Add branch node to workspace."""
-        workspace_data = vm.ensure_workspace(workspace)
-        branch_index = workspace_data.cgs_tree.add_branch_node(parent_index, branch_node)
-        if branch_index is not None:
-            vm._notify_workspace_data(workspace, workspace_data)
-        return branch_index
-
     def create_default_geometry_node(vm) -> GeometryNode:
         """Create default geometry node."""
         return CGSTree.create_default_geometry_node()
-
-    def create_branch_geometry_node(vm) -> GeometryNode:
-        """Create branch geometry node."""
-        return CGSTree.create_branch_geometry_node()
 
     def find_node_index(vm, workspace: str, node: GeometryNode) -> int:
         """Find node index in workspace."""

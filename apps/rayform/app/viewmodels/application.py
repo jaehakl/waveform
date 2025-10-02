@@ -74,9 +74,7 @@ class ApplicationViewModel(QObject):
     def remove_geometry_node(self, workspace: str, index: int) -> bool: return GeometryService.remove_geometry_node(self, workspace, index)
     def update_geometry_node(self, workspace: str, index: int, node: GeometryNode) -> bool: return GeometryService.update_geometry_node(self, workspace, index, node)
     def move_geometry_node(self, workspace: str, from_index: int, to_index: int) -> bool: return GeometryService.move_geometry_node(self, workspace, from_index, to_index)
-    def add_branch_node(self, workspace: str, parent_index: int, branch_node: GeometryNode) -> Optional[int]: return GeometryService.add_branch_node(self, workspace, parent_index, branch_node)
     def create_default_geometry_node(self) -> GeometryNode: return GeometryService.create_default_geometry_node(self)
-    def create_branch_geometry_node(self) -> GeometryNode: return GeometryService.create_branch_geometry_node(self)
     def find_node_index(self, workspace: str, node: GeometryNode) -> int: return GeometryService.find_node_index(self, workspace, node)
 
     # -- parameters/materials ----------------------------------------------
