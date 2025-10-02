@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont
 
 from models import WorkspaceData, GeometryNode, GeometryRole, GeometryType
-from service.cgs_service import CGSService
 
 
 class GeometryNodeEditor(QWidget):
@@ -427,7 +426,9 @@ class EditorPanel(QWidget):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._current_workspace: str = ""
-        self._cgs_service = CGSService()
+        self._app_view_model = None  # ApplicationViewModel 참조
+        self._app_view_model_connected: bool = False
+        self._syncing_from_view_model: bool = False
         self._setup_ui()
         self._connect_signals()
     
@@ -457,16 +458,111 @@ class EditorPanel(QWidget):
         self._geometry_editor.node_updated.connect(self._on_node_updated)
         self._parameters_editor.parameters_updated.connect(self._on_parameters_updated)
         self._materials_editor.materials_updated.connect(self._on_materials_updated)
-    
+
+    def set_view_model(self, view_model) -> None:
+        """Deprecated: Use set_app_view_model instead"""
+        pass
+
+    def set_app_view_model(self, app_view_model) -> None:
+        """ApplicationViewModel 주입"""
+        if self._app_view_model is app_view_model:
+            return
+        self._disconnect_app_view_model()
+        self._app_view_model = app_view_model
+        if self._app_view_model is not None:
+            self._connect_app_view_model()    
+
+
+    def set_workspace(self, workspace: str) -> None:
+        """현재 workspace 설정"""
+        self._current_workspace = workspace
+        if self._app_view_model is not None:
+            self._connect_app_view_model()
+            self._sync_from_view_model()
+
+
+
+    def _connect_app_view_model(self) -> None:
+        if self._app_view_model is None or self._app_view_model_connected:
+            return
+        self._app_view_model.selected_node_changed.connect(self._on_selected_node_changed)
+        self._app_view_model.data_changed.connect(self._on_app_view_model_data_changed)
+        self._app_view_model.parameters_changed.connect(self._on_app_view_model_parameters_changed)
+        self._app_view_model.materials_changed.connect(self._on_app_view_model_materials_changed)
+        self._app_view_model._workspace_data_loaded.connect(self._on_workspace_data_loaded)
+        self._app_view_model_connected = True
+
+    def _disconnect_app_view_model(self) -> None:
+        if self._app_view_model is None or not self._app_view_model_connected:
+            return
+        try:
+            self._app_view_model.selected_node_changed.disconnect(self._on_selected_node_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model.data_changed.disconnect(self._on_app_view_model_data_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model.parameters_changed.disconnect(self._on_app_view_model_parameters_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model.materials_changed.disconnect(self._on_app_view_model_materials_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model._workspace_data_loaded.disconnect(self._on_workspace_data_loaded)
+        except (TypeError, RuntimeError):
+            pass
+        self._app_view_model_connected = False
+
+    def _on_selected_node_changed(self, workspace: str, node, index: int) -> None:
+        """선택된 노드가 변경되었을 때"""
+        if workspace == self._current_workspace:
+            self._geometry_editor.set_node(node, index)
+
+    def _on_app_view_model_data_changed(self, workspace: str, data: WorkspaceData) -> None:
+        """ApplicationViewModel에서 데이터가 변경되었을 때"""
+        if workspace == self._current_workspace:
+            self._sync_from_view_model()
+
+    def _on_app_view_model_parameters_changed(self, workspace: str, parameters: Dict[str, Any]) -> None:
+        """ApplicationViewModel에서 파라미터가 변경되었을 때"""
+        if workspace == self._current_workspace:
+            self._parameters_editor.set_parameters(parameters)
+
+    def _on_app_view_model_materials_changed(self, workspace: str, materials: Dict[str, Dict[float, complex]]) -> None:
+        """ApplicationViewModel에서 재료가 변경되었을 때"""
+        if workspace == self._current_workspace:
+            self._materials_editor.set_materials(materials)
+
+    def _on_view_model_data_changed(self, data: WorkspaceData) -> None:
+        if self._syncing_from_view_model:
+            return
+        self._sync_from_view_model()
+
+    def _sync_from_view_model(self) -> None:
+        if self._app_view_model is None or not self._current_workspace:
+            return
+        self._syncing_from_view_model = True
+        try:
+            data = self._app_view_model.get_workspace_data(self._current_workspace)
+            if data is not None:
+                self._parameters_editor.set_parameters(dict(data.parameters))
+                materials_copy = {key: dict(values) for key, values in data.materials.items()}
+                self._materials_editor.set_materials(materials_copy)
+        finally:
+            self._syncing_from_view_model = False
+
+    def _on_workspace_data_loaded(self, workspace: str) -> None:
+        """Workspace 데이터 로드 후 편집 패널 새로고침"""
+        if workspace == self._current_workspace:
+            self._sync_from_view_model()
+
     def set_workspace(self, workspace: str):
         """workspace 설정"""
         self._current_workspace = workspace
-        
-        # Service에서 데이터 가져와서 각 편집기에 설정
-        workspace_data = self._cgs_service.get_workspace_data(workspace)
-        if workspace_data:
-            self._parameters_editor.set_parameters(workspace_data.parameters)
-            self._materials_editor.set_materials(workspace_data.materials)
     
     def set_selected_node(self, node: Optional[GeometryNode], index: int = -1):
         """선택된 노드 설정"""
@@ -474,28 +570,28 @@ class EditorPanel(QWidget):
     
     def _on_node_updated(self, node: GeometryNode, index: int):
         """노드 업데이트 시"""
-        if not self._current_workspace:
+        if not self._current_workspace or self._app_view_model is None:
             return
-        
-        success = self._cgs_service.update_geometry_node(self._current_workspace, index, node)
+
+        success = self._app_view_model.update_geometry_node(self._current_workspace, index, node)
         if success:
-            workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
+            workspace_data = self._app_view_model.get_workspace_data(self._current_workspace)
             self.data_updated.emit(self._current_workspace, workspace_data)
     
     def _on_parameters_updated(self, parameters: Dict[str, Union[float, str]]):
         """파라미터 업데이트 시"""
-        if not self._current_workspace:
+        if not self._current_workspace or self._app_view_model is None:
             return
-        
-        self._cgs_service.update_parameters(self._current_workspace, parameters)
-        workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
+
+        self._app_view_model.update_parameters(self._current_workspace, parameters)
+        workspace_data = self._app_view_model.get_workspace_data(self._current_workspace)
         self.data_updated.emit(self._current_workspace, workspace_data)
     
     def _on_materials_updated(self, materials: Dict[str, Dict[float, complex]]):
         """재료 데이터 업데이트 시"""
-        if not self._current_workspace:
+        if not self._current_workspace or self._app_view_model is None:
             return
-        
-        self._cgs_service.update_materials(self._current_workspace, materials)
-        workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
+
+        self._app_view_model.update_materials(self._current_workspace, materials)
+        workspace_data = self._app_view_model.get_workspace_data(self._current_workspace)
         self.data_updated.emit(self._current_workspace, workspace_data)

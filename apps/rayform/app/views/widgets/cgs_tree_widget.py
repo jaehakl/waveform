@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, List
-from PySide6.QtCore import Qt, Signal, QModelIndex
+from typing import Optional, List
+from PySide6.QtCore import Qt, Signal, QModelIndex, QSignalBlocker
 from PySide6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QWidget, QVBoxLayout, 
     QHBoxLayout, QPushButton, QLabel, QComboBox, QLineEdit,
@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont, QAction
 
 from models import WorkspaceData, GeometryNode, GeometryRole, GeometryType
-from service.cgs_service import CGSService
 
 
 class CGSNodeItem(QTreeWidgetItem):
@@ -39,17 +38,15 @@ class CGSNodeItem(QTreeWidgetItem):
 class CGSTreeWidget(QWidget):
     """CGS tree를 표시하고 편집하는 위젯"""
     
-    node_selected = Signal(GeometryNode, int)  # 선택된 노드와 인덱스
-    node_added = Signal(GeometryNode, int)  # 추가된 노드와 부모 인덱스
-    node_removed = Signal(int)  # 제거된 노드 인덱스
-    node_updated = Signal(GeometryNode, int)  # 업데이트된 노드와 인덱스
-    branch_node_added = Signal(GeometryNode, int, int)  # 추가된 브랜치 노드, 부모 인덱스, 브랜치 인덱스
-    node_moved = Signal()  # 노드 순서 변경 시
+    node_selected = Signal(GeometryNode, int)  # 선택된 노드와 인덱스 (EditorPanel과의 통신용)
     
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self._current_workspace: str = ""
-        self._cgs_service = CGSService()
+        self._view_model_connected: bool = False
+        self._app_view_model = None  # ApplicationViewModel 참조
+        self._rebuilding_tree: bool = False
+        self._updating_from_drag: bool = False
         self._setup_ui()
         self._connect_signals()
     
@@ -146,37 +143,100 @@ class CGSTreeWidget(QWidget):
         self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._tree.customContextMenuRequested.connect(self._show_context_menu)
         self._tree.itemChanged.connect(self._on_item_moved)
-    
+
+    def set_view_model(self, view_model) -> None:
+        """Deprecated: Use set_app_view_model instead"""
+        pass
+
+    def set_app_view_model(self, app_view_model) -> None:
+        """ApplicationViewModel 주입"""
+        self._app_view_model = app_view_model
+        if self._app_view_model is not None:
+            self._connect_app_view_model()
+
+    def set_workspace(self, workspace: str) -> None:
+        """현재 workspace 설정"""
+        self._current_workspace = workspace
+        if self._app_view_model is not None:
+            self._connect_app_view_model()
+            self._refresh_tree()
+
+    def _connect_app_view_model(self) -> None:
+        if self._app_view_model is None or self._view_model_connected:
+            return
+        self._app_view_model.cgs_tree_changed.connect(self._on_app_view_model_tree_changed)
+        self._app_view_model.data_changed.connect(self._on_app_view_model_data_changed)
+        self._app_view_model._workspace_data_loaded.connect(self._on_workspace_data_loaded)
+        self._view_model_connected = True
+
+    def _disconnect_app_view_model(self) -> None:
+        if self._app_view_model is None or not self._view_model_connected:
+            return
+        try:
+            self._app_view_model.cgs_tree_changed.disconnect(self._on_app_view_model_tree_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model.data_changed.disconnect(self._on_app_view_model_data_changed)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            self._app_view_model._workspace_data_loaded.disconnect(self._on_workspace_data_loaded)
+        except (TypeError, RuntimeError):
+            pass
+        self._view_model_connected = False
+
+    def _on_app_view_model_tree_changed(self, workspace: str, nodes: List[GeometryNode]) -> None:
+        if self._rebuilding_tree or workspace != self._current_workspace:
+            return
+        self._rebuild_tree(nodes)
+
+    def _on_app_view_model_data_changed(self, workspace: str, data: WorkspaceData) -> None:
+        if self._rebuilding_tree or workspace != self._current_workspace:
+            return
+        nodes = data.cgs_tree if data else []
+        self._rebuild_tree(nodes)
+
+    def _on_workspace_data_loaded(self, workspace: str) -> None:
+        """Workspace 데이터 로드 후 트리 새로고침"""
+        if workspace == self._current_workspace:
+            self._refresh_tree()
+
+    def _show_empty_placeholder(self) -> None:
+        empty_item = QTreeWidgetItem()
+        empty_item.setText(0, "No CGS nodes - Click 'Add Node' to start")
+        empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
+        self._tree.addTopLevelItem(empty_item)
+
+    def _rebuild_tree(self, nodes: List[GeometryNode]) -> None:
+        if self._rebuilding_tree:
+            return
+        self._rebuilding_tree = True
+        try:
+            blocker = QSignalBlocker(self._tree)
+            _ = blocker  # keep reference alive
+            self._tree.clear()
+            if not nodes:
+                self._show_empty_placeholder()
+                return
+            for i, node in enumerate(nodes):
+                self._add_tree_item(node, i, None)
+        finally:
+            self._rebuilding_tree = False
+
     def set_workspace(self, workspace: str):
         """workspace 설정"""
         self._current_workspace = workspace
         self._refresh_tree()
-    
+
     def _refresh_tree(self):
         """트리 새로고침"""
-        self._tree.clear()
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
+            self._rebuild_tree([])
             return
-            
-        workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
-        if not workspace_data:
-            # 빈 데이터일 때 안내 메시지 추가
-            empty_item = QTreeWidgetItem()
-            empty_item.setText(0, "No CGS nodes - Click 'Add Node' to start")
-            empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            self._tree.addTopLevelItem(empty_item)
-            return
-        
-        if not workspace_data.cgs_tree:
-            # 빈 트리일 때 안내 메시지 추가
-            empty_item = QTreeWidgetItem()
-            empty_item.setText(0, "No CGS nodes - Click 'Add Node' to start")
-            empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-            self._tree.addTopLevelItem(empty_item)
-            return
-        
-        for i, node in enumerate(workspace_data.cgs_tree):
-            self._add_tree_item(node, i, None)
+        data = self._app_view_model.get_workspace_data(self._current_workspace)
+        nodes = data.cgs_tree if data else []
+        self._rebuild_tree(nodes)
     
     def _add_tree_item(self, node: GeometryNode, index: int, parent_item: Optional[QTreeWidgetItem]):
         """트리 아이템 추가"""
@@ -210,58 +270,65 @@ class CGSTreeWidget(QWidget):
         if isinstance(current_item, CGSNodeItem):
             # 선택된 노드의 인덱스 찾기
             index = self._find_node_index(current_item)
+            # ApplicationViewModel에 선택된 노드 알림
+            if self._app_view_model is not None:
+                self._app_view_model.set_selected_node(self._current_workspace, current_item.node, index)
+            # 기존 시그널도 유지 (하위 호환성)
             self.node_selected.emit(current_item.node, index)
         else:
+            # ApplicationViewModel에 선택 해제 알림
+            if self._app_view_model is not None:
+                self._app_view_model.set_selected_node(self._current_workspace, None, -1)
+            # 기존 시그널도 유지 (하위 호환성)
             self.node_selected.emit(None, -1)
     
     def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
         """아이템 더블클릭 시"""
         if isinstance(item, CGSNodeItem):
             index = self._find_node_index(item)
+            # ApplicationViewModel에 선택된 노드 알림
+            if self._app_view_model is not None:
+                self._app_view_model.set_selected_node(self._current_workspace, item.node, index)
+            # 기존 시그널도 유지 (하위 호환성)
             self.node_selected.emit(item.node, index)
     
     def _find_node_index(self, item: CGSNodeItem) -> int:
         """노드의 인덱스 찾기"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return -1
-        return self._cgs_service.find_node_index(self._current_workspace, item.node)
+        return self._app_view_model.find_node_index(self._current_workspace, item.node)
     
     
     def _add_root_node(self):
         """루트 노드 추가"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
-        
+
         # 기본 노드 생성
-        new_node = self._cgs_service.create_default_geometry_node()
-        
-        # 서비스를 통해 노드 추가
-        index = self._cgs_service.add_geometry_node(self._current_workspace, new_node)
-        self._refresh_tree()
-        self.node_added.emit(new_node, index)
+        new_node = self._app_view_model.create_default_geometry_node()
+
+        # ApplicationViewModel을 통해 노드 추가
+        index = self._app_view_model.add_geometry_node(self._current_workspace, new_node)
+        # 시그널은 내부에서 처리하므로 emit하지 않음
     
     def _remove_selected_node(self):
         """선택된 노드 제거"""
         current_item = self._tree.currentItem()
         if not isinstance(current_item, CGSNodeItem):
             return
-        
+
         index = self._find_node_index(current_item)
-        if index >= 0 and self._current_workspace:
-            success = self._cgs_service.remove_geometry_node(self._current_workspace, index)
-            if success:
-                self._refresh_tree()
-                self.node_removed.emit(index)
+        if index >= 0 and self._app_view_model is not None and self._current_workspace:
+            success = self._app_view_model.remove_geometry_node(self._current_workspace, index)
+            # 시그널은 내부에서 처리하므로 emit하지 않음
     
     def update_node(self, node: GeometryNode, index: int):
         """노드 업데이트"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
-        
-        success = self._cgs_service.update_geometry_node(self._current_workspace, index, node)
-        if success:
-            self._refresh_tree()
-            self.node_updated.emit(node, index)
+
+        success = self._app_view_model.update_geometry_node(self._current_workspace, index, node)
+        # 시그널은 내부에서 처리하므로 emit하지 않음
     
     def get_current_workspace(self) -> str:
         """현재 workspace 반환"""
@@ -302,26 +369,24 @@ class CGSTreeWidget(QWidget):
 
     def _add_branch_node(self, parent_item: CGSNodeItem):
         """브랜치 노드 추가"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
-        
+
         # 부모 노드의 인덱스 찾기
         parent_index = self._find_node_index(parent_item)
         if parent_index < 0:
             return
-        
+
         # 새로운 브랜치 노드 생성
-        branch_node = self._cgs_service.create_branch_geometry_node()
-        
-        # 서비스를 통해 브랜치 노드 추가
-        branch_index = self._cgs_service.add_branch_node(self._current_workspace, parent_index, branch_node)
-        if branch_index is not None:
-            self._refresh_tree()
-            self.branch_node_added.emit(branch_node, parent_index, branch_index)
+        branch_node = self._app_view_model.create_branch_geometry_node()
+
+        # ApplicationViewModel을 통해 브랜치 노드 추가
+        branch_index = self._app_view_model.add_branch_node(self._current_workspace, parent_index, branch_node)
+        # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _remove_node(self, item: CGSNodeItem):
         """노드 제거"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
         
         # 확인 대화상자
@@ -338,63 +403,59 @@ class CGSTreeWidget(QWidget):
         # 노드 인덱스 찾기
         index = self._find_node_index(item)
         if index >= 0:
-            success = self._cgs_service.remove_geometry_node(self._current_workspace, index)
-            if success:
-                self._refresh_tree()
-                self.node_removed.emit(index)
+            success = self._app_view_model.remove_geometry_node(self._current_workspace, index)
+            # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _move_node_up(self, item: CGSNodeItem):
         """노드를 위로 이동"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
-        
+
         index = self._find_node_index(item)
         if index > 0:
-            success = self._cgs_service.move_geometry_node(self._current_workspace, index, index - 1)
-            if success:
-                self._refresh_tree()
-                self.node_moved.emit()
+            success = self._app_view_model.move_geometry_node(self._current_workspace, index, index - 1)
+            # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _move_node_down(self, item: CGSNodeItem):
         """노드를 아래로 이동"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace:
             return
-        
+
         index = self._find_node_index(item)
-        workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
-        if workspace_data and index < len(workspace_data.cgs_tree) - 1:
-            success = self._cgs_service.move_geometry_node(self._current_workspace, index, index + 1)
-            if success:
-                self._refresh_tree()
-                self.node_moved.emit()
+        data = self._app_view_model.get_workspace_data(self._current_workspace)
+        total_nodes = len(data.cgs_tree) if data else 0
+        if index >= 0 and index < total_nodes - 1:
+            success = self._app_view_model.move_geometry_node(self._current_workspace, index, index + 1)
+            # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _on_item_moved(self, item: QTreeWidgetItem, column: int):
         """아이템이 드래그 앤 드롭으로 이동되었을 때"""
         # 드래그 앤 드롭으로 순서 변경된 경우 처리
-        if isinstance(item, CGSNodeItem) and self._current_workspace:
+        if self._rebuilding_tree:
+            return
+        if isinstance(item, CGSNodeItem) and self._app_view_model is not None and self._current_workspace:
             self._update_workspace_data_from_tree()
-            self.node_moved.emit()
+            # 시그널은 내부에서 처리하므로 emit하지 않음
 
     def _update_workspace_data_from_tree(self):
         """트리에서 workspace 데이터 업데이트"""
-        if not self._current_workspace:
+        if self._app_view_model is None or not self._current_workspace or self._rebuilding_tree:
             return
-        
-        workspace_data = self._cgs_service.get_workspace_data(self._current_workspace)
-        if not workspace_data:
-            return
-        
-        # 트리의 순서대로 workspace 데이터 업데이트
-        new_nodes = []
-        for i in range(self._tree.topLevelItemCount()):
-            item = self._tree.topLevelItem(i)
-            if isinstance(item, CGSNodeItem):
-                # 하위 노드들도 업데이트
-                updated_node = self._update_node_from_tree_item(item)
-                new_nodes.append(updated_node)
-        
-        workspace_data.cgs_tree = new_nodes
-        self._cgs_service.set_workspace_data(self._current_workspace, workspace_data)
+
+        self._updating_from_drag = True
+        try:
+            # 트리의 순서대로 workspace 데이터 업데이트
+            new_nodes = []
+            for i in range(self._tree.topLevelItemCount()):
+                item = self._tree.topLevelItem(i)
+                if isinstance(item, CGSNodeItem):
+                    # 하위 노드들도 업데이트
+                    updated_node = self._update_node_from_tree_item(item)
+                    new_nodes.append(updated_node)
+
+            self._app_view_model.replace_cgs_tree(self._current_workspace, new_nodes)
+        finally:
+            self._updating_from_drag = False
 
     def _update_node_from_tree_item(self, item: CGSNodeItem) -> GeometryNode:
         """트리 아이템에서 노드 업데이트"""
