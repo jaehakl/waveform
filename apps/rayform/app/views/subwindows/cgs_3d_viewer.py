@@ -110,13 +110,16 @@ class CGS3DViewer(QOpenGLWidget):
         self._last_mouse_pos = QPoint()
 
         # Lighting/material configuration
-        self._light_position = QVector3D(2.0, 3.0, 2.0)
+        self._light_direction = QVector3D(0.45, 1.0, 0.35)
+        self._light_distance_factor: float = 4.0
+        self._light_position = QVector3D(0.0, 0.0, 0.0)
         self._eye_position = QVector3D(0.0, 0.0, 6.0)
         self._material_ambient = QVector3D(0.12, 0.12, 0.12)
         self._material_diffuse = QVector3D(0.7, 0.7, 0.7)
         self._material_specular = QVector3D(0.2, 0.2, 0.2)
         self._shininess: float = 32.0
 
+        self._refresh_light_position()
         self.setFocusPolicy(Qt.ClickFocus)
 
     # -- lifecycle ---------------------------------------------------------
@@ -256,6 +259,14 @@ class CGS3DViewer(QOpenGLWidget):
     def adjust_camera_angles(self, delta_yaw: float, delta_pitch: float) -> None:
         self.set_camera_angles(self._camera_yaw + delta_yaw, self._camera_pitch + delta_pitch)
 
+
+    def _refresh_light_position(self) -> None:
+        direction = QVector3D(self._light_direction)
+        if direction.lengthSquared() < 1e-6:
+            direction = QVector3D(0.45, 1.0, 0.35)
+        direction.normalize()
+        distance = max(self._mesh_radius * self._light_distance_factor, 3.0)
+        self._light_position = self._mesh_center + direction * distance
 
     def _normalize_yaw(self, yaw: float) -> float:
         wrapped = (float(yaw) + 180.0) % 360.0 - 180.0
@@ -484,7 +495,6 @@ class CGS3DViewer(QOpenGLWidget):
 
         eye_matrix = view.inverted()[0]
         self._eye_position = eye_matrix.map(QVector3D(0.0, 0.0, 0.0))
-        self._light_position = QVector3D(self._eye_position)
 
         return projection * view
 
@@ -497,6 +507,7 @@ class CGS3DViewer(QOpenGLWidget):
         self._mesh_center = QVector3D(float(center[0]), float(center[1]), float(center[2]))
         self._mesh_radius = radius
         self._camera_target = self._mesh_center
+        self._refresh_light_position()
         self.set_camera_distance(max(3.0, radius * 2.5))
 
     def cleanup(self) -> None:
