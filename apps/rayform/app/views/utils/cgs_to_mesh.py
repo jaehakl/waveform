@@ -3,6 +3,7 @@ import json, math
 import numpy as np, math
 import igl
 import trimesh
+from .make_trimesh import create_shape
 
 
 def R_zyx(deg):
@@ -26,10 +27,7 @@ def apply_M(V, M):
     return (M @ Vh.T).T[:, :3]
 
 
-# ---------- 리프 메셔: 단위 이코스피어 ----------
-def make_unit_icosphere(subdiv=4):
-    mesh = trimesh.creation.icosphere(subdivisions=subdiv, radius=1.0)
-    return np.asarray(mesh.vertices, dtype=np.float64), np.asarray(mesh.faces, dtype=np.int32)
+
 
 # ---------- 불리언 ----------
 def boolean(VA: np.ndarray, FA: np.ndarray, VB: np.ndarray, FB: np.ndarray, op: str):
@@ -54,17 +52,16 @@ def boolean(VA: np.ndarray, FA: np.ndarray, VB: np.ndarray, FB: np.ndarray, op: 
 def eval_node(node, M_parent=np.eye(4)):
     role = node.get("role", "union")
     gtyp = node["geometry_type"]
+    if gtyp == "tree":
+        size = node.get("size",[1,1,1])
+    else:
+        size = [1,1,1]
     M_here = TRS(node.get("pos",[0,0,0]),
                  node.get("rotation",[0,0,0]),
-                 node.get("size",[1,1,1]))
+                 size)
     M = M_parent @ M_here
 
-    if gtyp == "sphere":
-        V,F = make_unit_icosphere(subdiv=4)     # 단위구
-        V = apply_M(V, M)                       # 부모 누적 변환 적용
-        return {"V":V, "F":F, "role":role}
-
-    elif gtyp == "tree":
+    if gtyp == "tree":
         ch = node["geometry"]
         acc = eval_node(ch[0], M)
         VA, FA = acc["V"], acc["F"]
@@ -73,9 +70,10 @@ def eval_node(node, M_parent=np.eye(4)):
             op = {"union":"union","intersect":"intersection","subtract":"difference"}[B["role"]]
             VA, FA = boolean(VA, FA, B["V"], B["F"], op)
         return {"V":VA,"F":FA,"role":role}
-
     else:
-        raise ValueError(f"unsupported geometry_type: {gtyp}")
+        V, F = create_shape(gtyp, **node)
+        V = apply_M(V, M)
+        return {"V":V, "F":F, "role":role}
 
 
 def eval_forest(nodes):  # 최상위가 배열일 경우

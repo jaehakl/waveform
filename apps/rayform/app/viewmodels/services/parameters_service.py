@@ -23,20 +23,6 @@ class ParametersService():
         }
         vm._notify_workspace_data(workspace, workspace_data)
 
-    def update_parameter(vm, workspace: str, name: str, value: Union[float, str]) -> None:
-        """Update single parameter for workspace."""
-        workspace_data = vm.ensure_workspace(workspace)
-        workspace_data.update_parameter(name, value)
-        vm._notify_workspace_data(workspace, workspace_data)
-
-    def remove_parameter(vm, workspace: str, name: str) -> None:
-        """Remove parameter from workspace."""
-        workspace_data = vm.get_workspace_data(workspace)
-        if workspace_data is None:
-            return
-        workspace_data.remove_parameter(name)
-        vm._notify_workspace_data(workspace, workspace_data)
-
     def update_material(vm, workspace: str, material_id: str, wavelength_data: Dict[float, complex]) -> None:
         """Update single material for workspace."""
         workspace_data = vm.ensure_workspace(workspace)

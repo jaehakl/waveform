@@ -20,7 +20,6 @@ class ApplicationViewModel(QObject):
     active_workspace_changed = Signal(str)
     active_subwindow_title_changed = Signal(str)
     _workspace_data_loaded = Signal(str)  # workspace_name
-    selected_node_changed = Signal(str, Any, int)  # workspace_name, node, index (legacy)
     selected_node1_changed = Signal(str, Any, int)  # workspace_name, node, index
     selected_node2_changed = Signal(str, Any, int)  # workspace_name, node, index
     selected_nodes_changed = Signal(str, Any, int, Any, int)  # workspace_name, node1, idx1, node2, idx2
@@ -41,9 +40,6 @@ class ApplicationViewModel(QObject):
         self._status_message: str = ""
         self._active_workspace: str = ""
         self._active_subwindow_title: str = ""
-        # Legacy single selection (kept for backward compatibility)
-        self._selected_node: Optional[Any] = None
-        self._selected_node_index: int = -1
         # Dual selection state
         self._selected_node_1: Optional[Any] = None
         self._selected_node_1_index: int = -1
@@ -83,21 +79,16 @@ class ApplicationViewModel(QObject):
     def remove_geometry_node(self, workspace: str, index: int) -> bool: return GeometryService.remove_geometry_node(self, workspace, index)
     def update_geometry_node(self, workspace: str, index: int, node: GeometryNode) -> bool: return GeometryService.update_geometry_node(self, workspace, index, node)
     def move_geometry_node(self, workspace: str, from_index: int, to_index: int) -> bool: return GeometryService.move_geometry_node(self, workspace, from_index, to_index)
-    def find_node_index(self, workspace: str, node: GeometryNode) -> int: return GeometryService.find_node_index(self, workspace, node)
-
+    def merge_geometry_nodes(self, workspace: str, operation: GeometryRole, index1: int, index2: int) -> bool: return GeometryService.merge_geometry_nodes(self, workspace, operation, index1, index2)
+    
     # -- parameters/materials ----------------------------------------------
     def update_parameters(self, workspace: str, parameters: Dict[str, object]) -> None: return ParametersService.update_parameters(self, workspace, parameters)
     def update_materials(self, workspace: str, materials: Dict[str, Dict[float, complex]]) -> None: return ParametersService.update_materials(self, workspace, materials)
-    def update_parameter(self, workspace: str, name: str, value: Union[float, str]) -> None: return ParametersService.update_parameter(self, workspace, name, value)
-    def remove_parameter(self, workspace: str, name: str) -> None: return ParametersService.remove_parameter(self, workspace, name)
     def update_material(self, workspace: str, material_id: str, wavelength_data: Dict[float, complex]) -> None: return ParametersService.update_material(self, workspace, material_id, wavelength_data)
     def remove_material(self, workspace: str, material_id: str) -> None: return ParametersService.remove_material(self, workspace, material_id)
     def replace_cgs_tree(self, workspace: str, nodes: List[GeometryNode]) -> None: return ParametersService.replace_cgs_tree(self, workspace, nodes)
 
     # -- mdi title -----------------------------------------------------------
-    def selected_node(self) -> Optional[Any]: return self._selected_node
-    def selected_node_index(self) -> int: return self._selected_node_index
-    def set_selected_node(self, workspace: str, node: Optional[Any], index: int) -> None: UIService.set_selected_node(self, workspace, node, index)
     # Dual selection getters
     def selected_node_1(self) -> Optional[Any]: return self._selected_node_1
     def selected_node_1_index(self) -> int: return self._selected_node_1_index

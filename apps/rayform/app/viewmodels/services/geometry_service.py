@@ -46,9 +46,12 @@ class GeometryService():
             vm._notify_workspace_data(workspace, workspace_data)
         return moved
 
-    def find_node_index(vm, workspace: str, node: GeometryNode) -> int:
-        """Find node index in workspace."""
+    def merge_geometry_nodes(vm, workspace: str, operation: GeometryRole, index1: int, index2: int) -> bool:
+        """Merge geometry nodes in workspace."""
         workspace_data = vm.get_workspace_data(workspace)
         if workspace_data is None:
-            return -1
-        return workspace_data.cgs_tree.find_node_index(node)    
+            return False
+        merged = workspace_data.cgs_tree.merge_geometry_nodes(operation, index1, index2)
+        if merged:
+            vm._notify_workspace_data(workspace, workspace_data)
+        return merged

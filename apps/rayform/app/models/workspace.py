@@ -12,7 +12,7 @@ class WorkspaceData:
     """Workspace level data container."""
 
     cgs_tree: CGSTree = field(default_factory=CGSTree)
-    parameters: Dict[str, Union[float, str]] = field(default_factory=dict)
+    parameters: Dict[str, float] = field(default_factory=dict)
     materials: Dict[str, Dict[float, complex]] = field(default_factory=dict)
 
     def add_geometry_node(self, node: GeometryNode) -> int:
@@ -20,12 +20,6 @@ class WorkspaceData:
 
     def remove_geometry_node(self, index: int) -> bool:
         return self.cgs_tree.remove_geometry_node(index)
-
-    def update_parameter(self, name: str, value: Union[float, str]) -> None:
-        self.parameters[name] = value
-
-    def remove_parameter(self, name: str) -> None:
-        self.parameters.pop(name, None)
 
     def update_material(self, material_id: str, wavelength_data: Dict[float, complex]) -> None:
         self.materials[material_id] = wavelength_data

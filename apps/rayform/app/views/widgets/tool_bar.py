@@ -4,6 +4,7 @@ from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QToolBar
+from models import GeometryRole
 
 
 class ToolBar:
@@ -18,6 +19,9 @@ class ToolBar:
         self._load_action: Optional[QAction] = None
         self._tile_action: Optional[QAction] = None
         self._cascade_action: Optional[QAction] = None
+        self._union_action: Optional[QAction] = None
+        self._intersect_action: Optional[QAction] = None
+        self._subtract_action: Optional[QAction] = None
         self.create_tool_bar()
 
     def create_tool_bar(self) -> QToolBar:
@@ -59,6 +63,32 @@ class ToolBar:
         self._cascade_action.setToolTip("Cascade active workspace windows")
         self._cascade_action.triggered.connect(self._on_cascade_mdi)
 
+        # CGS 연산 액션들
+        self._union_action = QAction("Union", self._main_window)
+        self._union_action.setToolTip("Merge selected nodes with UNION")
+        self._union_action.triggered.connect(lambda: self._on_merge_geometry(GeometryRole.UNION))
+
+        self._intersect_action = QAction("Intersect", self._main_window)
+        self._intersect_action.setToolTip("Merge selected nodes with INTERSECT")
+        self._intersect_action.triggered.connect(lambda: self._on_merge_geometry(GeometryRole.INTERSECT))
+
+        self._subtract_action = QAction("Subtract", self._main_window)
+        self._subtract_action.setToolTip("Merge selected nodes with SUBTRACT")
+        self._subtract_action.triggered.connect(lambda: self._on_merge_geometry(GeometryRole.SUBTRACT))
+
+        # 선택 변경 시 버튼 활성화 상태 업데이트
+        try:
+            if hasattr(self._app_vm, "selected_nodes_changed"):
+                self._app_vm.selected_nodes_changed.connect(self._on_selected_nodes_changed)
+            if hasattr(self._app_vm, "selected_node1_changed"):
+                self._app_vm.selected_node1_changed.connect(self._on_selected_node1_changed)
+            if hasattr(self._app_vm, "selected_node2_changed"):
+                self._app_vm.selected_node2_changed.connect(self._on_selected_node2_changed)
+        except Exception:
+            pass
+        # 초기 활성화 상태 설정
+        self._update_merge_actions_enabled()
+
     def _add_actions_to_toolbar(self) -> None:
         """액션들을 툴바에 추가"""
         if not self._tool_bar:
@@ -74,6 +104,14 @@ class ToolBar:
         # 구분선
         self._tool_bar.addSeparator()
         
+        # CGS 연산
+        self._tool_bar.addAction(self._union_action)
+        self._tool_bar.addAction(self._intersect_action)
+        self._tool_bar.addAction(self._subtract_action)
+
+        # 구분선
+        self._tool_bar.addSeparator()
+
         # 윈도우 관리
         self._tool_bar.addAction(self._tile_action)
         self._tool_bar.addAction(self._cascade_action)
@@ -124,6 +162,56 @@ class ToolBar:
     def _on_cascade_mdi(self) -> None:
         """MDI 캐스케이드"""
         self._app_vm.request_cascade_mdi.emit()
+
+    # ------------------------------ CGS merge helpers ------------------------------
+    def _on_merge_geometry(self, role: GeometryRole) -> None:
+        workspace = self._app_vm.active_workspace()
+        if not workspace:
+            return
+        idx1 = getattr(self._app_vm, "selected_node_1_index")()
+        idx2 = getattr(self._app_vm, "selected_node_2_index")()
+        if idx1 is None or idx2 is None:
+            return
+        if idx1 < 0 or idx2 < 0:
+            return
+        try:
+            self._app_vm.merge_geometry_nodes(workspace, role, idx1, idx2)
+        finally:
+            # 병합 후에도 활성화 상태를 다시 계산
+            self._update_merge_actions_enabled()
+
+    def _on_selected_nodes_changed(self, workspace: str, node1, idx1: int, node2, idx2: int) -> None:
+        # 활성 워크스페이스에서만 버튼 상태를 갱신
+        if workspace != self._app_vm.active_workspace():
+            self._update_merge_actions_enabled()
+            return
+        self._update_merge_actions_enabled(idx1, idx2)
+
+    def _on_selected_node1_changed(self, workspace: str, node, idx1: int) -> None:
+        if workspace != self._app_vm.active_workspace():
+            self._update_merge_actions_enabled()
+            return
+        self._update_merge_actions_enabled(idx1, getattr(self._app_vm, "selected_node_2_index")())
+
+    def _on_selected_node2_changed(self, workspace: str, node, idx2: int) -> None:
+        if workspace != self._app_vm.active_workspace():
+            self._update_merge_actions_enabled()
+            return
+        self._update_merge_actions_enabled(getattr(self._app_vm, "selected_node_1_index")(), idx2)
+
+    def _update_merge_actions_enabled(self, idx1: Optional[int] = None, idx2: Optional[int] = None) -> None:
+        if self._union_action is None or self._intersect_action is None or self._subtract_action is None:
+            return
+        if idx1 is None or idx2 is None:
+            try:
+                idx1 = getattr(self._app_vm, "selected_node_1_index")()
+                idx2 = getattr(self._app_vm, "selected_node_2_index")()
+            except Exception:
+                idx1, idx2 = -1, -1
+        enabled = (idx1 is not None and idx2 is not None and idx1 != -1 and idx2 != -1)
+        self._union_action.setEnabled(enabled)
+        self._intersect_action.setEnabled(enabled)
+        self._subtract_action.setEnabled(enabled)
 
     def get_new_doc_action(self) -> Optional[QAction]:
         """새 문서 액션 반환"""

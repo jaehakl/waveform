@@ -11,11 +11,13 @@ from PySide6.QtWidgets import (
     QMdiArea,
     QMdiSubWindow,
     QTextEdit,
+    QSplitter,
 )
 
 from viewmodels.application import ApplicationViewModel
 from views.subwindows.cgs_3d_viewer import CGS3DViewerWindow
 from views.widgets.cgs_tree_widget import CGSTreeWidget
+from views.widgets.geometry_edit_widget import GeometryEditWidget
 
 
 class WorkspaceSheet(QObject):
@@ -33,6 +35,8 @@ class WorkspaceSheet(QObject):
         self.mdi_area: Optional[QMdiArea] = None
         self.left_dock: Optional[QDockWidget] = None
         self.cgs_tree_widget: Optional[CGSTreeWidget] = None
+        self.geometry_edit_widget: Optional[GeometryEditWidget] = None
+        self._left_splitter: Optional[QSplitter] = None
         self._viewer_window: Optional[QMdiSubWindow] = None
         
         self._create_widgets()
@@ -51,9 +55,18 @@ class WorkspaceSheet(QObject):
         self.cgs_tree_widget.set_app_view_model(self.app_vm)
         self.cgs_tree_widget.set_workspace(self.workspace_name)
 
+        # 하단 Geometry 에디터와 함께 수직 스플리터 구성
+        self.geometry_edit_widget = GeometryEditWidget(self.app_vm, self.workspace_name)
+        self._left_splitter = QSplitter(Qt.Orientation.Vertical, self.parent_window)
+        self._left_splitter.addWidget(self.cgs_tree_widget)
+        self._left_splitter.addWidget(self.geometry_edit_widget)
+        self._left_splitter.setChildrenCollapsible(False)
+        # 초기 사이즈 비율 (상단 60%, 하단 40%)
+        self._left_splitter.setSizes([3, 2])
+
         self.left_dock = QDockWidget(f"{self.workspace_name} CGS Tree", self.parent_window)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.left_dock.setWidget(self.cgs_tree_widget)
+        self.left_dock.setWidget(self._left_splitter)
         self.left_dock.setVisible(False)
         self.parent_window.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock)
 

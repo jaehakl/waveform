@@ -13,9 +13,11 @@ class GeometryRole(Enum):
 
 class GeometryType(Enum):
     SPHERE = "sphere"
-    CUBE = "cube"
-    CYLINDER = "cylinder"
-    PLANE = "plane"
+    BOX = "box"
+    TORUS = "torus"
+    CONE = "cone"
+    PARABOLOID = "paraboloid"
+    ELLIPSOID = "ellipsoid"
     TREE = "tree"
 
 
@@ -57,7 +59,7 @@ def geometry_node_to_dict(node: GeometryNode) -> Dict[str, Any]:
 
 def geometry_node_from_dict(data: Dict[str, Any]) -> GeometryNode:
     role = GeometryRole(data.get("role", GeometryRole.UNION.value))
-    geometry_data = data.get("geometry", GeometryType.SPHERE.value)
+    geometry_data = data.get("geometry", GeometryType.BOX.value)
     if isinstance(geometry_data, list):
         geometry = [geometry_node_from_dict(sub_data) for sub_data in geometry_data]
         geometry_type = GeometryType.TREE
@@ -66,7 +68,7 @@ def geometry_node_from_dict(data: Dict[str, Any]) -> GeometryNode:
         try:
             geometry_type = GeometryType(data.get("geometry_type", geometry_data))
         except ValueError:
-            geometry_type = GeometryType.SPHERE
+            geometry_type = GeometryType.BOX
     return GeometryNode(
         role=role,
         geometry_type=geometry_type,

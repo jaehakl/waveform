@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Iterator, List, Optional
+import copy
 
 from .geometry import (
     GeometryNode,
@@ -126,17 +127,18 @@ class CGSTree:
         self.nodes[from_index], self.nodes[to_index] = self.nodes[to_index], self.nodes[from_index]
         return True
 
-    def find_node_index(self, target_node: GeometryNode) -> int:
-        for index, node in enumerate(self.nodes):
-            if self._find_node_recursive(node, target_node):
-                return index
-        return -1
-
-    def _find_node_recursive(self, search_node: GeometryNode, target_node: GeometryNode) -> bool:
-        if search_node == target_node:
-            return True
-        if isinstance(search_node.geometry, list):
-            for sub_node in search_node.geometry:
-                if isinstance(sub_node, GeometryNode) and self._find_node_recursive(sub_node, target_node):
-                    return True
-        return False
+    def merge_geometry_nodes(self, operation: GeometryRole, index1: int, index2: int) -> bool:
+        if not (0 <= index1 < len(self.nodes) and 0 <= index2 < len(self.nodes)):
+            return False
+        if index1 == index2:
+            return False
+        node_1 = copy.deepcopy(self.nodes[index1])
+        node_2 = copy.deepcopy(self.nodes[index2])
+        node_2.role = operation
+        self.nodes[index1].geometry = [node_1, node_2]
+        self.nodes[index1].geometry_type = GeometryType.TREE
+        self.nodes[index1].material = node_1.material
+        self.nodes[index1].pos = [0,0,0]
+        self.nodes[index1].rotation = [0,0,0]
+        self.nodes[index1].size = [1,1,1]
+        return True

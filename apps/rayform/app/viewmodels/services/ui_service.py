@@ -20,27 +20,9 @@ class UIService():
         title = title or ""
         vm._set_and_emit("_active_subwindow_title", title, vm.active_subwindow_title_changed)
 
-    def set_selected_node(vm, workspace: str, node: Optional[Any], index: int) -> None:
-        """선택된 노드 설정"""
-        workspace = workspace or ""
-        index = index if index >= 0 else -1
-        
-        # workspace가 변경되었거나, node가 변경되었거나, index가 변경된 경우에만 업데이트
-        if (vm._active_workspace != workspace or 
-            vm._selected_node != node or 
-            vm._selected_node_index != index):
-            
-            vm._active_workspace = workspace
-            vm._selected_node = node
-            vm._selected_node_index = index
-            vm.selected_node_changed.emit(workspace, node, index)
-
     def _emit_dual_selection(vm, workspace: str) -> None:
         """이중 선택 신호 방출 및 레거시 동기화"""
         # 레거시 단일 선택은 node_1로 동기화
-        vm._selected_node = vm._selected_node_1
-        vm._selected_node_index = vm._selected_node_1_index
-        vm.selected_node_changed.emit(workspace, vm._selected_node_1, vm._selected_node_1_index)
         vm.selected_node1_changed.emit(workspace, vm._selected_node_1, vm._selected_node_1_index)
         vm.selected_node2_changed.emit(workspace, vm._selected_node_2, vm._selected_node_2_index)
         vm.selected_nodes_changed.emit(
