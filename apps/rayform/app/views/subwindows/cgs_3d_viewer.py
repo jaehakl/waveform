@@ -112,11 +112,11 @@ class CGS3DViewer(QOpenGLWidget):
         # Lighting/material configuration
         self._light_direction = QVector3D(0.45, 1.0, 0.35)
         self._light_distance_factor: float = 4.0
-        self._light_position = QVector3D(0.0, 0.0, 0.0)
+        self._light_position = QVector3D(10.0, 10.0, 10.0)
         self._eye_position = QVector3D(0.0, 0.0, 6.0)
-        self._material_ambient = QVector3D(0.12, 0.12, 0.12)
-        self._material_diffuse = QVector3D(0.7, 0.7, 0.7)
-        self._material_specular = QVector3D(0.2, 0.2, 0.2)
+        self._material_ambient = QVector3D(0.3, 0.3, 0.7)
+        self._material_diffuse = QVector3D(0.3, 0.3, 0.7)
+        self._material_specular = QVector3D(0.1, 0.1, 0.2)
         self._shininess: float = 32.0
 
         self._refresh_light_position()
@@ -357,7 +357,7 @@ class CGS3DViewer(QOpenGLWidget):
             uniform float uWireframe;
             void main(){
                 if (uWireframe > 0.5){
-                    FragColor = vec4(0.9, 0.9, 0.9, 1.0);
+                    FragColor = vec4(0.1, 0.1, 0.5, 0.8);
                     return;
                 }
                 vec3 N = normalize(vN);
@@ -365,7 +365,7 @@ class CGS3DViewer(QOpenGLWidget):
                 float diff = max(dot(N, L), 0.0);
                 vec3 V = normalize(uEye - vPos);
                 vec3 R = reflect(-L, N);
-                float spec = diff > 0.0 ? pow(max(dot(R, V), 0.0), shininess) : 0.0;
+                float spec = diff > 0.0 ? pow(max(dot(R, V), 0.1), shininess) : 0.0;
                 vec3 ambient = ka;
                 vec3 color = ambient + kd * diff + ks * spec;
                 FragColor = vec4(color, 1.0);
