@@ -17,7 +17,6 @@ class MenuBar:
     def create_menu_bar(self) -> QMenuBar: MenuBarMethods._create_menu_bar(self)
     def _create_file_menu(self, menu_bar: QMenuBar) -> None: MenuBarMethods._create_file_menu(self, menu_bar)
     def _create_window_menu(self, menu_bar: QMenuBar) -> None: MenuBarMethods._create_window_menu(self, menu_bar)
-    def _create_document(self) -> None: MenuBarMethods._create_document(self)
     def _on_save_cgs_data(self) -> None: MenuBarMethods._on_save_cgs_data(self)
     def _on_load_cgs_data(self) -> None: MenuBarMethods._on_load_cgs_data(self)
     def _on_load_example_data(self) -> None: MenuBarMethods._on_load_example_data(self)
@@ -43,14 +42,6 @@ class MenuBarMethods:
     def _create_file_menu(_mbar, menu_bar: QMenuBar) -> None:
         """File 메뉴 생성"""
         file_menu = menu_bar.addMenu("File")
-
-        # 새 문서
-        _mbar._new_doc_action = QAction("New Document", _mbar._main_window)
-        _mbar._new_doc_action.setShortcut("Ctrl+N")
-        _mbar._new_doc_action.triggered.connect(_mbar._create_document)
-        file_menu.addAction(_mbar._new_doc_action)
-
-        file_menu.addSeparator()
 
         # CGS 데이터 저장/로드
         save_cgs_action = QAction("Save CGS Data", _mbar._main_window)
@@ -97,10 +88,6 @@ class MenuBarMethods:
         cgs_str_action.triggered.connect(_mbar._on_open_cgs_string_viewer)
         window_menu.addAction(cgs_str_action)
 
-    def _create_document(_mbar) -> None:
-        """새 문서 생성"""
-        # MainWindow의 _create_document 메서드 호출을 위한 시그널 발생
-        _mbar._app_vm.request_create_document.emit()
 
     def _on_save_cgs_data(_mbar) -> None:
         """CGS 데이터 저장"""

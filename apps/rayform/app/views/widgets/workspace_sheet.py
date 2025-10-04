@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 from viewmodels.application import ApplicationViewModel
 from views.subwindows.cgs_3d_viewer import CGS3DViewerWindow
 from views.widgets.cgs_tree_widget import CGSTreeWidget
-from views.widgets.editor_panel import EditorPanel
 
 
 class WorkspaceSheet(QObject):
@@ -34,12 +33,8 @@ class WorkspaceSheet(QObject):
         self.mdi_area: Optional[QMdiArea] = None
         self.left_dock: Optional[QDockWidget] = None
         self.cgs_tree_widget: Optional[CGSTreeWidget] = None
-        self.editor_panel: Optional[EditorPanel] = None
         self._viewer_window: Optional[QMdiSubWindow] = None
-
-        # Document counter for ad-hoc text editors
-        self.document_counter = 1
-
+        
         self._create_widgets()
         self._connect_signals()
 
@@ -50,16 +45,11 @@ class WorkspaceSheet(QObject):
         self.mdi_area.setViewMode(QMdiArea.ViewMode.SubWindowView)
         self.mdi_area.setTabsClosable(True)
         self.mdi_area.setTabsMovable(True)
-        self.mdi_area.setDocumentMode(True)
         self.mdi_area.subWindowActivated.connect(partial(self._on_subwindow_activated))
 
         self.cgs_tree_widget = CGSTreeWidget()
         self.cgs_tree_widget.set_app_view_model(self.app_vm)
         self.cgs_tree_widget.set_workspace(self.workspace_name)
-
-        self.editor_panel = EditorPanel()
-        self.editor_panel.set_app_view_model(self.app_vm)
-        self.editor_panel.data_updated.connect(self._on_workspace_data_updated)
 
         self.left_dock = QDockWidget(f"{self.workspace_name} CGS Tree", self.parent_window)
         self.left_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
@@ -91,7 +81,7 @@ class WorkspaceSheet(QObject):
     def _on_subwindow_activated(self, sub_window: Optional[QMdiSubWindow]) -> None:
         self.app_vm.set_active_workspace(self.workspace_name)
         if sub_window is None:
-            self.app_vm.set_status_message(f"{self.workspace_name}: No active document")
+            self.app_vm.set_status_message(f"{self.workspace_name}: No active window")
             return
         self.app_vm.set_status_message(
             f"{self.workspace_name}: Active {sub_window.windowTitle()}"
@@ -108,48 +98,6 @@ class WorkspaceSheet(QObject):
     def hide_left_dock(self) -> None:
         if self.left_dock:
             self.left_dock.setVisible(False)
-
-    def get_editor_panel(self) -> Optional[EditorPanel]:
-        return self.editor_panel
-
-    # --------------------------------------------------------------- documents
-    def create_document(
-        self,
-        title: Optional[str] = None,
-        set_active: bool = True,
-    ) -> Optional[QMdiSubWindow]:
-        if self.mdi_area is None:
-            return None
-
-        if title == "3D Viewer":
-            self._open_default_subwindows()
-            if set_active and self._viewer_window is not None:
-                self.mdi_area.setActiveSubWindow(self._viewer_window)
-            return self._viewer_window
-
-        document_title = title or f"{self.workspace_name} Document {self.document_counter}"
-        self.document_counter += 1
-
-        editor = QTextEdit()
-        editor.setPlainText(
-            f"Workspace: {self.workspace_name}\nDocument: {document_title}\nAdd your content here."
-        )
-
-        sub_window = QMdiSubWindow()
-        sub_window.setWidget(editor)
-        sub_window.setAttribute(Qt.WA_DeleteOnClose)
-        sub_window.setWindowTitle(document_title)
-
-        self.mdi_area.addSubWindow(sub_window)
-        sub_window.show()
-
-        if set_active:
-            self.mdi_area.setActiveSubWindow(sub_window)
-            self.app_vm.set_status_message(f"{self.workspace_name}: Opened {document_title}")
-        else:
-            self.app_vm.set_status_message(f"{self.workspace_name}: Added {document_title}")
-
-        return sub_window
 
     def tile_subwindows(self) -> None:
         if self.mdi_area:

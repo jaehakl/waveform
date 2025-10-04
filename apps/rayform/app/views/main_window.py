@@ -37,17 +37,12 @@ class MainWindow(QMainWindow):
         self._menu_bar = MenuBar(self, self._app_vm)
         self._tool_bar = ToolBar(self, self._app_vm)
         self._create_workspace_tabs()
-        self._create_bottom_dock()
         self._create_status_bar()
-        self._populate_initial_documents()
 
     # -- setup ---------------------------------------------------------------
     def _create_workspace_tabs(self) -> None: MainWindowMethods._create_workspace_tabs(self)
-    def _create_bottom_dock(self) -> None: MainWindowMethods._create_bottom_dock(self)
     def _create_status_bar(self) -> None: MainWindowMethods._create_status_bar(self)
-    def _populate_initial_documents(self) -> None: MainWindowMethods._populate_initial_documents(self)
     def _connect_view_model(self) -> None: MainWindowMethods._connect_view_model(self)
-    def _create_document(self, checked: bool = False, title: Optional[str] = None, workspace: Optional[str] = None, set_active: bool = True) -> Optional[QMdiSubWindow]: MainWindowMethods._create_document(self, checked, title, workspace, set_active)
     def _create_subwindow(self, workspace: str, subwindow_type: str) -> Optional[QMdiSubWindow]: MainWindowMethods._create_subwindow(self, workspace, subwindow_type)
 
     def _current_workspace_sheet(self) -> Optional[WorkspaceSheet]: MainWindowMethods._current_workspace_sheet(self)
@@ -59,7 +54,6 @@ class MainWindow(QMainWindow):
     def _on_workspace_tab_changed(self, index: int) -> None: MainWindowMethods._on_workspace_tab_changed(self, index)
     def _on_active_workspace_changed(self, workspace: str) -> None: MainWindowMethods._on_active_workspace_changed(self, workspace)
     def _on_active_title_changed(self, title: str) -> None: MainWindowMethods._on_active_title_changed(self, title)
-    def _update_bottom_dock(self, workspace: str) -> None: MainWindowMethods._update_bottom_dock(self, workspace)
     def _on_workspace_data_updated(self, workspace: str, data) -> None: MainWindowMethods._on_workspace_data_updated(self, workspace, data)
 
 
@@ -67,7 +61,6 @@ class MainWindowMethods:
     # -- setup ---------------------------------------------------------------
     def _create_workspace_tabs(_mw) -> None:
         tabs = QTabWidget(_mw)
-        tabs.setDocumentMode(True)
         tabs.setMovable(True)
         tabs.currentChanged.connect(_mw._on_workspace_tab_changed)
         _mw.setCentralWidget(tabs)
@@ -84,43 +77,9 @@ class MainWindowMethods:
             # MDI area를 탭에 추가
             tabs.addTab(workspace_sheet.mdi_area, workspace)
 
-
-    def _create_bottom_dock(_mw) -> None:
-        dock = QDockWidget("Editor", _mw)
-        dock.setAllowedAreas(Qt.BottomDockWidgetArea)
-
-        # 기본 라벨로 초기화 (workspace 생성 후 업데이트됨)
-        label = QLabel("Select a workspace to edit CGS data.", dock)
-        label.setAlignment(Qt.AlignCenter)
-        dock.setWidget(label)
-
-        _mw.addDockWidget(Qt.BottomDockWidgetArea, dock)
-        _mw._bottom_dock = dock
-
     def _create_status_bar(_mw) -> None:
         status_bar = _mw.statusBar()
         status_bar.showMessage(_mw._app_vm.status_message())
-
-    def _populate_initial_documents(_mw) -> None:
-        if not _mw._workspace_tabs:
-            return
-        for workspace, documents in _mw._workspace_definitions.items():
-            workspace_sheet = _mw._workspace_sheets[workspace]
-            first_window: Optional[QMdiSubWindow] = None
-            for title in documents:
-                sub_window = workspace_sheet.create_document(title=title, set_active=False)
-                if first_window is None and sub_window is not None:
-                    first_window = sub_window
-            if first_window is not None:
-                workspace_sheet.set_active_subwindow(first_window)
-        if _mw._workspace_tabs.count() > 0:
-            _mw._workspace_tabs.setCurrentIndex(0)
-            # 첫 번째 workspace의 left dock을 보이게 함
-            first_workspace = _mw._workspace_tabs.tabText(0)
-            _mw._show_workspace_left_dock(first_workspace)
-            # 첫 번째 workspace의 bottom dock도 업데이트
-            _mw._update_bottom_dock(first_workspace)
-            _mw._on_workspace_tab_changed(0)
 
     def _connect_view_model(_mw) -> None:
         status_bar = _mw.statusBar()
@@ -130,37 +89,10 @@ class MainWindowMethods:
         _mw._app_vm.active_workspace_changed.connect(_mw._on_active_workspace_changed)
         
         # 메뉴바 시그널 연결
-        _mw._app_vm.request_create_document.connect(_mw._create_document)
         _mw._app_vm.request_tile_mdi.connect(_mw._tile_mdi)
         _mw._app_vm.request_cascade_mdi.connect(_mw._cascade_mdi)
         _mw._app_vm.request_create_subwindow.connect(_mw._create_subwindow)
 
-    # -- document helpers ----------------------------------------------------
-    def _create_document(
-        _mw,
-        checked: bool = False,
-        title: Optional[str] = None,
-        workspace: Optional[str] = None,
-        set_active: bool = True,
-    ) -> Optional[QMdiSubWindow]:
-        _ = checked
-        if _mw._workspace_tabs is None:
-            return None
-        target_workspace = workspace or _mw._app_vm.active_workspace()
-        if target_workspace is None:
-            _mw._app_vm.set_status_message("No workspace available")
-            return None
-
-        workspace_sheet = _mw._workspace_sheets.get(target_workspace)
-        if workspace_sheet is None:
-            _mw._app_vm.set_status_message(f"Workspace '{target_workspace}' is unavailable")
-            return None
-
-        sub_window = workspace_sheet.create_document(title=title, set_active=set_active)
-        if set_active and sub_window:
-            _mw._update_active_subwindow(target_workspace, sub_window)
-
-        return sub_window
 
     def _create_subwindow(_mw, workspace: str, subwindow_type: str) -> Optional[QMdiSubWindow]:
         """subwindow 생성"""
@@ -237,15 +169,12 @@ class MainWindowMethods:
 
         # 현재 workspace의 left dock만 보이게 하고 나머지는 숨김
         _mw._show_workspace_left_dock(workspace)
-
-        # Bottom dock을 현재 workspace의 editor panel로 변경
-        _mw._update_bottom_dock(workspace)
         
         active = workspace_sheet.get_active_subwindow() if workspace_sheet is not None else None
         if active is not None:
             _mw._app_vm.set_status_message(f"{workspace}: Active {active.windowTitle()}")
         else:
-            _mw._app_vm.set_status_message(f"{workspace}: No active document")
+            _mw._app_vm.set_status_message(f"{workspace}: No active window")
         _mw._update_active_subwindow(workspace, active)
 
     def _on_active_workspace_changed(_mw, workspace: str) -> None:
@@ -270,15 +199,6 @@ class MainWindowMethods:
                 _mw.setWindowTitle(f"Rayform Studio - {workspace}")
             else:
                 _mw.setWindowTitle("Rayform Studio")
-
-    def _update_bottom_dock(_mw, workspace: str) -> None:
-        """Bottom dock을 현재 workspace의 editor panel로 업데이트"""
-        workspace_sheet = _mw._workspace_sheets.get(workspace)
-        if workspace_sheet and hasattr(_mw, '_bottom_dock'):
-            editor_panel = workspace_sheet.get_editor_panel()
-            if editor_panel:
-                _mw._bottom_dock.setWidget(editor_panel)
-
 
     def _on_workspace_data_updated(_mw, workspace: str, data) -> None:
         """Workspace 데이터 업데이트 시"""

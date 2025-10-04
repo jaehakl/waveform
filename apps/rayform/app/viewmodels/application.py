@@ -32,7 +32,6 @@ class ApplicationViewModel(QObject):
     materials_changed = Signal(str, dict)  # workspace_name, materials
     
     # 메뉴바에서 요청하는 시그널들
-    request_create_document = Signal()
     request_tile_mdi = Signal()
     request_cascade_mdi = Signal()
     request_create_subwindow = Signal(str, str) # workspace_name, subwindow_type
@@ -110,5 +109,4 @@ class ApplicationViewModel(QObject):
     # -- MDI commands ---------------------------------------------------------
     def handle_tile_mdi_request(self) -> None: self.request_tile_mdi.emit()
     def handle_cascade_mdi_request(self) -> None: self.request_cascade_mdi.emit()
-    def handle_create_document_request(self) -> None: self.request_create_document.emit()
         

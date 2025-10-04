@@ -36,11 +36,6 @@ class ToolBar:
 
     def _create_actions(self) -> None:
         """툴바 액션들 생성"""
-        # 새 문서 액션
-        self._new_doc_action = QAction("New Document", self._main_window)
-        self._new_doc_action.setShortcut("Ctrl+N")
-        self._new_doc_action.setToolTip("Create a new document (Ctrl+N)")
-        self._new_doc_action.triggered.connect(self._create_document)
 
         # 저장 액션
         self._save_action = QAction("Save CGS Data", self._main_window)
@@ -69,9 +64,6 @@ class ToolBar:
         if not self._tool_bar:
             return
 
-        # 새 문서
-        self._tool_bar.addAction(self._new_doc_action)
-        
         # 구분선
         self._tool_bar.addSeparator()
         
@@ -86,9 +78,6 @@ class ToolBar:
         self._tool_bar.addAction(self._tile_action)
         self._tool_bar.addAction(self._cascade_action)
 
-    def _create_document(self) -> None:
-        """새 문서 생성"""
-        self._app_vm.request_create_document.emit()
 
     def _on_save_cgs_data(self) -> None:
         """CGS 데이터 저장"""
