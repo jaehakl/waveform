@@ -3,40 +3,34 @@ from __future__ import annotations
 from typing import Optional, List
 from PySide6.QtCore import Qt, Signal, QModelIndex, QSignalBlocker
 from PySide6.QtWidgets import (
-    QTreeWidget, QTreeWidgetItem, QWidget, QVBoxLayout, 
+    QWidget, QVBoxLayout, 
     QHBoxLayout, QPushButton, QLabel, QComboBox, QLineEdit,
     QSpinBox, QDoubleSpinBox, QGroupBox, QSplitter, QScrollArea,
-    QMenu, QMessageBox
+    QMenu, QMessageBox, QListWidget, QListWidgetItem
 )
-from PySide6.QtGui import QFont, QAction
+from PySide6.QtGui import QFont, QAction, QColor, QBrush, QGuiApplication
 
 from models import WorkspaceData, GeometryNode, GeometryRole, GeometryType
 
 
-class CGSNodeItem(QTreeWidgetItem):
-    """CGS tree의 각 노드를 나타내는 TreeWidgetItem"""
-    
-    def __init__(self, node: GeometryNode, parent: Optional[QTreeWidgetItem] = None):
-        super().__init__(parent)
+class CGSNodeItem(QListWidgetItem):
+    """CGS tree의 각 최상위 노드를 나타내는 ListWidgetItem"""
+    def __init__(self, node: GeometryNode):
+        super().__init__("")
         self.node = node
         self._update_display()
-    
+
     def _update_display(self):
-        """노드 정보를 트리 아이템에 표시"""
+        """노드 정보를 리스트 아이템에 표시"""
         geometry_text = self.node.geometry if isinstance(self.node.geometry, str) else f"Tree ({len(self.node.geometry)} items)"
-        self.setText(0, f"{self.node.role.value} - {geometry_text}")
-        # Material, Position, Rotation은 툴팁으로만 표시
+        self.setText(f"{self.node.role.value} - {geometry_text}")
         tooltip = f"Material: {self.node.material}\nPosition: {self.node.pos}\nRotation: {self.node.rotation}"
-        self.setToolTip(0, tooltip)
-    
-    def update_node(self, node: GeometryNode):
-        """노드 데이터 업데이트"""
-        self.node = node
-        self._update_display()
+        self.setToolTip(tooltip)
+        self.setData(Qt.ItemDataRole.UserRole, self.node)
 
 
 class CGSTreeWidget(QWidget):
-    """CGS tree를 표시하고 편집하는 위젯"""
+    """CGS tree를 ListView로 표시하고 편집하는 위젯 (최상위 노드만 표시)"""
     
     node_selected = Signal(GeometryNode, int)  # 선택된 노드와 인덱스 (EditorPanel과의 통신용)
     
@@ -45,8 +39,8 @@ class CGSTreeWidget(QWidget):
         self._current_workspace: str = ""
         self._view_model_connected: bool = False
         self._app_view_model = None  # ApplicationViewModel 참조
-        self._rebuilding_tree: bool = False
-        self._updating_from_drag: bool = False
+        self._rebuilding_list: bool = False
+        self._last_clicked_index: int = -1
         self._setup_ui()
         self._connect_signals()
     
@@ -106,43 +100,32 @@ class CGSTreeWidget(QWidget):
         header_layout.addStretch()
         layout.addLayout(header_layout)
         
-        # 트리 위젯
-        self._tree = QTreeWidget()
-        self._tree.setHeaderLabels(["CGS Tree Nodes"])
-        self._tree.setAlternatingRowColors(True)
-        self._tree.setRootIsDecorated(True)
-        self._tree.setItemsExpandable(True)
-        self._tree.setDragDropMode(QTreeWidget.DragDropMode.InternalMove)
-        self._tree.setStyleSheet("""
-            QTreeWidget {
+        # 리스트 위젯 (최상위 노드만)
+        self._list = QListWidget()
+        self._list.setAlternatingRowColors(True)
+        self._list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        self._list.setStyleSheet("""
+            QListWidget {
                 border: 1px solid #ddd;
                 border-radius: 4px;
                 background-color: white;
             }
-            QTreeWidget::item {
+            QListWidget::item {
                 padding: 6px;
                 border-bottom: 1px solid #eee;
             }
-            QTreeWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1976d2;
-            }
-            QTreeWidget::item:hover {
+            QListWidget::item:hover {
                 background-color: #f5f5f5;
             }
-            QTreeWidget::item:drop-disabled {
-                background-color: #ffebee;
-            }
         """)
-        layout.addWidget(self._tree)
+        layout.addWidget(self._list)
     
     def _connect_signals(self):
         """시그널 연결"""
-        self._tree.itemSelectionChanged.connect(self._on_selection_changed)
-        self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self._tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self._tree.customContextMenuRequested.connect(self._show_context_menu)
-        self._tree.itemChanged.connect(self._on_item_moved)
+        self._list.itemClicked.connect(self._on_item_clicked)
+        self._list.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self._list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._list.customContextMenuRequested.connect(self._show_context_menu)
 
     def set_view_model(self, view_model) -> None:
         """Deprecated: Use set_app_view_model instead"""
@@ -159,7 +142,7 @@ class CGSTreeWidget(QWidget):
         self._current_workspace = workspace
         if self._app_view_model is not None:
             self._connect_app_view_model()
-            self._refresh_tree()
+            self._refresh_list()
 
     def _connect_app_view_model(self) -> None:
         if self._app_view_model is None or self._view_model_connected:
@@ -167,6 +150,9 @@ class CGSTreeWidget(QWidget):
         self._app_view_model.cgs_tree_changed.connect(self._on_app_view_model_tree_changed)
         self._app_view_model.data_changed.connect(self._on_app_view_model_data_changed)
         self._app_view_model._workspace_data_loaded.connect(self._on_workspace_data_loaded)
+        # 이중 선택 시그널에 연결하여 색상 업데이트
+        if hasattr(self._app_view_model, "selected_nodes_changed"):
+            self._app_view_model.selected_nodes_changed.connect(self._on_selected_nodes_changed)
         self._view_model_connected = True
 
     def _disconnect_app_view_model(self) -> None:
@@ -187,116 +173,84 @@ class CGSTreeWidget(QWidget):
         self._view_model_connected = False
 
     def _on_app_view_model_tree_changed(self, workspace: str, nodes: List[GeometryNode]) -> None:
-        if self._rebuilding_tree or workspace != self._current_workspace:
+        if self._rebuilding_list or workspace != self._current_workspace:
             return
-        self._rebuild_tree(nodes)
+        self._rebuild_list(nodes)
 
     def _on_app_view_model_data_changed(self, workspace: str, data: WorkspaceData) -> None:
-        if self._rebuilding_tree or workspace != self._current_workspace:
+        if self._rebuilding_list or workspace != self._current_workspace:
             return
         nodes = data.cgs_tree if data else []
-        self._rebuild_tree(nodes)
+        self._rebuild_list(nodes)
 
     def _on_workspace_data_loaded(self, workspace: str) -> None:
         """Workspace 데이터 로드 후 트리 새로고침"""
         if workspace == self._current_workspace:
-            self._refresh_tree()
+            self._refresh_list()
 
     def _show_empty_placeholder(self) -> None:
-        empty_item = QTreeWidgetItem()
-        empty_item.setText(0, "No CGS nodes - Click 'Add Node' to start")
-        empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)
-        self._tree.addTopLevelItem(empty_item)
+        empty_item = QListWidgetItem("No CGS nodes - Click 'Add Node' to start")
+        empty_item.setFlags(empty_item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+        self._list.addItem(empty_item)
 
-    def _rebuild_tree(self, nodes: List[GeometryNode]) -> None:
-        if self._rebuilding_tree:
+    def _rebuild_list(self, nodes: List[GeometryNode]) -> None:
+        if self._rebuilding_list:
             return
-        self._rebuilding_tree = True
+        self._rebuilding_list = True
         try:
-            blocker = QSignalBlocker(self._tree)
-            _ = blocker  # keep reference alive
-            self._tree.clear()
+            blocker = QSignalBlocker(self._list)
+            _ = blocker
+            self._list.clear()
             if not nodes:
                 self._show_empty_placeholder()
-                return
-            for i, node in enumerate(nodes):
-                self._add_tree_item(node, i, None)
+            else:
+                for node in nodes:
+                    item = CGSNodeItem(node)
+                    self._list.addItem(item)
+            # 재구성 후 현재 선택 상태 반영
+            self._apply_selection_visuals()
         finally:
-            self._rebuilding_tree = False
+            self._rebuilding_list = False
 
     def set_workspace(self, workspace: str):
         """workspace 설정"""
         self._current_workspace = workspace
-        self._refresh_tree()
+        self._refresh_list()
 
-    def _refresh_tree(self):
-        """트리 새로고침"""
+    def _refresh_list(self):
+        """리스트 새로고침"""
         if self._app_view_model is None or not self._current_workspace:
-            self._rebuild_tree([])
+            self._rebuild_list([])
             return
         data = self._app_view_model.get_workspace_data(self._current_workspace)
         nodes = data.cgs_tree if data else []
-        self._rebuild_tree(nodes)
+        self._rebuild_list(nodes)
     
-    def _add_tree_item(self, node: GeometryNode, index: int, parent_item: Optional[QTreeWidgetItem]):
-        """트리 아이템 추가"""
-        item = CGSNodeItem(node, parent_item)
-        if parent_item is None:
-            self._tree.addTopLevelItem(item)
-        else:
-            parent_item.addChild(item)
-        
-        # 하위 노드들이 있는 경우 재귀적으로 추가
-        if isinstance(node.geometry, list):
-            for i, sub_node in enumerate(node.geometry):
-                # sub_node가 GeometryNode 객체인지 확인
-                if isinstance(sub_node, GeometryNode):
-                    self._add_tree_item(sub_node, i, item)
-                else:
-                    # 문자열인 경우 GeometryNode로 변환
-                    geometry_node = GeometryNode(
-                        role=GeometryRole.UNION,
-                        geometry_type=GeometryType.SPHERE,
-                        geometry=sub_node,
-                        pos=[0, 0, 0],
-                        rotation=[0, 0, 0],
-                        material="Default"
-                    )
-                    self._add_tree_item(geometry_node, i, item)
+    # 트리 전용 하위 추가 로직 제거 (ListView는 최상위만 표시)
     
-    def _on_selection_changed(self):
-        """선택 변경 시"""
-        current_item = self._tree.currentItem()
-        if isinstance(current_item, CGSNodeItem):
-            # 선택된 노드의 인덱스 찾기
-            index = self._find_node_index(current_item)
-            # ApplicationViewModel에 선택된 노드 알림
-            if self._app_view_model is not None:
-                self._app_view_model.set_selected_node(self._current_workspace, current_item.node, index)
-            # 기존 시그널도 유지 (하위 호환성)
-            self.node_selected.emit(current_item.node, index)
-        else:
-            # ApplicationViewModel에 선택 해제 알림
-            if self._app_view_model is not None:
-                self._app_view_model.set_selected_node(self._current_workspace, None, -1)
-            # 기존 시그널도 유지 (하위 호환성)
-            self.node_selected.emit(None, -1)
+    def _on_item_clicked(self, item: QListWidgetItem):
+        """아이템 클릭 시 (Ctrl 여부에 따라 이중 선택 처리)"""
+        if not isinstance(item, CGSNodeItem):
+            return
+        index = self._list.row(item)
+        node = item.node
+        self._last_clicked_index = index
+        ctrl_pressed = bool(QGuiApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier)
+        if self._app_view_model is not None and self._current_workspace:
+            if hasattr(self._app_view_model, "handle_node_click"):
+                self._app_view_model.handle_node_click(self._current_workspace, node, index, ctrl_pressed)
+            else:
+                # 레거시 폴백: 단일 선택만 전달
+                self._app_view_model.set_selected_node(self._current_workspace, node, index)
+        self.node_selected.emit(node, index)
     
-    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
-        """아이템 더블클릭 시"""
-        if isinstance(item, CGSNodeItem):
-            index = self._find_node_index(item)
-            # ApplicationViewModel에 선택된 노드 알림
-            if self._app_view_model is not None:
-                self._app_view_model.set_selected_node(self._current_workspace, item.node, index)
-            # 기존 시그널도 유지 (하위 호환성)
-            self.node_selected.emit(item.node, index)
+    def _on_item_double_clicked(self, item: QListWidgetItem):
+        """아이템 더블클릭 시: 일반 클릭과 동일 처리"""
+        self._on_item_clicked(item)
     
     def _find_node_index(self, item: CGSNodeItem) -> int:
-        """노드의 인덱스 찾기"""
-        if self._app_view_model is None or not self._current_workspace:
-            return -1
-        return self._app_view_model.find_node_index(self._current_workspace, item.node)
+        """리스트에서 행 번호로 인덱스 반환"""
+        return self._list.row(item)
     
     
     def _add_root_node(self):
@@ -307,11 +261,9 @@ class CGSTreeWidget(QWidget):
     
     def _remove_selected_node(self):
         """선택된 노드 제거"""
-        current_item = self._tree.currentItem()
-        if not isinstance(current_item, CGSNodeItem):
+        if self._last_clicked_index < 0:
             return
-
-        index = self._find_node_index(current_item)
+        index = self._last_clicked_index
         if index >= 0 and self._app_view_model is not None and self._current_workspace:
             success = self._app_view_model.remove_geometry_node(self._current_workspace, index)
             # 시그널은 내부에서 처리하므로 emit하지 않음
@@ -330,7 +282,7 @@ class CGSTreeWidget(QWidget):
 
     def _show_context_menu(self, position):
         """컨텍스트 메뉴 표시"""
-        item = self._tree.itemAt(position)
+        item = self._list.itemAt(position)
         if not item or not isinstance(item, CGSNodeItem):
             return
         
@@ -354,7 +306,7 @@ class CGSTreeWidget(QWidget):
         menu.addAction(move_down_action)
         
         # 메뉴 표시
-        menu.exec(self._tree.mapToGlobal(position))
+        menu.exec(self._list.mapToGlobal(position))
 
 
     def _remove_node(self, item: CGSNodeItem):
@@ -401,47 +353,36 @@ class CGSTreeWidget(QWidget):
             success = self._app_view_model.move_geometry_node(self._current_workspace, index, index + 1)
             # 시그널은 내부에서 처리하므로 emit하지 않음
 
-    def _on_item_moved(self, item: QTreeWidgetItem, column: int):
-        """아이템이 드래그 앤 드롭으로 이동되었을 때"""
-        # 드래그 앤 드롭으로 순서 변경된 경우 처리
-        if self._rebuilding_tree:
+    # 드래그 앤 드롭 지원 제거 (ListView 단순 모드)
+
+    def _apply_selection_visuals(self) -> None:
+        """뷰모델의 선택 상태에 따라 아이템 배경색을 적용"""
+        if self._app_view_model is None or not self._current_workspace:
             return
-        if isinstance(item, CGSNodeItem) and self._app_view_model is not None and self._current_workspace:
-            self._update_workspace_data_from_tree()
-            # 시그널은 내부에서 처리하므로 emit하지 않음
+        # 전체 초기화
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            item.setBackground(QBrush())
+            item.setForeground(QBrush())
 
-    def _update_workspace_data_from_tree(self):
-        """트리에서 workspace 데이터 업데이트"""
-        if self._app_view_model is None or not self._current_workspace or self._rebuilding_tree:
+        # 색상 지정
+        selected1_idx = getattr(self._app_view_model, "selected_node_1_index", lambda: -1)()
+        selected2_idx = getattr(self._app_view_model, "selected_node_2_index", lambda: -1)()
+
+        if 0 <= selected1_idx < self._list.count():
+            item1 = self._list.item(selected1_idx)
+            item1.setBackground(QBrush(QColor("#E3F2FD")))  # 파란 톤
+            item1.setForeground(QBrush(QColor("#0D47A1")))
+
+        if 0 <= selected2_idx < self._list.count():
+            # node_1과 겹치는 경우는 예외적으로 하나의 색만 유지됨
+            if selected2_idx != selected1_idx:
+                item2 = self._list.item(selected2_idx)
+                item2.setBackground(QBrush(QColor("#E8F5E9")))  # 초록 톤
+                item2.setForeground(QBrush(QColor("#1B5E20")))
+
+    def _on_selected_nodes_changed(self, workspace: str, node1: GeometryNode, idx1: int, node2: Optional[GeometryNode], idx2: int) -> None:
+        if workspace != self._current_workspace:
             return
+        self._apply_selection_visuals()
 
-        self._updating_from_drag = True
-        try:
-            # 트리의 순서대로 workspace 데이터 업데이트
-            new_nodes = []
-            for i in range(self._tree.topLevelItemCount()):
-                item = self._tree.topLevelItem(i)
-                if isinstance(item, CGSNodeItem):
-                    # 하위 노드들도 업데이트
-                    updated_node = self._update_node_from_tree_item(item)
-                    new_nodes.append(updated_node)
-
-            self._app_view_model.replace_cgs_tree(self._current_workspace, new_nodes)
-        finally:
-            self._updating_from_drag = False
-
-    def _update_node_from_tree_item(self, item: CGSNodeItem) -> GeometryNode:
-        """트리 아이템에서 노드 업데이트"""
-        node = item.node
-        
-        # 하위 노드들이 있는 경우 재귀적으로 업데이트
-        if isinstance(node.geometry, list):
-            updated_children = []
-            for i in range(item.childCount()):
-                child_item = item.child(i)
-                if isinstance(child_item, CGSNodeItem):
-                    updated_child = self._update_node_from_tree_item(child_item)
-                    updated_children.append(updated_child)
-            node.geometry = updated_children
-        
-        return node

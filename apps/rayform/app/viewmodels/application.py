@@ -20,7 +20,10 @@ class ApplicationViewModel(QObject):
     active_workspace_changed = Signal(str)
     active_subwindow_title_changed = Signal(str)
     _workspace_data_loaded = Signal(str)  # workspace_name
-    selected_node_changed = Signal(str, Any, int)  # workspace_name, node, index
+    selected_node_changed = Signal(str, Any, int)  # workspace_name, node, index (legacy)
+    selected_node1_changed = Signal(str, Any, int)  # workspace_name, node, index
+    selected_node2_changed = Signal(str, Any, int)  # workspace_name, node, index
+    selected_nodes_changed = Signal(str, Any, int, Any, int)  # workspace_name, node1, idx1, node2, idx2
     
     # Workspace data signals
     data_changed = Signal(str, object)  # workspace_name, data
@@ -39,8 +42,14 @@ class ApplicationViewModel(QObject):
         self._status_message: str = ""
         self._active_workspace: str = ""
         self._active_subwindow_title: str = ""
+        # Legacy single selection (kept for backward compatibility)
         self._selected_node: Optional[Any] = None
         self._selected_node_index: int = -1
+        # Dual selection state
+        self._selected_node_1: Optional[Any] = None
+        self._selected_node_1_index: int = -1
+        self._selected_node_2: Optional[Any] = None
+        self._selected_node_2_index: int = -1
         self._workspace_data: Dict[str, WorkspaceData] = {}
 
     # -- helpers ------------------------------------------------------------
@@ -90,6 +99,13 @@ class ApplicationViewModel(QObject):
     def selected_node(self) -> Optional[Any]: return self._selected_node
     def selected_node_index(self) -> int: return self._selected_node_index
     def set_selected_node(self, workspace: str, node: Optional[Any], index: int) -> None: UIService.set_selected_node(self, workspace, node, index)
+    # Dual selection getters
+    def selected_node_1(self) -> Optional[Any]: return self._selected_node_1
+    def selected_node_1_index(self) -> int: return self._selected_node_1_index
+    def selected_node_2(self) -> Optional[Any]: return self._selected_node_2
+    def selected_node_2_index(self) -> int: return self._selected_node_2_index
+    # Unified handler for click selection with modifier
+    def handle_node_click(self, workspace: str, node: Optional[Any], index: int, ctrl_pressed: bool) -> None: UIService.handle_node_click(self, workspace, node, index, ctrl_pressed)
 
     # -- MDI commands ---------------------------------------------------------
     def handle_tile_mdi_request(self) -> None: self.request_tile_mdi.emit()

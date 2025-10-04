@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from viewmodels.application import ApplicationViewModel
-from models.services.bake_3d_mesh import eval_forest, clean_weld
+from views.utils.cgs_to_mesh import eval_forest, clean_weld
 
 
 # --- OpenGL enums -----------------------------------------------------------
