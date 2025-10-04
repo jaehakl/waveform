@@ -8,10 +8,11 @@ from PySide6.QtCore import Signal, QObject
 from models import CGSTree, GeometryNode, GeometryRole, GeometryType, WorkspaceData
 
 class GeometryService():
-    def add_geometry_node(vm, workspace: str, node: GeometryNode) -> int:
-        """Add geometry node to workspace."""
+
+    def add_primitive_geometry(vm, workspace: str, geometry: str = "sphere") -> int:
+        """Add primitive geometry to workspace."""
         workspace_data = vm.ensure_workspace(workspace)
-        index = workspace_data.add_geometry_node(node)
+        index = workspace_data.cgs_tree.add_primitive_geometry(geometry)
         vm._notify_workspace_data(workspace, workspace_data)
         return index
 
@@ -44,10 +45,6 @@ class GeometryService():
         if moved:
             vm._notify_workspace_data(workspace, workspace_data)
         return moved
-
-    def create_default_geometry_node(vm) -> GeometryNode:
-        """Create default geometry node."""
-        return CGSTree.create_default_geometry_node()
 
     def find_node_index(vm, workspace: str, node: GeometryNode) -> int:
         """Find node index in workspace."""

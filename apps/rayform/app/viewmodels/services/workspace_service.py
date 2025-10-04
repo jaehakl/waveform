@@ -11,6 +11,8 @@ class WorkspaceService():
     def ensure_workspace(vm, name: str) -> WorkspaceData:
         if name not in vm._workspace_data:
             vm._workspace_data[name] = WorkspaceData()
+            vm._workspace_data[name].cgs_tree.set_test_tree()
+            vm._notify_workspace_data(name, vm._workspace_data[name])
         return vm._workspace_data[name]
 
 

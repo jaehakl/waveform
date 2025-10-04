@@ -28,6 +28,7 @@ class GeometryNode:
     geometry: Union[str, List['GeometryNode']]
     pos: List[Union[float, str]]
     rotation: List[Union[float, str]]
+    size: List[Union[float, str]]
     material: str
 
     def __post_init__(self) -> None:
@@ -49,6 +50,7 @@ def geometry_node_to_dict(node: GeometryNode) -> Dict[str, Any]:
         else [geometry_node_to_dict(sub_node) for sub_node in node.geometry],
         "pos": node.pos,
         "rotation": node.rotation,
+        "size": node.size,
         "material": node.material,
     }
 
@@ -71,5 +73,6 @@ def geometry_node_from_dict(data: Dict[str, Any]) -> GeometryNode:
         geometry=geometry,
         pos=data.get("pos", [0, 0, 0]),
         rotation=data.get("rotation", [0, 0, 0]),
+        size=data.get("size", [2, 2, 2]),
         material=data.get("material", "SiO2"),
     )

@@ -32,6 +32,7 @@ class ApplicationViewModel(QObject):
     request_create_document = Signal()
     request_tile_mdi = Signal()
     request_cascade_mdi = Signal()
+    request_create_subwindow = Signal(str, str) # workspace_name, subwindow_type
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -70,11 +71,10 @@ class ApplicationViewModel(QObject):
     def load_example_data(self, workspace: Optional[str]) -> None: return WorkspaceService.load_example_data(self, workspace)
 
     # -- geometry operations ------------------------------------------------
-    def add_geometry_node(self, workspace: str, node: GeometryNode) -> int: return GeometryService.add_geometry_node(self, workspace, node)
+    def add_primitive_geometry(self, workspace: str, geometry: str = "sphere") -> int: return GeometryService.add_primitive_geometry(self, workspace, geometry)
     def remove_geometry_node(self, workspace: str, index: int) -> bool: return GeometryService.remove_geometry_node(self, workspace, index)
     def update_geometry_node(self, workspace: str, index: int, node: GeometryNode) -> bool: return GeometryService.update_geometry_node(self, workspace, index, node)
     def move_geometry_node(self, workspace: str, from_index: int, to_index: int) -> bool: return GeometryService.move_geometry_node(self, workspace, from_index, to_index)
-    def create_default_geometry_node(self) -> GeometryNode: return GeometryService.create_default_geometry_node(self)
     def find_node_index(self, workspace: str, node: GeometryNode) -> int: return GeometryService.find_node_index(self, workspace, node)
 
     # -- parameters/materials ----------------------------------------------

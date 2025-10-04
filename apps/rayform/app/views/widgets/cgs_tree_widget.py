@@ -303,13 +303,7 @@ class CGSTreeWidget(QWidget):
         """루트 노드 추가"""
         if self._app_view_model is None or not self._current_workspace:
             return
-
-        # 기본 노드 생성
-        new_node = self._app_view_model.create_default_geometry_node()
-
-        # ApplicationViewModel을 통해 노드 추가
-        index = self._app_view_model.add_geometry_node(self._current_workspace, new_node)
-        # 시그널은 내부에서 처리하므로 emit하지 않음
+        index = self._app_view_model.add_primitive_geometry(self._current_workspace, "sphere")
     
     def _remove_selected_node(self):
         """선택된 노드 제거"""

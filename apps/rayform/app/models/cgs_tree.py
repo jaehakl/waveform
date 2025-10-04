@@ -11,6 +11,55 @@ from .geometry import (
     geometry_node_to_dict,
 )
 
+TEST_TREE = [
+    GeometryNode(
+        role=GeometryRole.UNION,
+        geometry_type=GeometryType.TREE,
+        geometry=[
+            GeometryNode(
+                role=GeometryRole.UNION,
+                geometry_type=GeometryType.TREE,
+                geometry=[
+                    GeometryNode(
+                        role=GeometryRole.UNION,
+                        geometry_type=GeometryType.SPHERE,
+                        geometry="sphere",
+                        pos=[0, 1, 0],
+                        rotation=[0, 0, 0],
+                        size=[2, 2, 2],
+                        material="SiO2",
+                    ),
+                    GeometryNode(
+                        role=GeometryRole.INTERSECT,
+                        geometry_type=GeometryType.SPHERE,
+                        geometry="sphere",
+                        pos=[0, -1, 0],
+                        rotation=[0, 0, 0],
+                        size=[2, 2, 2],
+                        material="SiO2",
+                    ),
+                ],
+                pos=[1, 0, 0],
+                rotation=[0, 0, 0],
+                size=[1, 1, 1],
+                material="SiO2",
+            ),
+            GeometryNode(
+                role=GeometryRole.SUBTRACT,
+                geometry_type=GeometryType.SPHERE,
+                geometry="sphere",
+                pos=[0, 0, 0],
+                rotation=[0, 0, 0],
+                size=[2, 2, 2],
+                material="SiO2",
+            ),
+        ],
+        pos=[0, 0, 0],
+        rotation=[0, 0, 0],
+        size=[1, 1, 1],
+        material="SiO2",
+    ),
+]
 
 @dataclass
 class CGSTree:
@@ -30,7 +79,32 @@ class CGSTree:
     def __setitem__(self, index: int, value: GeometryNode) -> None:
         self.nodes[index] = value
 
-    def add_geometry_node(self, node: GeometryNode) -> int:
+    def replace(self, nodes: Iterable[GeometryNode]) -> None:
+        self.nodes = list(nodes)
+
+    def to_serializable(self) -> List[Dict[str, Any]]:
+        return [geometry_node_to_dict(node) for node in self.nodes]
+
+    @classmethod
+    def from_serializable(cls, data: Iterable[Dict[str, Any]]) -> 'CGSTree':
+        tree = cls()
+        for node_data in data:
+            tree.nodes.append(geometry_node_from_dict(node_data))
+        return tree
+
+    def set_test_tree(self) -> None:
+        self.nodes = TEST_TREE
+
+    def add_primitive_geometry(self, geometry: str = "sphere") -> int:
+        node = GeometryNode(
+            role=GeometryRole.UNION,
+            geometry_type=GeometryType(geometry),
+            geometry=geometry,
+            pos=[0, 0, 0],
+            rotation=[0, 0, 0],
+            size=[2, 2, 2],
+            material="SiO2",
+        )
         self.nodes.append(node)
         return len(self.nodes) - 1
 
@@ -52,36 +126,11 @@ class CGSTree:
         self.nodes[from_index], self.nodes[to_index] = self.nodes[to_index], self.nodes[from_index]
         return True
 
-
     def find_node_index(self, target_node: GeometryNode) -> int:
         for index, node in enumerate(self.nodes):
             if self._find_node_recursive(node, target_node):
                 return index
         return -1
-
-    def replace(self, nodes: Iterable[GeometryNode]) -> None:
-        self.nodes = list(nodes)
-
-    def to_serializable(self) -> List[Dict[str, Any]]:
-        return [geometry_node_to_dict(node) for node in self.nodes]
-
-    @classmethod
-    def from_serializable(cls, data: Iterable[Dict[str, Any]]) -> 'CGSTree':
-        tree = cls()
-        for node_data in data:
-            tree.nodes.append(geometry_node_from_dict(node_data))
-        return tree
-
-    @staticmethod
-    def create_default_geometry_node() -> GeometryNode:
-        return GeometryNode(
-            role=GeometryRole.UNION,
-            geometry_type=GeometryType.SPHERE,
-            geometry="sphere",
-            pos=[0, 0, 0],
-            rotation=[0, 0, 0],
-            material="SiO2",
-        )
 
     def _find_node_recursive(self, search_node: GeometryNode, target_node: GeometryNode) -> bool:
         if search_node == target_node:

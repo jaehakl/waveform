@@ -6,9 +6,15 @@ authors = ["Jaehak Lee <leejaehak87@gmail.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.13"
+python = ">=3.11, <3.13"
 dotenv = "^0.9.9"
 pyside6 = "^6.9.3"
+libigl = "^2.6.1"
+numpy = "^2.3.3"
+trimesh = "^4.8.3"
+manifold3d = "^3.2.1"
+networkx = "^3.5"
+sip = "^6.12.0"
 
 [tool.poetry.group.dev.dependencies]
 
