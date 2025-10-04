@@ -112,6 +112,7 @@ class CGS3DViewer(QOpenGLWidget):
         # Lighting/material configuration
         self._light_position = QVector3D(2.0, 3.0, 2.0)
         self._eye_position = QVector3D(0.0, 0.0, 6.0)
+        self._material_ambient = QVector3D(0.12, 0.12, 0.12)
         self._material_diffuse = QVector3D(0.7, 0.7, 0.7)
         self._material_specular = QVector3D(0.2, 0.2, 0.2)
         self._shininess: float = 32.0
@@ -153,6 +154,7 @@ class CGS3DViewer(QOpenGLWidget):
         self._shader_program.setUniformValue("uN", normal)
         self._shader_program.setUniformValue("uLight", self._light_position)
         self._shader_program.setUniformValue("uEye", self._eye_position)
+        self._shader_program.setUniformValue("ka", self._material_ambient)
         self._shader_program.setUniformValue("kd", self._material_diffuse)
         self._shader_program.setUniformValue("ks", self._material_specular)
         self._set_uniform_float("shininess", self._shininess)
@@ -322,12 +324,14 @@ class CGS3DViewer(QOpenGLWidget):
             #version 330 core
             layout(location=0) in vec3 aPos;
             layout(location=1) in vec3 aNormal;
-            uniform mat4 uMVP, uM, uN;
+            uniform mat4 uMVP;
+            uniform mat4 uM;
+            uniform mat3 uN;
             out vec3 vN;
             out vec3 vPos;
             void main(){
                 vPos = (uM * vec4(aPos, 1.0)).xyz;
-                vN = mat3(uN) * aNormal;
+                vN = normalize(uN * aNormal);
                 gl_Position = uMVP * vec4(aPos, 1.0);
             }
         """)
@@ -337,7 +341,7 @@ class CGS3DViewer(QOpenGLWidget):
             in vec3 vN;
             in vec3 vPos;
             out vec4 FragColor;
-            uniform vec3 uLight, uEye, kd, ks;
+            uniform vec3 uLight, uEye, ka, kd, ks;
             uniform float shininess;
             uniform float uWireframe;
             void main(){
@@ -347,11 +351,13 @@ class CGS3DViewer(QOpenGLWidget):
                 }
                 vec3 N = normalize(vN);
                 vec3 L = normalize(uLight - vPos);
+                float diff = max(dot(N, L), 0.0);
                 vec3 V = normalize(uEye - vPos);
                 vec3 R = reflect(-L, N);
-                float diff = max(dot(N, L), 0.0);
-                float spec = pow(max(dot(R, V), 0.0), shininess);
-                FragColor = vec4(kd * diff + ks * spec, 1.0);
+                float spec = diff > 0.0 ? pow(max(dot(R, V), 0.0), shininess) : 0.0;
+                vec3 ambient = ka;
+                vec3 color = ambient + kd * diff + ks * spec;
+                FragColor = vec4(color, 1.0);
             }
         """)
 
