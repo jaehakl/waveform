@@ -28,7 +28,7 @@ TEST_TREE = [
                         pos=[0, 1, 0],
                         rotation=[0, 0, 0],
                         size=[2, 2, 2],
-                        material="SiO2",
+                        material="glass",
                     ),
                     GeometryNode(
                         role=GeometryRole.INTERSECT,
@@ -37,13 +37,13 @@ TEST_TREE = [
                         pos=[0, -1, 0],
                         rotation=[0, 0, 0],
                         size=[2, 2, 2],
-                        material="SiO2",
+                        material="glass",
                     ),
                 ],
                 pos=[1, 0, 0],
                 rotation=[0, 0, 0],
                 size=[1, 1, 1],
-                material="SiO2",
+                material="glass",
             ),
             GeometryNode(
                 role=GeometryRole.SUBTRACT,
@@ -52,13 +52,13 @@ TEST_TREE = [
                 pos=[0, 0, 0],
                 rotation=[0, 0, 0],
                 size=[2, 2, 2],
-                material="SiO2",
+                material="glass",
             ),
         ],
         pos=[0, 0, 0],
         rotation=[0, 0, 0],
         size=[1, 1, 1],
-        material="SiO2",
+        material="glass",
     ),
 ]
 
@@ -79,9 +79,15 @@ class CGSTree:
 
     def __setitem__(self, index: int, value: GeometryNode) -> None:
         self.nodes[index] = value
+        self.on_update()
+
+    def on_update(self) -> None:
+        for node in self.nodes:
+            node.eval_M()
 
     def replace(self, nodes: Iterable[GeometryNode]) -> None:
         self.nodes = list(nodes)
+        self.on_update()
 
     def to_serializable(self) -> List[Dict[str, Any]]:
         return [geometry_node_to_dict(node) for node in self.nodes]
@@ -91,10 +97,12 @@ class CGSTree:
         tree = cls()
         for node_data in data:
             tree.nodes.append(geometry_node_from_dict(node_data))
+        tree.on_update()
         return tree
 
     def set_test_tree(self) -> None:
         self.nodes = TEST_TREE
+        self.on_update()
 
     def add_primitive_geometry(self, geometry: str = "sphere") -> int:
         node = GeometryNode(
@@ -104,20 +112,23 @@ class CGSTree:
             pos=[0, 0, 0],
             rotation=[0, 0, 0],
             size=[2, 2, 2],
-            material="SiO2",
+            material="glass",
         )
         self.nodes.append(node)
+        self.on_update()
         return len(self.nodes) - 1
 
     def remove_geometry_node(self, index: int) -> bool:
         if 0 <= index < len(self.nodes):
             del self.nodes[index]
+            self.on_update()
             return True
         return False
 
     def update_geometry_node(self, index: int, node: GeometryNode) -> bool:
         if 0 <= index < len(self.nodes):
             self.nodes[index] = node
+            self.on_update()
             return True
         return False
 
@@ -125,6 +136,7 @@ class CGSTree:
         if not (0 <= from_index < len(self.nodes) and 0 <= to_index < len(self.nodes)):
             return False
         self.nodes[from_index], self.nodes[to_index] = self.nodes[to_index], self.nodes[from_index]
+        self.on_update()
         return True
 
     def merge_geometry_nodes(self, operation: GeometryRole, index1: int, index2: int) -> bool:
@@ -141,4 +153,5 @@ class CGSTree:
         self.nodes[index1].pos = [0,0,0]
         self.nodes[index1].rotation = [0,0,0]
         self.nodes[index1].size = [1,1,1]
+        self.on_update()
         return True

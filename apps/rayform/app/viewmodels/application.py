@@ -8,6 +8,7 @@ from PySide6.QtCore import Signal, QObject
 from models import CGSTree, GeometryNode, GeometryRole, GeometryType, WorkspaceData
 from viewmodels.services.ui_service import UIService
 from viewmodels.services.workspace_service import WorkspaceService
+from viewmodels.services.ray_service import RayService
 from viewmodels.services.geometry_service import GeometryService
 from viewmodels.services.parameters_service import ParametersService
 from viewmodels.services.helpers import ViewModelHelpers as Helpers
@@ -26,6 +27,7 @@ class ApplicationViewModel(QObject):
     
     # Workspace data signals
     data_changed = Signal(str, object)  # workspace_name, data
+    rays_changed = Signal(str, list)  # workspace_name, rays
     cgs_tree_changed = Signal(str, list)  # workspace_name, cgs_tree
     parameters_changed = Signal(str, dict)  # workspace_name, parameters
     materials_changed = Signal(str, dict)  # workspace_name, materials
@@ -66,13 +68,15 @@ class ApplicationViewModel(QObject):
     def workspace_has_persistable_data(self, name: str) -> bool: return WorkspaceService.workspace_has_persistable_data(self, name)
     def save_workspace_to_file(self, name: str, file_path: str) -> None: return WorkspaceService.save_workspace_to_file(self, name, file_path)
     def load_workspace_from_file(self, name: str, file_path: str) -> None: return WorkspaceService.load_workspace_from_file(self, name, file_path)
-    def load_workspace_example_data(self, name: str) -> None: return WorkspaceService.load_workspace_example_data(self, name)
     def save_workspace_via_dialog(self,workspace: Optional[str],prompt_save: Callable[[str, str], Optional[str]]) -> None: return WorkspaceService.save_workspace_via_dialog(self, workspace, prompt_save)
     def load_workspace_via_dialog(self, workspace: Optional[str], prompt_open: Callable[[str], Optional[str]]) -> bool: return WorkspaceService.load_workspace_via_dialog(self, workspace, prompt_open)
     def apply_workspace_example_data(self, workspace: Optional[str]) -> bool: return WorkspaceService.apply_workspace_example_data(self, workspace)
     def save_workspace_data(self, workspace: str, file_path: str) -> None: return WorkspaceService.save_workspace_data(self, workspace, file_path)
     def load_workspace_data(self, workspace: str, file_path: str) -> None: return WorkspaceService.load_workspace_data(self, workspace, file_path)
     def load_example_data(self, workspace: Optional[str]) -> None: return WorkspaceService.load_example_data(self, workspace)
+
+    # -- rays --------------------------------------------------------------
+    def test_rays(self, workspace: str) -> None: return RayService.test_rays(self, workspace)
 
     # -- geometry operations ------------------------------------------------
     def add_primitive_geometry(self, workspace: str, geometry: str = "sphere") -> int: return GeometryService.add_primitive_geometry(self, workspace, geometry)

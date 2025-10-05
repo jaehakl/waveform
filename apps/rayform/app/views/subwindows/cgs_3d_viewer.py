@@ -405,7 +405,7 @@ class CGS3DViewer(QOpenGLWidget):
             return MeshData.empty()
 
         try:
-            cgs_payload = workspace_data.cgs_tree.to_serializable()
+            cgs_payload = workspace_data.cgs_tree
             raw_vertices, raw_faces = eval_forest(cgs_payload)
             clean_vertices, clean_faces = clean_weld(raw_vertices, raw_faces)
         except Exception as exc:

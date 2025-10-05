@@ -6,6 +6,7 @@ from .geometry import (
     geometry_node_from_dict,
     geometry_node_to_dict,
 )
+from .ray import Ray
 from .workspace import WorkspaceData
 
 __all__ = [
@@ -13,6 +14,7 @@ __all__ = [
     "GeometryNode",
     "GeometryRole",
     "GeometryType",
+    "Ray",
     "WorkspaceData",
     "geometry_node_from_dict",
     "geometry_node_to_dict",

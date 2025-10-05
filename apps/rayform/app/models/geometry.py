@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Union
+import numpy as np, math
 
 
 class GeometryRole(Enum):
@@ -21,7 +22,6 @@ class GeometryType(Enum):
     TREE = "tree"
 
 
-@dataclass
 class GeometryNode:
     """A single node within a CGS tree."""
 
@@ -33,6 +33,20 @@ class GeometryNode:
     size: List[Union[float, str]]
     material: str
 
+    M: np.ndarray = np.eye(4)
+    M_inv: np.ndarray = np.eye(4)
+
+    def __init__(self, role, geometry_type, geometry, pos, rotation, size, material):
+        self.role = role
+        self.geometry_type = geometry_type
+        self.geometry = geometry
+        self.pos = pos
+        self.rotation = rotation
+        self.size = size
+        self.material = material
+        self.M = np.eye(4) # Object-to-World Matrix
+        self.M_inv = np.eye(4) # World-to-Object Matrix
+
     def __post_init__(self) -> None:
         if isinstance(self.geometry, list):
             self.geometry_type = GeometryType.TREE
@@ -41,6 +55,29 @@ class GeometryNode:
                 self.geometry_type = GeometryType(self.geometry)
             except ValueError:
                 self.geometry_type = GeometryType.SPHERE
+
+    def eval_M(self, M_parent: np.ndarray=np.eye(4)) -> np.ndarray:
+        if self.geometry_type == GeometryType.TREE:
+            size = self.size
+        else:
+            size = [1,1,1]
+        M_here = TRS(self.pos, self.rotation, size)
+        M = M_parent @ M_here
+
+        if self.geometry_type == GeometryType.TREE:
+            ch = self.geometry
+            for c in ch:
+                M_child = c.eval_M(M)
+        self.M = M
+        self.M_inv = np.linalg.inv(M)
+        return M
+
+    def obj_to_world(self, V: np.ndarray) -> np.ndarray:
+        return apply_M(V, self.M)
+
+    def world_to_obj(self, V: np.ndarray) -> np.ndarray:
+        return apply_M(V, self.M_inv)
+
 
 
 def geometry_node_to_dict(node: GeometryNode) -> Dict[str, Any]:
@@ -76,5 +113,26 @@ def geometry_node_from_dict(data: Dict[str, Any]) -> GeometryNode:
         pos=data.get("pos", [0, 0, 0]),
         rotation=data.get("rotation", [0, 0, 0]),
         size=data.get("size", [2, 2, 2]),
-        material=data.get("material", "SiO2"),
+        material=data.get("material", "glass"),
     )
+
+
+def R_zyx(deg):
+    rx, ry, rz = [math.radians(v) for v in deg]
+    cx,sx = math.cos(rx), math.sin(rx)
+    cy,sy = math.cos(ry), math.sin(ry)
+    cz,sz = math.cos(rz), math.sin(rz)
+    Rx = np.array([[1,0,0],[0,cx,-sx],[0,sx,cx]])
+    Ry = np.array([[cy,0,sy],[0,1,0],[-sy,0,cy]])
+    Rz = np.array([[cz,-sz,0],[sz,cz,0],[0,0,1]])
+    return Rz @ Ry @ Rx   # ZYX
+
+def TRS(pos, rot_deg, scale):
+    T = np.eye(4); T[:3,3] = np.array(pos, float)
+    R = np.eye(4); R[:3,:3] = R_zyx(rot_deg)
+    S = np.diag([scale[0], scale[1], scale[2], 1.0])
+    return T @ R @ S
+
+def apply_M(V, M):
+    Vh = np.c_[V, np.ones((len(V),1))]
+    return (M @ Vh.T).T[:, :3]

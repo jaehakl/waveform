@@ -177,13 +177,12 @@ def create_torus(major_radius=1.0, minor_radius=0.25, major_sections=64, minor_s
 # Dispatcher (optional)
 # ---------------------------
 
-def create_shape(kind, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def create_shape(kind, size: list[float] = [1,1,1]) -> tuple[np.ndarray, np.ndarray]:
     """
     kind: 'paraboloid' | 'ellipsoid' | 'cone' | 'box' | 'torus'
     kwargs는 각 생성 함수의 인자와 동일 키 사용
     """
     kind = kind.lower()
-    size = kwargs.get('size', [1,1,1])
     if kind == 'paraboloid':
         mesh = create_paraboloid(focus_z=size[0], max_radius=size[1], max_height=size[2])
     elif kind == 'ellipsoid':

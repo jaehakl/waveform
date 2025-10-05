@@ -12,6 +12,7 @@ class WorkspaceService():
         if name not in vm._workspace_data:
             vm._workspace_data[name] = WorkspaceData()
             vm._workspace_data[name].cgs_tree.set_test_tree()
+            vm.test_rays(name)
             vm._notify_workspace_data(name, vm._workspace_data[name])
         return vm._workspace_data[name]
 
@@ -35,45 +36,6 @@ class WorkspaceService():
         with open(file_path, 'r', encoding='utf-8') as handle:
             data_dict = json.load(handle)
         workspace_data = WorkspaceData.from_dict(data_dict)
-        vm._workspace_data[name] = workspace_data
-        vm._notify_workspace_data(name, workspace_data)
-
-    def load_workspace_example_data(vm, name: str) -> None:
-        """Populate the requested workspace with the built-in example data set."""
-        workspace_data = WorkspaceData()
-
-        sphere_node = GeometryNode(
-            role=GeometryRole.UNION,
-            geometry_type=GeometryType.SPHERE,
-            geometry='sphere',
-            pos=[0, 0, '$a'],
-            rotation=[0, 0, 0],
-            material='SiO2',
-        )
-
-        cube_node = GeometryNode(
-            role=GeometryRole.INTERSECT,
-            geometry_type=GeometryType.CUBE,
-            geometry='cube',
-            pos=[0, 0, 0],
-            rotation=[0, 0, '$b'],
-            material='SiO2',
-        )
-
-        workspace_data.add_geometry_node(sphere_node)
-        workspace_data.add_geometry_node(cube_node)
-
-        workspace_data.update_parameter('a', 10.0)
-        workspace_data.update_parameter('b', '%10~20')
-
-        sio2_data = {
-            400e-9: complex(1.46, 0.0),
-            500e-9: complex(1.45, 0.0),
-            600e-9: complex(1.44, 0.0),
-            700e-9: complex(1.43, 0.0),
-        }
-        workspace_data.update_material('SiO2', sio2_data)
-
         vm._workspace_data[name] = workspace_data
         vm._notify_workspace_data(name, workspace_data)
 

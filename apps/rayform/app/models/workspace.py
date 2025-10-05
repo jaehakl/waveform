@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, List
 
 from .cgs_tree import CGSTree
 from .geometry import GeometryNode
+from .ray import Ray
 
 
 @dataclass
 class WorkspaceData:
     """Workspace level data container."""
 
+    rays: List[Ray] = field(default_factory=list)
     cgs_tree: CGSTree = field(default_factory=CGSTree)
     parameters: Dict[str, float] = field(default_factory=dict)
     materials: Dict[str, Dict[float, complex]] = field(default_factory=dict)
+
+    def set_rays(self, rays: List[Ray]) -> None:
+        self.rays = rays
 
     def add_geometry_node(self, node: GeometryNode) -> int:
         return self.cgs_tree.add_geometry_node(node)
@@ -45,7 +50,20 @@ class WorkspaceData:
         workspace = cls()
         workspace.cgs_tree = CGSTree.from_serializable(data.get("cgs_tree", []))
         workspace.parameters = data.get("parameters", {})
-        for mat_id, mat_data in data.get("materials", {}).items():
+        for mat_id, mat_data in data.get("materials", {
+            "vacuum": {
+                400e-9: {"n": 1.0, "k": 0.0},
+                500e-9: {"n": 1.0, "k": 0.0},
+                600e-9: {"n": 1.0, "k": 0.0},
+                700e-9: {"n": 1.0, "k": 0.0},
+            },
+            "glass": {
+                400e-9: {"n": 1.47, "k": 0.0},
+                500e-9: {"n": 1.47, "k": 0.0},
+                600e-9: {"n": 1.47, "k": 0.0},
+                700e-9: {"n": 1.47, "k": 0.0},
+            },
+        }).items():
             wavelength_data: Dict[float, complex] = {}
             for wl_str, nk_data in mat_data.items():
                 wl = float(wl_str)
