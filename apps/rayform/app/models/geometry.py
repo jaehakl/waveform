@@ -70,7 +70,7 @@ class GeometryNode:
                 M_child = c.eval_M(M)
         self.M = M
         self.M_inv = np.linalg.inv(M)
-        return M
+        return M    
 
     def obj_to_world(self, V: np.ndarray) -> np.ndarray:
         return apply_M(V, self.M)

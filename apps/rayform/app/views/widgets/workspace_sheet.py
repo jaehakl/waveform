@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from viewmodels.application import ApplicationViewModel
-from views.subwindows.cgs_3d_viewer import CGS3DViewerWindow
+from views.subwindows.view_3d.viewer3d import Viewer3DWindow
 from views.widgets.cgs_tree_widget import CGSTreeWidget
 from views.widgets.geometry_edit_widget import GeometryEditWidget
 
@@ -78,18 +78,18 @@ class WorkspaceSheet(QObject):
 
     # ------------------------------------------------------------------ UI
     def _open_default_subwindows(self) -> None:
-        """Ensure the workspace starts with the CGS 3D View."""
+        """Ensure the workspace starts with the Viewer3D."""
         if self.mdi_area is None:
             return
         if self._viewer_window is not None:
             return
 
-        viewer = CGS3DViewerWindow(self.app_vm, self.workspace_name, self.mdi_area)
+        viewer = Viewer3DWindow(self.app_vm, self.workspace_name, self.mdi_area)
         self.mdi_area.addSubWindow(viewer)
         viewer.show()
         self.mdi_area.setActiveSubWindow(viewer)
         self._viewer_window = viewer
-        self.app_vm.set_status_message(f"{self.workspace_name}: 3D Viewer ready")
+        self.app_vm.set_status_message(f"{self.workspace_name}: Viewer3D ready")
 
     def _on_subwindow_activated(self, sub_window: Optional[QMdiSubWindow]) -> None:
         self.app_vm.set_active_workspace(self.workspace_name)
