@@ -38,6 +38,7 @@ GL_DEPTH_TEST = 0x0B71
 GL_TRIANGLES = 0x0004
 GL_UNSIGNED_INT = 0x1405
 GL_FLOAT = 0x1406
+GL_LINES = 0x0001
 
 
 @dataclass
@@ -91,6 +92,13 @@ class CGS3DViewer(QOpenGLWidget):
         self._shader_program: Optional[QOpenGLShaderProgram] = None
         self._index_count: int = 0
 
+        # Ray rendering GPU objects
+        self._ray_vao: Optional[QOpenGLVertexArrayObject] = None
+        self._ray_vbo: Optional[QOpenGLBuffer] = None
+        self._ray_shader_program: Optional[QOpenGLShaderProgram] = None
+        self._ray_vertex_count: int = 0
+        self._ray_vertices_cache: Optional[np.ndarray] = None
+
         # Cached mesh state
         self._mesh_data: MeshData = MeshData.empty()
         self._mesh_center = QVector3D(0.0, 0.0, 0.0)
@@ -131,6 +139,7 @@ class CGS3DViewer(QOpenGLWidget):
         self._create_gl_objects()
         self._compile_shaders()
         self.refresh_mesh(upload_only=False)
+        self.refresh_rays()
 
     def paintGL(self) -> None:
         context = QOpenGLContext.currentContext()
@@ -143,31 +152,41 @@ class CGS3DViewer(QOpenGLWidget):
         functions.glClearColor(0.18, 0.18, 0.18, 1.0)
         functions.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        if self._shader_program is None or self._vao is None or self._mesh_data.is_empty:
-            return
-
-        self._shader_program.bind()
-
         mvp = self._calculate_mvp_matrix()
-        model = QMatrix4x4()
-        normal = model.normalMatrix()
 
-        self._shader_program.setUniformValue("uMVP", mvp)
-        self._shader_program.setUniformValue("uM", model)
-        self._shader_program.setUniformValue("uN", normal)
-        self._shader_program.setUniformValue("uLight", self._light_position)
-        self._shader_program.setUniformValue("uEye", self._eye_position)
-        self._shader_program.setUniformValue("ka", self._material_ambient)
-        self._shader_program.setUniformValue("kd", self._material_diffuse)
-        self._shader_program.setUniformValue("ks", self._material_specular)
-        self._set_uniform_float("shininess", self._shininess)
-        self._set_uniform_float("uWireframe", 1.0 if self._wireframe_mode else 0.0)
+        # Draw solid mesh if available
+        if self._shader_program is not None and self._vao is not None and not self._mesh_data.is_empty:
+            self._shader_program.bind()
+            model = QMatrix4x4()
+            normal = model.normalMatrix()
+            self._shader_program.setUniformValue("uMVP", mvp)
+            self._shader_program.setUniformValue("uM", model)
+            self._shader_program.setUniformValue("uN", normal)
+            self._shader_program.setUniformValue("uLight", self._light_position)
+            self._shader_program.setUniformValue("uEye", self._eye_position)
+            self._shader_program.setUniformValue("ka", self._material_ambient)
+            self._shader_program.setUniformValue("kd", self._material_diffuse)
+            self._shader_program.setUniformValue("ks", self._material_specular)
+            self._set_uniform_float("shininess", self._shininess)
+            self._set_uniform_float("uWireframe", 1.0 if self._wireframe_mode else 0.0)
+            self._vao.bind()
+            functions.glDrawElements(GL_TRIANGLES, self._index_count, GL_UNSIGNED_INT, VoidPtr(0))
+            self._vao.release()
+            self._shader_program.release()
 
-        self._vao.bind()
-        functions.glDrawElements(GL_TRIANGLES, self._index_count, GL_UNSIGNED_INT, VoidPtr(0))
-        self._vao.release()
-
-        self._shader_program.release()
+        # Draw rays as red lines if available
+        if self._ray_shader_program is not None and self._ray_vao is not None and self._ray_vertex_count > 0:
+            self._ray_shader_program.bind()
+            self._ray_shader_program.setUniformValue("uMVP", mvp)
+            self._ray_shader_program.setUniformValue("uColor", QVector3D(1.0, 0.0, 0.0))
+            self._ray_vao.bind()
+            try:
+                functions.glLineWidth(2)
+            except Exception:
+                pass
+            functions.glDrawArrays(GL_LINES, 0, self._ray_vertex_count)
+            self._ray_vao.release()
+            self._ray_shader_program.release()
 
     def resizeGL(self, width: int, height: int) -> None:
         context = QOpenGLContext.currentContext()
@@ -223,6 +242,7 @@ class CGS3DViewer(QOpenGLWidget):
             return
         self._workspace = workspace
         self.refresh_mesh(upload_only=False)
+        self.refresh_rays()
 
     def camera_parameters(self) -> Tuple[float, float, float]:
         return (self._camera_distance, self._camera_yaw, self._camera_pitch)
@@ -324,6 +344,12 @@ class CGS3DViewer(QOpenGLWidget):
         self._ibo = QOpenGLBuffer(QOpenGLBuffer.IndexBuffer)
         self._ibo.create()
 
+        # Ray objects
+        self._ray_vao = QOpenGLVertexArrayObject(self)
+        self._ray_vao.create()
+        self._ray_vbo = QOpenGLBuffer(QOpenGLBuffer.VertexBuffer)
+        self._ray_vbo.create()
+
     def _compile_shaders(self) -> None:
         program = QOpenGLShaderProgram(self)
 
@@ -381,6 +407,32 @@ class CGS3DViewer(QOpenGLWidget):
 
         self._shader_program = program
 
+        # Simple line shader for rays
+        line_program = QOpenGLShaderProgram(self)
+        line_vertex_source = """
+            #version 330 core
+            layout(location=0) in vec3 aPos;
+            uniform mat4 uMVP;
+            void main(){
+                gl_Position = uMVP * vec4(aPos, 1.0);
+            }
+        """
+        line_fragment_source = """
+            #version 330 core
+            out vec4 FragColor;
+            uniform vec3 uColor;
+            void main(){
+                FragColor = vec4(uColor, 1.0);
+            }
+        """
+        if not line_program.addShaderFromSourceCode(QOpenGLShader.Vertex, line_vertex_source):
+            raise RuntimeError(f"Failed to compile line vertex shader: {line_program.log()}")
+        if not line_program.addShaderFromSourceCode(QOpenGLShader.Fragment, line_fragment_source):
+            raise RuntimeError(f"Failed to compile line fragment shader: {line_program.log()}")
+        if not line_program.link():
+            raise RuntimeError(f"Failed to link line shader program: {line_program.log()}")
+        self._ray_shader_program = line_program
+
     def _load_shader_source(self, path: str, fallback: str) -> str:
         try:
             with open(path, "r", encoding="utf-8") as handle:
@@ -421,6 +473,32 @@ class CGS3DViewer(QOpenGLWidget):
             return MeshData.empty()
 
         return MeshData(vertices, faces)
+
+    def _build_rays_from_workspace(self) -> np.ndarray:
+        workspace_data = self._app_vm.get_workspace_data(self._workspace)
+        if workspace_data is None or not hasattr(workspace_data, "rays"):
+            return np.zeros((0, 3), dtype=np.float32)
+
+        segments: list[list[float]] = []
+        for ray in getattr(workspace_data, "rays", []) or []:
+            try:
+                o = np.asarray(ray.origin, dtype=np.float32).reshape(3)
+                d = np.asarray(ray.direction, dtype=np.float32).reshape(3)
+                opl = float(getattr(ray, "opl", 0.0))
+                norm = float(np.linalg.norm(d))
+                if norm < 1e-6 or opl <= 0.0:
+                    continue
+                dir_unit = d / norm
+                p1 = o
+                p2 = o + dir_unit * opl
+                segments.append(p1.tolist())
+                segments.append(p2.tolist())
+            except Exception:
+                continue
+
+        if not segments:
+            return np.zeros((0, 3), dtype=np.float32)
+        return np.asarray(segments, dtype=np.float32)
 
     def _upload_mesh_to_gpu(self) -> None:
         if (
@@ -465,6 +543,37 @@ class CGS3DViewer(QOpenGLWidget):
 
         self._index_count = int(indices.size)
 
+    def _upload_rays_to_gpu(self) -> None:
+        if (
+            self._ray_vao is None
+            or self._ray_vbo is None
+            or self._ray_shader_program is None
+        ):
+            self._ray_vertex_count = 0
+            return
+
+        vertices = self._ray_vertices_cache
+        if vertices is None or vertices.size == 0:
+            self._ray_vertex_count = 0
+            return
+
+        self.makeCurrent()
+        self._ray_vao.bind()
+        self._ray_vbo.bind()
+        self._ray_vbo.setUsagePattern(QOpenGLBuffer.DynamicDraw)
+        data = vertices.astype(np.float32)
+        self._ray_vbo.allocate(data.tobytes(), data.nbytes)
+
+        self._ray_shader_program.bind()
+        self._ray_shader_program.enableAttributeArray(0)
+        self._ray_shader_program.setAttributeBuffer(0, GL_FLOAT, 0, 3, 0)
+        self._ray_shader_program.release()
+
+        self._ray_vao.release()
+        self._ray_vbo.release()
+
+        self._ray_vertex_count = int(vertices.shape[0])
+
     def _compute_vertex_normals(self, vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
         normals = np.zeros_like(vertices, dtype=np.float32)
         for tri in faces:
@@ -500,6 +609,12 @@ class CGS3DViewer(QOpenGLWidget):
 
     def _update_camera_target(self) -> None:
         bounds_min, bounds_max = self._mesh_data.bounds()
+        # Include ray bounds if available
+        if self._ray_vertices_cache is not None and self._ray_vertices_cache.size > 0:
+            rmin = self._ray_vertices_cache.min(axis=0)
+            rmax = self._ray_vertices_cache.max(axis=0)
+            bounds_min = np.minimum(bounds_min, rmin)
+            bounds_max = np.maximum(bounds_max, rmax)
         center = (bounds_min + bounds_max) * 0.5
         radius = float(np.linalg.norm(bounds_max - bounds_min)) * 0.5
         radius = max(radius, 1.0)
@@ -509,6 +624,12 @@ class CGS3DViewer(QOpenGLWidget):
         self._camera_target = self._mesh_center
         self._refresh_light_position()
         self.set_camera_distance(max(3.0, radius * 2.5))
+
+    def refresh_rays(self) -> None:
+        self._ray_vertices_cache = self._build_rays_from_workspace()
+        self._upload_rays_to_gpu()
+        self._update_camera_target()
+        self.update()
 
     def cleanup(self) -> None:
         self.makeCurrent()
@@ -524,6 +645,15 @@ class CGS3DViewer(QOpenGLWidget):
         if self._shader_program is not None:
             self._shader_program.release()
             self._shader_program = None
+        if self._ray_vao is not None:
+            self._ray_vao.destroy()
+            self._ray_vao = None
+        if self._ray_vbo is not None:
+            self._ray_vbo.destroy()
+            self._ray_vbo = None
+        if self._ray_shader_program is not None:
+            self._ray_shader_program.release()
+            self._ray_shader_program = None
         self.doneCurrent()
 
     def closeEvent(self, event) -> None:
@@ -628,6 +758,7 @@ class CGS3DViewerWindow(QMdiSubWindow):
         self._viewer.mesh_updated.connect(self._update_stats)
         self._viewer.camera_changed.connect(self._on_viewer_camera_changed)
         self._app_vm.cgs_tree_changed.connect(self._on_cgs_tree_changed)
+        self._app_vm.rays_changed.connect(self._on_rays_changed)
 
     def _disconnect_signals(self) -> None:
         try:
@@ -640,6 +771,10 @@ class CGS3DViewerWindow(QMdiSubWindow):
             pass
         try:
             self._app_vm.cgs_tree_changed.disconnect(self._on_cgs_tree_changed)
+        except Exception:
+            pass
+        try:
+            self._app_vm.rays_changed.disconnect(self._on_rays_changed)
         except Exception:
             pass
 
@@ -684,6 +819,11 @@ class CGS3DViewerWindow(QMdiSubWindow):
         if workspace != self._workspace:
             return
         self._viewer.refresh_mesh(upload_only=False)
+
+    def _on_rays_changed(self, workspace: str, _rays) -> None:
+        if workspace != self._workspace:
+            return
+        self._viewer.refresh_rays()
 
     def set_workspace(self, workspace: str) -> None:
         if workspace == self._workspace:
