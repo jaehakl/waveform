@@ -27,6 +27,9 @@ from .ray_renderer import RayRenderer
 GL_COLOR_BUFFER_BIT = 0x00004000
 GL_DEPTH_BUFFER_BIT = 0x00000100
 GL_DEPTH_TEST = 0x0B71
+GL_BLEND = 0x0BE2
+GL_SRC_ALPHA = 0x0302
+GL_ONE_MINUS_SRC_ALPHA = 0x0303
 GL_TRIANGLES = 0x0004
 GL_UNSIGNED_INT = 0x1405
 GL_FLOAT = 0x1406
@@ -100,6 +103,8 @@ class Viewer3D(QOpenGLWidget):
         functions = context.functions()
         functions.glViewport(0, 0, self.width(), self.height())
         functions.glEnable(GL_DEPTH_TEST)
+        functions.glEnable(GL_BLEND)
+        functions.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         functions.glClearColor(0.18, 0.18, 0.18, 1.0)
         functions.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 

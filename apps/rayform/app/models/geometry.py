@@ -78,6 +78,12 @@ class GeometryNode:
     def world_to_obj(self, V: np.ndarray) -> np.ndarray:
         return apply_M(V, self.M_inv)
 
+    def obj_to_world_dir(self, V: np.ndarray) -> np.ndarray:
+        return apply_M_dir(V, self.M)
+    
+    def world_to_obj_dir(self, V: np.ndarray) -> np.ndarray:
+        return apply_M_dir(V, self.M_inv)
+
 
 
 def geometry_node_to_dict(node: GeometryNode) -> Dict[str, Any]:
@@ -136,3 +142,7 @@ def TRS(pos, rot_deg, scale):
 def apply_M(V, M):
     Vh = np.c_[V, np.ones((len(V),1))]
     return (M @ Vh.T).T[:, :3]
+
+def apply_M_dir(V, M):
+    M_dir = M[:3,:3]    
+    return (M_dir @ V.T).T

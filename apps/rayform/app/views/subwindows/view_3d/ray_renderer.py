@@ -15,6 +15,7 @@ from PySide6.QtOpenGL import (
 
 GL_FLOAT = 0x1406
 GL_LINES = 0x0001
+GL_DEPTH_TEST = 0x0B71
 
 
 class RayRenderer:
@@ -70,13 +71,13 @@ class RayRenderer:
             try:
                 o = np.asarray(ray.origin, dtype=np.float32).reshape(3)
                 d = np.asarray(ray.direction, dtype=np.float32).reshape(3)
-                opl = float(getattr(ray, "opl", 0.0))
+                length = float(getattr(ray, "length", 0.0))
                 norm = float(np.linalg.norm(d))
-                if norm < 1e-6 or opl <= 0.0:
+                if norm < 1e-6 or length <= 0.0:
                     continue
                 dir_unit = d / norm
                 p1 = o
-                p2 = o + dir_unit * opl
+                p2 = o + dir_unit * length
                 segments.append(p1.tolist())
                 segments.append(p2.tolist())
             except Exception:
@@ -117,6 +118,10 @@ class RayRenderer:
     def draw(self, functions, mvp, color: Tuple[float, float, float] = (1.0, 0.0, 0.0)) -> None:
         if self._shader_program is None or self._vao is None or self._vertex_count <= 0:
             return
+        
+        # 깊이 테스트를 비활성화하여 ray가 geometry 뒤에서도 보이도록 함
+        functions.glDisable(GL_DEPTH_TEST)
+        
         self._shader_program.bind()
         self._shader_program.setUniformValue("uMVP", mvp)
         self._shader_program.setUniformValue("uColor", QVector3D(*[float(c) for c in color]))
@@ -128,6 +133,9 @@ class RayRenderer:
         functions.glDrawArrays(GL_LINES, 0, self._vertex_count)
         self._vao.release()
         self._shader_program.release()
+        
+        # 깊이 테스트를 다시 활성화
+        functions.glEnable(GL_DEPTH_TEST)
 
     def bounds(self) -> Tuple[np.ndarray, np.ndarray]:
         if self._vertices_cache is None or self._vertices_cache.size == 0:

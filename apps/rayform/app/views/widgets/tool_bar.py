@@ -22,6 +22,7 @@ class ToolBar:
         self._union_action: Optional[QAction] = None
         self._intersect_action: Optional[QAction] = None
         self._subtract_action: Optional[QAction] = None
+        self._test_rays_action: Optional[QAction] = None
         self.create_tool_bar()
 
     def create_tool_bar(self) -> QToolBar:
@@ -76,6 +77,11 @@ class ToolBar:
         self._subtract_action.setToolTip("Merge selected nodes with SUBTRACT")
         self._subtract_action.triggered.connect(lambda: self._on_merge_geometry(GeometryRole.SUBTRACT))
 
+        # Test Rays 액션
+        self._test_rays_action = QAction("Test Rays", self._main_window)
+        self._test_rays_action.setToolTip("Test ray tracing for current workspace")
+        self._test_rays_action.triggered.connect(self._on_test_rays)
+
         # 선택 변경 시 버튼 활성화 상태 업데이트
         try:
             if hasattr(self._app_vm, "selected_nodes_changed"):
@@ -108,6 +114,12 @@ class ToolBar:
         self._tool_bar.addAction(self._union_action)
         self._tool_bar.addAction(self._intersect_action)
         self._tool_bar.addAction(self._subtract_action)
+
+        # 구분선
+        self._tool_bar.addSeparator()
+
+        # Test Rays
+        self._tool_bar.addAction(self._test_rays_action)
 
         # 구분선
         self._tool_bar.addSeparator()
@@ -162,6 +174,15 @@ class ToolBar:
     def _on_cascade_mdi(self) -> None:
         """MDI 캐스케이드"""
         self._app_vm.request_cascade_mdi.emit()
+
+    def _on_test_rays(self) -> None:
+        """Test Rays 실행"""
+        current_workspace = self._app_vm.active_workspace()
+        print(self._app_vm.active_workspace(),"test rays")
+        if not current_workspace:
+            return
+        
+        self._app_vm.test_rays(current_workspace)
 
     # ------------------------------ CGS merge helpers ------------------------------
     def _on_merge_geometry(self, role: GeometryRole) -> None:
