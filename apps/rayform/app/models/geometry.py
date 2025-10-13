@@ -144,5 +144,5 @@ def apply_M(V, M):
     return (M @ Vh.T).T[:, :3]
 
 def apply_M_dir(V, M):
-    M_dir = M[:3,:3]    
+    M_dir = M[:3,:3]
     return (M_dir @ V.T).T

@@ -25,6 +25,9 @@ def _normalize(v: Vec3, eps: float = 1e-12) -> Vec3:
 
 
 class SphereRay:
+    def is_inside(point: Vec3, r: float) -> bool:
+        return _norm(point) < r
+
     def intersect(
         origin: Vec3,
         direction: Vec3,

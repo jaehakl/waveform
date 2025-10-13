@@ -10,18 +10,22 @@ class RayService():
         """Test rays in workspace."""
         workspace_data = vm.ensure_workspace(workspace)
         rays_total = []
-        for geometry_node in workspace_data.cgs_tree.nodes:
-            geometry_node.eval_M()
+
+        geometry = GeometryNode(
+            role=GeometryRole.UNION,
+            geometry_type=GeometryType.TREE,
+            geometry=workspace_data.cgs_tree.nodes,
+            pos=[0,0,0],
+            rotation=[0,0,0],
+            size=[1,1,1],
+            material="glass"
+        )
+        print(geometry.eval_M())
 
         for i in range(-10,10):
             for j in range(-10,10):
-                nhits = 0
-                max_nhits = 3
-                rays = add_rays_recursive(
-                    workspace_data.cgs_tree, 
-                    [Ray(origin=[i,j,-5], direction=[0,0,1])], 
-                    max_nhits
-                )
+                ray = Ray(origin=[i,j,-5], direction=[0,0,1])
+                rays = ray.get_rays(geometry)
                 if rays is not None:
                     for ray in rays:
                         rays_total.append(ray)
@@ -38,7 +42,7 @@ def add_rays_recursive(cgs_tree: CGSTree, rays: List[Ray], max_nhits: int) -> Li
     ray = rays[-1]
     interval = None
     for node in cgs_tree.nodes:
-        child_interval = ray.interval(node)
+        child_interval = ray.intersection(node)
         if interval is None:
             interval = child_interval
         elif child_interval is not None and child_interval["distance"] < interval["distance"]:

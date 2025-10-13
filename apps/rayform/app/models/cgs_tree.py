@@ -59,7 +59,7 @@ TEST_TREE = [
         rotation=[0, 0, 0],
         size=[1, 1, 1],
         material="glass",
-    ),
+    )
 ]
 
 @dataclass
