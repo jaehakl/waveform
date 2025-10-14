@@ -7,6 +7,7 @@ import numpy as np
 
 from .ray_geometry.sphere import SphereRay
 from .utils.snell_fresnel import snell_fresnel
+from .settings import EPS
 
 @dataclass
 class Ray:
@@ -48,18 +49,17 @@ class Ray:
 
     def get_rays(self, geometry: GeometryNode, max_nhits: int = 10) -> List[Ray]:
         intersections = self.get_intersections(geometry)
-        if len(intersections) >3:
-            print(intersections)
         ray = self
         if len(intersections) > 0:
             distance = intersections[0]["distance"]
             if distance == float('inf'):
-                return []
+                return [ray]
             else:
                 ray.length = intersections[0]["distance"]
                 rays = [ray]
         else:
-            return []
+            return [ray]
+
         for i in range(max_nhits):
             ray = next_ray(ray, geometry)
             if ray is None:
@@ -90,12 +90,12 @@ def next_ray(ray: Ray, geometry: GeometryNode) -> Ray:
     if len(intersections) == 0:
         return None
 
-    if is_inside_geometry(intersections[0]["point"]-1e-3*np.array(ray.direction), geometry):
+    if is_inside_geometry(intersections[0]["point"]-2*EPS*np.array(ray.direction), geometry):
         mat_1 = geometry.material
     else:
         mat_1 = "vacuum"
 
-    if is_inside_geometry(intersections[0]["point"] + 1e-3*np.array(ray.direction), geometry):
+    if is_inside_geometry(intersections[0]["point"] + 2*EPS*np.array(ray.direction), geometry):
         mat_2 = geometry.material
     else:
         mat_2 = "vacuum"
@@ -105,7 +105,7 @@ def next_ray(ray: Ray, geometry: GeometryNode) -> Ray:
     fresnel_result = snell_fresnel(ray.direction, intersection["normal"], RI_DICT[mat_1], RI_DICT[mat_2])
 
     if fresnel_result["refract_dir"] is not None:
-        origin = intersection["point"] + 1e-3*fresnel_result["refract_dir"]
+        origin = intersection["point"] + 2*EPS*fresnel_result["refract_dir"]
         return Ray(
             origin=origin, 
             direction=fresnel_result["refract_dir"], 

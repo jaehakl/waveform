@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple
 import math
+from ..settings import EPS
 
 Vec3 = Tuple[float, float, float]
 
@@ -15,9 +16,9 @@ def _scale(s: float, v: Vec3) -> Vec3:
 def _norm(v: Vec3) -> float:
     return math.sqrt(_dot(v, v))
 
-def _normalize(v: Vec3, eps: float = 1e-12) -> Vec3:
+def _normalize(v: Vec3) -> Vec3:
     n = _norm(v)
-    if n < eps:
+    if n < EPS:
         return (0.0, 0.0, 0.0)
     inv = 1.0 / n
     return (v[0]*inv, v[1]*inv, v[2]*inv)
@@ -34,7 +35,6 @@ class SphereRay:
         r: float,
         t_min: float = 0.0,
         t_max: float = float("inf"),
-        eps: float = 1e-9,
     ) -> List[Dict[str, object]]:
         """
         Ray-sphere intersections for a sphere centered at (0,0,0) with radius r.
@@ -50,16 +50,16 @@ class SphereRay:
         d = direction
 
         a = _dot(d, d)                # ||d||^2
-        if a < eps:                   # Degenerate ray direction
+        if a < EPS:                   # Degenerate ray direction
             return []
 
         b = 2.0 * _dot(o, d)
         c = _dot(o, o) - r*r
 
         disc = b*b - 4.0*a*c
-        if disc < -eps:
+        if disc < -EPS:
             return []                 # No real roots
-        if abs(disc) < eps:
+        if abs(disc) < EPS:
             disc = 0.0                # Tangent (one root, counted once)
 
         sqrt_disc = math.sqrt(disc) if disc >= 0.0 else 0.0
@@ -71,16 +71,16 @@ class SphereRay:
         # Collect valid t in range
         ts: List[float] = []
         for t in (t1, t2):
-            if t_min - eps <= t <= t_max + eps:
+            if t_min - EPS <= t <= t_max + EPS:
                 ts.append(t)
 
         # Remove duplicates for the tangent case
-        if len(ts) == 2 and abs(ts[0] - ts[1]) < 1e-12:
+        if len(ts) == 2 and abs(ts[0] - ts[1]) < EPS:
             ts = [ts[0]]
 
         # Filter to forward ray by default (t_min defaults to 0.0)
         # Sort by t (near → far)
-        ts = [t for t in ts if t >= t_min - eps]
+        ts = [t for t in ts if t >= t_min - EPS]
         ts.sort()
 
         if not ts:

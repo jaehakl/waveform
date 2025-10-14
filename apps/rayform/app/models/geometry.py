@@ -76,14 +76,17 @@ class GeometryNode:
         return apply_M(V, self.M)
 
     def world_to_obj(self, V: np.ndarray) -> np.ndarray:
-        return apply_M(V, self.M_inv)
+        Vh = np.c_[V, np.ones((len(V),1))]
+        return (Vh @ self.M_inv.T)[:, :3]
+        #return apply_M(V, self.M_inv)
 
     def obj_to_world_dir(self, V: np.ndarray) -> np.ndarray:
         return apply_M_dir(V, self.M)
     
     def world_to_obj_dir(self, V: np.ndarray) -> np.ndarray:
-        return apply_M_dir(V, self.M_inv)
-
+        M_dir = self.M_inv[:3,:3]
+        return (V @ M_dir.T)
+        #return apply_M_dir(V, self.M_inv)
 
 
 def geometry_node_to_dict(node: GeometryNode) -> Dict[str, Any]:
