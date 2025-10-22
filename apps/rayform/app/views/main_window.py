@@ -3,13 +3,16 @@ from __future__ import annotations
 from typing import Dict, Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QDockWidget, QMainWindow, QMdiSubWindow, QTabWidget
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QLabel, QDockWidget, QMainWindow, QMdiSubWindow, QTabWidget, QFileDialog
 
 from viewmodels.application import ApplicationViewModel
 from views.widgets.menu_bar import MenuBar
 from views.widgets.tool_bar import ToolBar
 from views.widgets.workspace_sheet import WorkspaceSheet
 from views.subwindows.cgs_str import CGSStringViewer
+from views.actions import ActionsManager
+from models import GeometryRole
 
 class MainWindow(QMainWindow):
     """Primary application window with menus, toolbars, docks, and workspace MDIs."""
@@ -19,35 +22,36 @@ class MainWindow(QMainWindow):
 
         self._workspace_tabs: Optional[QTabWidget] = None
         self._workspace_sheets: Dict[str, WorkspaceSheet] = {}
-        self._workspace_definitions: Dict[str, list[str]] = {
-            "Acquisition": ["Scope Monitor", "Trigger Log"],
-            "Analysis": ["Spectrum Viewer", "Filter Designer"],
-            "Automation": ["Macro Console"],
-        }
         self._menu_bar: Optional[MenuBar] = None
         self._tool_bar: Optional[ToolBar] = None
+
+        # Actions 클래스 인스턴스
+        self.actions_manager: Optional[ActionsManager] = ActionsManager(self)
 
         self.setWindowTitle("Rayform Studio")
         self.resize(1200, 800)
         self._build_ui()
-        self._connect_view_model()
+        MainWindowMethods._connect_view_model(self)
         self._app_vm.set_status_message("Ready")
 
     def _build_ui(self) -> None:
-        self._menu_bar = MenuBar(self, self._app_vm)
-        self._tool_bar = ToolBar(self, self._app_vm)
-        self._create_workspace_tabs()
-        self._create_status_bar()
+        self._menu_bar = MenuBar(self)
+        self._tool_bar = ToolBar(self)
+        MainWindowMethods._create_workspace_tabs(self)
+        MainWindowMethods._create_status_bar(self)
 
-    # -- setup ---------------------------------------------------------------
-    def _create_workspace_tabs(self) -> None: MainWindowMethods._create_workspace_tabs(self)
-    def _create_status_bar(self) -> None: MainWindowMethods._create_status_bar(self)
-    def _connect_view_model(self) -> None: MainWindowMethods._connect_view_model(self)
     def _create_subwindow(self, workspace: str, subwindow_type: str) -> Optional[QMdiSubWindow]: MainWindowMethods._create_subwindow(self, workspace, subwindow_type)
-
     def _current_workspace_sheet(self) -> Optional[WorkspaceSheet]: MainWindowMethods._current_workspace_sheet(self)
-    def _tile_mdi(self) -> None: MainWindowMethods._tile_mdi(self)
-    def _cascade_mdi(self) -> None: MainWindowMethods._cascade_mdi(self)
+
+    def _tile_mdi(self) -> None: 
+        """MDI 윈도우 타일링 - Actions 클래스를 통해 처리"""
+        if self.actions_manager:
+            self.actions_manager._on_tile_mdi()
+    
+    def _cascade_mdi(self) -> None: 
+        """MDI 윈도우 캐스케이딩 - Actions 클래스를 통해 처리"""
+        if self.actions_manager:
+            self.actions_manager._on_cascade_mdi()
     def _show_workspace_left_dock(self, workspace: str) -> None: MainWindowMethods._show_workspace_left_dock(self, workspace)
     def _hide_all_left_docks(self) -> None: MainWindowMethods._hide_all_left_docks(self)
     def _update_active_subwindow(self, workspace: str, sub_window: Optional[QMdiSubWindow]) -> None: MainWindowMethods._update_active_subwindow(self, workspace, sub_window)
@@ -55,10 +59,12 @@ class MainWindow(QMainWindow):
     def _on_active_workspace_changed(self, workspace: str) -> None: MainWindowMethods._on_active_workspace_changed(self, workspace)
     def _on_active_title_changed(self, title: str) -> None: MainWindowMethods._on_active_title_changed(self, title)
     def _on_workspace_data_updated(self, workspace: str, data) -> None: MainWindowMethods._on_workspace_data_updated(self, workspace, data)
+    
 
 
 class MainWindowMethods:
     # -- setup ---------------------------------------------------------------
+
     def _create_workspace_tabs(_mw) -> None:
         tabs = QTabWidget(_mw)
         tabs.setMovable(True)
@@ -66,16 +72,11 @@ class MainWindowMethods:
         _mw.setCentralWidget(tabs)
         _mw._workspace_tabs = tabs
 
-        for workspace in _mw._workspace_definitions:
-            # WorkspaceSheet 생성
-            workspace_sheet = WorkspaceSheet(workspace, _mw._app_vm, _mw)
-            _mw._workspace_sheets[workspace] = workspace_sheet
-            
-            # WorkspaceSheet의 data_updated 시그널 연결
-            workspace_sheet.data_updated.connect(_mw._on_workspace_data_updated)
-            
-            # MDI area를 탭에 추가
-            tabs.addTab(workspace_sheet.mdi_area, workspace)
+        # Default WorkspaceSheet 생성
+        workspace_name = "noname"
+        workspace_sheet = WorkspaceSheet(workspace_name, _mw._app_vm, _mw)
+        _mw._workspace_sheets[workspace_name] = workspace_sheet        
+        tabs.addTab(workspace_sheet.mdi_area, workspace_name)
 
     def _create_status_bar(_mw) -> None:
         status_bar = _mw.statusBar()
@@ -121,19 +122,6 @@ class MainWindowMethods:
             return None
         return _mw._workspace_sheets.get(workspace)
 
-    def _tile_mdi(_mw) -> None:
-        workspace_sheet = _mw._current_workspace_sheet()
-        if workspace_sheet is None:
-            _mw._app_vm.set_status_message("No workspace to tile")
-            return
-        workspace_sheet.tile_subwindows()
-
-    def _cascade_mdi(_mw) -> None:
-        workspace_sheet = _mw._current_workspace_sheet()
-        if workspace_sheet is None:
-            _mw._app_vm.set_status_message("No workspace to cascade")
-            return
-        workspace_sheet.cascade_subwindows()
 
     def _show_workspace_left_dock(_mw, workspace: str) -> None:
         """특정 workspace의 left dock만 보이게 하고 나머지는 숨김"""
@@ -205,3 +193,5 @@ class MainWindowMethods:
         workspace_vm = _mw._app_vm.ensure_workspace(workspace)
         workspace_vm.set_workspace_data(data)
         _mw._app_vm.handle_workspace_data_updated(workspace, data)
+
+

@@ -23,8 +23,6 @@ from views.widgets.geometry_edit_widget import GeometryEditWidget
 class WorkspaceSheet(QObject):
     """Encapsulates all widgets that belong to a single workspace tab."""
 
-    data_updated = Signal(str, object)  # workspace, data
-
     def __init__(self, workspace_name: str, app_vm: ApplicationViewModel, parent_window) -> None:
         super().__init__()
         self.workspace_name = workspace_name
@@ -99,9 +97,6 @@ class WorkspaceSheet(QObject):
         self.app_vm.set_status_message(
             f"{self.workspace_name}: Active {sub_window.windowTitle()}"
         )
-
-    def _on_workspace_data_updated(self, data) -> None:
-        self.data_updated.emit(self.workspace_name, data)
 
     # ---------------------------------------------------------------- docks
     def show_left_dock(self) -> None:
