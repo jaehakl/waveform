@@ -4,8 +4,6 @@
 
  On Waveform, machine learning models can be built using the dataset. Additionally, the prediction of simulation results, inverse designs, and optimizations can be conducted using these models. Although it contains a built-in wave optics solver, other user-defined solvers can also be integrated. Any simulation tool with a Python API can be connected and executed as a subprocess from the Waveform user interface. Therefore, many core-algorithm-only solvers can be integrated with several features of Waveform and easily scaled up to expand its functions, computational power, and user base.
 
-<img width="938" height="630" alt="qutat_waveform_mainwindow" src="https://github.com/user-attachments/assets/1f4c3362-719f-446f-a536-98076f23a990" />
-
 ### Designed to Design
 Declare parameters as range, determine later.
 
@@ -14,6 +12,9 @@ Connect and utilize every computational resource that you already own.
 
 ### Extensible
 User-defined simulation codes can be integrated.
+
+<img width="938" height="630" alt="qutat_waveform_mainwindow" src="https://github.com/user-attachments/assets/1f4c3362-719f-446f-a536-98076f23a990" />
+
 
 ## Features
 
