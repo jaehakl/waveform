@@ -44,10 +44,23 @@ User-defined simulation codes can be integrated.
 
 ![Waveguide-Splitter](https://github.com/user-attachments/assets/7c8ae14c-7623-42d3-8561-6fe910fe19ae)
 
-
 ## License
 - GPL3
 
 ## Contact
 - jaehak@qutat.com
+
+## See Also
+[Research Article](https://vixra.org/pdf/2407.0178v1.pdf)
+
+https://github.com/user-attachments/assets/aa7311a6-fe36-49e1-b52b-8fcd91835e64
+
+https://github.com/user-attachments/assets/440f7c1f-d14c-4966-ba64-b262c6d16996
+
+
+
+
+
+
+
 
