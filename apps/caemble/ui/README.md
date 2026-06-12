@@ -1,4 +1,4 @@
-# TSX CAD MVP
+# Code to CAD
 
 Browser-only CAD modeling MVP for writing TSX-like CAD code and rendering the resulting geometry in a 3D viewport.
 
@@ -15,7 +15,7 @@ Build check:
 corepack pnpm --dir apps/caemble/ui build
 ```
 
-## Supported TSX CAD Tags
+## Supported Tags
 
 ```tsx
 <box size={[20, 20, 20]} />
