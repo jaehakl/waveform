@@ -1,5 +1,6 @@
-import { Material, Sample, Structure, CadModelError, evaluateWithVars, vars } from './core'
-import { evaluateCad, Fragment, h } from './cadJsx'
+import { Material, Sample, Structure, CadModelError, evaluateWithVars, vars } from '../model/core'
+import { evaluateCad } from '../evaluation/evaluator'
+import { Fragment, h } from '../evaluation/jsx'
 
 const coreModule = Object.freeze({ Material, Sample, Structure })
 
@@ -32,3 +33,5 @@ export function executeCompiledCode(jsCode: string) {
 
   return evaluateWithVars(entry.vars, () => evaluateCad(entry.structure.geometry()))
 }
+
+

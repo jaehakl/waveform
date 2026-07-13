@@ -128,3 +128,5 @@ describe('Geometry types', () => {
     expect(layout(attributes)).toEqual({ gap: 4, label: 'core', pos: [1, 2, 3] })
   })
 })
+
+

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import CadEditor from './editor/CadEditor'
 import { defaultCode } from './defaultCode'
 import SyntaxHelp from './help/SyntaxHelp'
-import type { CadScenePart } from './runtime/cadJsx'
+import type { CadScenePart, CadWorkerRequest, CadWorkerResponse } from './cad'
 import JscadViewer from './viewer/JscadViewer'
 
 type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
@@ -13,20 +13,6 @@ type RunError = {
   message: string
   stack?: string
 }
-
-type WorkerResponse =
-  | {
-      type: 'success'
-      requestId: string
-      parts: CadScenePart[]
-    }
-  | {
-      type: 'error'
-      requestId: string
-      errorType: 'compile' | 'runtime' | 'model'
-      message: string
-      stack?: string
-    }
 
 const errorTitles = {
   compile: 'Compile Error',
@@ -72,7 +58,7 @@ function App() {
       setStatus('Compiling')
       setError(null)
 
-      const worker = new Worker(new URL('./worker/cad.worker.ts', import.meta.url), {
+      const worker = new Worker(new URL('./cad/worker/cad.worker.ts', import.meta.url), {
         type: 'module',
       })
       activeWorkerRef.current = worker
@@ -90,7 +76,7 @@ function App() {
         })
       }, 3000)
 
-      worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+      worker.onmessage = (event: MessageEvent<CadWorkerResponse>) => {
         const response = event.data
         if (response.requestId !== latestRequestIdRef.current) return
 
@@ -138,7 +124,7 @@ function App() {
         type: 'run',
         requestId,
         source,
-      })
+      } satisfies CadWorkerRequest)
     },
     [clearActiveRun],
   )

@@ -1,15 +1,8 @@
 import * as esbuild from 'esbuild-wasm'
 import wasmUrl from 'esbuild-wasm/esbuild.wasm?url'
-import { CadModelError } from '../runtime/core'
-import { executeCompiledCode } from '../runtime/userModule'
-
-type WorkerRequest = {
-  type: 'run'
-  requestId: string
-  source: string
-}
-
-type WorkerErrorType = 'compile' | 'runtime' | 'model'
+import { CadModelError } from '../model/core'
+import { executeCompiledCode } from '../execution/userModule'
+import type { CadWorkerErrorType, CadWorkerRequest, CadWorkerResponse } from './protocol'
 
 const forbiddenPatterns = [
   { label: 'dynamic import', pattern: /\bimport\s*\(/ },
@@ -67,19 +60,20 @@ async function compileUserCode(source: string) {
   return result.code
 }
 
-function postError(requestId: string, errorType: WorkerErrorType, error: unknown) {
+function postError(requestId: string, errorType: CadWorkerErrorType, error: unknown) {
   const typedError = error as { message?: string; stack?: string }
 
-  self.postMessage({
+  const response: CadWorkerResponse = {
     type: 'error',
     requestId,
     errorType,
     message: typedError.message ?? String(error),
     stack: typedError.stack,
-  })
+  }
+  self.postMessage(response)
 }
 
-self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
+self.onmessage = async (event: MessageEvent<CadWorkerRequest>) => {
   const message = event.data
 
   if (message.type !== 'run') return
@@ -97,11 +91,12 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     try {
       const parts = executeCompiledCode(jsCode)
 
-      self.postMessage({
+      const response: CadWorkerResponse = {
         type: 'success',
         requestId: message.requestId,
         parts,
-      })
+      }
+      self.postMessage(response)
     } catch (error) {
       postError(message.requestId, error instanceof CadModelError ? 'model' : 'runtime', error)
     }

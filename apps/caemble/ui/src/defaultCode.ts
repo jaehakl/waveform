@@ -2,174 +2,137 @@ export const defaultCode = `import {
   Material,
   Sample,
   Structure,
+  type FiberFourierMode,
   type Geometry,
   type Vec3,
 } from '@caemble/core'
 
-class Dielectric extends Material {
+class Polymer extends Material {
   toSolverModel() {
     return this.vars
   }
-
-  validateKK() {
-    return []
-  }
 }
 
-const Core: Geometry<{ size: Vec3; holeRadius: number }> = ({ size, holeRadius }) => (
-  <union>
-    <subtract>
-      <box size={size} />
-      <cylinder pos={[-size[0] / 4, 0, 0]} radius={holeRadius} height={size[2] * 2} />
-    </subtract>
+const strandFrom = [0, 0, -45] as const
+const strandTo = [0, 0, 45] as const
 
-    <intersect pos={[size[0] / 4, 0, size[2] / 2 + 1]}>
-      <sphere radius={Math.max(size[1] / 3, holeRadius * 2)} />
-      <box size={[size[1] / 2, size[1] / 2, size[2] + 2]} />
-    </intersect>
-  </union>
-)
-
-const Cladding: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
-
-const zeroRotationTensor = [
-  [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-  [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-  [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-] as const
-
-const Device: Geometry<{
-  materials: Material[]
-  gap: number
-  profileScale: number
-  twistRatio: number
-}> = ({
-  materials,
-  pos = [0, 0, 0],
-  rotate,
-  scale = [1, 1, 1],
-  gap,
-  profileScale,
-  twistRatio,
-}) => {
-  const localGap = gap + Math.hypot(...pos) * 0.05
-  const baseSize = [vars.width, 12 * scale[1], 3 * scale[2]] as const
-  const baseHoleRadius = 2 * profileScale
-  const latticePeriod = Math.hypot(...baseSize) + localGap
-  const layerPeriod = Math.sqrt(2 / 3) * latticePeriod
-  const hcpOffset = [latticePeriod / 2, (Math.sqrt(3) * latticePeriod) / 6, 0] as const
-  const layerOffsets = [
-    [-hcpOffset[0] / 3, -hcpOffset[1] / 3, 0],
-    [(hcpOffset[0] * 2) / 3, (hcpOffset[1] * 2) / 3, 0],
-    [-hcpOffset[0] / 3, -hcpOffset[1] / 3, 0],
-  ] as const
-  const azimuthTensor = vars.rotationAzimuth as number[][][]
-  const cosPolarTensor = vars.rotationCosPolar as number[][][]
-  const angleTensor = vars.rotationAngle as number[][][]
-  const baseTwist = (rotate?.angle ?? 0) * twistRatio
-  const rotateAxisTensor = azimuthTensor.map((plane, x) =>
-    plane.map((row, y) =>
-      row.map((azimuth, z) => {
-        const cosPolar = cosPolarTensor[x][y][z]
-        const radial = Math.sqrt(Math.max(0, 1 - cosPolar * cosPolar))
-        return [radial * Math.cos(azimuth), radial * Math.sin(azimuth), cosPolar]
-      }),
-    ),
-  )
-  const rotateAngleTensor = angleTensor.map((plane) =>
-    plane.map((row) => row.map((angle) => (angle + baseTwist) % (Math.PI * 2))),
-  )
-  const layerPosTensor = angleTensor.map((plane) =>
-    plane.map((row) => row.map((_angle, z) => layerOffsets[z])),
-  )
-  const claddingSize = [
-    latticePeriod * 5,
-    latticePeriod * 4,
-    2 * scale[2],
-  ] as const
-  const claddingPos = [0, 0, -layerPeriod - latticePeriod / 2 - baseSize[2]] as const
+const Strand: Geometry<{
+  bend: Vec3
+  bundleRadius: number
+  fiberRadius: number
+  fourier: readonly FiberFourierMode[]
+  phase: number
+  turns: number
+}> = ({ bend, bundleRadius, fiberRadius, fourier, phase, turns }) => {
+  const basePath = (t: number) => {
+    const arc = Math.sin(Math.PI * t)
+    return [
+      strandFrom[0] + (strandTo[0] - strandFrom[0]) * t + bend[0] * arc,
+      strandFrom[1] + (strandTo[1] - strandFrom[1]) * t + bend[1] * Math.sin(Math.PI * 2 * t),
+      strandFrom[2] + (strandTo[2] - strandFrom[2]) * t + bend[2] * arc,
+    ] as const
+  }
 
   return (
-    <>
-      <array
-        shape={[3, 3, 3]}
-        period={[latticePeriod, latticePeriod, layerPeriod]}
-        axes={{
-          x: [1, 0, 0],
-          y: [0.5, Math.sqrt(3) / 2, 0],
-          z: [0, 0, 1],
-        }}
-        inject={{
-          pos: layerPosTensor,
-          rotate: {
-            axis: rotateAxisTensor,
-            angle: rotateAngleTensor,
-          },
-        }}
-      >
-        <Core
-          size={baseSize}
-          holeRadius={baseHoleRadius}
-          scale={[profileScale, 1, 1]}
-          materials={[materials[0]]}
-        />
-      </array>
-      <Cladding size={claddingSize} pos={claddingPos} materials={[materials[1]]} />
-    </>
+    <fiber
+      from={strandFrom}
+      to={strandTo}
+      basePath={basePath}
+      radius={(s) => fiberRadius * (1 - 0.6 * s)}
+      helix={{
+        turns,
+        phase,
+        radius: (_u, theta) => bundleRadius * Math.exp(0.08 * Math.cos(2 * theta)),
+      }}
+      fourier={fourier}
+      envelopePower={2}
+      up={[1, 0, 0]}
+      pathSegments={128}
+      radialSegments={12}
+    />
   )
 }
 
-const structure = new Structure({
-  geometry: () => (
-    <Device
-      pos={vars.devicePos}
-      rotate={{ axis: [0, 0, 1], angle: Math.PI / 18 }}
-      scale={[1, 0.9, 1]}
-      gap={4}
-      profileScale={0.95}
-      twistRatio={0.5}
-      materials={[
-        new Dielectric('Core', { epsilon: vars.coreEpsilon }, '#2563eb'),
-        new Dielectric('Cladding', { epsilon: 2.1 }, '#f59e0b'),
-      ]}
+const Bundle: Geometry<{
+  materials: Material[]
+  bend: Vec3
+  bundleRadius: number
+  fiberRadius: number
+  fourier: readonly FiberFourierMode[]
+  turns: number
+}> = ({ bend, bundleRadius, fiberRadius, fourier, turns }) => (
+  <>
+    <Strand
+      bend={bend}
+      bundleRadius={bundleRadius}
+      fiberRadius={fiberRadius}
+      fourier={fourier}
+      phase={0}
+      turns={turns}
     />
-  ),
+    <Strand
+      bend={bend}
+      bundleRadius={bundleRadius}
+      fiberRadius={fiberRadius}
+      fourier={fourier}
+      phase={(Math.PI * 2) / 3}
+      turns={turns}
+    />
+    <Strand
+      bend={bend}
+      bundleRadius={bundleRadius}
+      fiberRadius={fiberRadius}
+      fourier={fourier}
+      phase={(Math.PI * 4) / 3}
+      turns={turns}
+    />
+  </>
+)
+
+const structure = new Structure({
+  geometry: () => {
+    const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
+      amplitude,
+      phase,
+    }))
+
+    return (
+      <Bundle
+        bend={vars.bend as Vec3}
+        bundleRadius={vars.bundleRadius as number}
+        fiberRadius={vars.fiberRadius as number}
+        fourier={fourier}
+        turns={vars.turns as number}
+        materials={[
+          new Polymer('Tapered Fiber', { density: vars.density }, '#7c3aed'),
+        ]}
+      />
+    )
+  },
   varsSchema: {
-    width: { shape: [], default: 24, min: 12, max: 36 },
-    coreEpsilon: { shape: [], default: 12, min: 10, max: 14 },
-    devicePos: {
+    bend: {
       shape: [3],
-      default: [0, 0, 0],
-      min: -4,
-      max: 4,
+      default: [8, 4, 0],
+      min: [-12, -8, -4],
+      max: [12, 8, 4],
     },
-    rotationAzimuth: {
-      shape: [3, 3, 3],
-      default: zeroRotationTensor,
-      min: 0,
-      max: Math.PI * 2,
-    },
-    rotationCosPolar: {
-      shape: [3, 3, 3],
-      default: zeroRotationTensor,
-      min: -1,
-      max: 1,
-    },
-    rotationAngle: {
-      shape: [3, 3, 3],
-      default: zeroRotationTensor,
-      min: 0,
-      max: Math.PI * 2,
+    bundleRadius: { shape: [], default: 5, min: 3, max: 7 },
+    fiberRadius: { shape: [], default: 1.2, min: 0.8, max: 1.6 },
+    turns: { shape: [], default: 8, min: 5, max: 11 },
+    density: { shape: [], default: 1.18 },
+    fourierModes: {
+      shape: [3, 2],
+      default: [[0.8, 0.3], [0.35, 1.7], [0.16, 3.1]],
+      min: [[0, 0], [0, 0], [0, 0]],
+      max: [[1.2, Math.PI * 2], [0.6, Math.PI * 2], [0.3, Math.PI * 2]],
     },
   },
 })
 
-// Pass a seed to randomVars(...) when reproducible rotations are needed.
-const randomRotationVars = structure.randomVars()
+// The Fourier amplitudes and phases are ordinary Sample vars. Reroll resamples only those coefficients.
+const randomVars = structure.randomVars()
 
 export default new Sample(structure, {
-  rotationAzimuth: randomRotationVars.rotationAzimuth,
-  rotationCosPolar: randomRotationVars.rotationCosPolar,
-  rotationAngle: randomRotationVars.rotationAngle,
+  fourierModes: randomVars.fourierModes,
 })
 `

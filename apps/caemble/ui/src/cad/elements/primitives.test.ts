@@ -1,0 +1,37 @@
+import { geometries } from '@jscad/modeling'
+import { describe, expect, it } from 'vitest'
+import { CadModelError, Material } from '../model/core'
+import { evaluateCad, h } from '../index'
+
+const material = new Material('Primitive', {}, '#2563eb')
+
+function evaluate(tag: string, props: Record<string, unknown>) {
+  return evaluateCad(h(() => h(tag, props), { materials: [material] }))[0]
+}
+
+describe('CAD primitives', () => {
+  it('creates valid box, cylinder, and sphere geom3 solids', () => {
+    expect(geometries.geom3.isA(evaluate('box', { size: [1, 2, 3] }).geometry)).toBe(true)
+    expect(geometries.geom3.isA(evaluate('cylinder', { radius: 1, height: 2, segments: 8 }).geometry)).toBe(true)
+    expect(geometries.geom3.isA(evaluate('sphere', { radius: 1, segments: 8 }).geometry)).toBe(true)
+  })
+
+  it('validates box size before invoking JSCAD', () => {
+    for (const size of [undefined, [1, 2], [1, 2, 0], [1, Number.NaN, 3]]) {
+      expect(() => evaluate('box', { size })).toThrowError(CadModelError)
+      expect(() => evaluate('box', { size })).toThrow('<box> size')
+    }
+  })
+
+  it('validates cylinder radius, height, and segments with prop paths', () => {
+    expect(() => evaluate('cylinder', { radius: 0, height: 2 })).toThrow('<cylinder> radius')
+    expect(() => evaluate('cylinder', { radius: 1, height: Number.POSITIVE_INFINITY })).toThrow('<cylinder> height')
+    expect(() => evaluate('cylinder', { radius: 1, height: 2, segments: 3 })).toThrow('<cylinder> segments')
+    expect(() => evaluate('cylinder', { radius: 1, height: 2, segments: 4.5 })).toThrow('<cylinder> segments')
+  })
+
+  it('validates sphere radius and segments with prop paths', () => {
+    expect(() => evaluate('sphere', { radius: -1 })).toThrow('<sphere> radius')
+    expect(() => evaluate('sphere', { radius: 1, segments: Number.MAX_SAFE_INTEGER + 1 })).toThrow('<sphere> segments')
+  })
+})

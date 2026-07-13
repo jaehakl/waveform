@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
-import type { CadScenePart } from '../runtime/cadJsx'
+import type { CadScenePart } from '../cad'
 
 type RendererEntity = Record<string, unknown>
 type RendererOptions = Record<string, unknown> & {

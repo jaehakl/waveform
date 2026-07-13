@@ -1,16 +1,7 @@
 import { defaultCode } from '../defaultCode'
+import { cadElementCatalog } from '../cad/catalog'
 
 const structureExample = defaultCode.trim()
-
-const tags = [
-  ['box', '<box pos={[x,y,z]} rotate={{axis:[x,y,z],angle:a}} scale={[x,y,z]} size={[x,y,z]} />'],
-  ['cylinder', '<cylinder pos={[x, y, z]} radius={r} height={h} />'],
-  ['sphere', '<sphere pos={[x, y, z]} radius={r} />'],
-  ['array', '<array shape={[nx,ny,nz]} period={[px,py,pz]} axes={{x,y,z}} inject={{rotate:{axis,angle}}}>Geometry</array>'],
-  ['union', '<union pos={[x,y,z]} rotate={{axis:[x,y,z],angle:a}} scale={[x,y,z]}>...</union>'],
-  ['subtract', '<subtract pos={[x, y, z]}>base cutter</subtract>'],
-  ['intersect', '<intersect pos={[x, y, z]}>shapeA shapeB</intersect>'],
-]
 
 function SyntaxHelp() {
   return (
@@ -43,17 +34,19 @@ function SyntaxHelp() {
                     <tr>
                       <th className="border-b border-slate-200 px-3 py-2 font-semibold">Tag</th>
                       <th className="border-b border-slate-200 px-3 py-2 font-semibold">Shape</th>
+                      <th className="border-b border-slate-200 px-3 py-2 font-semibold">Summary</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tags.map(([tag, syntax]) => (
-                      <tr key={tag} className="border-b border-slate-100 last:border-0">
-                        <td className="px-3 py-2 align-top font-mono text-xs text-slate-700">{tag}</td>
+                    {cadElementCatalog.map((element) => (
+                      <tr key={element.tag} className="border-b border-slate-100 last:border-0">
+                        <td className="px-3 py-2 align-top font-mono text-xs text-slate-700">{element.tag}</td>
                         <td className="px-3 py-2 align-top">
                           <code className="break-all rounded bg-slate-100 px-1 py-0.5 text-xs text-slate-700">
-                            {syntax}
+                            {element.syntax}
                           </code>
                         </td>
+                        <td className="px-3 py-2 align-top text-xs leading-5 text-slate-600">{element.summary}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -93,6 +86,25 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">scale</code>. Rotation uses a local axis and a
                 radians angle with the right-hand rule. Child operations run first, followed by scale, rotation, and
                 position.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Procedural Fibers</p>
+              <p className="mt-1">
+                A <code className="rounded bg-white px-1 py-0.5 text-xs">fiber</code> is a capped circular solid
+                joining <code className="rounded bg-white px-1 py-0.5 text-xs">from</code> and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">to</code>. Optional{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">basePath(t)</code> returns a complete local
+                path whose endpoints must match those points. Helix and amplitude/phase Fourier modes displace the
+                path in a parallel-transport Bishop frame, while the endpoint envelope keeps both centers fixed.
+              </p>
+              <p className="mt-1">
+                Top-level <code className="rounded bg-white px-1 py-0.5 text-xs">radius(s)</code> is the positive
+                physical cross-section radius along normalized final arc length.{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">helix.radius(u, theta)</code> is a separate,
+                non-negative centerline displacement along normalized base-curve arc length. Increase{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">pathSegments</code> or{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">radialSegments</code> when the curve needs
+                more resolution. Exact zero-radius tips and self-intersection repair are not supported.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Geometry Arrays</p>

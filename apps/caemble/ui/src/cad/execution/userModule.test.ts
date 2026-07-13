@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { transform } from 'esbuild'
-import { measurements } from '@jscad/modeling'
-import { defaultCode } from '../defaultCode'
+import { geometries, measurements } from '@jscad/modeling'
+import { defaultCode } from '../../defaultCode'
 import { executeCompiledCode, requireCaembleModule } from './userModule'
 
 const validModule = `
@@ -33,24 +33,13 @@ describe('compiled user module execution', () => {
   })
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
-    ;['union', 'subtract', 'intersect'].forEach((tag) => {
-      expect(defaultCode).toContain(`<${tag}`)
-    })
-    expect(defaultCode).toContain('rotate={{')
-    expect(defaultCode).toContain('scale={[')
-    expect(defaultCode).toContain('<array')
-    expect(defaultCode).toContain('shape={[3, 3, 3]}')
-    expect(defaultCode).toContain('period={[')
-    expect(defaultCode).toContain('y: [0.5, Math.sqrt(3) / 2, 0]')
-    expect(defaultCode).toContain('const layerPeriod = Math.sqrt(2 / 3) * latticePeriod')
-    expect(defaultCode).toContain('pos: layerPosTensor')
-    expect(defaultCode).toContain('inject={{')
-    expect(defaultCode).toContain('rotationAzimuth')
-    expect(defaultCode).toContain('rotationCosPolar')
-    expect(defaultCode).toContain('rotationAngle')
-    expect(defaultCode).toContain('const randomRotationVars = structure.randomVars()')
-    expect(defaultCode).not.toMatch(/<(rotate|scale)\b/)
-    expect(defaultCode).not.toMatch(/\b(angles|factors)=/)
+    expect(defaultCode).toContain('<fiber')
+    expect(defaultCode).toContain('basePath={basePath}')
+    expect(defaultCode).toContain('radius={(s) =>')
+    expect(defaultCode).toContain('radius: (_u, theta) =>')
+    expect(defaultCode).toContain('fourier={fourier}')
+    expect(defaultCode).toContain('fourierModes')
+    expect(defaultCode).toContain('const randomVars = structure.randomVars()')
 
     const compiled = await transform(defaultCode, {
       format: 'cjs',
@@ -62,10 +51,10 @@ describe('compiled user module execution', () => {
     })
     const parts = executeCompiledCode(compiled.code)
 
-    expect(parts).toHaveLength(28)
-    expect(parts.slice(0, 27).every((part) => part.materialName === 'Core')).toBe(true)
-    expect(parts[27].materialName).toBe('Cladding')
-    parts.slice(0, 27).forEach((part) => {
+    expect(parts).toHaveLength(3)
+    expect(parts.every((part) => part.materialName === 'Tapered Fiber')).toBe(true)
+    parts.forEach((part) => {
+      expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
     })
   })
@@ -81,3 +70,5 @@ describe('compiled user module execution', () => {
     )
   })
 })
+
+
