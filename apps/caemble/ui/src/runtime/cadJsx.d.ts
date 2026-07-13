@@ -1,6 +1,9 @@
 export {}
 
 declare global {
+  type VarsTensor = number | readonly VarsTensor[]
+  const vars: Readonly<Record<string, VarsTensor>>
+
   namespace JSX {
     type Vec3 = [number, number, number]
 

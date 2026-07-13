@@ -1,6 +1,7 @@
 import * as esbuild from 'esbuild-wasm'
 import wasmUrl from 'esbuild-wasm/esbuild.wasm?url'
-import { CadModelError, Fragment, h } from '../runtime/cadJsx'
+import { CadModelError } from '../runtime/core'
+import { executeCompiledCode } from '../runtime/userModule'
 
 type WorkerRequest = {
   type: 'run'
@@ -11,7 +12,7 @@ type WorkerRequest = {
 type WorkerErrorType = 'compile' | 'runtime' | 'model'
 
 const forbiddenPatterns = [
-  { label: 'import', pattern: /\bimport\b/ },
+  { label: 'dynamic import', pattern: /\bimport\s*\(/ },
   { label: 'fetch', pattern: /\bfetch\s*\(/ },
   { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
   { label: 'localStorage', pattern: /\blocalStorage\b/ },
@@ -66,32 +67,6 @@ async function compileUserCode(source: string) {
   return result.code
 }
 
-async function executeUserCode(jsCode: string) {
-  const exports: Record<string, unknown> = {}
-  const module = { exports }
-  const runner = new Function(
-    'h',
-    'Fragment',
-    'exports',
-    'module',
-    `"use strict";\n${jsCode}\nreturn module.exports;`,
-  )
-  const moduleExports = runner(h, Fragment, exports, module) as Record<string, unknown>
-  const entry = moduleExports.default ?? moduleExports.main ?? exports.default ?? exports.main
-
-  if (typeof entry !== 'function') {
-    throw new CadModelError('Default export or named main export must be a function that returns CAD geometry.')
-  }
-
-  const geometry = await entry()
-
-  if (!geometry || (Array.isArray(geometry) && geometry.length === 0)) {
-    throw new CadModelError('Model function did not return geometry.')
-  }
-
-  return geometry
-}
-
 function postError(requestId: string, errorType: WorkerErrorType, error: unknown) {
   const typedError = error as { message?: string; stack?: string }
 
@@ -120,12 +95,12 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     }
 
     try {
-      const geometry = await executeUserCode(jsCode)
+      const parts = executeCompiledCode(jsCode)
 
       self.postMessage({
         type: 'success',
         requestId: message.requestId,
-        geometry,
+        parts,
       })
     } catch (error) {
       postError(message.requestId, error instanceof CadModelError ? 'model' : 'runtime', error)

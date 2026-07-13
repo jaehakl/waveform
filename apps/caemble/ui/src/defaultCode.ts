@@ -1,59 +1,66 @@
-export const defaultCode = `type Vec3 = [number, number, number]
+export const defaultCode = `import { Material, Sample, Structure } from '@caemble/core'
 
-type RaisedBossProps = {
-  at: Vec3
-  radius?: number
-  height?: number
-  children?: unknown
+class Dielectric extends Material {
+  toSolverModel() {
+    return this.vars
+  }
+
+  validateKK() {
+    return []
+  }
 }
 
-// A custom component receives JSX props as the first function argument.
-// Nested JSX is injected as props.children.
-function RaisedBoss({ at, radius = 7, height = 10, children }: RaisedBossProps) {
+function Core({ materials }: { materials?: Material[] }) {
   return (
-    <translate offset={at}>
+    <translate offset={vars.offset}>
       <union>
-        <cylinder radius={radius} height={height} />
-        {children}
+        <box size={[vars.width, 12, 3]} />
+        <translate z={3}>
+          <cylinder radius={3} height={6} />
+        </translate>
       </union>
     </translate>
   )
 }
 
-type DrillHoleProps = {
-  at: Vec3
-  radius?: number
-  height?: number
+function Cladding({ materials }: { materials?: Material[] }) {
+  return <box size={[vars.width + 8, 20, 2]} />
 }
 
-function DrillHole({ at, radius = 2, height = 18 }: DrillHoleProps) {
+function Device({ materials }: { materials: Material[] }) {
   return (
-    <translate offset={at}>
-      <cylinder radius={radius} height={height} />
-    </translate>
+    <>
+      <Core materials={[materials[0]]} />
+      <translate z={-2.5}>
+        <Cladding materials={[materials[1]]} />
+      </translate>
+    </>
   )
 }
 
-export default function Model() {
-  const holeX = 10
+const structure = new Structure({
+  geometry: () => (
+    <Device
+      materials={[
+        new Dielectric('Core', { epsilon: vars.coreEpsilon }, '#2563eb'),
+        new Dielectric('Cladding', { epsilon: 2.1 }, '#f59e0b'),
+      ]}
+    />
+  ),
+  varsSchema: {
+    width: { shape: [], default: 24, min: 12, max: 36 },
+    coreEpsilon: { shape: [], default: 12, min: 10, max: 14 },
+    offset: {
+      shape: [3],
+      default: [0, 0, 0],
+      min: -4,
+      max: 4,
+    },
+  },
+})
 
-  return (
-    <subtract>
-      <union>
-        <box size={[34, 24, 4]} />
+export default new Sample(structure)
 
-        <RaisedBoss at={[0, 0, 7]} radius={6} height={10}>
-          <translate offset={[0, 0, 7]}>
-            <sphere radius={4} />
-          </translate>
-        </RaisedBoss>
-      </union>
-
-      <DrillHole at={[-holeX, -6, 0]} />
-      <DrillHole at={[holeX, -6, 0]} />
-      <DrillHole at={[-holeX, 6, 0]} />
-      <DrillHole at={[holeX, 6, 0]} />
-    </subtract>
-  )
-}
+// Seeded random vars:
+// export default new Sample(structure, structure.randomVars(260713))
 `

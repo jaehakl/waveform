@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
+import type { CadScenePart } from '../runtime/cadJsx'
 
 type RendererEntity = Record<string, unknown>
 type RendererOptions = Record<string, unknown> & {
@@ -35,15 +36,24 @@ type ReglRendererApi = {
 }
 
 type JscadViewerProps = {
-  geometry: unknown
   onRenderEnd: () => void
   onRenderError: (message: string) => void
   onRenderStart: () => void
+  parts: CadScenePart[]
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
 
-function JscadViewer({ geometry, onRenderEnd, onRenderError, onRenderStart }: JscadViewerProps) {
+function colorFromHex(hex: string): [number, number, number, number] {
+  return [
+    Number.parseInt(hex.slice(1, 3), 16) / 255,
+    Number.parseInt(hex.slice(3, 5), 16) / 255,
+    Number.parseInt(hex.slice(5, 7), 16) / 255,
+    1,
+  ]
+}
+
+function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: JscadViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
   const controlsRef = useRef<RendererState | null>(null)
@@ -128,15 +138,16 @@ function JscadViewer({ geometry, onRenderEnd, onRenderError, onRenderStart }: Js
   }, [])
 
   useEffect(() => {
-    if (!geometry || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
+    if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
 
     onRenderStart()
 
     try {
-      const solids = Array.isArray(geometry) ? geometry : [geometry]
-      const solidsEntities = renderer.entitiesFromSolids(
-        { color: [0.18, 0.47, 0.82, 1], smoothNormals: true },
-        ...solids,
+      const solidsEntities = parts.flatMap((part) =>
+        renderer.entitiesFromSolids(
+          { color: colorFromHex(part.displayColor), smoothNormals: true },
+          part.geometry,
+        ),
       )
       const gridEntity = {
         size: [120, 120],
@@ -178,7 +189,7 @@ function JscadViewer({ geometry, onRenderEnd, onRenderError, onRenderStart }: Js
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [geometry, onRenderEnd, onRenderError, onRenderStart])
+  }, [onRenderEnd, onRenderError, onRenderStart, parts])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -245,9 +256,24 @@ function JscadViewer({ geometry, onRenderEnd, onRenderError, onRenderStart }: Js
         }}
       />
 
-      {!geometry ? (
+      {parts.length === 0 ? (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
           Waiting for model...
+        </div>
+      ) : null}
+
+      {parts.length > 0 ? (
+        <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
+          {[...new Map(parts.map((part) => [part.materialName, part])).values()].map((part) => (
+            <div key={part.materialName} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
+                style={{ backgroundColor: part.displayColor }}
+              />
+              <span>{part.materialName}</span>
+            </div>
+          ))}
         </div>
       ) : null}
     </div>

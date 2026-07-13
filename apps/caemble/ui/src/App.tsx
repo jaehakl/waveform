@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import CadEditor from './editor/CadEditor'
 import { defaultCode } from './defaultCode'
 import SyntaxHelp from './help/SyntaxHelp'
+import type { CadScenePart } from './runtime/cadJsx'
 import JscadViewer from './viewer/JscadViewer'
 
 type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
@@ -17,7 +18,7 @@ type WorkerResponse =
   | {
       type: 'success'
       requestId: string
-      geometry: unknown
+      parts: CadScenePart[]
     }
   | {
       type: 'error'
@@ -40,7 +41,7 @@ function createRequestId() {
 function App() {
   const [code, setCode] = useState(defaultCode)
   const [error, setError] = useState<RunError | null>(null)
-  const [geometry, setGeometry] = useState<unknown>(null)
+  const [parts, setParts] = useState<CadScenePart[]>([])
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [view, setView] = useState<AppView>('workspace')
   const activeTimeoutRef = useRef<number | null>(null)
@@ -96,7 +97,7 @@ function App() {
         if (response.type === 'success') {
           setStatus('Rendering')
           setError(null)
-          setGeometry(response.geometry)
+          setParts(response.parts)
           return
         }
 
@@ -217,10 +218,10 @@ function App() {
 
           <div className="min-h-[360px] min-w-0">
             <JscadViewer
-              geometry={geometry}
               onRenderEnd={handleRenderEnd}
               onRenderError={handleRenderError}
               onRenderStart={handleRenderStart}
+              parts={parts}
             />
           </div>
         </section>
@@ -239,7 +240,7 @@ function App() {
           </div>
         ) : (
           <div className="text-sm text-slate-600">
-            Edit the TSX model on the left. Successful geometry remains visible while new errors are shown here.
+            Edit the Structure and Sample on the left. Successful geometry remains visible while new errors are shown here.
           </div>
         )}
       </footer>
