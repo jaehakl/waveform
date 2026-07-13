@@ -88,6 +88,40 @@ function SyntaxHelp() {
                 position.
               </p>
 
+              <p className="mt-3 font-semibold text-slate-800">Curved Edge Cylinders</p>
+              <p className="mt-1">
+                A <code className="rounded bg-white px-1 py-0.5 text-xs">curvedEdgeCylinder</code> is a capped,
+                z-axis solid centered on the local origin. Its radius is{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">A(theta) * V(z)</code>, where the
+                azimuthal curve is an amplitude/phase Fourier series and the vertical curve is a Taylor series in{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">z - origin</code>.
+              </p>
+              <p className="mt-1">
+                Array indices give Fourier modes and Taylor orders starting at zero. Angles use radians and local z
+                runs from <code className="rounded bg-white px-1 py-0.5 text-xs">-height / 2</code> to{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">height / 2</code>. Increase{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">azimuthalSegments</code> or{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">verticalSegments</code> for rapidly varying
+                curves; every sampled product radius must remain positive.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Curved Surface Spheres</p>
+              <p className="mt-1">
+                A <code className="rounded bg-white px-1 py-0.5 text-xs">curvedSurfaceSphere</code> is a closed,
+                origin-centered surface with radius{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">A(theta) * P(phi)</code>. Both factors are
+                amplitude/phase Fourier series whose array indices are modes starting at zero.
+              </p>
+              <p className="mt-1">
+                Azimuth <code className="rounded bg-white px-1 py-0.5 text-xs">theta</code> runs around the z-axis
+                from zero to 2π, and polar angle{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">phi</code> runs from +z to -z over zero to
+                π. The single north and south pole vertices evaluate the azimuthal curve at theta zero. Increase{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">azimuthalSegments</code> or{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">polarSegments</code> for rapidly varying
+                curves; every sampled product radius must remain positive.
+              </p>
+
               <p className="mt-3 font-semibold text-slate-800">Procedural Fibers</p>
               <p className="mt-1">
                 A <code className="rounded bg-white px-1 py-0.5 text-xs">fiber</code> is a capped circular solid

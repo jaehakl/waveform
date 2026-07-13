@@ -1,0 +1,140 @@
+export const curvedEdgeCylinderArrayCode = `import {
+  Material,
+  Sample,
+  Structure,
+  type Geometry,
+} from '@caemble/core'
+
+const tau = Math.PI * 2
+const arrayShape = [4, 4, 1] as const
+
+const cellTensor = (value: number) =>
+  Array.from({ length: arrayShape[0] }, () =>
+    Array.from({ length: arrayShape[1] }, () =>
+      Array.from({ length: arrayShape[2] }, () => value),
+    ),
+  )
+
+const CurvedCell: Geometry<{
+  height: number
+  baseRadius: number
+  mode2Amplitude: number
+  mode2Phase: number
+  mode3Amplitude: number
+  mode3Phase: number
+  verticalSlope: number
+  verticalCurvature: number
+}> = ({
+  height,
+  baseRadius,
+  mode2Amplitude,
+  mode2Phase,
+  mode3Amplitude,
+  mode3Phase,
+  verticalSlope,
+  verticalCurvature,
+}) => (
+  <curvedEdgeCylinder
+    height={height}
+    azimuthalCurve={[
+      { amplitude: baseRadius, phase: 0 },
+      { amplitude: 0, phase: 0 },
+      { amplitude: mode2Amplitude, phase: mode2Phase },
+      { amplitude: mode3Amplitude, phase: mode3Phase },
+    ]}
+    verticalCurve={{
+      origin: 0,
+      coefficients: [1, verticalSlope, verticalCurvature],
+    }}
+    azimuthalSegments={48}
+    verticalSegments={16}
+  />
+)
+
+const structure = new Structure({
+  geometry: () => (
+    <array
+      shape={arrayShape}
+      period={[14, 14, 0]}
+      inject={{
+        height: vars.height,
+        baseRadius: vars.baseRadius,
+        mode2Amplitude: vars.mode2Amplitude,
+        mode2Phase: vars.mode2Phase,
+        mode3Amplitude: vars.mode3Amplitude,
+        mode3Phase: vars.mode3Phase,
+        verticalSlope: vars.verticalSlope,
+        verticalCurvature: vars.verticalCurvature,
+      }}
+    >
+      <CurvedCell
+        height={10}
+        baseRadius={4.6}
+        mode2Amplitude={0.5}
+        mode2Phase={0}
+        mode3Amplitude={0.25}
+        mode3Phase={0}
+        verticalSlope={0}
+        verticalCurvature={0}
+        materials={[
+          new Material('Curved Polymer', { density: 1.12 }, '#0f766e'),
+        ]}
+      />
+    </array>
+  ),
+  varsSchema: {
+    height: {
+      shape: arrayShape,
+      default: cellTensor(10),
+      min: 8,
+      max: 12,
+    },
+    baseRadius: {
+      shape: arrayShape,
+      default: cellTensor(4.6),
+      min: 4.2,
+      max: 5,
+    },
+    mode2Amplitude: {
+      shape: arrayShape,
+      default: cellTensor(0.5),
+      min: 0.2,
+      max: 0.8,
+    },
+    mode2Phase: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: 0,
+      max: tau,
+    },
+    mode3Amplitude: {
+      shape: arrayShape,
+      default: cellTensor(0.25),
+      min: 0.1,
+      max: 0.45,
+    },
+    mode3Phase: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: 0,
+      max: tau,
+    },
+    verticalSlope: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: -0.02,
+      max: 0.02,
+    },
+    verticalCurvature: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: -0.005,
+      max: 0.005,
+    },
+  },
+})
+
+const randomVars = structure.randomVars()
+
+export default new Sample(structure, randomVars)
+`

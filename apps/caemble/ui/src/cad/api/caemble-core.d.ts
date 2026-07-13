@@ -19,6 +19,39 @@ export type CylinderAttributes = Readonly<{
   scale?: Vec3
 }>
 
+export type CurvedEdgeCylinderFourierMode = Readonly<{
+  amplitude: number
+  phase: number
+}>
+export type CurvedEdgeCylinderTaylorCurve = Readonly<{
+  origin: number
+  coefficients: readonly number[]
+}>
+export type CurvedEdgeCylinderAttributes = Readonly<{
+  height: number
+  azimuthalCurve: readonly CurvedEdgeCylinderFourierMode[]
+  verticalCurve: CurvedEdgeCylinderTaylorCurve
+  azimuthalSegments?: number
+  verticalSegments?: number
+  pos?: Vec3
+  rotate?: Rotation
+  scale?: Vec3
+}>
+
+export type CurvedSurfaceSphereFourierMode = Readonly<{
+  amplitude: number
+  phase: number
+}>
+export type CurvedSurfaceSphereAttributes = Readonly<{
+  azimuthalCurve: readonly CurvedSurfaceSphereFourierMode[]
+  polarCurve: readonly CurvedSurfaceSphereFourierMode[]
+  azimuthalSegments?: number
+  polarSegments?: number
+  pos?: Vec3
+  rotate?: Rotation
+  scale?: Vec3
+}>
+
 export type SphereAttributes = Readonly<{
   radius: number
   segments?: number

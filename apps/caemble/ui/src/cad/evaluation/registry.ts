@@ -2,6 +2,8 @@ import { arrayDefinition } from '../elements/array/runtime'
 import { boxDefinition } from '../elements/box/runtime'
 import { intersectDefinition, subtractDefinition, unionDefinition } from '../elements/booleans/runtime'
 import { cylinderDefinition } from '../elements/cylinder/runtime'
+import { curvedEdgeCylinderDefinition } from '../elements/curvedEdgeCylinder/runtime'
+import { curvedSurfaceSphereDefinition } from '../elements/curvedSurfaceSphere/runtime'
 import { fiberDefinition } from '../elements/fiber/runtime'
 import { sphereDefinition } from '../elements/sphere/runtime'
 import type { CadElementDefinition } from './types'
@@ -9,7 +11,9 @@ import type { CadElementDefinition } from './types'
 export const cadElementDefinitions = [
   boxDefinition,
   cylinderDefinition,
+  curvedEdgeCylinderDefinition,
   sphereDefinition,
+  curvedSurfaceSphereDefinition,
   fiberDefinition,
   arrayDefinition,
   unionDefinition,
@@ -36,5 +40,3 @@ export const cadElementRegistry = createCadElementRegistry(cadElementDefinitions
 export function getCadElementDefinition(tag: string) {
   return cadElementRegistry.get(tag)
 }
-
-

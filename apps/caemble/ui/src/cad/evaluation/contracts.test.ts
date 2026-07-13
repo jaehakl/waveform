@@ -23,7 +23,18 @@ describe('CAD registry contracts', () => {
   })
 
   it('uses shared declaration files for public core types and Monaco', () => {
-    for (const typeName of ['BoxAttributes', 'CylinderAttributes', 'SphereAttributes', 'ArrayAttributes', 'FiberAttributes']) {
+    for (const typeName of [
+      'BoxAttributes',
+      'CylinderAttributes',
+      'CurvedEdgeCylinderAttributes',
+      'CurvedEdgeCylinderFourierMode',
+      'CurvedEdgeCylinderTaylorCurve',
+      'CurvedSurfaceSphereAttributes',
+      'CurvedSurfaceSphereFourierMode',
+      'SphereAttributes',
+      'ArrayAttributes',
+      'FiberAttributes',
+    ]) {
       expect(coreDeclarations).toContain(`export type ${typeName}`)
     }
     expect(monacoSetupSource).toContain("import coreTypes from '../cad/api/caemble-core.d.ts?raw'")
@@ -43,4 +54,3 @@ describe('CAD registry contracts', () => {
     })
   })
 })
-

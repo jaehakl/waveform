@@ -2,6 +2,8 @@ import type {
   ArrayAttributes,
   BoxAttributes,
   CylinderAttributes,
+  CurvedEdgeCylinderAttributes,
+  CurvedSurfaceSphereAttributes,
   FiberAttributes,
   Rotation,
   SphereAttributes,
@@ -18,6 +20,8 @@ declare global {
     interface IntrinsicElements {
       box: BoxAttributes
       cylinder: CylinderAttributes
+      curvedEdgeCylinder: CurvedEdgeCylinderAttributes
+      curvedSurfaceSphere: CurvedSurfaceSphereAttributes
       sphere: SphereAttributes
       fiber: FiberAttributes
       array: ArrayAttributes

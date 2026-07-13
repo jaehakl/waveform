@@ -89,6 +89,62 @@ Every Geometry and CAD element accepts `pos`, axis-angle `rotate`, and `scale`. 
 
 `<array>` repeats exactly one direct Geometry child. `shape`, `period`, optional lattice `axes`, and `[x][y][z]`-prefixed injection tensors control each cell. Injected values replace the corresponding child props before the lattice and array transforms are applied.
 
+## Curved Edge Cylinders
+
+`<curvedEdgeCylinder>` creates a capped solid centered on the local origin and aligned with the z-axis. Its radial distance is the product of an azimuthal Fourier series and a vertical Taylor series:
+
+```text
+A(θ) = Σ[n=0..K-1] amplitude[n] · cos(nθ + phase[n])
+V(z) = Σ[n=0..L-1] coefficient[n] · (z - origin)ⁿ
+r(θ,z) = A(θ) · V(z)
+```
+
+The Fourier array index is the mode number, including mode zero. The Taylor coefficient index is the order, including its constant term. `phase` uses radians, `θ` is sampled over `[0, 2π)`, and physical local z coordinates run from `-height / 2` to `height / 2`. The Taylor `origin` may be any finite local z coordinate.
+
+```tsx
+<curvedEdgeCylinder
+  height={10}
+  azimuthalCurve={[
+    { amplitude: 4, phase: 0 },
+    { amplitude: 0.5, phase: 0.2 },
+  ]}
+  verticalCurve={{ origin: 1.5, coefficients: [1, 0, 0.02] }}
+  azimuthalSegments={64}
+  verticalSegments={32}
+/>
+```
+
+`azimuthalSegments` and `verticalSegments` default to `64` and `32`. Every sampled product radius must be finite and positive. The mesh does not analyze the curve between samples or repair self-intersections, so increase the segment counts for higher Fourier modes or rapidly changing Taylor curves.
+
+## Curved Surface Spheres
+
+`<curvedSurfaceSphere>` creates a closed, origin-centered surface whose spherical radius is the product of azimuthal and polar Fourier series:
+
+```text
+A(θ) = Σ[n=0..K-1] azimuthalAmplitude[n] · cos(nθ + azimuthalPhase[n])
+P(φ) = Σ[n=0..L-1] polarAmplitude[n] · cos(nφ + polarPhase[n])
+r(θ,φ) = A(θ) · P(φ)
+```
+
+`θ` is the z-axis azimuth in `[0, 2π)`, while `φ` is the polar angle from +z in `[0, π]`. Array indices are Fourier mode numbers starting at zero, and phases use radians. Because azimuth is undefined at the poles, both single pole vertices evaluate the azimuthal curve at `θ=0`.
+
+```tsx
+<curvedSurfaceSphere
+  azimuthalCurve={[
+    { amplitude: 4, phase: 0 },
+    { amplitude: 0.5, phase: 0.2 },
+  ]}
+  polarCurve={[
+    { amplitude: 1, phase: 0 },
+    { amplitude: 0.1, phase: 0 },
+  ]}
+  azimuthalSegments={64}
+  polarSegments={32}
+/>
+```
+
+`azimuthalSegments` and `polarSegments` default to `64` and `32`. Every sampled product radius must be finite and positive. Increase the segment counts for higher modes or rapidly changing curves.
+
 ## Procedural Fibers
 
 `<fiber>` creates one capped circular solid around a sampled centerline. `from` and `to` are local coordinates and always remain the center points of the two end caps.
@@ -134,7 +190,16 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 ```tsx
 <box size={[20, 20, 20]} />
 <cylinder radius={8} height={16} segments={32} />
+<curvedEdgeCylinder
+  height={16}
+  azimuthalCurve={[{ amplitude: 8, phase: 0 }, { amplitude: 1, phase: 0 }]}
+  verticalCurve={{ origin: 0, coefficients: [1, 0, 0.005] }}
+/>
 <sphere radius={10} segments={32} />
+<curvedSurfaceSphere
+  azimuthalCurve={[{ amplitude: 8, phase: 0 }, { amplitude: 1, phase: 0 }]}
+  polarCurve={[{ amplitude: 1, phase: 0 }, { amplitude: 0.1, phase: 0 }]}
+/>
 
 <fiber
   from={[0, 0, -30]}
@@ -162,6 +227,8 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 
 - The Worker is not a product-grade malicious-code sandbox.
 - Relative, external, and dynamic imports are not supported.
+- Curved edge cylinders validate radii only at sampled mesh vertices and do not repair self-intersections.
+- Curved surface spheres validate radii only at sampled mesh vertices; their poles use the azimuthal curve at `θ=0`.
 - Fiber curves are sampled approximations and self-intersections are not repaired.
 - Fiber cross-sections are circular and capped; open tubes, elliptical profiles, and exact zero-radius tips are not implemented.
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
@@ -169,4 +236,4 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 
 
 ##### Curved Edge Slab
-- 
+-

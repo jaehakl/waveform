@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CadEditor from './editor/CadEditor'
 import { defaultCode } from './defaultCode'
+import { caembleExamples } from './examples'
 import SyntaxHelp from './help/SyntaxHelp'
 import type { CadScenePart, CadWorkerRequest, CadWorkerResponse } from './cad'
 import JscadViewer from './viewer/JscadViewer'
@@ -167,6 +168,8 @@ function App() {
   }, [])
 
   const runIsBusy = status === 'Compiling' || status === 'Rendering'
+  const selectedExample = caembleExamples.find((example) => example.code === code)
+  const selectedExampleId = selectedExample?.id ?? ''
 
   const handleReroll = useCallback(() => {
     if (runIsBusy) return
@@ -203,16 +206,39 @@ function App() {
           </div>
 
           {view === 'workspace' ? (
-            <button
-              aria-label="Reroll random structure"
-              className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={runIsBusy}
-              title="Re-run the current code to generate a new random structure"
-              type="button"
-              onClick={handleReroll}
-            >
-              Reroll
-            </button>
+            <>
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <span>Example</span>
+                <select
+                  aria-label="Select example"
+                  className="max-w-64 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 focus:border-slate-500 focus:outline-none"
+                  title={selectedExample?.description}
+                  value={selectedExampleId}
+                  onChange={(event) => {
+                    const example = caembleExamples.find(({ id }) => id === event.target.value)
+                    if (!example) return
+                    setCode(example.code)
+                  }}
+                >
+                  <option disabled value="">Custom</option>
+                  {caembleExamples.map((example) => (
+                    <option key={example.id} title={example.description} value={example.id}>
+                      {example.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                aria-label="Reroll random structure"
+                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={runIsBusy}
+                title="Re-run the current code to generate a new random structure"
+                type="button"
+                onClick={handleReroll}
+              >
+                Reroll
+              </button>
+            </>
           ) : null}
 
           <div className="flex items-center gap-2">

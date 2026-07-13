@@ -1,0 +1,148 @@
+export const curvedSurfaceSphereHcpArrayCode = `import {
+  Material,
+  Sample,
+  Structure,
+  type Geometry,
+} from '@caemble/core'
+
+const tau = Math.PI * 2
+const arrayShape = [4, 4, 3] as const
+const latticeSpacing = 7
+const layerSpacing = Math.sqrt(2 / 3) * latticeSpacing
+
+const cellTensor = (value: number) =>
+  Array.from({ length: arrayShape[0] }, () =>
+    Array.from({ length: arrayShape[1] }, () =>
+      Array.from({ length: arrayShape[2] }, () => value),
+    ),
+  )
+
+const layerOffsets = Array.from({ length: arrayShape[0] }, () =>
+  Array.from({ length: arrayShape[1] }, () =>
+    Array.from({ length: arrayShape[2] }, (_, z) =>
+      z % 2 === 0
+        ? [0, 0, 0]
+        : [latticeSpacing / 2, (Math.sqrt(3) * latticeSpacing) / 6, 0],
+    ),
+  ),
+)
+
+const CurvedParticle: Geometry<{
+  baseRadius: number
+  azimuthalMode2Amplitude: number
+  azimuthalMode2Phase: number
+  azimuthalMode3Amplitude: number
+  azimuthalMode3Phase: number
+  polarMode2Amplitude: number
+  polarMode2Phase: number
+}> = ({
+  baseRadius,
+  azimuthalMode2Amplitude,
+  azimuthalMode2Phase,
+  azimuthalMode3Amplitude,
+  azimuthalMode3Phase,
+  polarMode2Amplitude,
+  polarMode2Phase,
+}) => (
+  <curvedSurfaceSphere
+    azimuthalCurve={[
+      { amplitude: baseRadius, phase: 0 },
+      { amplitude: 0, phase: 0 },
+      { amplitude: azimuthalMode2Amplitude, phase: azimuthalMode2Phase },
+      { amplitude: azimuthalMode3Amplitude, phase: azimuthalMode3Phase },
+    ]}
+    polarCurve={[
+      { amplitude: 1, phase: 0 },
+      { amplitude: 0, phase: 0 },
+      { amplitude: polarMode2Amplitude, phase: polarMode2Phase },
+    ]}
+    azimuthalSegments={32}
+    polarSegments={16}
+  />
+)
+
+const structure = new Structure({
+  geometry: () => (
+    <array
+      shape={arrayShape}
+      period={[latticeSpacing, latticeSpacing, layerSpacing]}
+      axes={{
+        x: [1, 0, 0],
+        y: [0.5, Math.sqrt(3) / 2, 0],
+        z: [0, 0, 1],
+      }}
+      inject={{
+        pos: layerOffsets,
+        baseRadius: vars.baseRadius,
+        azimuthalMode2Amplitude: vars.azimuthalMode2Amplitude,
+        azimuthalMode2Phase: vars.azimuthalMode2Phase,
+        azimuthalMode3Amplitude: vars.azimuthalMode3Amplitude,
+        azimuthalMode3Phase: vars.azimuthalMode3Phase,
+        polarMode2Amplitude: vars.polarMode2Amplitude,
+        polarMode2Phase: vars.polarMode2Phase,
+      }}
+    >
+      <CurvedParticle
+        baseRadius={3.125}
+        azimuthalMode2Amplitude={0.08}
+        azimuthalMode2Phase={0}
+        azimuthalMode3Amplitude={0.04}
+        azimuthalMode3Phase={0}
+        polarMode2Amplitude={0.015}
+        polarMode2Phase={0}
+        materials={[
+          new Material('HCP Particle', { density: 1.05 }, '#7c3aed'),
+        ]}
+      />
+    </array>
+  ),
+  varsSchema: {
+    baseRadius: {
+      shape: arrayShape,
+      default: cellTensor(3.125),
+      min: 3.05,
+      max: 3.2,
+    },
+    azimuthalMode2Amplitude: {
+      shape: arrayShape,
+      default: cellTensor(0.08),
+      min: 0.05,
+      max: 0.12,
+    },
+    azimuthalMode2Phase: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: 0,
+      max: tau,
+    },
+    azimuthalMode3Amplitude: {
+      shape: arrayShape,
+      default: cellTensor(0.04),
+      min: 0.02,
+      max: 0.06,
+    },
+    azimuthalMode3Phase: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: 0,
+      max: tau,
+    },
+    polarMode2Amplitude: {
+      shape: arrayShape,
+      default: cellTensor(0.015),
+      min: 0.01,
+      max: 0.025,
+    },
+    polarMode2Phase: {
+      shape: arrayShape,
+      default: cellTensor(0),
+      min: 0,
+      max: tau,
+    },
+  },
+})
+
+const randomVars = structure.randomVars()
+
+export default new Sample(structure, randomVars)
+`

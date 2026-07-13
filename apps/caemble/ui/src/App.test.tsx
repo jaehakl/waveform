@@ -12,4 +12,13 @@ describe('App reroll control', () => {
     expect(button).not.toMatch(/\sdisabled(?:=|\s|>)/)
     expect(markup).toContain('>Reroll</button>')
   })
+
+  it('shows the available modeling examples', () => {
+    const markup = renderToStaticMarkup(<App />)
+
+    expect(markup).toContain('aria-label="Select example"')
+    expect(markup).toContain('>Fiber Bundle</option>')
+    expect(markup).toContain('>Random Curved Cylinder Array</option>')
+    expect(markup).toContain('>Random Curved Sphere HCP Array</option>')
+  })
 })
