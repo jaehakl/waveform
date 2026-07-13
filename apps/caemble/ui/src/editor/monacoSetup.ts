@@ -4,10 +4,27 @@ const cadTypes = `
 declare function h(type: any, attributes: any, ...children: any[]): any
 declare const Fragment: any
 declare const vars: any
+type VarsTensor = number | readonly VarsTensor[]
 
 declare module '@caemble/core' {
   type Tensor = number | readonly Tensor[]
   type Vars = Readonly<Record<string, Tensor>>
+  export type Vec3 = readonly [number, number, number]
+  export type Rotation = Readonly<{
+    axis: Vec3
+    angle: number
+  }>
+  export type GeometryAttributes<P extends object = object> = Readonly<
+    P & {
+      materials?: readonly Material[]
+      pos?: Vec3
+      rotate?: Rotation
+      scale?: Vec3
+      children?: unknown
+    }
+  >
+
+  export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
   export class Material {
     constructor(name: string, vars: Record<string, Tensor>, displayColor?: string)
@@ -39,40 +56,30 @@ declare module '@caemble/core' {
 }
 
 declare namespace JSX {
-  type Vec3 = [number, number, number]
+  type Vec3 = readonly [number, number, number]
+  type Rotation = Readonly<{
+    axis: Vec3
+    angle: number
+  }>
 
   interface IntrinsicElements {
-    box: { size: Vec3 }
-    cylinder: { radius: number; height: number; segments?: number }
-    sphere: { radius: number; segments?: number }
-
-    translate: {
-      offset?: Vec3
-      x?: number
-      y?: number
-      z?: number
+    box: { size: Vec3; pos?: Vec3; rotate?: Rotation; scale?: Vec3 }
+    cylinder: { radius: number; height: number; segments?: number; pos?: Vec3; rotate?: Rotation; scale?: Vec3 }
+    sphere: { radius: number; segments?: number; pos?: Vec3; rotate?: Rotation; scale?: Vec3 }
+    array: {
+      shape: readonly [number, number, number]
+      period: Vec3
+      axes?: Readonly<{ x: Vec3; y: Vec3; z: Vec3 }>
+      inject?: Readonly<Record<string, VarsTensor | Readonly<{ axis: VarsTensor; angle: VarsTensor }>>>
+      pos?: Vec3
+      rotate?: Rotation
+      scale?: Vec3
       children?: any
     }
 
-    rotate: {
-      angles?: Vec3
-      x?: number
-      y?: number
-      z?: number
-      children?: any
-    }
-
-    scale: {
-      factors?: Vec3
-      x?: number
-      y?: number
-      z?: number
-      children?: any
-    }
-
-    union: { children?: any }
-    subtract: { children?: any }
-    intersect: { children?: any }
+    union: { pos?: Vec3; rotate?: Rotation; scale?: Vec3; children?: any }
+    subtract: { pos?: Vec3; rotate?: Rotation; scale?: Vec3; children?: any }
+    intersect: { pos?: Vec3; rotate?: Rotation; scale?: Vec3; children?: any }
   }
 }
 `

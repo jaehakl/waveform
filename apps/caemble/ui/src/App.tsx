@@ -47,6 +47,14 @@ function App() {
   const activeTimeoutRef = useRef<number | null>(null)
   const activeWorkerRef = useRef<Worker | null>(null)
   const latestRequestIdRef = useRef('')
+  const pendingRunRef = useRef<number | null>(null)
+
+  const clearPendingRun = useCallback(() => {
+    if (pendingRunRef.current === null) return
+
+    window.clearTimeout(pendingRunRef.current)
+    pendingRunRef.current = null
+  }, [])
 
   const clearActiveRun = useCallback(() => {
     if (activeTimeoutRef.current !== null) {
@@ -135,18 +143,24 @@ function App() {
     [clearActiveRun],
   )
 
-  useEffect(() => {
-    const requestId = createRequestId()
-    latestRequestIdRef.current = requestId
+  const requestModelRun = useCallback(
+    (source: string) => {
+      clearPendingRun()
+      const requestId = createRequestId()
+      latestRequestIdRef.current = requestId
+      runModel(source, requestId)
+    },
+    [clearPendingRun, runModel],
+  )
 
-    const debounceId = window.setTimeout(() => {
-      runModel(code, requestId)
+  useEffect(() => {
+    pendingRunRef.current = window.setTimeout(() => {
+      pendingRunRef.current = null
+      requestModelRun(code)
     }, 500)
 
-    return () => {
-      window.clearTimeout(debounceId)
-    }
-  }, [code, runModel])
+    return clearPendingRun
+  }, [clearPendingRun, code, requestModelRun])
 
   useEffect(() => clearActiveRun, [clearActiveRun])
 
@@ -165,6 +179,13 @@ function App() {
       message,
     })
   }, [])
+
+  const runIsBusy = status === 'Compiling' || status === 'Rendering'
+
+  const handleReroll = useCallback(() => {
+    if (runIsBusy) return
+    requestModelRun(code)
+  }, [code, requestModelRun, runIsBusy])
 
   return (
     <main className="flex min-h-screen flex-col bg-white text-slate-950">
@@ -194,6 +215,19 @@ function App() {
               Syntax Help
             </button>
           </div>
+
+          {view === 'workspace' ? (
+            <button
+              aria-label="Reroll random structure"
+              className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={runIsBusy}
+              title="Re-run the current code to generate a new random structure"
+              type="button"
+              onClick={handleReroll}
+            >
+              Reroll
+            </button>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <span

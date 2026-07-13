@@ -1,6 +1,22 @@
 export type Tensor = number | readonly Tensor[]
 
 type Vars = Record<string, Tensor>
+export type Vec3 = readonly [number, number, number]
+export type Rotation = Readonly<{
+  axis: Vec3
+  angle: number
+}>
+export type GeometryAttributes<P extends object = object> = Readonly<
+  P & {
+    materials?: readonly Material[]
+    pos?: Vec3
+    rotate?: Rotation
+    scale?: Vec3
+    children?: unknown
+  }
+>
+
+export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
 type VarsSchemaEntry = {
   shape: readonly number[]

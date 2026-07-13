@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { CadModelError, Material, Sample, Structure, evaluateWithVars, vars } from './core'
+import {
+  CadModelError,
+  Material,
+  Sample,
+  Structure,
+  evaluateWithVars,
+  vars,
+  type Geometry,
+  type GeometryAttributes,
+} from './core'
 
 function createStructure() {
   return new Structure({
@@ -97,5 +106,25 @@ describe('Material and global vars', () => {
     expect(() => new Material('', {})).toThrow('non-empty string')
     expect(() => new Material('Core', { values: [1, Number.POSITIVE_INFINITY] })).toThrow('finite number')
     expect(() => new Material('Core', {}, 'blue')).toThrow('#RRGGBB')
+  })
+})
+
+describe('Geometry types', () => {
+  it('combines custom props with shared Geometry attributes', () => {
+    type LayoutProps = { gap: number; label: string }
+    const attributes: GeometryAttributes<LayoutProps> = {
+      gap: 4,
+      label: 'core',
+      pos: [1, 2, 3],
+      rotate: { axis: [0, 0, 1], angle: Math.PI / 4 },
+      scale: [1, 2, 1],
+    }
+    const layout: Geometry<LayoutProps> = (input) => ({
+      gap: input.gap,
+      label: input.label,
+      pos: input.pos,
+    })
+
+    expect(layout(attributes)).toEqual({ gap: 4, label: 'core', pos: [1, 2, 3] })
   })
 })

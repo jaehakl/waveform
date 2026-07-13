@@ -1,41 +1,15 @@
-const structureExample = `import { Material, Sample, Structure } from '@caemble/core'
+import { defaultCode } from '../defaultCode'
 
-class Dielectric extends Material {}
-
-function Core({ materials }: { materials?: Material[] }) {
-  return <box size={[vars.width, 10, 2]} />
-}
-
-function Device({ materials }: { materials: Material[] }) {
-  return <Core materials={[materials[0]]} />
-}
-
-const structure = new Structure({
-  geometry: () => (
-    <Device
-      materials={[
-        new Dielectric('Core', { epsilon: vars.epsilon }, '#2563eb'),
-      ]}
-    />
-  ),
-  varsSchema: {
-    width: { shape: [], default: 20, min: 10, max: 30 },
-    epsilon: { shape: [], default: 12 },
-  },
-})
-
-export default new Sample(structure)`
+const structureExample = defaultCode.trim()
 
 const tags = [
-  ['box', '<box size={[x, y, z]} />'],
-  ['cylinder', '<cylinder radius={r} height={h} segments={32} />'],
-  ['sphere', '<sphere radius={r} segments={32} />'],
-  ['translate', '<translate offset={[x, y, z]}>shape</translate>'],
-  ['rotate', '<rotate angles={[x, y, z]}>shape</rotate>'],
-  ['scale', '<scale factors={[x, y, z]}>shape</scale>'],
-  ['union', '<union>shapeA shapeB</union>'],
-  ['subtract', '<subtract>base cutter</subtract>'],
-  ['intersect', '<intersect>shapeA shapeB</intersect>'],
+  ['box', '<box pos={[x,y,z]} rotate={{axis:[x,y,z],angle:a}} scale={[x,y,z]} size={[x,y,z]} />'],
+  ['cylinder', '<cylinder pos={[x, y, z]} radius={r} height={h} />'],
+  ['sphere', '<sphere pos={[x, y, z]} radius={r} />'],
+  ['array', '<array shape={[nx,ny,nz]} period={[px,py,pz]} axes={{x,y,z}} inject={{rotate:{axis,angle}}}>Geometry</array>'],
+  ['union', '<union pos={[x,y,z]} rotate={{axis:[x,y,z],angle:a}} scale={[x,y,z]}>...</union>'],
+  ['subtract', '<subtract pos={[x, y, z]}>base cutter</subtract>'],
+  ['intersect', '<intersect pos={[x, y, z]}>shapeA shapeB</intersect>'],
 ]
 
 function SyntaxHelp() {
@@ -47,7 +21,8 @@ function SyntaxHelp() {
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
             A file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>. Its
             Structure resolves vars first, then lazily creates Materials and evaluates the root Geometry in the
-            Worker.
+            Worker. Workspace auto-runs edited code and the Reroll button immediately executes the current source
+            again, producing new values for seedless random vars.
           </p>
         </div>
 
@@ -96,9 +71,41 @@ function SyntaxHelp() {
 
               <p className="mt-3 font-semibold text-slate-800">Materials</p>
               <p className="mt-1">
-                A Geometry inherits its parent materials array unless it supplies a replacement. Its own primitives
-                use index zero. Geometry with different Materials may be siblings, but cannot share a boolean
-                operation.
+                A Geometry inherits its parent materials array unless it supplies a replacement. Materialless
+                Geometry may group children; a primitive requires a Material and uses index zero. Geometry with
+                different Materials may be siblings, but cannot share a boolean operation.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Geometry Components</p>
+              <p className="mt-1">
+                Use the type-only <code className="rounded bg-white px-1 py-0.5 text-xs">Geometry&lt;P&gt;</code> for
+                shared attributes plus custom props, or{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">GeometryAttributes&lt;P&gt;</code> when the
+                combined props type is needed directly. A parent may calculate child-local size and transforms from
+                its normalized transform values and custom props. The evaluator still applies the parent transform
+                once to the completed result.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Transforms</p>
+              <p className="mt-1">
+                Geometry and CAD elements accept <code className="rounded bg-white px-1 py-0.5 text-xs">pos</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">rotate</code>, and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">scale</code>. Rotation uses a local axis and a
+                radians angle with the right-hand rule. Child operations run first, followed by scale, rotation, and
+                position.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Geometry Arrays</p>
+              <p className="mt-1">
+                The <code className="rounded bg-white px-1 py-0.5 text-xs">array</code> tag repeats one direct
+                Geometry child around its local center. Shape and period follow x/y/z order, optional direction axes
+                may be non-orthogonal, and every injected tensor starts with{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">[shape.x][shape.y][shape.z]</code>. Injected
+                custom props and per-cell pos, scale, or axis-angle rotate replace the child&apos;s base values. The
+                child transform runs before the lattice offset and the array&apos;s own scale, rotate, and pos. The
+                default example uses 60-degree x/y axes and centered A/B/A layers. Its B layer is offset by one-third
+                of both planar basis vectors, adjacent layers use ideal HCP spacing, and seedless random vars produce
+                unit-sphere-uniform rotation axes for all 27 cells.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Imports</p>
