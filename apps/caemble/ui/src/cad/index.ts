@@ -13,6 +13,7 @@ export type { Geometry, GeometryAttributes } from './model/core'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
 export type { ArrayAttributes } from './elements/array/definition'
 export type { BoxAttributes } from './elements/box/definition'
+export type { CoatingAttributes } from './elements/coating/definition'
 export type { CylinderAttributes } from './elements/cylinder/definition'
 export type {
   CurvedEdgeCylinderAttributes,

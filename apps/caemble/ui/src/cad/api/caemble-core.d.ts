@@ -93,6 +93,14 @@ export type ArrayAttributes = Readonly<{
   children?: unknown
 }>
 
+export type CoatingAttributes = Readonly<{
+  offsets: readonly number[]
+  pos?: Vec3
+  rotate?: Rotation
+  scale?: Vec3
+  children?: unknown
+}>
+
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
     materials?: readonly Material[]

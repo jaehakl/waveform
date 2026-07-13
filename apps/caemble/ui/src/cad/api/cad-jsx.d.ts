@@ -1,6 +1,7 @@
 import type {
   ArrayAttributes,
   BoxAttributes,
+  CoatingAttributes,
   CylinderAttributes,
   CurvedEdgeCylinderAttributes,
   CurvedSurfaceSphereAttributes,
@@ -24,6 +25,7 @@ declare global {
       curvedSurfaceSphere: CurvedSurfaceSphereAttributes
       sphere: SphereAttributes
       fiber: FiberAttributes
+      coating: CoatingAttributes
       array: ArrayAttributes
       union: { pos?: Vec3; rotate?: Rotation; scale?: Vec3; children?: unknown }
       subtract: { pos?: Vec3; rotate?: Rotation; scale?: Vec3; children?: unknown }

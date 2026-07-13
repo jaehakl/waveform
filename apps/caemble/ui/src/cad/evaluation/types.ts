@@ -29,7 +29,7 @@ export type NormalizedTransforms = {
 
 export type CadElementManifest<Tag extends string = string> = Readonly<{
   tag: Tag
-  category: 'primitive' | 'pattern' | 'boolean'
+  category: 'primitive' | 'pattern' | 'boolean' | 'modifier'
   syntax: string
   summary: string
 }>
@@ -56,4 +56,3 @@ export type CompoundElementDefinition<Tag extends string = string> = Readonly<{
 export type CadElementDefinition<Tag extends string = string> =
   | PrimitiveElementDefinition<Tag>
   | CompoundElementDefinition<Tag>
-

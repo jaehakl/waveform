@@ -58,19 +58,21 @@ function evaluateNode(
     const materials = resolveMaterials(undefined, inheritedMaterials)
     if (materials === undefined) throw new CadModelError(`<${type}> requires an explicit or inherited Material.`)
 
-    const material = materials[0]
-    const existing = materialNames.get(material.name)
-    if (existing && existing !== material) {
-      throw new CadModelError(`Material name ${material.name} is used by more than one Material instance.`)
-    }
-    materialNames.set(material.name, material)
-    parts = [{ geometry: definition.createGeometry(props), material }]
+    parts = [{ geometry: definition.createGeometry(props), material: materials[0] }]
   } else {
     parts = definition.evaluate(value, {
       inheritedMaterials,
       evaluate: (child, materials = inheritedMaterials) => evaluateNode(child, materials, materialNames),
     })
   }
+
+  parts.forEach(({ material }) => {
+    const existing = materialNames.get(material.name)
+    if (existing && existing !== material) {
+      throw new CadModelError(`Material name ${material.name} is used by more than one Material instance.`)
+    }
+    materialNames.set(material.name, material)
+  })
 
   return applyTransforms(parts, transformValues)
 }
@@ -84,5 +86,4 @@ export function evaluateCad(root: unknown): CadScenePart[] {
     displayColor: part.material.displayColor,
   }))
 }
-
 

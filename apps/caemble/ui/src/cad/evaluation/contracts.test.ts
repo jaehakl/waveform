@@ -25,6 +25,7 @@ describe('CAD registry contracts', () => {
   it('uses shared declaration files for public core types and Monaco', () => {
     for (const typeName of [
       'BoxAttributes',
+      'CoatingAttributes',
       'CylinderAttributes',
       'CurvedEdgeCylinderAttributes',
       'CurvedEdgeCylinderFourierMode',
@@ -41,6 +42,15 @@ describe('CAD registry contracts', () => {
     expect(monacoSetupSource).toContain("import jsxTypes from '../cad/api/cad-jsx.d.ts?raw'")
     expect(monacoSetupSource).toContain("'file:///node_modules/@caemble/core/index.d.ts'")
     expect(monacoSetupSource).not.toContain('const cadTypes')
+
+    const coatingDeclaration = coreDeclarations.match(/export type CoatingAttributes = Readonly<\{[\s\S]*?\n\}>/)?.[0]
+    expect(coatingDeclaration).toContain('offsets: readonly number[]')
+    expect(coatingDeclaration).not.toContain('depth')
+    expect(jsxDeclarations).toContain('coating: CoatingAttributes')
+    expect(cadElementCatalog.find((element) => element.tag === 'coating')).toMatchObject({
+      category: 'modifier',
+      syntax: '<coating offsets={[-inner, outer]}>Geometry</coating>',
+    })
   })
 
   it('exposes model and evaluation APIs through the CAD facade', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { transform } from 'esbuild'
-import { geometries, measurements } from '@jscad/modeling'
+import { booleans, geometries, measurements } from '@jscad/modeling'
 import { defaultCode } from '../../defaultCode'
 import { caembleExamples } from '../../examples'
 import { executeCompiledCode, requireCaembleModule } from './userModule'
@@ -75,6 +75,44 @@ describe('compiled user module execution', () => {
       })
       expect(executeCompiledCode(compiled.code).length).toBeGreaterThan(0)
     }
+  })
+
+  it('creates non-overlapping signed coating cutaways in core-to-outer order', async () => {
+    const example = caembleExamples.find(({ id }) => id === 'coating-cutaways')
+    expect(example).toBeDefined()
+    expect(example!.code).toContain('offsets={[-0.5, 0.5, 1]}')
+
+    const compiled = await transform(example!.code, {
+      format: 'cjs',
+      jsxFactory: 'h',
+      jsxFragment: 'Fragment',
+      loader: 'tsx',
+      platform: 'browser',
+      target: 'es2020',
+    })
+    const parts = executeCompiledCode(compiled.code)
+
+    expect(parts.map((part) => part.materialName)).toEqual([
+      'Core', 'Layer 1',
+      'Core', 'Layer 1', 'Layer 2',
+      'Core', 'Layer 1', 'Layer 2', 'Layer 3',
+    ])
+    parts.forEach((part, index) => {
+      expect(() => geometries.geom3.validate(part.geometry), `part ${index}`).not.toThrow()
+      expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
+      expect(measurements.measureBoundingBox(part.geometry)[0][1]).toBeGreaterThanOrEqual(-1e-5)
+    })
+
+    const cadIntersect = booleans.intersect as unknown as (...geometries: unknown[]) => unknown
+    const fiberOverlap = cadIntersect(parts[5].geometry, parts[6].geometry)
+    expect(Math.max(0, measurements.measureVolume(fiberOverlap))).toBeCloseTo(0, 6)
+
+    const cadUnion = booleans.union as unknown as (...geometries: unknown[]) => unknown
+    const fiberCoreAndLayer = cadUnion(parts[5].geometry, parts[6].geometry)
+    const overlapByVolume = measurements.measureVolume(parts[5].geometry)
+      + measurements.measureVolume(parts[6].geometry)
+      - measurements.measureVolume(fiberCoreAndLayer)
+    expect(Math.max(0, overlapByVolume)).toBeCloseTo(0, 6)
   })
 
   it('creates independently randomized cells in the curved cylinder array example', async () => {

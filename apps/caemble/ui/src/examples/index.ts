@@ -1,4 +1,5 @@
 import { defaultCode } from '../defaultCode'
+import { coatingCutawaysCode } from './coatingCutaways'
 import { curvedEdgeCylinderArrayCode } from './curvedEdgeCylinderArray'
 import { curvedSurfaceSphereHcpArrayCode } from './curvedSurfaceSphereHcpArray'
 
@@ -15,6 +16,12 @@ export const caembleExamples: readonly CaembleExample[] = Object.freeze([
     title: 'Fiber Bundle',
     description: 'Fourier modes and a curved path produce three tapered polymer fibers.',
     code: defaultCode,
+  },
+  {
+    id: 'coating-cutaways',
+    title: 'Coating Cutaways',
+    description: 'One, two, and three colored coating layers on cutaway procedural geometries.',
+    code: coatingCutawaysCode,
   },
   {
     id: 'random-curved-edge-cylinder-array',

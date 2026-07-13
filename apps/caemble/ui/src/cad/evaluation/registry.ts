@@ -1,5 +1,6 @@
 import { arrayDefinition } from '../elements/array/runtime'
 import { boxDefinition } from '../elements/box/runtime'
+import { coatingDefinition } from '../elements/coating/runtime'
 import { intersectDefinition, subtractDefinition, unionDefinition } from '../elements/booleans/runtime'
 import { cylinderDefinition } from '../elements/cylinder/runtime'
 import { curvedEdgeCylinderDefinition } from '../elements/curvedEdgeCylinder/runtime'
@@ -15,6 +16,7 @@ export const cadElementDefinitions = [
   sphereDefinition,
   curvedSurfaceSphereDefinition,
   fiberDefinition,
+  coatingDefinition,
   arrayDefinition,
   unionDefinition,
   subtractDefinition,

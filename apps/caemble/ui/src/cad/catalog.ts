@@ -1,5 +1,6 @@
 import { arrayManifest } from './elements/array/definition'
 import { boxManifest } from './elements/box/definition'
+import { coatingManifest } from './elements/coating/definition'
 import { intersectManifest, subtractManifest, unionManifest } from './elements/booleans/definition'
 import { cylinderManifest } from './elements/cylinder/definition'
 import { curvedEdgeCylinderManifest } from './elements/curvedEdgeCylinder/definition'
@@ -14,6 +15,7 @@ export const cadElementCatalog = [
   sphereManifest,
   curvedSurfaceSphereManifest,
   fiberManifest,
+  coatingManifest,
   arrayManifest,
   unionManifest,
   subtractManifest,

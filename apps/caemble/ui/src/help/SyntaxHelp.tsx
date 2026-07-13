@@ -66,7 +66,9 @@ function SyntaxHelp() {
               <p className="mt-1">
                 A Geometry inherits its parent materials array unless it supplies a replacement. Materialless
                 Geometry may group children; a primitive requires a Material and uses index zero. Geometry with
-                different Materials may be siblings, but cannot share a boolean operation.
+                different Materials may be siblings. Union and intersect require one shared Material. Subtract
+                applies every cutter to each part of its first child independently, preserves those base Materials,
+                and does not include cutter Materials in the result.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Geometry Components</p>
@@ -139,6 +141,26 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">pathSegments</code> or{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">radialSegments</code> when the curve needs
                 more resolution. Exact zero-radius tips and self-intersection repair are not supported.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Surface Coatings</p>
+              <p className="mt-1">
+                A <code className="rounded bg-white px-1 py-0.5 text-xs">coating</code> creates layers between signed{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">offsets</code> of one closed child solid.
+                Negative values point inward and positive values point outward. Offsets must be finite, non-zero,
+                and strictly increasing; the original surface at zero is inserted automatically. Child transforms
+                run before offsetting, and the coating&apos;s own transform runs after every layer is complete.
+              </p>
+              <p className="mt-1">
+                Layers are returned from the most inward boundary to the most outward boundary. The enclosing
+                Geometry must provide exactly one Material per explicit offset in that same order; child Materials
+                do not select layer Materials. Only coating layers are returned, not the core below the innermost
+                boundary, so placing the original solid beside an inward coating can create overlap.
+              </p>
+              <p className="mt-1">
+                Offsets follow the child mesh resolution and preserve its topology, with mitered sharp edges.
+                Boundaries that collapse or invert local triangles are rejected. Distant self-intersections caused
+                by narrow gaps are not detected or repaired automatically.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Geometry Arrays</p>
