@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { CadScene } from '../cad'
 import GeometryTree from './GeometryTree'
-import { findDraftTarget, updateDraftSelection } from './groupDraft'
+import { findDraftTarget, shouldClearGeometryTreeSelection, updateDraftSelection } from './groupDraft'
 
 const scene: CadScene = {
   geometryGroups: [{
@@ -61,6 +61,24 @@ const scene: CadScene = {
 }
 
 describe('GeometryTree', () => {
+  it('clears selection only for non-interactive Tree background targets', () => {
+    let selectors = ''
+    const background = {
+      closest: (value: string) => {
+        selectors = value
+        return null
+      },
+    } as unknown as EventTarget
+    const control = {
+      closest: () => ({}),
+    } as unknown as EventTarget
+
+    expect(shouldClearGeometryTreeSelection(background)).toBe(true)
+    expect(selectors).toBe('button, input, select, textarea, a')
+    expect(shouldClearGeometryTreeSelection(control)).toBe(false)
+    expect(shouldClearGeometryTreeSelection(null)).toBe(false)
+  })
+
   it('marks only the active selectable group while keeping descendants individually unselected', () => {
     const markup = renderToStaticMarkup(
       <GeometryTree

@@ -1,6 +1,7 @@
 import { parse } from '@babel/parser'
 import type { Expression, ObjectExpression, Statement } from '@babel/types'
 import type { StructureGroupMap } from '../model/core'
+import type { CadDocumentType } from '../worker/protocol'
 
 export type StructureGroupProperty = 'geometryGroup' | 'surfaceGroup'
 
@@ -61,7 +62,9 @@ function resolveBinding(
   return resolveBinding(bound, bindings, visited)
 }
 
-function importedName(statement: Statement, imported: 'Sample' | 'Structure') {
+type CoreConstructorName = 'Experiment' | 'Sample' | 'Setup' | 'Structure'
+
+function importedName(statement: Statement, imported: CoreConstructorName) {
   if (statement.type !== 'ImportDeclaration' || statement.source.value !== '@caemble/core') return []
   return statement.specifiers.flatMap((specifier) => {
     if (specifier.type !== 'ImportSpecifier') return []
@@ -85,7 +88,7 @@ function collectBindings(statements: readonly Statement[]) {
 function requireConstructor(
   expression: Expression,
   names: ReadonlySet<string>,
-  label: 'Sample' | 'Structure',
+  label: CoreConstructorName,
 ) {
   if (expression.type !== 'NewExpression' || expression.callee.type !== 'Identifier' || !names.has(expression.callee.name)) {
     throw new StructureGroupSyncError(`The active default export ${label} constructor could not be traced statically.`)
@@ -93,7 +96,7 @@ function requireConstructor(
   return expression
 }
 
-function findStructureOptions(source: string) {
+function findObjectOptions(source: string, documentType: CadDocumentType) {
   let ast
   try {
     ast = parse(source, {
@@ -105,10 +108,16 @@ function findStructureOptions(source: string) {
   }
 
   const statements = ast.program.body
-  const sampleNames = new Set(statements.flatMap((statement) => importedName(statement, 'Sample')))
-  const structureNames = new Set(statements.flatMap((statement) => importedName(statement, 'Structure')))
-  if (sampleNames.size === 0 || structureNames.size === 0) {
-    throw new StructureGroupSyncError('Sample and Structure must be named imports from @caemble/core.')
+  const variableObjectName: 'Sample' | 'Setup' = documentType === 'structure' ? 'Sample' : 'Setup'
+  const objectName: 'Experiment' | 'Structure' = documentType === 'structure' ? 'Structure' : 'Experiment'
+  const variableObjectNames = new Set(
+    statements.flatMap((statement) => importedName(statement, variableObjectName)),
+  )
+  const objectNames = new Set(statements.flatMap((statement) => importedName(statement, objectName)))
+  if (variableObjectNames.size === 0 || objectNames.size === 0) {
+    throw new StructureGroupSyncError(
+      `${variableObjectName} and ${objectName} must be named imports from @caemble/core.`,
+    )
   }
 
   const defaultExports = statements.filter((statement) => statement.type === 'ExportDefaultDeclaration')
@@ -118,25 +127,35 @@ function findStructureOptions(source: string) {
 
   const declaration = defaultExports[0].declaration
   if (declaration.type === 'FunctionDeclaration' || declaration.type === 'ClassDeclaration' || declaration.type === 'TSDeclareFunction') {
-    throw new StructureGroupSyncError('The default export must resolve to a Sample expression.')
+    throw new StructureGroupSyncError(`The default export must resolve to a ${variableObjectName} expression.`)
   }
 
   const bindings = collectBindings(statements)
-  const sample = requireConstructor(resolveBinding(declaration, bindings), sampleNames, 'Sample')
-  const structureArgument = sample.arguments[0]
-  if (!structureArgument) throw new StructureGroupSyncError('The active Sample does not have a Structure argument.')
-  const structure = requireConstructor(
-    resolveBinding(expressionArgument(structureArgument, 'Sample Structure'), bindings),
-    structureNames,
-    'Structure',
+  const variableObject = requireConstructor(
+    resolveBinding(declaration, bindings),
+    variableObjectNames,
+    variableObjectName,
   )
-  const optionsArgument = structure.arguments[0]
-  if (!optionsArgument) throw new StructureGroupSyncError('The active Structure does not have an options object.')
-  const options = resolveBinding(expressionArgument(optionsArgument, 'Structure options'), bindings)
-  if (options.type !== 'ObjectExpression') {
-    throw new StructureGroupSyncError('The active Structure options must be an object literal or a top-level const object literal.')
+  const objectArgument = variableObject.arguments[0]
+  if (!objectArgument) {
+    throw new StructureGroupSyncError(
+      `The active ${variableObjectName} does not have an ${objectName} argument.`,
+    )
   }
-  return options
+  const object = requireConstructor(
+    resolveBinding(expressionArgument(objectArgument, `${variableObjectName} ${objectName}`), bindings),
+    objectNames,
+    objectName,
+  )
+  const optionsArgument = object.arguments[0]
+  if (!optionsArgument) throw new StructureGroupSyncError(`The active ${objectName} does not have an options object.`)
+  const options = resolveBinding(expressionArgument(optionsArgument, `${objectName} options`), bindings)
+  if (options.type !== 'ObjectExpression') {
+    throw new StructureGroupSyncError(
+      `The active ${objectName} options must be an object literal or a top-level const object literal.`,
+    )
+  }
+  return { objectName, options }
 }
 
 function propertyName(property: ObjectExpression['properties'][number]) {
@@ -179,16 +198,17 @@ function position(value: number | null | undefined, label: string) {
 function propertyEdits(
   source: string,
   options: ObjectExpression,
+  objectName: 'Experiment' | 'Structure',
   target: StructureGroupProperty,
   groups: StructureGroupMap,
 ) {
   const matching = options.properties.filter((property) => propertyName(property) === target)
   if (matching.length > 1) {
-    throw new StructureGroupSyncError(`The active Structure contains duplicate ${target} properties.`)
+    throw new StructureGroupSyncError(`The active ${objectName} contains duplicate ${target} properties.`)
   }
 
   const newline = newlineFor(source)
-  const closingIndex = position(options.end, 'Structure options') - 1
+  const closingIndex = position(options.end, `${objectName} options`) - 1
   const closingIndent = lineIndent(source, closingIndex)
   const firstProperty = options.properties[0]
   const existingPropertyIndent = firstProperty?.start === null || firstProperty?.start === undefined
@@ -232,7 +252,7 @@ function propertyEdits(
     edits.push({ start: lastEnd, end: lastEnd, text: ',' })
   }
 
-  const isMultiline = source.slice(position(options.start, 'Structure options'), closingIndex).includes('\n')
+  const isMultiline = source.slice(position(options.start, `${objectName} options`), closingIndex).includes('\n')
   edits.push({
     start: closingIndex,
     end: closingIndex,
@@ -248,8 +268,17 @@ export function updateStructureGroupSource(
   target: StructureGroupProperty,
   groups: StructureGroupMap,
 ): StructureGroupSourceUpdate {
-  const options = findStructureOptions(source)
-  const edits = propertyEdits(source, options, target, groups)
+  return updateModelGroupSource(source, 'structure', target, groups)
+}
+
+export function updateModelGroupSource(
+  source: string,
+  documentType: CadDocumentType,
+  target: StructureGroupProperty,
+  groups: StructureGroupMap,
+): StructureGroupSourceUpdate {
+  const { objectName, options } = findObjectOptions(source, documentType)
+  const edits = propertyEdits(source, options, objectName, target, groups)
   return {
     edits,
     source: applySourceEdits(source, edits),

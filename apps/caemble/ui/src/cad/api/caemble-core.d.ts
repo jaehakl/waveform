@@ -3,6 +3,17 @@ export type Vars = Readonly<Record<string, Tensor>>
 export type Vec3 = readonly [number, number, number]
 export type Rotation = Readonly<{ axis: Vec3; angle: number }>
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
+export type VarsSchemaEntry = Readonly<{
+  shape: readonly number[]
+  default: Tensor
+  min?: Tensor
+  max?: Tensor
+}>
+export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
+export type ExperimentRule<T> = Readonly<{
+  target: readonly ExperimentTarget[]
+  value: T
+}>
 
 export type BoxAttributes = Readonly<{
   size: Vec3
@@ -129,12 +140,7 @@ export class Material {
 export class Structure {
   constructor(options: {
     geometry: () => unknown
-    varsSchema: Record<string, {
-      shape: readonly number[]
-      default: Tensor
-      min?: Tensor
-      max?: Tensor
-    }>
+    varsSchema: Record<string, VarsSchemaEntry>
     geometryGroup?: StructureGroupMap
     surfaceGroup?: StructureGroupMap
   })
@@ -145,8 +151,35 @@ export class Structure {
   randomVars(seed?: number): Vars
 }
 
-export class Sample {
+export class Experiment<TInitialCondition = unknown, TBoundaryCondition = unknown> extends Structure {
+  constructor(options: {
+    geometry: () => unknown
+    varsSchema: Record<string, VarsSchemaEntry>
+    geometryGroup?: StructureGroupMap
+    surfaceGroup?: StructureGroupMap
+    initialConditions?: () => readonly ExperimentRule<TInitialCondition>[]
+    boundaryConditions?: () => readonly ExperimentRule<TBoundaryCondition>[]
+  })
+  readonly initialConditions: () => readonly ExperimentRule<TInitialCondition>[]
+  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryCondition>[]
+}
+
+export abstract class VariableObject<TObject extends Structure> {
+  protected constructor(object: TObject, partialVars?: Record<string, Tensor>)
+  readonly object: TObject
+  readonly vars: Vars
+}
+
+export class Sample extends VariableObject<Structure> {
   constructor(structure: Structure, partialVars?: Record<string, Tensor>)
   readonly structure: Structure
-  readonly vars: Vars
+}
+
+export class Setup<TInitialCondition = unknown, TBoundaryCondition = unknown>
+  extends VariableObject<Experiment<TInitialCondition, TBoundaryCondition>> {
+  constructor(
+    experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+    partialVars?: Record<string, Tensor>,
+  )
+  readonly experiment: Experiment<TInitialCondition, TBoundaryCondition>
 }

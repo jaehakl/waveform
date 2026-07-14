@@ -1,9 +1,12 @@
 import type { CadScene } from '../evaluation/types'
 
+export type CadDocumentType = 'structure' | 'experiment'
+
 export type CadWorkerRequest = Readonly<{
   type: 'run'
   requestId: string
   source: string
+  documentType: CadDocumentType
 }>
 
 export type CadWorkerErrorType = 'compile' | 'runtime' | 'model'

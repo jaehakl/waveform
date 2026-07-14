@@ -1,6 +1,6 @@
 # Caemble
 
-Browser-only Material–Geometry–Structure–Sample modeling workspace. Write a Structure as TSX, resolve one Sample's `vars`, and render its material-aware CAD scene in the 3D viewer.
+Browser-only Structure/Sample and Experiment/Setup modeling workspace. Write either model as TSX, resolve its vars, and render its material-aware CAD scene in the 3D viewer.
 
 ## Run
 
@@ -18,17 +18,17 @@ npm run build
 npm run lint
 ```
 
-The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. Code Space and Geometry Tree share the left panel and can be switched with tabs while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, Surface IDs, and named Structure groups. Selecting a Geometry, Surface, intermediate Geometry, or named group highlights all resolved members in the viewer. Ctrl/Cmd-click rows to create or extend a group; group edits are written immediately to the active Structure in Code Space.
+The Structure and Experiment links keep independent code, scene, selection, and workspace state. Each editor auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. Code Space and Geometry Tree share the left panel while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to edit groups in the active Structure or Experiment source.
 
 ## CAD Library Layout
 
-The complete CAD subsystem lives under `src/cad`. `model` contains Material–Structure–Sample state, `evaluation` interprets CAD JSX, `execution` runs compiled user modules, and `worker` compiles and evaluates TSX away from the UI thread. Geometry algorithms live in `geometry`. Registered tags are grouped under `elements/primitives` for stand-alone solid generators and `elements/operations` for tags that derive geometry from child Geometry.
+The complete CAD subsystem lives under `src/cad`. `model` contains Material, Structure/Experiment definitions, and Sample/Setup variable objects. `evaluation` interprets CAD JSX, `execution` runs compiled user modules, and `worker` compiles and evaluates TSX away from the UI thread. Geometry algorithms live in `geometry`. Registered tags are grouped under `elements/primitives` for stand-alone solid generators and `elements/operations` for tags that derive geometry from child Geometry.
 
-UI code uses `src/cad/index.ts` as the CAD facade. Syntax Help imports the lightweight `catalog.ts`, while App references `cad/worker/cad.worker.ts` only as a Web Worker entrypoint.
+UI code uses `src/cad/index.ts` as the CAD facade. Help imports the lightweight `catalog.ts`, while the shared CAD workspace references `cad/worker/cad.worker.ts` only as a Web Worker entrypoint.
 
 ## Core Model
 
-The only executable entrypoint is a default-exported `Sample`. Geometry and Material subclasses are defined in the editor file, and the only available module import is `@caemble/core`.
+A Structure file default-exports a `Sample`; an Experiment file default-exports a `Setup`. Geometry and Material subclasses are defined in the editor file, and the only available module import is `@caemble/core`.
 
 ```tsx
 import { Material, Sample, Structure, type Geometry } from '@caemble/core'
@@ -66,6 +66,61 @@ export default new Sample(structure)
 
 Evaluation order is Sample vars resolution → global `vars` binding → lazy geometry factory → Material construction → Geometry evaluation.
 
+## Experiment And Setup
+
+`Experiment` extends `Structure`, so it inherits `geometry`, `varsSchema`, `geometryGroup`, `surfaceGroup`, and `randomVars()`. It adds lazy initial-condition and boundary-condition rule factories. `Sample` and `Setup` share the abstract `VariableObject` base: `sample.object === sample.structure`, and `setup.object === setup.experiment`. A plain `Sample` cannot wrap an Experiment.
+
+```text
+Structure
+└─ Experiment
+
+VariableObject<TObject>
+├─ Sample → Structure
+└─ Setup  → Experiment
+```
+
+Rule values are solver-specific opaque values. They may contain functions, including time-dependent boundary values. Both factories run with Setup values available through the same read-only global `vars` binding used by geometry.
+
+```tsx
+import { Experiment, Material, Setup, type Geometry, type Vec3 } from '@caemble/core'
+
+type InitialCondition = { initialValue: number }
+type BoundaryCondition = { value: number | ((time: number) => number) }
+
+const Domain: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
+
+const experiment = new Experiment<InitialCondition, BoundaryCondition>({
+  geometry: () => (
+    <Domain
+      id="domain"
+      size={vars.domainSize as Vec3}
+      materials={[new Material('Domain', {}, '#0ea5e9')]}
+    />
+  ),
+  varsSchema: {
+    domainSize: { shape: [3], default: [36, 24, 18] },
+    initialValue: { shape: [], default: 0.25 },
+    amplitude: { shape: [], default: 0.2 },
+  },
+  geometryGroup: { domain: ['domain'] },
+  surfaceGroup: { outerBoundary: ['domain/surface-1'] },
+  initialConditions: () => [{
+    target: ['experiment.geometry.domain', 'structure.geometry.sample'],
+    value: { initialValue: vars.initialValue as number },
+  }],
+  boundaryConditions: () => [{
+    target: ['structure.surface.sampleBoundary'],
+    value: { value: (time: number) => (vars.amplitude as number) * Math.sin(time) },
+  }],
+})
+
+export default new Setup(experiment)
+```
+
+Each rule has a non-empty `target` array, so one solver value may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. `experiment.*` targets must reference groups declared by the Experiment. `structure.*` targets reserve names for a future Sample without coupling this Experiment to a particular Structure.
+
+Experiment geometry and a paired Sample are assumed to use the same coordinate system. The standalone editor previews and validates only Experiment geometry and rules; it does not create cells or run a solver. A cell is a solver-defined calculation unit associated with geometry, such as a mesh element, ray, rigid body, or particle. Solvers may later create or remove cells, deform geometry, and interpret vars as initial state.
+
 ## Vars
 
 `vars` is a flat, read-only dictionary of finite numeric tensors. A scalar uses `shape: []`; arrays use fixed shapes such as `[3]` or `[3, 2]`.
@@ -74,6 +129,7 @@ Evaluation order is Sample vars resolution → global `vars` binding → lazy ge
 - `min` and `max` are both omitted or both supplied.
 - Bounds may be scalars broadcast to every element or tensors matching the declared shape.
 - `new Sample(structure, partialVars)` fills omitted entries from defaults and rejects unknown names, invalid shapes, non-finite values, and range violations.
+- `new Setup(experiment, partialVars)` applies the same rules to Experiment vars.
 - `structure.randomVars(seed?)` samples each ranged element independently and uses defaults for entries without a range.
 
 Fourier fiber coefficients are ordinary vars rather than hidden random values. A `[K, 2]` tensor can be converted to amplitude/phase modes inside a Geometry:
@@ -275,25 +331,5 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Fiber curves are sampled approximations and self-intersections are not repaired.
 - Fiber cross-sections are circular and capped; open tubes, elliptical profiles, and exact zero-radius tips are not implemented.
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
+- Sample/Experiment composition, cell creation or removal, geometry deformation, and solver execution are not implemented.
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
-
-
-## Experiment class
-- Structure class 가 가진 것들을 갖는다. (geometry, varsSchema (vars), geometryGroup, surfaceGroup)
-- Geometry/Surface Group 별 cell initialize 규칙 관련 정보(initial condition 포함) (시뮬레이션 종류 별 특화 type)
-- Geometry/Surface Group 별 Boundary Condition 관련 정보 (시뮬레이션 종류 별 특화 type)
-- 이 때, Group 은 experiment.geometry 뿐 아니라 structure.geometry 것도 지정 가능 (다만 experiment 가 특정 structure 에 종속되는 건 아니고, Group 이름만 예약해두는 느슨한 결합, 다양한 structure 와 조합해서 쓸 수 있도록 하기 위함)
-- 시뮬레이션 실행 시, sample (structure) 는 Experiment 와 같은 좌표계를 사용한다고 가정한다.
-- experiment.vars 값 사용 가능 : experiment.geometry, initial condition, boundary condition 모두
-
-<참고 사항>
-- 계산되는 물리량을 담는 계산 unit 을 cell 이라 한다. (구체적인 의미와 형태는 시뮬레이션의 종류에 따라 천차만별, ex : mesh 1칸, ray 1개, rigid body 1개, particle 1개 등)
-- cell 은 geometry 에 종속된다. (cell 이 없는 geometry 도 있을 수 있다.)
-
-
-- cell 은 solver 알고리즘에 따라 계산 중에 새로 생기거나 소멸할 수 있다.
-- Geometry 는 변형될 수 있다. (vars 는 initial state 로 주어지며, Solver 에서 vars key 값으로 구분하여 활용)
-- Geometry, Surface 는 Boundary Condition 을 가질 수 있다. (time dependent or independent)
-
-
-

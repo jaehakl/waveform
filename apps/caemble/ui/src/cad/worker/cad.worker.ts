@@ -89,7 +89,7 @@ self.onmessage = async (event: MessageEvent<CadWorkerRequest>) => {
     }
 
     try {
-      const scene = executeCompiledCode(jsCode)
+      const scene = executeCompiledCode(jsCode, message.documentType)
 
       const response: CadWorkerResponse = {
         type: 'success',

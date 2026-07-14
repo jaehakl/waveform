@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { updateStructureGroupSource } from './structureGroups'
+import { updateModelGroupSource, updateStructureGroupSource } from './structureGroups'
 
 describe('Structure group source synchronization', () => {
   it('inserts a group property into the Structure used by the default Sample', () => {
@@ -69,6 +69,51 @@ export default new Sample(Math.random() ? first : second)
 
     expect(() => updateStructureGroupSource(source, 'surfaceGroup', {})).toThrow(
       'Structure constructor could not be traced statically',
+    )
+  })
+})
+
+describe('Experiment group source synchronization', () => {
+  it('updates only the Experiment used by the default Setup', () => {
+    const source = `import { Experiment, Setup } from '@caemble/core'
+const unused = new Experiment({ geometry: () => null, varsSchema: {} })
+const active = new Experiment({
+  geometry: () => null,
+  varsSchema: {},
+})
+export default new Setup(active)
+`
+    const updated = updateModelGroupSource(source, 'experiment', 'geometryGroup', {
+      domain: ['experiment-domain'],
+    }).source
+
+    expect(updated).toContain('geometryGroup: {\n    "domain": ["experiment-domain"],\n  },')
+    expect(updated.match(/geometryGroup/g)).toHaveLength(1)
+    expect(updated).toContain('const unused = new Experiment({ geometry: () => null, varsSchema: {} })')
+  })
+
+  it('traces aliased Setup, Experiment, and options bindings', () => {
+    const source = `import { Experiment as ActiveExperiment, Setup as ActiveSetup } from '@caemble/core'
+const options = { geometry: () => null, varsSchema: {}, surfaceGroup: oldGroups }
+const experiment = new ActiveExperiment(options)
+const setup = new ActiveSetup(experiment)
+export default setup
+`
+    const updated = updateModelGroupSource(source, 'experiment', 'surfaceGroup', {
+      외곽면: ['domain/surface-1'],
+    }).source
+
+    expect(updated).toContain('surfaceGroup: {\n  "외곽면": ["domain/surface-1"],\n}')
+    expect(updated).not.toContain('surfaceGroup: oldGroups')
+  })
+
+  it('requires the matching Setup and Experiment entry path', () => {
+    const source = `import { Sample, Structure } from '@caemble/core'
+export default new Sample(new Structure({ geometry: () => null, varsSchema: {} }))
+`
+
+    expect(() => updateModelGroupSource(source, 'experiment', 'geometryGroup', {})).toThrow(
+      'Setup and Experiment must be named imports',
     )
   })
 })

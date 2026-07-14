@@ -2,12 +2,13 @@ import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { setupMonaco } from './monacoSetup'
 
 type CadEditorProps = {
+  modelPath: string
   onChange: (value: string) => void
   onMount?: OnMount
   value: string
 }
 
-function CadEditor({ onChange, onMount, value }: CadEditorProps) {
+function CadEditor({ modelPath, onChange, onMount, value }: CadEditorProps) {
   const handleBeforeMount: BeforeMount = (monaco) => {
     setupMonaco(monaco)
   }
@@ -17,6 +18,7 @@ function CadEditor({ onChange, onMount, value }: CadEditorProps) {
       beforeMount={handleBeforeMount}
       defaultLanguage="typescript"
       height="100%"
+      keepCurrentModel
       onMount={onMount}
       onChange={(nextValue) => {
         onChange(nextValue ?? '')
@@ -32,7 +34,7 @@ function CadEditor({ onChange, onMount, value }: CadEditorProps) {
         tabSize: 2,
         wordWrap: 'on',
       }}
-      path="file:///model.tsx"
+      path={modelPath}
       theme="vs-light"
       value={value}
     />

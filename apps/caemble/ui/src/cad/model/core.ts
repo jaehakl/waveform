@@ -13,7 +13,7 @@ export type GeometryAttributes<P extends object = object> = Readonly<
 >
 export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
-type VarsSchemaEntry = {
+export type VarsSchemaEntry = {
   shape: readonly number[]
   default: Tensor
   min?: Tensor
@@ -21,12 +21,22 @@ type VarsSchemaEntry = {
 }
 
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
+export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
+export type ExperimentRule<T> = Readonly<{
+  target: readonly ExperimentTarget[]
+  value: T
+}>
 
 type StructureOptions = {
   geometry: () => unknown
   varsSchema: Record<string, VarsSchemaEntry>
   geometryGroup?: StructureGroupMap
   surfaceGroup?: StructureGroupMap
+}
+
+type ExperimentOptions<TInitialCondition, TBoundaryCondition> = StructureOptions & {
+  initialConditions?: () => readonly ExperimentRule<TInitialCondition>[]
+  boundaryConditions?: () => readonly ExperimentRule<TBoundaryCondition>[]
 }
 
 const defaultMaterialColor = '#3b82f6'
@@ -141,9 +151,9 @@ function validateRange(
   })
 }
 
-function normalizeVarsSchema(rawSchema: unknown) {
+function normalizeVarsSchema(rawSchema: unknown, objectName: string) {
   if (!isRecord(rawSchema)) {
-    throw new CadModelError('Structure varsSchema must be an object.')
+    throw new CadModelError(`${objectName} varsSchema must be an object.`)
   }
 
   const normalized: Record<string, VarsSchemaEntry> = {}
@@ -189,25 +199,29 @@ function normalizeVarsSchema(rawSchema: unknown) {
   return Object.freeze(normalized)
 }
 
-function normalizeStructureGroup(rawGroup: unknown, propertyName: 'geometryGroup' | 'surfaceGroup') {
+function normalizeStructureGroup(
+  rawGroup: unknown,
+  propertyName: 'geometryGroup' | 'surfaceGroup',
+  objectName: string,
+) {
   if (rawGroup === undefined) return Object.freeze({}) as StructureGroupMap
   if (!isRecord(rawGroup)) {
-    throw new CadModelError(`Structure ${propertyName} must be an object.`)
+    throw new CadModelError(`${objectName} ${propertyName} must be an object.`)
   }
 
   const names = new Set<string>()
   const entries = Object.entries(rawGroup).map(([rawName, rawMembers]) => {
     const name = rawName.trim()
     if (!name) {
-      throw new CadModelError(`Structure ${propertyName} group names must not be empty.`)
+      throw new CadModelError(`${objectName} ${propertyName} group names must not be empty.`)
     }
     if (names.has(name)) {
-      throw new CadModelError(`Structure ${propertyName} group name "${name}" is duplicated after trimming.`)
+      throw new CadModelError(`${objectName} ${propertyName} group name "${name}" is duplicated after trimming.`)
     }
     names.add(name)
 
     if (!Array.isArray(rawMembers)) {
-      throw new CadModelError(`Structure ${propertyName}.${name} must be an array of global IDs.`)
+      throw new CadModelError(`${objectName} ${propertyName}.${name} must be an array of global IDs.`)
     }
 
     const memberIds: string[] = []
@@ -215,7 +229,7 @@ function normalizeStructureGroup(rawGroup: unknown, propertyName: 'geometryGroup
     rawMembers.forEach((rawMember, index) => {
       if (typeof rawMember !== 'string' || !rawMember.trim()) {
         throw new CadModelError(
-          `Structure ${propertyName}.${name}[${index}] must be a non-empty string global ID.`,
+          `${objectName} ${propertyName}.${name}[${index}] must be a non-empty string global ID.`,
         )
       }
       const memberId = rawMember.trim()
@@ -230,16 +244,20 @@ function normalizeStructureGroup(rawGroup: unknown, propertyName: 'geometryGroup
   return Object.freeze(Object.fromEntries(entries)) as StructureGroupMap
 }
 
-function normalizeVars(schema: Readonly<Record<string, VarsSchemaEntry>>, rawVars: unknown) {
+function normalizeVars(
+  schema: Readonly<Record<string, VarsSchemaEntry>>,
+  rawVars: unknown,
+  variableObjectName: string,
+) {
   if (!isRecord(rawVars)) {
-    throw new CadModelError('Sample vars must be an object.')
+    throw new CadModelError(`${variableObjectName} vars must be an object.`)
   }
 
   const schemaKeys = Object.keys(schema)
   const extraKey = Object.keys(rawVars).find((key) => !(key in schema))
 
   if (extraKey) {
-    throw new CadModelError(`Unknown Sample var: ${extraKey}.`)
+    throw new CadModelError(`Unknown ${variableObjectName} var: ${extraKey}.`)
   }
 
   const normalized: Vars = {}
@@ -347,15 +365,16 @@ export class Structure {
   readonly surfaceGroup: StructureGroupMap
 
   constructor(options: StructureOptions) {
+    const objectName = new.target.name || 'Structure'
     if (!isRecord(options) || typeof options.geometry !== 'function') {
-      throw new CadModelError('Structure geometry must be a function.')
+      throw new CadModelError(`${objectName} geometry must be a function.`)
     }
 
     this.geometry = options.geometry
-    this.varsSchema = normalizeVarsSchema(options.varsSchema)
-    this.geometryGroup = normalizeStructureGroup(options.geometryGroup, 'geometryGroup')
-    this.surfaceGroup = normalizeStructureGroup(options.surfaceGroup, 'surfaceGroup')
-    Object.freeze(this)
+    this.varsSchema = normalizeVarsSchema(options.varsSchema, objectName)
+    this.geometryGroup = normalizeStructureGroup(options.geometryGroup, 'geometryGroup', objectName)
+    this.surfaceGroup = normalizeStructureGroup(options.surfaceGroup, 'surfaceGroup', objectName)
+    if (new.target === Structure) Object.freeze(this)
   }
 
   randomVars(seed?: number) {
@@ -369,21 +388,178 @@ export class Structure {
           : randomTensor(entry.shape, entry.min, entry.max, random)
     })
 
-    return normalizeVars(this.varsSchema, generated)
+    return normalizeVars(this.varsSchema, generated, this.constructor.name || 'Structure')
   }
 }
 
-export class Sample {
-  readonly structure: Structure
+const emptyExperimentRules = Object.freeze([]) as readonly ExperimentRule<never>[]
+
+function emptyRuleFactory() {
+  return emptyExperimentRules
+}
+
+export class Experiment<
+  TInitialCondition = unknown,
+  TBoundaryCondition = unknown,
+> extends Structure {
+  readonly initialConditions: () => readonly ExperimentRule<TInitialCondition>[]
+  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryCondition>[]
+
+  constructor(options: ExperimentOptions<TInitialCondition, TBoundaryCondition>) {
+    super(options)
+
+    if (options.initialConditions !== undefined && typeof options.initialConditions !== 'function') {
+      throw new CadModelError('Experiment initialConditions must be a function.')
+    }
+    if (options.boundaryConditions !== undefined && typeof options.boundaryConditions !== 'function') {
+      throw new CadModelError('Experiment boundaryConditions must be a function.')
+    }
+
+    this.initialConditions = options.initialConditions ?? emptyRuleFactory
+    this.boundaryConditions = options.boundaryConditions ?? emptyRuleFactory
+    Object.freeze(this)
+  }
+}
+
+function normalizeExperimentTarget(
+  rawTarget: unknown,
+  propertyName: 'initialConditions' | 'boundaryConditions',
+  ruleIndex: number,
+  targetIndex: number,
+  experiment: Experiment,
+) {
+  const targetPath = `Experiment ${propertyName}[${ruleIndex}].target[${targetIndex}]`
+  if (typeof rawTarget !== 'string') {
+    throw new CadModelError(`${targetPath} must be a string.`)
+  }
+
+  const target = rawTarget.trim()
+  const firstSeparator = target.indexOf('.')
+  const secondSeparator = target.indexOf('.', firstSeparator + 1)
+  if (firstSeparator <= 0 || secondSeparator <= firstSeparator + 1) {
+    throw new CadModelError(
+      `${targetPath} must use source.kind.group format.`,
+    )
+  }
+
+  const source = target.slice(0, firstSeparator)
+  const kind = target.slice(firstSeparator + 1, secondSeparator)
+  const group = target.slice(secondSeparator + 1).trim()
+  if ((source !== 'experiment' && source !== 'structure') || (kind !== 'geometry' && kind !== 'surface') || !group) {
+    throw new CadModelError(
+      `${targetPath} must use source.kind.group format.`,
+    )
+  }
+
+  if (source === 'experiment') {
+    const groups = kind === 'geometry' ? experiment.geometryGroup : experiment.surfaceGroup
+    if (!Object.prototype.hasOwnProperty.call(groups, group)) {
+      throw new CadModelError(
+        `${targetPath} references missing ${kind} group "${group}".`,
+      )
+    }
+  }
+
+  return `${source}.${kind}.${group}` as ExperimentTarget
+}
+
+function normalizeExperimentRuleList<T>(
+  rawRules: unknown,
+  propertyName: 'initialConditions' | 'boundaryConditions',
+  experiment: Experiment,
+) {
+  if (!Array.isArray(rawRules)) {
+    throw new CadModelError(`Experiment ${propertyName} must return an array.`)
+  }
+
+  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<T> => {
+    if (
+      !isRecord(rawRule)
+      || !Object.prototype.hasOwnProperty.call(rawRule, 'target')
+      || !Object.prototype.hasOwnProperty.call(rawRule, 'value')
+    ) {
+      throw new CadModelError(`Experiment ${propertyName}[${index}] must contain target and value.`)
+    }
+    if (!Array.isArray(rawRule.target) || rawRule.target.length === 0) {
+      throw new CadModelError(`Experiment ${propertyName}[${index}].target must be a non-empty array.`)
+    }
+
+    return Object.freeze({
+      target: Object.freeze(rawRule.target.map((target, targetIndex) =>
+        normalizeExperimentTarget(target, propertyName, index, targetIndex, experiment))),
+      value: rawRule.value as T,
+    })
+  }))
+}
+
+export function evaluateExperimentRules<TInitialCondition, TBoundaryCondition>(
+  experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+) {
+  return Object.freeze({
+    initialConditions: normalizeExperimentRuleList<TInitialCondition>(
+      experiment.initialConditions(),
+      'initialConditions',
+      experiment,
+    ),
+    boundaryConditions: normalizeExperimentRuleList<TBoundaryCondition>(
+      experiment.boundaryConditions(),
+      'boundaryConditions',
+      experiment,
+    ),
+  })
+}
+
+export abstract class VariableObject<TObject extends Structure> {
+  readonly object: TObject
   readonly vars: Readonly<Vars>
+
+  protected constructor(object: TObject, partialVars: Partial<Vars> = {}) {
+    const variableObjectName = new.target.name || 'VariableObject'
+    if (new.target === VariableObject) {
+      throw new CadModelError('VariableObject is abstract and cannot be instantiated directly.')
+    }
+    if (!(object instanceof Structure)) {
+      throw new CadModelError(`${variableObjectName} requires a Structure-derived object.`)
+    }
+
+    this.object = object
+    this.vars = normalizeVars(object.varsSchema, partialVars, variableObjectName)
+  }
+}
+
+export class Sample extends VariableObject<Structure> {
+  get structure() {
+    return this.object
+  }
 
   constructor(structure: Structure, partialVars: Partial<Vars> = {}) {
     if (!(structure instanceof Structure)) {
       throw new CadModelError('Sample requires a Structure instance.')
     }
+    if (structure instanceof Experiment) {
+      throw new CadModelError('Sample cannot wrap an Experiment. Use Setup instead.')
+    }
 
-    this.structure = structure
-    this.vars = normalizeVars(structure.varsSchema, partialVars)
+    super(structure, partialVars)
+    Object.freeze(this)
+  }
+}
+
+export class Setup<TInitialCondition = unknown, TBoundaryCondition = unknown>
+  extends VariableObject<Experiment<TInitialCondition, TBoundaryCondition>> {
+  get experiment() {
+    return this.object
+  }
+
+  constructor(
+    experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+    partialVars: Partial<Vars> = {},
+  ) {
+    if (!(experiment instanceof Experiment)) {
+      throw new CadModelError('Setup requires an Experiment instance.')
+    }
+
+    super(experiment, partialVars)
     Object.freeze(this)
   }
 }

@@ -13,12 +13,22 @@ export type {
 export {
   CadModelError,
   evaluateWithVars,
+  Experiment,
   Material,
   Sample,
+  Setup,
   Structure,
+  VariableObject,
   vars,
 } from './model/core'
-export type { Geometry, GeometryAttributes, StructureGroupMap } from './model/core'
+export type {
+  ExperimentRule,
+  ExperimentTarget,
+  Geometry,
+  GeometryAttributes,
+  StructureGroupMap,
+  VarsSchemaEntry,
+} from './model/core'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { ShellAttributes } from './elements/operations/shell/definition'
@@ -35,4 +45,4 @@ export type {
 } from './elements/primitives/curvedSurfaceSphere/definition'
 export type { FiberAttributes, FiberFourierMode, FiberHelix } from './elements/primitives/fiber/definition'
 export type { SphereAttributes } from './elements/primitives/sphere/definition'
-export type { CadWorkerErrorType, CadWorkerRequest, CadWorkerResponse } from './worker/protocol'
+export type { CadDocumentType, CadWorkerErrorType, CadWorkerRequest, CadWorkerResponse } from './worker/protocol'

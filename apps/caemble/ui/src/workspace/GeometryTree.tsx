@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import type { CadScene, CadSceneGroup, CadSceneTreeNode } from '../cad'
 import type { StructureGroupMap } from '../cad/model/core'
 import type { StructureGroupProperty } from '../cad/source/structureGroups'
-import { findDraftTarget, updateDraftSelection, type DraftSelection } from './groupDraft'
+import {
+  findDraftTarget,
+  shouldClearGeometryTreeSelection,
+  updateDraftSelection,
+  type DraftSelection,
+} from './groupDraft'
 
 type GeometryTreeProps = {
   draftSelection: DraftSelection | null
@@ -347,7 +352,15 @@ function GeometryTree({
   }
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-white" aria-label="Geometry Tree">
+    <aside
+      className="flex h-full min-h-0 flex-col bg-white"
+      aria-label="Geometry Tree"
+      onClick={(event) => {
+        if (!shouldClearGeometryTreeSelection(event.target)) return
+        onDraftSelectionChange(null)
+        onSelect(null)
+      }}
+    >
       <div className="shrink-0 border-b border-slate-200 p-2">
         {draftSelection ? (
           <div className="space-y-2">

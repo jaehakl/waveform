@@ -10,6 +10,7 @@ type EvaluationState = {
   materialNames: Map<string, Material>
   nodes: Map<string, CadSceneTreeNode>
   localIdsByParent: Map<string, Set<string>>
+  rootLabel: string
 }
 
 const localGeometryIdPattern = /^[\p{L}\p{N}_-]+$/u
@@ -74,7 +75,7 @@ function resolveGeometryId(value: unknown, label: string, parentId: string, stat
   const siblingIds = state.localIdsByParent.get(parentId) ?? new Set<string>()
   if (siblingIds.has(value)) {
     throw new CadModelError(
-      `Geometry id "${value}" must be unique within parent "${parentId || 'Structure'}".`,
+      `Geometry id "${value}" must be unique within parent "${parentId || state.rootLabel}".`,
     )
   }
   siblingIds.add(value)
@@ -231,15 +232,21 @@ function evaluateNode(
   return applyTransforms(parts, transformValues)
 }
 
-export function evaluateCadScene(root: unknown, groupOptions: CadSceneGroupOptions = {}): CadScene {
-  const tree: CadSceneTreeNode = { key: 'structure', label: 'Structure', children: [] }
+export function evaluateCadScene(
+  root: unknown,
+  groupOptions: CadSceneGroupOptions = {},
+  rootLabel = 'Structure',
+): CadScene {
+  const rootKey = rootLabel.toLowerCase()
+  const tree: CadSceneTreeNode = { key: rootKey, label: rootLabel, children: [] }
   const state: EvaluationState = {
     materialNames: new Map(),
     nodes: new Map([[tree.key, tree]]),
     localIdsByParent: new Map(),
+    rootLabel,
   }
-  const evaluatedParts = evaluateNode(root, undefined, state, tree, 'structure/root', '', undefined)
-  if (evaluatedParts.length === 0) throw new CadModelError('Structure geometry did not return any CAD geometry.')
+  const evaluatedParts = evaluateNode(root, undefined, state, tree, `${rootKey}/root`, '', undefined)
+  if (evaluatedParts.length === 0) throw new CadModelError(`${rootLabel} geometry did not return any CAD geometry.`)
 
   const ownerIds = evaluatedParts.map((part) => {
     if (!part.ownerNodeKey) {

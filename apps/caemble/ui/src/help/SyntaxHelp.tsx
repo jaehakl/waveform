@@ -5,12 +5,12 @@ function SyntaxHelp() {
     <section className="min-h-0 flex-1 overflow-auto bg-white">
       <div className="mx-auto max-w-6xl px-6 py-6">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-slate-950">Caemble Syntax Help</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Caemble Help</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            A file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>. Its
-            Structure resolves vars first, then lazily creates Materials and evaluates the root Geometry in the
-            Worker. Workspace auto-runs edited code and the Reroll button immediately executes the current source
-            again, producing new values for seedless random vars.
+            A Structure file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>,
+            while an Experiment file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Setup</code>.
+            Both resolve vars before lazily creating Materials and evaluating root Geometry in the Worker. Each
+            editor auto-runs changed code, and Reroll immediately executes its current source again.
           </p>
         </div>
 
@@ -95,7 +95,27 @@ function SyntaxHelp() {
                 the first draft member and every drafted result is highlighted together in the viewer. Named groups
                 contribute their declared members without becoming nested groups. They are displayed in separate
                 Geometry and Surface sections and can be selected, expanded, edited, or deleted. These edits update
-                the active default Sample&apos;s Structure in Code Space immediately.
+                the active default Sample&apos;s Structure or Setup&apos;s Experiment in Code Space immediately.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Experiments and Conditions</p>
+              <p className="mt-1">
+                <code className="rounded bg-white px-1 py-0.5 text-xs">Experiment</code> extends Structure, adding
+                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initialConditions</code> and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code> rule arrays.{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
+                vars just as Sample pairs a Structure with vars. The Experiment editor previews only Experiment
+                geometry; a later simulation may combine it with a Sample in the same coordinate system.
+              </p>
+              <p className="mt-1">
+                Each rule has a non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">target</code> array,
+                whose entries use <code className="rounded bg-white px-1 py-0.5 text-xs">source.kind.group</code>, for
+                example <code className="rounded bg-white px-1 py-0.5 text-xs">['experiment.geometry.domain']</code> or{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.sampleBoundary']</code>.
+                Experiment targets must name one of its own groups; Structure targets reserve a group name for a
+                future Sample. Rule values are solver-defined and may contain time-dependent functions. Both rule
+                factories run with Setup values available through the global{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

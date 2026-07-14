@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { transform } from 'esbuild'
 import { booleans, geometries, measurements } from '@jscad/modeling'
 import { defaultCode } from '../../defaultCode'
+import { defaultExperimentCode } from '../../defaultExperimentCode'
 import { caembleExamples } from '../../examples'
 import { executeCompiledCode, requireCaembleModule } from './userModule'
 
@@ -31,11 +32,43 @@ module.exports.default = new Sample(structure)
 describe('compiled user module execution', () => {
   it('resolves @caemble/core and evaluates a default Sample', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Sample')
+    expect(requireCaembleModule('@caemble/core')).toHaveProperty('Setup')
+    expect(requireCaembleModule('@caemble/core')).toHaveProperty('Experiment')
     expect(executeCompiledCode(validModule)).toMatchObject({
       parts: [{ id: 'root', materialName: 'Core', displayColor: '#2563eb' }],
       tree: { label: 'Structure' },
       geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
       surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
+    })
+  })
+
+  it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
+    expect(defaultExperimentCode).toContain('new Experiment<InitialCondition, BoundaryCondition>')
+    expect(defaultExperimentCode).toContain('initialConditions: () => [')
+    expect(defaultExperimentCode).toContain("'experiment.geometry.domain'")
+    expect(defaultExperimentCode).toContain("'structure.surface.sampleBoundary'")
+    expect(defaultExperimentCode).toContain('export default new Setup(experiment, experiment.randomVars())')
+
+    const compiled = await transform(defaultExperimentCode, {
+      format: 'cjs',
+      jsxFactory: 'h',
+      jsxFragment: 'Fragment',
+      loader: 'tsx',
+      platform: 'browser',
+      target: 'es2020',
+    })
+    expect(() => executeCompiledCode(compiled.code)).toThrow(
+      'default export must be a Sample instance',
+    )
+    const scene = executeCompiledCode(compiled.code, 'experiment')
+
+    expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
+    expect(scene.parts).toHaveLength(1)
+    expect(scene.parts[0]).toMatchObject({ id: 'domain', materialName: 'Experiment Domain' })
+    expect(scene.geometryGroups[0]).toMatchObject({ name: 'domain', geometryIds: ['domain'] })
+    expect(scene.surfaceGroups[0]).toMatchObject({
+      name: 'outerBoundary',
+      surfaceIds: ['domain/surface-1'],
     })
   })
 
@@ -207,6 +240,9 @@ describe('compiled user module execution', () => {
   it('requires the default export to be a Sample object', () => {
     expect(() => executeCompiledCode('module.exports.default = () => null')).toThrow(
       'default export must be a Sample instance',
+    )
+    expect(() => executeCompiledCode(validModule, 'experiment')).toThrow(
+      'default export must be a Setup instance',
     )
   })
 })
