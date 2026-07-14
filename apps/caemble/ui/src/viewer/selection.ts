@@ -1,4 +1,4 @@
-import type { CadScenePart } from '../cad'
+import type { CadScenePart, CadSceneSelection } from '../cad'
 
 type RenderPolygon = Record<string, unknown> & { color?: number[] }
 type RenderSolid = Record<string, unknown> & { polygons: RenderPolygon[] }
@@ -24,19 +24,21 @@ function dimmedColor(hex: string): [number, number, number, number] {
   ]
 }
 
-export function createRenderParts(parts: CadScenePart[], selectedId: string | null) {
-  const selectedPart = parts.find((part) =>
-    part.id === selectedId || part.surfaces.some((surface) => surface.id === selectedId),
-  )
-  if (!selectedPart) {
+export function createRenderParts(parts: CadScenePart[], selection: CadSceneSelection | null) {
+  if (!selection) {
     return parts.map((part) => ({ geometry: part.geometry, color: colorFromHex(part.displayColor) }))
   }
 
-  const selectedSurface = selectedPart.surfaces.find((surface) => surface.id === selectedId)
+  const selectedGeometryIds = new Set(selection.geometryIds)
+  const selectedSurfacePart = selection.kind === 'surface'
+    ? parts.find((part) => part.id === selection.geometryIds[0])
+    : undefined
+  const selectedSurface = selectedSurfacePart?.surfaces.find((surface) => surface.id === selection.surfaceId)
   const selectedPolygonIndices = new Set(selectedSurface?.polygonIndices ?? [])
 
   return parts.map((part) => {
-    const fallbackColor = part.id === selectedId ? selectedColor : dimmedColor(part.displayColor)
+    const wholePartIsSelected = selection.kind !== 'surface' && selectedGeometryIds.has(part.id)
+    const fallbackColor = wholePartIsSelected ? selectedColor : dimmedColor(part.displayColor)
     if (
       typeof part.geometry !== 'object' ||
       part.geometry === null ||
@@ -50,8 +52,8 @@ export function createRenderParts(parts: CadScenePart[], selectedId: string | nu
     const polygons = geometry.polygons.map((polygon, polygonIndex) => ({
       ...polygon,
       color:
-        part.id === selectedId ||
-        (part.id === selectedPart.id && selectedPolygonIndices.has(polygonIndex))
+        wholePartIsSelected ||
+        (part.id === selectedSurfacePart?.id && selectedPolygonIndices.has(polygonIndex))
           ? [...selectedColor]
           : [...dimmedColor(part.displayColor)],
     }))

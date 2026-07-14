@@ -77,6 +77,7 @@ describe('CAD registry contracts', () => {
       Structure: expect.any(Function),
       evaluateCad: expect.any(Function),
       evaluateCadScene: expect.any(Function),
+      resolveCadSceneSelection: expect.any(Function),
       h: expect.any(Function),
     })
   })

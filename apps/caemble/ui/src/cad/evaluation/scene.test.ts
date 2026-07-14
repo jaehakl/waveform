@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Material } from '../model/core'
-import { Fragment, evaluateCadScene, h } from '../index'
+import { Fragment, evaluateCadScene, h, resolveCadSceneSelection } from '../index'
 import type { CadSceneTreeNode } from './types'
 
 function flattenTree(node: CadSceneTreeNode): CadSceneTreeNode[] {
@@ -62,11 +62,29 @@ describe('CAD scene identity and evaluated tree', () => {
       first.parts.flatMap((part) => part.surfaces.map((surface) => surface.id)),
     )
 
+    const groupNodes = nodes.filter((node) => node.groupId)
+    expect(groupNodes.map((node) => node.groupId)).toEqual(
+      groupNodes.map((_node, index) => `group-${index + 1}`),
+    )
+    expect(first.tree).toMatchObject({
+      groupId: 'group-1',
+      geometryIds: ['geometry-1', 'geometry-2', 'geometry-3'],
+    })
+
+    const arrayNode = nodes.find((node) => node.label === '<array>')!
+    expect(arrayNode).toMatchObject({ geometryIds: ['geometry-1', 'geometry-2'] })
+    const cellNodes = nodes.filter((node) => node.label.startsWith('Cell ['))
+    expect(cellNodes.map((node) => node.geometryIds)).toEqual([['geometry-1'], ['geometry-2']])
+    expect(nodes.filter((node) => node.label === '<box>' && node.groupId)).toHaveLength(2)
+
     const subtractNode = nodes.find((node) => node.label === '<subtract>')!
     const baseNode = subtractNode.children.find((node) => node.label === 'Base')!
     const cutterNode = subtractNode.children.find((node) => node.label === 'Cutter')!
     expect(flattenTree(baseNode).some((node) => node.geometryId)).toBe(false)
     expect(flattenTree(cutterNode).some((node) => node.geometryId)).toBe(false)
+    expect(flattenTree(baseNode).some((node) => node.groupId)).toBe(false)
+    expect(flattenTree(cutterNode).some((node) => node.groupId)).toBe(false)
+    expect(subtractNode).toMatchObject({ geometryIds: ['geometry-3'] })
     expect(subtractNode.children[subtractNode.children.length - 1]).toMatchObject({
       label: 'Geometry 3 · Scene material',
       geometryId: 'geometry-3',
@@ -80,5 +98,22 @@ describe('CAD scene identity and evaluated tree', () => {
       surfaceIds: part.surfaces.map((surface) => surface.id),
     })))
     expect(second.tree).toEqual(first.tree)
+
+    expect(resolveCadSceneSelection(first, 'group-1')).toMatchObject({
+      kind: 'group',
+      label: 'Structure',
+      geometryIds: ['geometry-1', 'geometry-2', 'geometry-3'],
+    })
+    expect(resolveCadSceneSelection(second, 'group-1')).toEqual(resolveCadSceneSelection(first, 'group-1'))
+    expect(resolveCadSceneSelection(first, 'geometry-1')).toMatchObject({
+      kind: 'geometry',
+      geometryIds: ['geometry-1'],
+    })
+    expect(resolveCadSceneSelection(first, 'geometry-1/surface-1')).toMatchObject({
+      kind: 'surface',
+      geometryIds: ['geometry-1'],
+      surfaceId: 'geometry-1/surface-1',
+    })
+    expect(resolveCadSceneSelection(first, 'group-missing')).toBeNull()
   })
 })

@@ -9,7 +9,7 @@ describe('JscadViewer Material legend', () => {
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
-        selectedId={null}
+        selection={null}
         parts={[
           { id: 'geometry-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
           { id: 'geometry-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
@@ -30,7 +30,13 @@ describe('JscadViewer Material legend', () => {
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
-        selectedId="geometry-1/surface-1"
+        selection={{
+          id: 'geometry-1/surface-1',
+          kind: 'surface',
+          label: 'Top',
+          geometryIds: ['geometry-1'],
+          surfaceId: 'geometry-1/surface-1',
+        }}
         parts={[{
           id: 'geometry-1',
           geometry: {},
@@ -44,5 +50,28 @@ describe('JscadViewer Material legend', () => {
     expect(markup).toContain('Selected')
     expect(markup).toContain('>Top</div>')
     expect(markup).toContain('geometry-1/surface-1')
+  })
+
+  it('shows a selected group label, ID, and Geometry count', () => {
+    const markup = renderToStaticMarkup(
+      <JscadViewer
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+        selection={{
+          id: 'group-1',
+          kind: 'group',
+          label: 'Structure',
+          geometryIds: ['geometry-1', 'geometry-2'],
+        }}
+        parts={[
+          { id: 'geometry-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          { id: 'geometry-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+        ]}
+      />,
+    )
+
+    expect(markup).toContain('Structure · 2 geometries')
+    expect(markup).toContain('group-1')
   })
 })

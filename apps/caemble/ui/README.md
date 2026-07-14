@@ -18,7 +18,7 @@ npm run build
 npm run lint
 ```
 
-The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, and their Surface IDs. Selecting one Geometry or Surface highlights it in the viewer.
+The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. Code Space and Geometry Tree share the left panel and can be switched with tabs while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, and their Surface IDs. Selecting a Geometry or Surface highlights it in the viewer; selecting an intermediate Tree group highlights all final Geometry below it.
 
 ## CAD Library Layout
 

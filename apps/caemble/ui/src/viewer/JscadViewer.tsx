@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
-import type { CadScenePart } from '../cad'
+import type { CadScenePart, CadSceneSelection } from '../cad'
 import { createRenderParts } from './selection'
 
 type RendererEntity = Record<string, unknown>
@@ -41,12 +41,12 @@ type JscadViewerProps = {
   onRenderError: (message: string) => void
   onRenderStart: () => void
   parts: CadScenePart[]
-  selectedId: string | null
+  selection: CadSceneSelection | null
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
 
-function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selectedId }: JscadViewerProps) {
+function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selection }: JscadViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
   const controlsRef = useRef<RendererState | null>(null)
@@ -138,7 +138,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecte
     if (shouldFit) onRenderStart()
 
     try {
-      const solidsEntities = createRenderParts(parts, selectedId).flatMap((part) =>
+      const solidsEntities = createRenderParts(parts, selection).flatMap((part) =>
         renderer.entitiesFromSolids(
           { color: part.color, smoothNormals: true },
           part.geometry,
@@ -189,7 +189,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecte
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [onRenderEnd, onRenderError, onRenderStart, parts, selectedId])
+  }, [onRenderEnd, onRenderError, onRenderStart, parts, selection])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -203,11 +203,6 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecte
     renderer.cameras.perspective.update(cameraRef.current, cameraRef.current)
     renderRef.current(optionsRef.current)
   }
-
-  const selectedPart = parts.find((part) =>
-    part.id === selectedId || part.surfaces.some((surface) => surface.id === selectedId),
-  )
-  const selectedSurface = selectedPart?.surfaces.find((surface) => surface.id === selectedId)
 
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden bg-slate-50">
@@ -282,14 +277,16 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecte
         </div>
       ) : null}
 
-      {selectedPart ? (
+      {selection ? (
         <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
           <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
-            {selectedSurface?.name ?? `${selectedPart.id} · ${selectedPart.materialName}`}
+            {selection.kind === 'group'
+              ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
+              : selection.label}
           </div>
           <div className="truncate font-mono text-[10px] text-slate-400">
-            {selectedSurface?.id ?? selectedPart.id}
+            {selection.id}
           </div>
         </div>
       ) : null}

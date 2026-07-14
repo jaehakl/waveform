@@ -39,6 +39,8 @@ export type CadScenePart = {
 export type CadSceneTreeNode = {
   key: string
   label: string
+  groupId?: string
+  geometryIds?: string[]
   geometryId?: string
   surfaceId?: string
   children: CadSceneTreeNode[]
@@ -48,6 +50,14 @@ export type CadScene = {
   parts: CadScenePart[]
   tree: CadSceneTreeNode
 }
+
+export type CadSceneSelection = Readonly<{
+  id: string
+  kind: 'group' | 'geometry' | 'surface'
+  label: string
+  geometryIds: readonly string[]
+  surfaceId?: string
+}>
 
 export type NormalizedTransforms = {
   pos: Vec3

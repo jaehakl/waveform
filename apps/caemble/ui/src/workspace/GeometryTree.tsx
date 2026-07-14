@@ -22,7 +22,7 @@ function GeometryTreeNode({
   onToggle: (key: string) => void
   selectedId: string | null
 }) {
-  const rowId = node.geometryId ?? node.surfaceId
+  const rowId = node.groupId ?? node.geometryId ?? node.surfaceId
   const isExpanded = expanded.has(node.key)
   const hasChildren = node.children.length > 0
   const isSelected = rowId !== undefined && selectedId === rowId
@@ -126,10 +126,6 @@ function GeometryTree({ onSelect, scene, selectedId }: GeometryTreeProps) {
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-white" aria-label="Geometry Tree">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-slate-200 px-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Geometry Tree</h2>
-        <span className="text-[10px] text-slate-400">{scene?.parts.length ?? 0} geometries</span>
-      </div>
       <div className="min-h-0 flex-1 overflow-auto py-1">
         {scene ? (
           <ul role="tree" aria-label="Evaluated Geometry Tree">

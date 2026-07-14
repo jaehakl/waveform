@@ -1,6 +1,13 @@
 export { evaluateCad, evaluateCadScene } from './evaluation/evaluator'
+export { resolveCadSceneSelection } from './evaluation/selection'
 export { Fragment, h } from './evaluation/jsx'
-export type { CadScene, CadScenePart, CadSceneSurface, CadSceneTreeNode } from './evaluation/types'
+export type {
+  CadScene,
+  CadScenePart,
+  CadSceneSelection,
+  CadSceneSurface,
+  CadSceneTreeNode,
+} from './evaluation/types'
 export {
   CadModelError,
   evaluateWithVars,

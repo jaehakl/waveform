@@ -30,6 +30,32 @@ function addTreeNode(
   return node
 }
 
+function annotateTreeGroups(tree: CadSceneTreeNode) {
+  const geometryIdsByKey = new Map<string, string[]>()
+  const collectGeometryIds = (node: CadSceneTreeNode): string[] => {
+    const geometryIds = [
+      ...(node.geometryId ? [node.geometryId] : []),
+      ...node.children.flatMap(collectGeometryIds),
+    ]
+    geometryIdsByKey.set(node.key, geometryIds)
+    return geometryIds
+  }
+  collectGeometryIds(tree)
+
+  let groupIndex = 0
+  const pending = [tree]
+  while (pending.length > 0) {
+    const node = pending.shift()!
+    const geometryIds = geometryIdsByKey.get(node.key) ?? []
+    if (!node.geometryId && !node.surfaceId && geometryIds.length > 0) {
+      groupIndex += 1
+      node.groupId = `group-${groupIndex}`
+      node.geometryIds = geometryIds
+    }
+    pending.unshift(...node.children)
+  }
+}
+
 function evaluateNode(
   value: unknown,
   inheritedMaterials: readonly Material[] | undefined,
@@ -179,6 +205,8 @@ export function evaluateCadScene(root: unknown): CadScene {
       surfaces,
     }
   })
+
+  annotateTreeGroups(tree)
 
   return { parts, tree }
 }
