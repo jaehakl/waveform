@@ -1,6 +1,14 @@
 import type { Rotation, Tensor, Vars, Vec3 } from './types'
 
 export type { Rotation, Tensor, Vars, Vec3 } from './types'
+export type MaterialVariable =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly MaterialVariable[]
+  | Readonly<{ [key: string]: MaterialVariable }>
+export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
     id: string
@@ -38,8 +46,6 @@ type ExperimentOptions<TInitialCondition, TBoundaryCondition> = StructureOptions
   initialConditions?: () => readonly ExperimentRule<TInitialCondition>[]
   boundaryConditions?: () => readonly ExperimentRule<TBoundaryCondition>[]
 }
-
-const defaultMaterialColor = '#3b82f6'
 
 export class CadModelError extends Error {
   constructor(message: string) {
@@ -312,49 +318,86 @@ function randomTensor(
 }
 
 export class Material {
-  readonly name: string
-  readonly vars: Readonly<Vars>
-  readonly displayColor: string
+  readonly symbol: string
+  readonly version?: string
+  readonly variables: MaterialVariables
 
-  constructor(name: string, vars: Vars, displayColor = defaultMaterialColor) {
-    if (typeof name !== 'string' || !name.trim()) {
-      throw new CadModelError('Material name must be a non-empty string.')
+  constructor(symbol: string)
+  constructor(symbol: string, variables: MaterialVariables)
+  constructor(symbol: string, version: string)
+  constructor(symbol: string, version: string, variables: MaterialVariables)
+  constructor(
+    symbol: string,
+    versionOrVariables?: string | MaterialVariables,
+    versionVariables?: MaterialVariables,
+  ) {
+    if (typeof symbol !== 'string' || !symbol.trim()) {
+      throw new CadModelError('Material symbol must be a non-empty string.')
+    }
+    if (typeof versionOrVariables !== 'string' && arguments.length === 3) {
+      throw new CadModelError('Material variables must follow a string version when a third argument is supplied.')
     }
 
-    if (!isRecord(vars)) {
-      throw new CadModelError(`Material ${name} vars must be an object.`)
+    const version = typeof versionOrVariables === 'string' ? versionOrVariables.trim() : undefined
+    if (typeof versionOrVariables === 'string' && !version) {
+      throw new CadModelError(`Material ${symbol} version must be a non-empty string.`)
     }
 
-    if (!/^#[0-9a-f]{6}$/i.test(displayColor)) {
-      throw new CadModelError(`Material ${name} displayColor must use #RRGGBB format.`)
+    const rawVariables = typeof versionOrVariables === 'string'
+      ? versionVariables === undefined ? {} : versionVariables
+      : versionOrVariables === undefined ? {} : versionOrVariables
+    if (!isRecord(rawVariables)
+      || ![Object.prototype, null].includes(Object.getPrototypeOf(rawVariables))) {
+      throw new CadModelError(`Material ${symbol} variables must be a plain object.`)
     }
 
-    const normalizedVars: Vars = {}
+    const ancestors = new Set<object>()
+    const normalizeVariable = (value: unknown, path: string): MaterialVariable => {
+      if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) throw new CadModelError(`${path} must be a finite number.`)
+        return value
+      }
+      if (typeof value !== 'object') {
+        throw new CadModelError(`${path} must be JSON-compatible.`)
+      }
+      if (ancestors.has(value)) throw new CadModelError(`${path} must not contain circular references.`)
 
-    Object.entries(vars).forEach(([key, value]) => {
-      if (!key.trim()) {
-        throw new CadModelError(`Material ${name} var names must not be empty.`)
+      ancestors.add(value)
+      if (Array.isArray(value)) {
+        const normalized = Array.from(value, (item, index) => normalizeVariable(item, `${path}[${index}]`))
+        ancestors.delete(value)
+        return Object.freeze(normalized)
+      }
+      if (![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
+        ancestors.delete(value)
+        throw new CadModelError(`${path} must contain only plain objects.`)
       }
 
-      const shape: number[] = []
-      let cursor: unknown = value
+      const normalized: Record<string, MaterialVariable> = {}
+      Object.entries(value).forEach(([key, item]) => {
+        if (!key.trim()) throw new CadModelError(`${path} property names must not be empty.`)
+        normalized[key] = normalizeVariable(item, `${path}.${key}`)
+      })
+      ancestors.delete(value)
+      return Object.freeze(normalized)
+    }
 
-      while (Array.isArray(cursor)) {
-        if (cursor.length === 0) {
-          throw new CadModelError(`Material ${name} var ${key} must not contain empty arrays.`)
-        }
-
-        shape.push(cursor.length)
-        cursor = cursor[0]
-      }
-
-      validateTensor(value, shape, `Material ${name} vars.${key}`)
-      normalizedVars[key] = freezeTensor(cloneTensor(value))
+    const normalizedVariables: Record<string, MaterialVariable> = {}
+    Object.entries(rawVariables).forEach(([key, value]) => {
+      if (!key.trim()) throw new CadModelError(`Material ${symbol} variable names must not be empty.`)
+      normalizedVariables[key] = normalizeVariable(value, `Material ${symbol} variables.${key}`)
     })
+    if (normalizedVariables.color !== undefined) {
+      if (typeof normalizedVariables.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(normalizedVariables.color)) {
+        throw new CadModelError(`Material ${symbol} variables.color must use #RRGGBB format.`)
+      }
+      normalizedVariables.color = normalizedVariables.color.toLowerCase()
+    }
 
-    this.name = name.trim()
-    this.vars = Object.freeze(normalizedVars)
-    this.displayColor = displayColor.toLowerCase()
+    this.symbol = symbol.trim()
+    if (version !== undefined) this.version = version
+    this.variables = Object.freeze(normalizedVariables)
   }
 }
 

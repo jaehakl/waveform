@@ -71,7 +71,9 @@ describe('JscadViewer modes', () => {
 })
 
 describe('JscadViewer Material legend', () => {
-  it('shows each used Material once with its display color', () => {
+  it('shows each shared Material once with its variable or fallback color', () => {
+    const core = { symbol: 'Core', version: 'Kittel_1988', variables: { color: '#2563eb' } }
+    const cladding = { symbol: 'Cladding', variables: {} }
     const markup = renderToStaticMarkup(
       <JscadViewer
         onRenderEnd={() => undefined}
@@ -79,9 +81,9 @@ describe('JscadViewer Material legend', () => {
         onRenderStart={() => undefined}
         selection={null}
         parts={[
-          { id: 'assembly.core-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'assembly.core-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'assembly.cladding', geometry: {}, materialName: 'Cladding', displayColor: '#f59e0b', surfaces: [] },
+          { id: 'assembly.core-1', geometry: {}, material: core, surfaces: [] },
+          { id: 'assembly.core-2', geometry: {}, material: core, surfaces: [] },
+          { id: 'assembly.cladding', geometry: {}, material: cladding, surfaces: [] },
         ]}
       />,
     )
@@ -89,7 +91,37 @@ describe('JscadViewer Material legend', () => {
     expect(markup.match(/Core/g)).toHaveLength(1)
     expect(markup.match(/Cladding/g)).toHaveLength(1)
     expect(markup).toContain('background-color:#2563eb')
-    expect(markup).toContain('background-color:#f59e0b')
+    expect(markup).toContain('background-color:#3b82f6')
+    expect(markup).not.toContain('Kittel_1988')
+  })
+
+  it('keeps distinct Material instances with the same symbol in separate rows', () => {
+    const markup = renderToStaticMarkup(
+      <JscadViewer
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+        selection={null}
+        parts={[
+          {
+            id: 'assembly.first',
+            geometry: {},
+            material: { symbol: 'Core', variables: { color: '#2563eb' } },
+            surfaces: [],
+          },
+          {
+            id: 'assembly.second',
+            geometry: {},
+            material: { symbol: 'Core', variables: { color: '#dc2626' } },
+            surfaces: [],
+          },
+        ]}
+      />,
+    )
+
+    expect(markup.match(/Core/g)).toHaveLength(2)
+    expect(markup).toContain('background-color:#2563eb')
+    expect(markup).toContain('background-color:#dc2626')
   })
 
   it('shows the selected Surface name and ID', () => {
@@ -108,8 +140,7 @@ describe('JscadViewer Material legend', () => {
         parts={[{
           id: 'assembly.core',
           geometry: {},
-          materialName: 'Core',
-          displayColor: '#2563eb',
+          material: { symbol: 'Core', variables: { color: '#2563eb' } },
           surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
         }]}
       />,
@@ -133,8 +164,18 @@ describe('JscadViewer Material legend', () => {
           geometryIds: ['assembly.first', 'assembly.second'],
         }}
         parts={[
-          { id: 'assembly.first', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'assembly.second', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          {
+            id: 'assembly.first',
+            geometry: {},
+            material: { symbol: 'Core', variables: { color: '#2563eb' } },
+            surfaces: [],
+          },
+          {
+            id: 'assembly.second',
+            geometry: {},
+            material: { symbol: 'Core', variables: { color: '#2563eb' } },
+            surfaces: [],
+          },
         ]}
       />,
     )

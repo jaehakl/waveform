@@ -53,7 +53,7 @@ describe('curved surface sphere geometry', () => {
   })
 
   it('inherits Material and participates in transforms and same-Material CSG', () => {
-    const material = new Material('Curved Sphere', {}, '#be123c')
+    const material = new Material('Curved Sphere', { color: '#be123c' })
     function CurvedSphere() {
       return h('curvedSurfaceSphere', validAttributes)
     }
@@ -73,9 +73,9 @@ describe('curved surface sphere geometry', () => {
     const bounds = measurements.measureBoundingBox(translated.geometry)
     expect(bounds[0][0]).toBeCloseTo(2)
     expect(bounds[1][0]).toBeCloseTo(4)
-    expect(translated.materialName).toBe('Curved Sphere')
+    expect(translated.material.symbol).toBe('Curved Sphere')
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Outer'])
-    expect(combined.materialName).toBe('Curved Sphere')
+    expect(combined.material.symbol).toBe('Curved Sphere')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

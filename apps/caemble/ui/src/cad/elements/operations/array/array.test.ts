@@ -11,7 +11,7 @@ function Box() {
 
 describe('CAD array', () => {
   it('centers array cells and supports normalized non-orthogonal lattice axes', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
 
     function Cell() {
       return h('box', { size })
@@ -62,7 +62,7 @@ describe('CAD array', () => {
   })
 
   it('injects multiple custom and transform tensors over the child base props', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const received: Record<string, unknown>[] = []
 
     function Cell(input: Record<string, unknown>) {
@@ -114,7 +114,7 @@ describe('CAD array', () => {
       scale: [0.5, 2, 1],
       rotate: { axis: [0, 0, 1], angle: Math.PI / 2 },
     })
-    expect(parts.map((part) => part.materialName)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Core'])
 
     const centers = parts.map((part) => {
       const bounds = measurements.measureBoundingBox(part.geometry)
@@ -124,7 +124,7 @@ describe('CAD array', () => {
   })
 
   it('applies child transforms, lattice offset, array transforms, and parent transforms in order', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
 
     function Cell() {
       return h('box', { size })
@@ -158,7 +158,7 @@ describe('CAD array', () => {
   })
 
   it('rejects invalid array shape, period, and axes', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const child = h(Box, { id: 'box', materials: [core] })
 
     ;[null, [1, 1], [1, 1, 0], [1, 1, 1.5], [1, 1, Number.NaN]].forEach((shape) => {
@@ -186,7 +186,7 @@ describe('CAD array', () => {
   })
 
   it('rejects malformed or forbidden array injection tensors', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const child = h(Box, { id: 'box', materials: [core] })
     const evaluate = (inject: unknown) =>
       evaluateCad(h('array', { shape: [2, 1, 1], period: [2, 0, 0], inject }, child))
@@ -208,7 +208,7 @@ describe('CAD array', () => {
   })
 
   it('requires exactly one direct function Geometry child for array', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const props = { shape: [1, 1, 1], period: [0, 0, 0] }
 
     expect(() => evaluateCad(h('array', props))).toThrow('exactly one direct child Geometry')
@@ -233,8 +233,8 @@ describe('CAD array', () => {
   })
 
   it('keeps array cells independent and preserves existing Material boolean rules', () => {
-    const core = new Material('Core', {}, '#2563eb')
-    const cladding = new Material('Cladding', {}, '#f59e0b')
+    const core = new Material('Core', { color: '#2563eb' })
+    const cladding = new Material('Cladding', { color: '#f59e0b' })
     const arrayProps = { shape: [2, 1, 1], period: [3, 0, 0] }
 
     expect(evaluateCad(h('array', arrayProps, h(Box, { id: 'box', materials: [core] })))).toHaveLength(2)

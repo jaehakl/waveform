@@ -16,7 +16,7 @@ function Root({ materials }) {
 const structure = new Structure({
   geometry: () => h(Root, {
     id: 'root',
-    materials: [new Material('Core', { epsilon: vars.epsilon }, '#2563eb')],
+    materials: [new Material('Core', { epsilon: vars.epsilon, color: '#2563eb' })],
   }),
   varsSchema: {
     width: { shape: [], default: 4 },
@@ -35,7 +35,10 @@ describe('compiled user module execution', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Setup')
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Experiment')
     expect(executeCompiledCode(validModule)).toMatchObject({
-      parts: [{ id: 'root', materialName: 'Core', displayColor: '#2563eb' }],
+      parts: [{
+        id: 'root',
+        material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
+      }],
       tree: { label: 'Structure' },
       geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
       surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
@@ -64,7 +67,10 @@ describe('compiled user module execution', () => {
 
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(1)
-    expect(scene.parts[0]).toMatchObject({ id: 'domain', materialName: 'Experiment Domain' })
+    expect(scene.parts[0]).toMatchObject({
+      id: 'domain',
+      material: { symbol: 'Experiment Domain' },
+    })
     expect(scene.geometryGroups[0]).toMatchObject({ name: 'domain', geometryIds: ['domain'] })
     expect(scene.surfaceGroups[0]).toMatchObject({
       name: 'outerBoundary',
@@ -97,7 +103,7 @@ describe('compiled user module execution', () => {
     expect(parts).toHaveLength(3)
     expect(parts.map((part) => part.id)).toEqual(['bundle.1', 'bundle.2', 'bundle.3'])
     expect(rerolled.parts.map((part) => part.id)).toEqual(parts.map((part) => part.id))
-    expect(parts.every((part) => part.materialName === 'Tapered Fiber')).toBe(true)
+    expect(parts.every((part) => part.material.symbol === 'Tapered Fiber')).toBe(true)
     expect(geometryGroups[0]).toMatchObject({ name: 'bundle', geometryIds: parts.map((part) => part.id) })
     expect(surfaceGroups[0]).toMatchObject({ name: 'starts', surfaceIds: [
       'bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1',
@@ -140,7 +146,7 @@ describe('compiled user module execution', () => {
     })
     const { parts } = executeCompiledCode(compiled.code)
 
-    expect(parts.map((part) => part.materialName)).toEqual([
+    expect(parts.map((part) => part.material.symbol)).toEqual([
       'Core', 'Layer 1',
       'Core', 'Layer 1', 'Layer 2',
       'Core', 'Layer 1', 'Layer 2', 'Layer 3',

@@ -92,7 +92,7 @@ const structure = new Structure({
         polarMode2Amplitude={0.015}
         polarMode2Phase={0}
         materials={[
-          new Material('HCP Particle', { density: 1.05 }, '#7c3aed'),
+          new Material('HCP Particle', { density: 1.05, color: '#7c3aed' }),
         ]}
       />
     </array>

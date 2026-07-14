@@ -7,7 +7,6 @@ import { applyCadSceneGroups, type CadSceneGroupOptions } from './groups'
 import type { CadScene, CadScenePart, CadSceneTreeNode, EvaluatedPart } from './types'
 
 type EvaluationState = {
-  materialNames: Map<string, Material>
   nodes: Map<string, CadSceneTreeNode>
   localIdsByParent: Map<string, Set<string>>
   rootLabel: string
@@ -221,14 +220,6 @@ function evaluateNode(
     }
   }
 
-  parts.forEach(({ material }) => {
-    const existing = state.materialNames.get(material.name)
-    if (existing && existing !== material) {
-      throw new CadModelError(`Material name ${material.name} is used by more than one Material instance.`)
-    }
-    state.materialNames.set(material.name, material)
-  })
-
   return applyTransforms(parts, transformValues)
 }
 
@@ -240,7 +231,6 @@ export function evaluateCadScene(
   const rootKey = rootLabel.toLowerCase()
   const tree: CadSceneTreeNode = { key: rootKey, label: rootLabel, children: [] }
   const state: EvaluationState = {
-    materialNames: new Map(),
     nodes: new Map([[tree.key, tree]]),
     localIdsByParent: new Map(),
     rootLabel,
@@ -271,6 +261,7 @@ export function evaluateCadScene(
     return ordinal
   })
 
+  const sceneMaterials = new Map<Material, CadScenePart['material']>()
   const parts: CadScenePart[] = evaluatedParts.map((part, partIndex) => {
     if (!part.surfaces || !part.ownerNodeKey || !part.resultNodeKey) {
       throw new CadModelError('CAD evaluation produced geometry without surface metadata.')
@@ -306,17 +297,26 @@ export function evaluateCadScene(
     } else {
       resultNode.children.push({
         key: `${part.resultNodeKey}/${id}`,
-        label: `Part ${directPartOrdinal} · ${part.material.name}`,
+        label: `Part ${directPartOrdinal} · ${part.material.symbol}`,
         geometryId: id,
         children: surfaceNodes,
       })
     }
 
+    let material = sceneMaterials.get(part.material)
+    if (!material) {
+      material = Object.freeze({
+        symbol: part.material.symbol,
+        ...(part.material.version === undefined ? {} : { version: part.material.version }),
+        variables: part.material.variables,
+      })
+      sceneMaterials.set(part.material, material)
+    }
+
     return {
       id,
       geometry: part.geometry,
-      materialName: part.material.name,
-      displayColor: part.material.displayColor,
+      material,
       surfaces,
     }
   })

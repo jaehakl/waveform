@@ -10,7 +10,7 @@ function flattenTree(node: CadSceneTreeNode): CadSceneTreeNode[] {
 
 describe('CAD scene identity and evaluated tree', () => {
   it('derives stable part, group, array cell, and surface IDs from explicit local Geometry IDs', () => {
-    const material = new Material('Scene material', {}, '#2563eb')
+    const material = new Material('Scene material', { color: '#2563eb' })
 
     function Cell() {
       return h('box', { size: [1, 1, 1] })
@@ -120,7 +120,7 @@ describe('CAD scene identity and evaluated tree', () => {
   })
 
   it('validates local IDs, sibling uniqueness, and the Geometry ownership boundary', () => {
-    const material = new Material('Core', {}, '#2563eb')
+    const material = new Material('Core', { color: '#2563eb' })
 
     function Box() {
       return h('box', { size: [1, 1, 1] })
@@ -164,7 +164,7 @@ describe('CAD scene identity and evaluated tree', () => {
   })
 
   it('accumulates reserved cell segments for nested arrays', () => {
-    const material = new Material('Particle', {}, '#2563eb')
+    const material = new Material('Particle', { color: '#2563eb' })
 
     function Particle() {
       return h('box', { size: [1, 1, 1] })
@@ -195,7 +195,7 @@ describe('CAD scene identity and evaluated tree', () => {
   })
 
   it('resolves named Geometry and Surface groups while preserving missing members', () => {
-    const material = new Material('Grouped', {}, '#2563eb')
+    const material = new Material('Grouped', { color: '#2563eb' })
 
     function Leaf() {
       return h('box', { size: [1, 1, 1] })

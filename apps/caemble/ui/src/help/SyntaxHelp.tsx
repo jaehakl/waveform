@@ -57,6 +57,12 @@ function SyntaxHelp() {
 
               <p className="mt-3 font-semibold text-slate-800">Materials</p>
               <p className="mt-1">
+                A Material contains a symbol, an optional version, and a deeply read-only JSON-compatible variables
+                dictionary. Put an optional <code className="rounded bg-white px-1 py-0.5 text-xs">color</code> in
+                that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>; the UI
+                uses its default blue when color is omitted. Different instances may share a symbol and version.
+              </p>
+              <p className="mt-1">
                 A Geometry inherits its parent materials array unless it supplies a replacement. Materialless
                 Geometry may group children; a primitive requires a Material and uses index zero. Geometry with
                 different Materials may be siblings. Union and intersect require one shared Material. Subtract

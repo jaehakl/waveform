@@ -133,11 +133,11 @@ describe('shell geometry', () => {
 })
 
 describe('shell evaluation', () => {
-  const innerMaterial = new Material('Inner shell', {}, '#0ea5e9')
-  const outerMaterial = new Material('Outer shell', {}, '#f97316')
+  const innerMaterial = new Material('Inner shell', { color: '#0ea5e9' })
+  const outerMaterial = new Material('Outer shell', { color: '#f97316' })
 
   it('maps inherited Materials inner-to-outer and applies transforms in the correct order', () => {
-    const childMaterial = new Material('Ignored child', {}, '#22c55e')
+    const childMaterial = new Material('Ignored child', { color: '#22c55e' })
 
     function Child() {
       return h('box', { size: [4, 6, 8], pos: [1, 0, 0] })
@@ -154,15 +154,15 @@ describe('shell evaluation', () => {
       ),
     )
 
-    expect(parts.map((part) => part.materialName)).toEqual(['Inner shell', 'Outer shell'])
-    expect(parts.map((part) => part.displayColor)).toEqual(['#0ea5e9', '#f97316'])
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Inner shell', 'Outer shell'])
+    expect(parts.map((part) => part.material.variables.color)).toEqual(['#0ea5e9', '#f97316'])
     expect(parts.map((part) => part.id)).toEqual(['shell.$part-1', 'shell.$part-2'])
     expectBounds(parts[0].geometry, [[9, -3, -4], [13, 3, 4]])
     expectBounds(parts[1].geometry, [[8, -4, -5], [14, 4, 5]])
   })
 
   it('allows the same Material instance on multiple layers', () => {
-    const shared = new Material('Shared shell', {}, '#a855f7')
+    const shared = new Material('Shared shell', { color: '#a855f7' })
     const parts = evaluateCad(
       h(
         () => h('shell', { offsets: [-1, 1] }, h('box', { size: [4, 4, 4] })),
@@ -171,7 +171,7 @@ describe('shell evaluation', () => {
     )
 
     expect(parts).toHaveLength(2)
-    expect(parts.map((part) => part.materialName)).toEqual(['Shared shell', 'Shared shell'])
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Shared shell', 'Shared shell'])
   })
 
   it('derives sharp box boundaries and smooth sphere boundaries', () => {
@@ -192,16 +192,20 @@ describe('shell evaluation', () => {
     expect(sphere.surfaces).toHaveLength(2)
   })
 
-  it('registers Material names for every generated layer', () => {
-    const first = new Material('Duplicate shell', {}, '#2563eb')
-    const second = new Material('Duplicate shell', {}, '#dc2626')
+  it('preserves distinct Material instances sharing a symbol for generated layers', () => {
+    const first = new Material('Duplicate shell', { color: '#2563eb' })
+    const second = new Material('Duplicate shell', { color: '#dc2626' })
 
-    expect(() => evaluateCad(
+    const parts = evaluateCad(
       h(
         () => h('shell', { offsets: [-1, 1] }, h('box', { size: [4, 4, 4] })),
         { id: 'shell', materials: [first, second] },
       ),
-    )).toThrow('Material name Duplicate shell is used by more than one Material instance')
+    )
+
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Duplicate shell', 'Duplicate shell'])
+    expect(parts.map((part) => part.material.variables.color)).toEqual(['#2563eb', '#dc2626'])
+    expect(parts[0].material).not.toBe(parts[1].material)
   })
 
   it('requires exactly one inherited Material for every offset', () => {
@@ -217,7 +221,7 @@ describe('shell evaluation', () => {
   })
 
   it('participates in same-Material CSG with multiple layers', () => {
-    const shared = new Material('Unified shell', {}, '#0284c7')
+    const shared = new Material('Unified shell', { color: '#0284c7' })
     const [combined] = evaluateCad(
       h(() => h(
           'union',
@@ -234,7 +238,7 @@ describe('shell evaluation', () => {
 
     expect(() => geometries.geom3.validate(combined.geometry)).not.toThrow()
     expect(measurements.measureVolume(combined.geometry)).toBeCloseTo(2744, 4)
-    expect(combined.materialName).toBe('Unified shell')
+    expect(combined.material.symbol).toBe('Unified shell')
   })
 
   it('requires one direct child that evaluates to one valid solid', () => {

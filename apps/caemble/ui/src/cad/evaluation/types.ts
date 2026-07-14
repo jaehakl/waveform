@@ -1,4 +1,4 @@
-import type { Material } from '../model/core'
+import type { Material, MaterialVariables } from '../model/core'
 import type { Rotation, Vec3 } from '../model/types'
 
 export type GeometryComponent = (props: Record<string, unknown>) => unknown
@@ -32,10 +32,15 @@ export type CadSceneSurface = {
 export type CadScenePart = {
   id: string
   geometry: unknown
-  materialName: string
-  displayColor: string
+  material: CadSceneMaterial
   surfaces: CadSceneSurface[]
 }
+
+export type CadSceneMaterial = Readonly<{
+  symbol: string
+  version?: string
+  variables: MaterialVariables
+}>
 
 export type CadSceneTreeNode = {
   key: string

@@ -78,7 +78,7 @@ const structure = new Structure({
         verticalSlope={0}
         verticalCurvature={0}
         materials={[
-          new Material('Curved Polymer', { density: 1.12 }, '#0f766e'),
+          new Material('Curved Polymer', { density: 1.12, color: '#0f766e' }),
         ]}
       />
     </array>

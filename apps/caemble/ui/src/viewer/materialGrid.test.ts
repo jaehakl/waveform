@@ -6,10 +6,15 @@ import { createMaterialGrid } from './materialGrid'
 function createPart(
   id: string,
   geometry: unknown,
-  materialName = 'Core',
-  displayColor = '#2563eb',
+  materialSymbol = 'Core',
+  color: string | null = '#2563eb',
 ): CadScenePart {
-  return { id, geometry, materialName, displayColor, surfaces: [] }
+  return {
+    id,
+    geometry,
+    material: { symbol: materialSymbol, variables: color === null ? {} : { color } },
+    surfaces: [],
+  }
 }
 
 function readPoints(positions: Float32Array) {
@@ -82,6 +87,19 @@ describe('Material Grid generation', () => {
       expect(result.colors[index]).toBeCloseTo(245 / 255)
       expect(result.colors[index + 1]).toBeCloseTo(158 / 255)
       expect(result.colors[index + 2]).toBeCloseTo(11 / 255)
+      expect(result.colors[index + 3]).toBe(1)
+    }
+  })
+
+  it('uses the UI fallback color when a Material omits color', () => {
+    const geometry = primitives.cuboid({ size: [2, 2, 2] })
+    const result = createMaterialGrid([createPart('sample.core', geometry, 'Core', null)], 1)
+
+    expect(result.visiblePointCount).toBe(27)
+    for (let index = 0; index < result.colors.length; index += 4) {
+      expect(result.colors[index]).toBeCloseTo(59 / 255)
+      expect(result.colors[index + 1]).toBeCloseTo(130 / 255)
+      expect(result.colors[index + 2]).toBeCloseTo(246 / 255)
       expect(result.colors[index + 3]).toBe(1)
     }
   })

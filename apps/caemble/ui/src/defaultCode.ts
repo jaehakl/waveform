@@ -9,7 +9,7 @@ export const defaultCode = `import {
 
 class Polymer extends Material {
   toSolverModel() {
-    return this.vars
+    return this.variables
   }
 }
 
@@ -108,7 +108,7 @@ const structure = new Structure({
         fourier={fourier}
         turns={vars.turns as number}
         materials={[
-          new Polymer('Tapered Fiber', { density: vars.density }, '#7c3aed'),
+          new Polymer('Tapered Fiber', { density: vars.density, color: '#7c3aed' }),
         ]}
       />
     )

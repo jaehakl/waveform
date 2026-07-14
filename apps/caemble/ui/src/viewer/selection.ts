@@ -1,4 +1,5 @@
 import type { CadScenePart, CadSceneSelection } from '../cad'
+import { materialColor } from './materialColor'
 
 type RenderPolygon = Record<string, unknown> & { color?: number[] }
 type RenderSolid = Record<string, unknown> & { polygons: RenderPolygon[] }
@@ -26,7 +27,7 @@ function dimmedColor(hex: string): [number, number, number, number] {
 
 export function createRenderParts(parts: CadScenePart[], selection: CadSceneSelection | null) {
   if (!selection) {
-    return parts.map((part) => ({ geometry: part.geometry, color: colorFromHex(part.displayColor) }))
+    return parts.map((part) => ({ geometry: part.geometry, color: colorFromHex(materialColor(part.material)) }))
   }
 
   const selectedGeometryIds = new Set(selection.geometryIds)
@@ -40,7 +41,7 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
         .filter((surface) => selectedSurfaceIds.has(surface.id))
         .flatMap((surface) => surface.polygonIndices),
     )
-    const fallbackColor = wholePartIsSelected ? selectedColor : dimmedColor(part.displayColor)
+    const fallbackColor = wholePartIsSelected ? selectedColor : dimmedColor(materialColor(part.material))
     if (
       typeof part.geometry !== 'object' ||
       part.geometry === null ||
@@ -57,7 +58,7 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
         wholePartIsSelected ||
         selectedPolygonIndices.has(polygonIndex)
           ? [...selectedColor]
-          : [...dimmedColor(part.displayColor)],
+          : [...dimmedColor(materialColor(part.material))],
     }))
     return {
       geometry: { ...geometry, color: fallbackColor, polygons },

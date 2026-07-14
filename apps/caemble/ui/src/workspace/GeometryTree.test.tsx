@@ -26,8 +26,7 @@ const scene: CadScene = {
   parts: [{
     id: 'assembly.core',
     geometry: {},
-    materialName: 'Core',
-    displayColor: '#2563eb',
+    material: { symbol: 'Core', variables: { color: '#2563eb' } },
     surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
   }],
   tree: {

@@ -5,6 +5,7 @@ export { Fragment, h } from './evaluation/jsx'
 export type {
   CadScene,
   CadSceneGroup,
+  CadSceneMaterial,
   CadScenePart,
   CadSceneSelection,
   CadSceneSurface,
@@ -26,6 +27,8 @@ export type {
   ExperimentTarget,
   Geometry,
   GeometryAttributes,
+  MaterialVariable,
+  MaterialVariables,
   StructureGroupMap,
   VarsSchemaEntry,
 } from './model/core'

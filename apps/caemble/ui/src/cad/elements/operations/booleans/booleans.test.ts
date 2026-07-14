@@ -11,8 +11,8 @@ function Box() {
 
 describe('CAD booleans', () => {
   it('allows same-Material union and rejects cross-Material union and intersect', () => {
-    const core = new Material('Core', {}, '#2563eb')
-    const cladding = new Material('Cladding', {}, '#f59e0b')
+    const core = new Material('Core', { color: '#2563eb' })
+    const cladding = new Material('Cladding', { color: '#f59e0b' })
 
     expect(evaluateCad(h(
       () => h('union', null, h(Box, { id: 'first' }), h(Box, { id: 'second' })),
@@ -43,9 +43,9 @@ describe('CAD booleans', () => {
   })
 
   it('subtracts every cutter from each base part while preserving Material and order', () => {
-    const first = new Material('First', {}, '#2563eb')
-    const second = new Material('Second', {}, '#f59e0b')
-    const cutter = new Material('Cutter', {}, '#64748b')
+    const first = new Material('First', { color: '#2563eb' })
+    const second = new Material('Second', { color: '#f59e0b' })
+    const cutter = new Material('Cutter', { color: '#64748b' })
     const parts = evaluateCad(
       h(() => h(
           'subtract',
@@ -62,7 +62,7 @@ describe('CAD booleans', () => {
       ),
     )
 
-    expect(parts.map((part) => part.materialName)).toEqual(['First', 'Second'])
+    expect(parts.map((part) => part.material.symbol)).toEqual(['First', 'Second'])
     parts.forEach((part) => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeCloseTo(32, 6)
@@ -71,7 +71,7 @@ describe('CAD booleans', () => {
   })
 
   it('derives six outer box surfaces and one cylindrical cut surface', () => {
-    const material = new Material('Machined', {}, '#2563eb')
+    const material = new Material('Machined', { color: '#2563eb' })
 
     function Base() {
       return h('box', { size: [3, 3, 3] })

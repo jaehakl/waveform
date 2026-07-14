@@ -126,15 +126,27 @@ export type GeometryAttributes<P extends object = object> = Readonly<
 >
 export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
+export type MaterialVariable =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly MaterialVariable[]
+  | Readonly<{ [key: string]: MaterialVariable }>
+export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+
 export class CadModelError extends Error {
   constructor(message: string)
 }
 
 export class Material {
-  constructor(name: string, vars: Record<string, Tensor>, displayColor?: string)
-  readonly name: string
-  readonly vars: Vars
-  readonly displayColor: string
+  constructor(symbol: string)
+  constructor(symbol: string, variables: MaterialVariables)
+  constructor(symbol: string, version: string)
+  constructor(symbol: string, version: string, variables: MaterialVariables)
+  readonly symbol: string
+  readonly version?: string
+  readonly variables: MaterialVariables
 }
 
 export class Structure {

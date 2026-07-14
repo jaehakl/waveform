@@ -98,7 +98,7 @@ describe('procedural fiber geometry', () => {
   })
 
   it('inherits Material and participates in transforms and same-Material CSG', () => {
-    const material = new Material('Fiber', {}, '#7c3aed')
+    const material = new Material('Fiber', { color: '#7c3aed' })
     const props = {
       from: [0, 0, 0],
       to: [0, 0, 4],
@@ -126,7 +126,7 @@ describe('procedural fiber geometry', () => {
     expect(bounds[0][0]).toBeCloseTo(2.5)
     expect(bounds[1][0]).toBeCloseTo(3.5)
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Start cap', 'Side', 'End cap'])
-    expect(combined.materialName).toBe('Fiber')
+    expect(combined.material.symbol).toBe('Fiber')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

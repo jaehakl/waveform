@@ -1,5 +1,6 @@
 import { geometries, measurements } from '@jscad/modeling'
 import type { CadScenePart } from '../cad'
+import { materialColor } from './materialColor'
 import { colorFromHex } from './selection'
 
 const defaultMaximumCandidatePoints = 100_000
@@ -165,7 +166,7 @@ function preparePart(part: CadScenePart): PreparedPart | null {
 
   return {
     bounds: measurements.measureBoundingBox(part.geometry) as Bounds,
-    color: colorFromHex(part.displayColor),
+    color: colorFromHex(materialColor(part.material)),
     epsilon: Math.max(measurements.measureEpsilon(part.geometry), Number.EPSILON),
     triangleTree: buildTriangleTree(triangles),
   }

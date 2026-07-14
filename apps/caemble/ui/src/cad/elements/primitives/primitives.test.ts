@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { CadModelError, Material } from '../../model/core'
 import { evaluateCad, h } from '../../index'
 
-const material = new Material('Primitive', {}, '#2563eb')
+const material = new Material('Primitive', { color: '#2563eb' })
 
 function evaluate(tag: string, props: Record<string, unknown>) {
   return evaluateCad(h(() => h(tag, props), { id: 'primitive', materials: [material] }))[0]

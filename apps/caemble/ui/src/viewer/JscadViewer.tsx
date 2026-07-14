@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadScenePart, CadSceneSelection } from '../cad'
+import { materialColor } from './materialColor'
 import type {
   MaterialGridResult,
   MaterialGridWorkerRequest,
@@ -627,13 +628,13 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
         {parts.length > 0 ? (
           <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
-            {[...new Map(parts.map((part) => [part.materialName, part])).values()].map((part) => (
-              <div key={part.materialName} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
+            {[...new Set(parts.map((part) => part.material))].map((material, index) => (
+              <div key={`${material.symbol}-${index}`} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
-                  style={{ backgroundColor: part.displayColor }}
+                  style={{ backgroundColor: materialColor(material) }}
                 />
-                <span>{part.materialName}</span>
+                <span>{material.symbol}</span>
               </div>
             ))}
           </div>

@@ -24,7 +24,7 @@ const experiment = new Experiment<InitialCondition, BoundaryCondition>({
       id="domain"
       size={vars.domainSize as Vec3}
       materials={[
-        new Material('Experiment Domain', { weight: vars.displayWeight }, '#0ea5e9'),
+        new Material('Experiment Domain', { weight: vars.displayWeight, color: '#0ea5e9' }),
       ]}
     />
   ),

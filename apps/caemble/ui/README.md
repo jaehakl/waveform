@@ -48,7 +48,10 @@ const Device: Geometry<{ materials: Material[] }> = () => (
 
 const structure = new Structure({
   geometry: () => (
-    <Device id="device" materials={[new Material('Fiber', { density: vars.density }, '#7c3aed')]} />
+    <Device
+      id="device"
+      materials={[new Material('Fiber', { density: vars.density, color: '#7c3aed' })]}
+    />
   ),
   varsSchema: {
     density: { shape: [], default: 1.18 },
@@ -94,7 +97,7 @@ const experiment = new Experiment<InitialCondition, BoundaryCondition>({
     <Domain
       id="domain"
       size={vars.domainSize as Vec3}
-      materials={[new Material('Domain', {}, '#0ea5e9')]}
+      materials={[new Material('Domain', { color: '#0ea5e9' })]}
     />
   ),
   varsSchema: {
@@ -143,9 +146,11 @@ const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
 
 ## Materials And Geometry
 
-`Material(name, vars, displayColor?)` stores a read-only tensor dictionary. A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]`.
+`Material` stores a non-empty `symbol`, an optional non-empty `version`, and a deeply read-only JSON-compatible `variables` dictionary. Supported forms are `Material(symbol)`, `Material(symbol, variables)`, `Material(symbol, version)`, and `Material(symbol, version, variables)`. A top-level `variables.color` uses `#RRGGBB`; when omitted, the UI uses `#3b82f6` without adding it to the dictionary.
 
-Different Materials may appear as sibling scene parts. `union`, `subtract`, and `intersect` require all operands to use the same Material instance. Different instances cannot share one Material name.
+A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]`.
+
+Different Materials may appear as sibling scene parts, and different instances may share the same symbol and version. `union`, `subtract`, and `intersect` still require all combined operands to use the same Material instance.
 
 Every user-defined Geometry invocation requires an explicit string `id`. Local IDs are case-sensitive and may contain Unicode letters, numbers, `_`, and `-`. They must be unique under their nearest Geometry parent; Fragment and intrinsic CAD tags do not create identity boundaries. Global IDs join local IDs with `.`, so `<Assembly id="assembly"><Cell id="core" /></Assembly>` produces `assembly.core`.
 
@@ -333,3 +338,12 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
 - Sample/Experiment composition, cell creation or removal, geometry deformation, and solver execution are not implemented.
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
+
+
+## Material override
+- Structure 직접 입력값 > 동일 symbol DB 지정된 버전 데이터 > DB, 동일 symbol 항목별 다른 버전 데이터(최신순)
+- 물질 symbol 은 기본적으로 화학식을 따름 (Al, Al2O3, Au, H2O, SiO2, Si)
+- 물성 데이터는 여러 버전이 존재할 수 있으며, 버전명도 입력 필요 (예시 : "Kittel_1988")
+- Structure 에서는 Material 의 symbol, 버전명(선택), 직접 입력값 dictionary (선택) 를 포함하는 Material 객체를 선언.
+- 직접 입력값 dictionary 의 `color` 변수는 `#RRGGBB` 형식의 UI 표시 색상이며, 생략하면 UI 기본색을 사용.
+- Measurement 를 Build 할 때, Experiment 에서 필요한 값들을 Structure 직접 입력값, DB 값, var 로 정의되는 Custom 물질 랜덤값 생성 등을 통해 실제 값 고정

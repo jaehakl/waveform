@@ -5,12 +5,11 @@ import { createRenderParts } from './selection'
 
 const selectedColor = [249 / 255, 115 / 255, 22 / 255, 1]
 
-function createPart(id = 'assembly.core', displayColor = '#2563eb'): CadScenePart {
+function createPart(id = 'assembly.core', color: string | null = '#2563eb'): CadScenePart {
   return {
     id,
     geometry: primitives.cuboid({ size: [2, 2, 2] }),
-    materialName: 'Core',
-    displayColor,
+    material: { symbol: 'Core', variables: color === null ? {} : { color } },
     surfaces: [
       { id: `${id}/surface-1`, name: '-X', polygonIndices: [0] },
       { id: `${id}/surface-2`, name: 'Other', polygonIndices: [1, 2, 3, 4, 5] },
@@ -25,6 +24,12 @@ describe('viewer selection colors', () => {
 
     expect(renderPart.geometry).toBe(part.geometry)
     expect(renderPart.color).toEqual([37 / 255, 99 / 255, 235 / 255, 1])
+  })
+
+  it('uses the UI fallback color when the Material has no color variable', () => {
+    const [renderPart] = createRenderParts([createPart('fallback', null)], null)
+
+    expect(renderPart.color).toEqual([59 / 255, 130 / 255, 246 / 255, 1])
   })
 
   it('highlights a whole Geometry or one Surface without mutating scene polygons', () => {

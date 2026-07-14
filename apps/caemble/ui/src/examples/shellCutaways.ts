@@ -106,10 +106,10 @@ const ShellCutaway: Geometry<{
   )
 }
 
-const coreMaterial = new Material('Core', {}, '#475569')
-const layer1Material = new Material('Layer 1', {}, '#0ea5e9')
-const layer2Material = new Material('Layer 2', {}, '#f59e0b')
-const layer3Material = new Material('Layer 3', {}, '#d946ef')
+const coreMaterial = new Material('Core', { color: '#475569' })
+const layer1Material = new Material('Layer 1', { color: '#0ea5e9' })
+const layer2Material = new Material('Layer 2', { color: '#f59e0b' })
+const layer3Material = new Material('Layer 3', { color: '#d946ef' })
 
 const structure = new Structure({
   geometry: () => (

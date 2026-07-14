@@ -55,7 +55,7 @@ describe('curved edge cylinder geometry', () => {
   })
 
   it('inherits Material and participates in transforms and same-Material CSG', () => {
-    const material = new Material('Curved Cylinder', {}, '#0f766e')
+    const material = new Material('Curved Cylinder', { color: '#0f766e' })
     function CurvedCylinder() {
       return h('curvedEdgeCylinder', validAttributes)
     }
@@ -75,9 +75,9 @@ describe('curved edge cylinder geometry', () => {
     const bounds = measurements.measureBoundingBox(translated.geometry)
     expect(bounds[0][0]).toBeCloseTo(2)
     expect(bounds[1][0]).toBeCloseTo(4)
-    expect(translated.materialName).toBe('Curved Cylinder')
+    expect(translated.material.symbol).toBe('Curved Cylinder')
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Bottom', 'Side', 'Top'])
-    expect(combined.materialName).toBe('Curved Cylinder')
+    expect(combined.material.symbol).toBe('Curved Cylinder')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

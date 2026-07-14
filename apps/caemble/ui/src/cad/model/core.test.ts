@@ -246,25 +246,76 @@ describe('Experiment and Setup', () => {
 })
 
 describe('Material and global vars', () => {
-  it('constructs Materials after vars are bound and keeps Material vars immutable', () => {
-    const sample = new Sample(createStructure(), { width: 24 })
-    const material = evaluateWithVars(sample.vars, () => new Material('Core', { epsilon: vars.width }, '#2563eb'))
+  it('supports every Material constructor overload', () => {
+    expect(new Material('Al')).toMatchObject({ symbol: 'Al', variables: {} })
+    expect(new Material('Al', { density: 2.7 })).toMatchObject({
+      symbol: 'Al',
+      variables: { density: 2.7 },
+    })
+    expect(new Material('Al', 'Kittel_1988')).toMatchObject({
+      symbol: 'Al',
+      version: 'Kittel_1988',
+      variables: {},
+    })
+    expect(new Material('Al', 'Kittel_1988', { density: 2.7 })).toMatchObject({
+      symbol: 'Al',
+      version: 'Kittel_1988',
+      variables: { density: 2.7 },
+    })
+    expect(new Material('Al').variables).not.toHaveProperty('color')
+  })
 
-    expect(material.vars).toEqual({ epsilon: 24 })
-    expect(Object.isFrozen(material.vars)).toBe(true)
+  it('constructs Materials after vars are bound and deeply freezes JSON variables', () => {
+    const sample = new Sample(createStructure(), { width: 24 })
+    const source = {
+      color: '#ABCDEF',
+      metadata: { active: true, aliases: ['core', null] },
+    }
+    const material = evaluateWithVars(sample.vars, () => new Material('Core', 'measured', {
+      epsilon: vars.width,
+      source,
+    }))
+
+    expect(material.variables).toEqual({
+      epsilon: 24,
+      source: { color: '#ABCDEF', metadata: { active: true, aliases: ['core', null] } },
+    })
+    expect(Object.isFrozen(material.variables)).toBe(true)
+    expect(Object.isFrozen(material.variables.source)).toBe(true)
+    expect(Object.isFrozen((material.variables.source as { metadata: object }).metadata)).toBe(true)
+    source.metadata.aliases[0] = 'changed'
+    expect(material.variables).not.toEqual(expect.objectContaining({
+      source: expect.objectContaining({ metadata: expect.objectContaining({ aliases: ['changed', null] }) }),
+    }))
     expect(() => {
-      ;(material.vars as Record<string, number>).epsilon = 3
+      ;(material.variables as Record<string, number>).epsilon = 3
     }).toThrow()
+
+    const colored = new Material('SiO2', { color: '#A1B2C3' })
+    expect(colored.variables.color).toBe('#a1b2c3')
   })
 
   it('does not expose global vars outside Sample evaluation', () => {
     expect(() => vars.width).toThrow(CadModelError)
   })
 
-  it('rejects invalid Material names, tensors, and colors', () => {
+  it('rejects invalid Material metadata and non-JSON variables', () => {
     expect(() => new Material('', {})).toThrow('non-empty string')
+    expect(() => new Material('Core', ' ')).toThrow('version must be a non-empty string')
     expect(() => new Material('Core', { values: [1, Number.POSITIVE_INFINITY] })).toThrow('finite number')
-    expect(() => new Material('Core', {}, 'blue')).toThrow('#RRGGBB')
+    expect(() => new Material('Core', { color: 'blue' })).toThrow('#RRGGBB')
+    expect(() => new Material('Core', null as never)).toThrow('plain object')
+    expect(() => new Material('Core', 'measured', null as never)).toThrow('plain object')
+    expect(() => new Material('Core', { value: undefined } as never)).toThrow('JSON-compatible')
+    expect(() => new Material('Core', { value: () => 1 } as never)).toThrow('JSON-compatible')
+    expect(() => new Material('Core', { value: new Date() } as never)).toThrow('plain objects')
+
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    expect(() => new Material('Core', circular as never)).toThrow('circular references')
+
+    const LegacyMaterial = Material as unknown as new (...args: unknown[]) => Material
+    expect(() => new LegacyMaterial('Core', {}, '#2563eb')).toThrow('string version')
   })
 })
 

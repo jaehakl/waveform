@@ -11,7 +11,7 @@ function Box() {
 
 describe('CAD evaluator', () => {
   it('passes normalized frozen transforms to Geometry with identity defaults', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const received: Record<string, unknown>[] = []
 
     function Positioned(input: Record<string, unknown>) {
@@ -47,7 +47,7 @@ describe('CAD evaluator', () => {
   })
 
   it('accumulates primitive and nested Geometry positions relative to their parents', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
 
     function Child() {
       return h('box', { size, pos: [1, 1, 1] })
@@ -66,7 +66,7 @@ describe('CAD evaluator', () => {
   })
 
   it('preserves custom props used to derive child-local transforms before applying the parent once', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     let parentInput: Record<string, unknown> | undefined
     let childInput: Record<string, unknown> | undefined
 
@@ -120,7 +120,7 @@ describe('CAD evaluator', () => {
   })
 
   it('rejects invalid transforms, Fragment transforms, and removed transform elements', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
 
     ;[null, 1, [1, 2], [1, 2, 3, 4], [1, '2', 3], [1, Number.NaN, 3], [1, Number.POSITIVE_INFINITY, 3]].forEach(
       (pos) => {

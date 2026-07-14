@@ -15,7 +15,7 @@ function OffsetBox() {
 
 describe('CAD transforms-materials', () => {
   it('applies child geometry, then scale, axis-angle rotate, and pos', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const rotated = evaluateCad(
       h(OffsetBox, {
         id: 'offset',
@@ -39,7 +39,7 @@ describe('CAD transforms-materials', () => {
   })
 
   it('applies scale, rotate, and pos to primitive and completed boolean results', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     function Primitive() {
       return h('box', {
         size: [2, 4, 2],
@@ -78,7 +78,7 @@ describe('CAD transforms-materials', () => {
   })
 
   it('treats proportional axis vectors as the same rotation', () => {
-    const core = new Material('Core', {}, '#2563eb')
+    const core = new Material('Core', { color: '#2563eb' })
     const evaluate = (axis: number[]) =>
       evaluateCad(
         h(OffsetBox, { id: 'offset', rotate: { axis, angle: Math.PI / 2 }, materials: [core] }),
@@ -90,7 +90,7 @@ describe('CAD transforms-materials', () => {
   })
 
   it('inherits materials through nested Geometry without registration', () => {
-    const core = new Material('Core', { epsilon: 12 }, '#2563eb')
+    const core = new Material('Core', { epsilon: 12, color: '#2563eb' })
 
     function Parent() {
       return h(Box, { id: 'child' })
@@ -99,12 +99,14 @@ describe('CAD transforms-materials', () => {
     const parts = evaluateCad(h(Parent, { id: 'parent', materials: [core] }))
 
     expect(parts).toHaveLength(1)
-    expect(parts[0]).toMatchObject({ materialName: 'Core', displayColor: '#2563eb' })
+    expect(parts[0]).toMatchObject({
+      material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
+    })
   })
 
   it('allows a materialless Geometry to group children with their own Materials', () => {
-    const core = new Material('Core', {}, '#2563eb')
-    const cladding = new Material('Cladding', {}, '#f59e0b')
+    const core = new Material('Core', { color: '#2563eb' })
+    const cladding = new Material('Cladding', { color: '#f59e0b' })
     let groupMaterials: unknown = 'not evaluated'
 
     function Group(input: Record<string, unknown>) {
@@ -120,7 +122,7 @@ describe('CAD transforms-materials', () => {
     const parts = evaluateCad(h(Group, { id: 'group' }))
 
     expect(groupMaterials).toBeUndefined()
-    expect(parts.map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
   })
 
   it('requires an effective Material only when a primitive is created', () => {
@@ -134,8 +136,8 @@ describe('CAD transforms-materials', () => {
   })
 
   it('replaces the complete materials array and uses index zero', () => {
-    const core = new Material('Core', {}, '#2563eb')
-    const cladding = new Material('Cladding', {}, '#f59e0b')
+    const core = new Material('Core', { color: '#2563eb' })
+    const cladding = new Material('Cladding', { color: '#f59e0b' })
     const root = h(
       Fragment,
       null,
@@ -143,12 +145,12 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding, core] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
   })
 
   it('preserves different Material parts under positioned Geometry', () => {
-    const core = new Material('Core', {}, '#2563eb')
-    const cladding = new Material('Cladding', {}, '#f59e0b')
+    const core = new Material('Core', { color: '#2563eb' })
+    const cladding = new Material('Cladding', { color: '#f59e0b' })
     const root = h(
       Fragment,
       null,
@@ -156,14 +158,14 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
   })
 
-  it('rejects empty material arrays and duplicate names from different instances', () => {
+  it('rejects empty material arrays and allows duplicate symbol/version instances', () => {
     expect(() => evaluateCad(h(Box, { id: 'box', materials: [] }))).toThrow('non-empty array of Material instances')
 
-    const first = new Material('Core', {}, '#2563eb')
-    const second = new Material('Core', {}, '#f59e0b')
+    const first = new Material('Core', 'measured', { color: '#2563eb' })
+    const second = new Material('Core', 'measured', { color: '#f59e0b' })
     const root = h(
       Fragment,
       null,
@@ -171,7 +173,29 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'second', materials: [second] }),
     )
 
-    expect(() => evaluateCad(root)).toThrow('used by more than one Material instance')
+    const parts = evaluateCad(root)
+    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material.version)).toEqual(['measured', 'measured'])
+    expect(parts[0].material).not.toBe(parts[1].material)
+  })
+
+  it('shares one serializable snapshot for parts using the same Material instance', () => {
+    const shared = new Material('Core', 'Kittel_1988', { density: 2.7, color: '#2563eb' })
+    const parts = evaluateCad(h(
+      Fragment,
+      null,
+      h(Box, { id: 'first', materials: [shared] }),
+      h(Box, { id: 'second', materials: [shared] }),
+    ))
+    const cloned = structuredClone(parts)
+
+    expect(parts[0].material).toBe(parts[1].material)
+    expect(parts[0].material).toEqual({
+      symbol: 'Core',
+      version: 'Kittel_1988',
+      variables: { density: 2.7, color: '#2563eb' },
+    })
+    expect(cloned[0].material).toBe(cloned[1].material)
   })
 })
 
