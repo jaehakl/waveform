@@ -63,6 +63,7 @@ const Bundle: Geometry<{
 }> = ({ bend, bundleRadius, fiberRadius, fourier, turns }) => (
   <>
     <Strand
+      id="1"
       bend={bend}
       bundleRadius={bundleRadius}
       fiberRadius={fiberRadius}
@@ -71,6 +72,7 @@ const Bundle: Geometry<{
       turns={turns}
     />
     <Strand
+      id="2"
       bend={bend}
       bundleRadius={bundleRadius}
       fiberRadius={fiberRadius}
@@ -79,6 +81,7 @@ const Bundle: Geometry<{
       turns={turns}
     />
     <Strand
+      id="3"
       bend={bend}
       bundleRadius={bundleRadius}
       fiberRadius={fiberRadius}
@@ -98,6 +101,7 @@ const structure = new Structure({
 
     return (
       <Bundle
+        id="bundle"
         bend={vars.bend as Vec3}
         bundleRadius={vars.bundleRadius as number}
         fiberRadius={vars.fiberRadius as number}
@@ -126,6 +130,12 @@ const structure = new Structure({
       min: [[0, 0], [0, 0], [0, 0]],
       max: [[1.2, Math.PI * 2], [0.6, Math.PI * 2], [0.3, Math.PI * 2]],
     },
+  },
+  geometryGroup: {
+    bundle: ['bundle'],
+  },
+  surfaceGroup: {
+    starts: ['bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1'],
   },
 })
 

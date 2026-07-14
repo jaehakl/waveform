@@ -83,6 +83,7 @@ const structure = new Structure({
       }}
     >
       <CurvedParticle
+        id="particle"
         baseRadius={3.125}
         azimuthalMode2Amplitude={0.08}
         azimuthalMode2Phase={0}

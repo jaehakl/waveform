@@ -5,7 +5,7 @@ import { createRenderParts } from './selection'
 
 const selectedColor = [249 / 255, 115 / 255, 22 / 255, 1]
 
-function createPart(id = 'geometry-1', displayColor = '#2563eb'): CadScenePart {
+function createPart(id = 'assembly.core', displayColor = '#2563eb'): CadScenePart {
   return {
     id,
     geometry: primitives.cuboid({ size: [2, 2, 2] }),
@@ -48,7 +48,7 @@ describe('viewer selection colors', () => {
       kind: 'surface',
       label: part.surfaces[0].name,
       geometryIds: [part.id],
-      surfaceId: part.surfaces[0].id,
+      surfaceIds: [part.surfaces[0].id],
     })[0].geometry as {
       polygons: Array<{ color: number[] }>
     }
@@ -66,13 +66,13 @@ describe('viewer selection colors', () => {
   })
 
   it('highlights every Geometry in one group and dims Geometry outside the group', () => {
-    const first = createPart('geometry-1', '#2563eb')
-    const second = createPart('geometry-2', '#16a34a')
-    const outside = createPart('geometry-3', '#dc2626')
+    const first = createPart('assembly.first', '#2563eb')
+    const second = createPart('assembly.second', '#16a34a')
+    const outside = createPart('outside', '#dc2626')
     const selection = {
-      id: 'group-1',
+      id: 'assembly',
       kind: 'group',
-      label: 'Structure',
+      label: 'Assembly',
       geometryIds: [first.id, second.id],
     } satisfies CadSceneSelection
     const rendered = createRenderParts([first, second, outside], selection)
@@ -98,5 +98,24 @@ describe('viewer selection colors', () => {
       const polygons = (part.geometry as { polygons: Array<{ color?: number[] }> }).polygons
       expect(polygons.every((polygon) => polygon.color === undefined)).toBe(true)
     }
+  })
+
+  it('highlights grouped Surfaces across multiple Geometry parts', () => {
+    const first = createPart('assembly.first')
+    const second = createPart('assembly.second', '#16a34a')
+    const rendered = createRenderParts([first, second], {
+      id: '@surface-group/contacts',
+      kind: 'surface-group',
+      label: 'contacts',
+      geometryIds: [first.id, second.id],
+      surfaceIds: [first.surfaces[0].id, second.surfaces[1].id],
+    })
+    const firstPolygons = (rendered[0].geometry as { polygons: Array<{ color: number[] }> }).polygons
+    const secondPolygons = (rendered[1].geometry as { polygons: Array<{ color: number[] }> }).polygons
+
+    expect(firstPolygons[0].color).toEqual(selectedColor)
+    expect(firstPolygons.slice(1).every((polygon) => polygon.color[0] !== selectedColor[0])).toBe(true)
+    expect(secondPolygons[0].color[0]).not.toBe(selectedColor[0])
+    expect(secondPolygons.slice(1).every((polygon) => polygon.color[0] === selectedColor[0])).toBe(true)
   })
 })

@@ -3,12 +3,16 @@ import { deriveGeometrySurfaces, validateSurfacePartition } from '../geometry/su
 import { getCadElementDefinition } from './registry'
 import { flattenValues, Fragment, isCadNode } from './jsx'
 import { applyTransforms, normalizeTransforms } from './transforms'
+import { applyCadSceneGroups, type CadSceneGroupOptions } from './groups'
 import type { CadScene, CadScenePart, CadSceneTreeNode, EvaluatedPart } from './types'
 
 type EvaluationState = {
   materialNames: Map<string, Material>
   nodes: Map<string, CadSceneTreeNode>
+  localIdsByParent: Map<string, Set<string>>
 }
+
+const localGeometryIdPattern = /^[\p{L}\p{N}_-]+$/u
 
 function resolveMaterials(value: unknown, inherited: readonly Material[] | undefined) {
   if (value === undefined) return inherited === undefined ? undefined : [...inherited]
@@ -23,14 +27,20 @@ function addTreeNode(
   parent: CadSceneTreeNode,
   key: string,
   label: string,
+  globalId?: string,
 ) {
-  const node: CadSceneTreeNode = { key, label, children: [] }
+  const node: CadSceneTreeNode = {
+    key,
+    label,
+    ...(globalId === undefined ? {} : { globalId }),
+    children: [],
+  }
   state.nodes.set(key, node)
   parent.children.push(node)
   return node
 }
 
-function annotateTreeGroups(tree: CadSceneTreeNode) {
+function annotateGeometryNodes(tree: CadSceneTreeNode) {
   const geometryIdsByKey = new Map<string, string[]>()
   const collectGeometryIds = (node: CadSceneTreeNode): string[] => {
     const geometryIds = [
@@ -42,18 +52,34 @@ function annotateTreeGroups(tree: CadSceneTreeNode) {
   }
   collectGeometryIds(tree)
 
-  let groupIndex = 0
   const pending = [tree]
   while (pending.length > 0) {
     const node = pending.shift()!
     const geometryIds = geometryIdsByKey.get(node.key) ?? []
-    if (!node.geometryId && !node.surfaceId && geometryIds.length > 0) {
-      groupIndex += 1
-      node.groupId = `group-${groupIndex}`
+    if (node.globalId && !node.geometryId && geometryIds.length > 0) {
+      node.groupId = node.globalId
       node.geometryIds = geometryIds
     }
     pending.unshift(...node.children)
   }
+}
+
+function resolveGeometryId(value: unknown, label: string, parentId: string, state: EvaluationState) {
+  if (typeof value !== 'string' || !localGeometryIdPattern.test(value)) {
+    throw new CadModelError(
+      `Geometry ${label} id must be a non-empty string containing only Unicode letters, numbers, "_", or "-".`,
+    )
+  }
+
+  const siblingIds = state.localIdsByParent.get(parentId) ?? new Set<string>()
+  if (siblingIds.has(value)) {
+    throw new CadModelError(
+      `Geometry id "${value}" must be unique within parent "${parentId || 'Structure'}".`,
+    )
+  }
+  siblingIds.add(value)
+  state.localIdsByParent.set(parentId, siblingIds)
+  return parentId ? `${parentId}.${value}` : value
 }
 
 function evaluateNode(
@@ -62,10 +88,20 @@ function evaluateNode(
   state: EvaluationState,
   traceParent: CadSceneTreeNode,
   nodeKey: string,
+  identityParent: string,
+  ownerNodeKey: string | undefined,
 ): EvaluatedPart[] {
   if (Array.isArray(value)) {
     return flattenValues(value).flatMap((item, index) =>
-      evaluateNode(item, inheritedMaterials, state, traceParent, `${nodeKey}/item-${index}`),
+      evaluateNode(
+        item,
+        inheritedMaterials,
+        state,
+        traceParent,
+        `${nodeKey}/item-${index}`,
+        identityParent,
+        ownerNodeKey,
+      ),
     )
   }
   if (!isCadNode(value)) throw new CadModelError('Geometry functions must return CAD JSX.')
@@ -76,13 +112,22 @@ function evaluateNode(
       throw new CadModelError('Fragment does not accept pos, rotate, or scale. Use a Geometry or CAD element.')
     }
     return children.flatMap((child, index) =>
-      evaluateNode(child, inheritedMaterials, state, traceParent, `${nodeKey}/fragment-${index}`),
+      evaluateNode(
+        child,
+        inheritedMaterials,
+        state,
+        traceParent,
+        `${nodeKey}/fragment-${index}`,
+        identityParent,
+        ownerNodeKey,
+      ),
     )
   }
 
   if (typeof type === 'function') {
     const label = type.name || 'Anonymous Geometry'
-    const traceNode = addTreeNode(state, traceParent, nodeKey, label)
+    const globalId = resolveGeometryId(props.id, label, identityParent, state)
+    const traceNode = addTreeNode(state, traceParent, nodeKey, label, globalId)
     const owner = `Geometry ${type.name || '<anonymous>'}`
     const transformValues = normalizeTransforms(props, owner)
     const materials = resolveMaterials(props.materials, inheritedMaterials)
@@ -95,7 +140,7 @@ function evaluateNode(
       children,
     })
     return applyTransforms(
-      evaluateNode(result, materials, state, traceNode, `${nodeKey}/result`),
+      evaluateNode(result, materials, state, traceNode, `${nodeKey}/result`, globalId, traceNode.key),
       transformValues,
     )
   }
@@ -111,6 +156,9 @@ function evaluateNode(
   let parts: EvaluatedPart[]
 
   if (definition.kind === 'primitive') {
+    if (!ownerNodeKey) {
+      throw new CadModelError('CAD geometry must be created within a Geometry component with an explicit id.')
+    }
     const materials = resolveMaterials(undefined, inheritedMaterials)
     if (materials === undefined) throw new CadModelError(`<${type}> requires an explicit or inherited Material.`)
 
@@ -119,7 +167,8 @@ function evaluateNode(
       geometry,
       material: materials[0],
       surfaces: definition.createSurfaces(geometry, props),
-      ownerNodeKey: nodeKey,
+      ownerNodeKey,
+      resultNodeKey: nodeKey,
     }]
   } else {
     let childIndex = 0
@@ -129,12 +178,31 @@ function evaluateNode(
         if (trace) {
           const wrapperKey = `${nodeKey}/${trace.key}`
           const wrapper = addTreeNode(state, traceNode, wrapperKey, trace.label)
-          return evaluateNode(child, materials, state, wrapper, `${wrapperKey}/value`)
+          const childIdentityParent = trace.identitySegment
+            ? `${identityParent ? `${identityParent}.` : ''}${trace.identitySegment}`
+            : identityParent
+          return evaluateNode(
+            child,
+            materials,
+            state,
+            wrapper,
+            `${wrapperKey}/value`,
+            childIdentityParent,
+            ownerNodeKey,
+          )
         }
 
         const childKey = `${nodeKey}/child-${childIndex}`
         childIndex += 1
-        return evaluateNode(child, materials, state, traceNode, childKey)
+        return evaluateNode(
+          child,
+          materials,
+          state,
+          traceNode,
+          childKey,
+          identityParent,
+          ownerNodeKey,
+        )
       },
     })
 
@@ -145,7 +213,8 @@ function evaluateNode(
           ...part,
           geometry: derived.geometry,
           surfaces: derived.surfaces,
-          ownerNodeKey: nodeKey,
+          ownerNodeKey,
+          resultNodeKey: nodeKey,
         }
       })
     }
@@ -162,40 +231,79 @@ function evaluateNode(
   return applyTransforms(parts, transformValues)
 }
 
-export function evaluateCadScene(root: unknown): CadScene {
+export function evaluateCadScene(root: unknown, groupOptions: CadSceneGroupOptions = {}): CadScene {
   const tree: CadSceneTreeNode = { key: 'structure', label: 'Structure', children: [] }
   const state: EvaluationState = {
     materialNames: new Map(),
     nodes: new Map([[tree.key, tree]]),
+    localIdsByParent: new Map(),
   }
-  const evaluatedParts = evaluateNode(root, undefined, state, tree, 'structure/root')
+  const evaluatedParts = evaluateNode(root, undefined, state, tree, 'structure/root', '', undefined)
   if (evaluatedParts.length === 0) throw new CadModelError('Structure geometry did not return any CAD geometry.')
 
+  const ownerIds = evaluatedParts.map((part) => {
+    if (!part.ownerNodeKey) {
+      throw new CadModelError('CAD geometry must be created within a Geometry component with an explicit id.')
+    }
+    const owner = state.nodes.get(part.ownerNodeKey)
+    if (!owner?.globalId) throw new CadModelError('CAD evaluation lost a Geometry identity owner.')
+    return owner.globalId
+  })
+  const subtreePartCounts = new Map<string, number>()
+  ownerIds.forEach((ownerId) => {
+    let ancestorId = ''
+    ownerId.split('.').forEach((segment) => {
+      ancestorId = ancestorId ? `${ancestorId}.${segment}` : segment
+      subtreePartCounts.set(ancestorId, (subtreePartCounts.get(ancestorId) ?? 0) + 1)
+    })
+  })
+  const directPartCounts = new Map<string, number>()
+  const directPartOrdinals = evaluatedParts.map((part) => {
+    const ordinal = (directPartCounts.get(part.ownerNodeKey!) ?? 0) + 1
+    directPartCounts.set(part.ownerNodeKey!, ordinal)
+    return ordinal
+  })
+
   const parts: CadScenePart[] = evaluatedParts.map((part, partIndex) => {
-    if (!part.surfaces || !part.ownerNodeKey) {
+    if (!part.surfaces || !part.ownerNodeKey || !part.resultNodeKey) {
       throw new CadModelError('CAD evaluation produced geometry without surface metadata.')
     }
     validateSurfacePartition(part.geometry, part.surfaces)
 
-    const id = `geometry-${partIndex + 1}`
+    const owner = state.nodes.get(part.ownerNodeKey)
+    const resultNode = state.nodes.get(part.resultNodeKey)
+    if (!owner?.globalId || !resultNode) {
+      throw new CadModelError('CAD evaluation lost the Geometry Tree owner for a scene part.')
+    }
+    const directPartCount = directPartCounts.get(part.ownerNodeKey) ?? 0
+    const directPartOrdinal = directPartOrdinals[partIndex]
+    const subtreePartCount = subtreePartCounts.get(owner.globalId) ?? 0
+    const usesExactGeometryId = directPartCount === 1 && subtreePartCount === 1
+    const id = usesExactGeometryId
+      ? owner.globalId
+      : `${owner.globalId}.$part-${directPartOrdinal}`
     const surfaces = part.surfaces.map((surface, surfaceIndex) => ({
       id: `${id}/surface-${surfaceIndex + 1}`,
       name: surface.name,
       polygonIndices: [...surface.polygonIndices],
     }))
-    const owner = state.nodes.get(part.ownerNodeKey)
-    if (!owner) throw new CadModelError('CAD evaluation lost the Geometry Tree owner for a scene part.')
-    owner.children.push({
-      key: `${part.ownerNodeKey}/${id}`,
-      label: `Geometry ${partIndex + 1} · ${part.material.name}`,
-      geometryId: id,
-      children: surfaces.map((surface) => ({
-        key: `${part.ownerNodeKey}/${surface.id}`,
-        label: surface.name,
-        surfaceId: surface.id,
-        children: [],
-      })),
-    })
+    const surfaceNodes = surfaces.map((surface) => ({
+      key: `${part.resultNodeKey}/${surface.id}`,
+      label: surface.name,
+      surfaceId: surface.id,
+      children: [],
+    }))
+    if (usesExactGeometryId) {
+      owner.geometryId = id
+      resultNode.children.push(...surfaceNodes)
+    } else {
+      resultNode.children.push({
+        key: `${part.resultNodeKey}/${id}`,
+        label: `Part ${directPartOrdinal} · ${part.material.name}`,
+        geometryId: id,
+        children: surfaceNodes,
+      })
+    }
 
     return {
       id,
@@ -206,9 +314,9 @@ export function evaluateCadScene(root: unknown): CadScene {
     }
   })
 
-  annotateTreeGroups(tree)
+  annotateGeometryNodes(tree)
 
-  return { parts, tree }
+  return applyCadSceneGroups({ parts, tree, geometryGroups: [], surfaceGroups: [] }, groupOptions)
 }
 
 export function evaluateCad(root: unknown): CadScenePart[] {

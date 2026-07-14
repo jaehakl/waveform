@@ -79,9 +79,9 @@ describe('JscadViewer Material legend', () => {
         onRenderStart={() => undefined}
         selection={null}
         parts={[
-          { id: 'geometry-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'geometry-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'geometry-3', geometry: {}, materialName: 'Cladding', displayColor: '#f59e0b', surfaces: [] },
+          { id: 'assembly.core-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          { id: 'assembly.core-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          { id: 'assembly.cladding', geometry: {}, materialName: 'Cladding', displayColor: '#f59e0b', surfaces: [] },
         ]}
       />,
     )
@@ -99,25 +99,25 @@ describe('JscadViewer Material legend', () => {
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selection={{
-          id: 'geometry-1/surface-1',
+          id: 'assembly.core/surface-1',
           kind: 'surface',
           label: 'Top',
-          geometryIds: ['geometry-1'],
-          surfaceId: 'geometry-1/surface-1',
+          geometryIds: ['assembly.core'],
+          surfaceIds: ['assembly.core/surface-1'],
         }}
         parts={[{
-          id: 'geometry-1',
+          id: 'assembly.core',
           geometry: {},
           materialName: 'Core',
           displayColor: '#2563eb',
-          surfaces: [{ id: 'geometry-1/surface-1', name: 'Top', polygonIndices: [0] }],
+          surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
         }]}
       />,
     )
 
     expect(markup).toContain('Selected')
     expect(markup).toContain('>Top</div>')
-    expect(markup).toContain('geometry-1/surface-1')
+    expect(markup).toContain('assembly.core/surface-1')
   })
 
   it('shows a selected group label, ID, and Geometry count', () => {
@@ -127,19 +127,19 @@ describe('JscadViewer Material legend', () => {
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selection={{
-          id: 'group-1',
+          id: 'assembly',
           kind: 'group',
-          label: 'Structure',
-          geometryIds: ['geometry-1', 'geometry-2'],
+          label: 'Assembly',
+          geometryIds: ['assembly.first', 'assembly.second'],
         }}
         parts={[
-          { id: 'geometry-1', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
-          { id: 'geometry-2', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          { id: 'assembly.first', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
+          { id: 'assembly.second', geometry: {}, materialName: 'Core', displayColor: '#2563eb', surfaces: [] },
         ]}
       />,
     )
 
-    expect(markup).toContain('Structure · 2 geometries')
-    expect(markup).toContain('group-1')
+    expect(markup).toContain('Assembly · 2 geometries')
+    expect(markup).toContain('assembly')
   })
 })

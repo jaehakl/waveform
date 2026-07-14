@@ -30,14 +30,16 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
   }
 
   const selectedGeometryIds = new Set(selection.geometryIds)
-  const selectedSurfacePart = selection.kind === 'surface'
-    ? parts.find((part) => part.id === selection.geometryIds[0])
-    : undefined
-  const selectedSurface = selectedSurfacePart?.surfaces.find((surface) => surface.id === selection.surfaceId)
-  const selectedPolygonIndices = new Set(selectedSurface?.polygonIndices ?? [])
+  const selectsSurfaces = selection.kind === 'surface' || selection.kind === 'surface-group'
+  const selectedSurfaceIds = new Set(selection.surfaceIds ?? [])
 
   return parts.map((part) => {
-    const wholePartIsSelected = selection.kind !== 'surface' && selectedGeometryIds.has(part.id)
+    const wholePartIsSelected = !selectsSurfaces && selectedGeometryIds.has(part.id)
+    const selectedPolygonIndices = new Set(
+      part.surfaces
+        .filter((surface) => selectedSurfaceIds.has(surface.id))
+        .flatMap((surface) => surface.polygonIndices),
+    )
     const fallbackColor = wholePartIsSelected ? selectedColor : dimmedColor(part.displayColor)
     if (
       typeof part.geometry !== 'object' ||
@@ -53,7 +55,7 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
       ...polygon,
       color:
         wholePartIsSelected ||
-        (part.id === selectedSurfacePart?.id && selectedPolygonIndices.has(polygonIndex))
+        selectedPolygonIndices.has(polygonIndex)
           ? [...selectedColor]
           : [...dimmedColor(part.displayColor)],
     }))

@@ -1,12 +1,13 @@
-import Editor, { type BeforeMount } from '@monaco-editor/react'
+import Editor, { type BeforeMount, type OnMount } from '@monaco-editor/react'
 import { setupMonaco } from './monacoSetup'
 
 type CadEditorProps = {
   onChange: (value: string) => void
+  onMount?: OnMount
   value: string
 }
 
-function CadEditor({ onChange, value }: CadEditorProps) {
+function CadEditor({ onChange, onMount, value }: CadEditorProps) {
   const handleBeforeMount: BeforeMount = (monaco) => {
     setupMonaco(monaco)
   }
@@ -16,6 +17,7 @@ function CadEditor({ onChange, value }: CadEditorProps) {
       beforeMount={handleBeforeMount}
       defaultLanguage="typescript"
       height="100%"
+      onMount={onMount}
       onChange={(nextValue) => {
         onChange(nextValue ?? '')
       }}

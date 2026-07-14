@@ -31,7 +31,10 @@ export function executeCompiledCode(jsCode: string) {
     throw new CadModelError('The default export must be a Sample instance.')
   }
 
-  return evaluateWithVars(entry.vars, () => evaluateCadScene(entry.structure.geometry()))
+  return evaluateWithVars(entry.vars, () => evaluateCadScene(entry.structure.geometry(), {
+    geometryGroup: entry.structure.geometryGroup,
+    surfaceGroup: entry.structure.surfaceGroup,
+  }))
 }
 
 

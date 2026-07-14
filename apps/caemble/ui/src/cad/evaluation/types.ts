@@ -15,6 +15,7 @@ export type EvaluatedPart = {
   material: Material
   surfaces?: EvaluatedSurface[]
   ownerNodeKey?: string
+  resultNodeKey?: string
 }
 
 export type EvaluatedSurface = {
@@ -39,6 +40,7 @@ export type CadScenePart = {
 export type CadSceneTreeNode = {
   key: string
   label: string
+  globalId?: string
   groupId?: string
   geometryIds?: string[]
   geometryId?: string
@@ -46,17 +48,29 @@ export type CadSceneTreeNode = {
   children: CadSceneTreeNode[]
 }
 
+export type CadSceneGroup = {
+  id: string
+  name: string
+  kind: 'geometry' | 'surface'
+  memberIds: string[]
+  geometryIds: string[]
+  surfaceIds: string[]
+  missingMemberIds: string[]
+}
+
 export type CadScene = {
   parts: CadScenePart[]
   tree: CadSceneTreeNode
+  geometryGroups: CadSceneGroup[]
+  surfaceGroups: CadSceneGroup[]
 }
 
 export type CadSceneSelection = Readonly<{
   id: string
-  kind: 'group' | 'geometry' | 'surface'
+  kind: 'group' | 'geometry' | 'surface' | 'geometry-group' | 'surface-group'
   label: string
   geometryIds: readonly string[]
-  surfaceId?: string
+  surfaceIds?: readonly string[]
 }>
 
 export type NormalizedTransforms = {
@@ -77,7 +91,7 @@ export type CadElementEvaluationContext = Readonly<{
   evaluate: (
     value: unknown,
     inheritedMaterials?: readonly Material[],
-    trace?: Readonly<{ key: string; label: string }>,
+    trace?: Readonly<{ key: string; label: string; identitySegment?: string }>,
   ) => EvaluatedPart[]
 }>
 

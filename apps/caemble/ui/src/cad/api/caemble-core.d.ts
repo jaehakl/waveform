@@ -2,6 +2,7 @@ export type Tensor = number | readonly Tensor[]
 export type Vars = Readonly<Record<string, Tensor>>
 export type Vec3 = readonly [number, number, number]
 export type Rotation = Readonly<{ axis: Vec3; angle: number }>
+export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 
 export type BoxAttributes = Readonly<{
   size: Vec3
@@ -104,6 +105,7 @@ export type ShellAttributes = Readonly<{
 
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
+    id: string
     materials?: readonly Material[]
     pos?: Vec3
     rotate?: Rotation
@@ -133,9 +135,13 @@ export class Structure {
       min?: Tensor
       max?: Tensor
     }>
+    geometryGroup?: StructureGroupMap
+    surfaceGroup?: StructureGroupMap
   })
   readonly geometry: () => unknown
   readonly varsSchema: Readonly<Record<string, unknown>>
+  readonly geometryGroup: StructureGroupMap
+  readonly surfaceGroup: StructureGroupMap
   randomVars(seed?: number): Vars
 }
 

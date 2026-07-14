@@ -26,7 +26,7 @@ describe('Material Grid generation', () => {
       [0.4, 0.4, 0.4],
       primitives.cuboid({ size: [1, 1, 1] }),
     )
-    const result = createMaterialGrid([createPart('geometry-1', geometry)], 0.5)
+    const result = createMaterialGrid([createPart('sample.core', geometry)], 0.5)
 
     expect(result.candidatePointCount).toBe(8)
     expect(result.visiblePointCount).toBe(8)
@@ -47,7 +47,7 @@ describe('Material Grid generation', () => {
       [3, 0, 0],
       transforms.rotateZ(Math.PI / 2, primitives.cuboid({ size: [4, 2, 2] })),
     )
-    const result = createMaterialGrid([createPart('geometry-1', geometry)], 1)
+    const result = createMaterialGrid([createPart('sample.core', geometry)], 1)
     const points = readPoints(result.positions)
 
     expect(points).toContainEqual([3, 2, 0])
@@ -60,7 +60,7 @@ describe('Material Grid generation', () => {
       primitives.cuboid({ size: [6, 6, 6] }),
       primitives.cuboid({ size: [4, 4, 4] }),
     )
-    const result = createMaterialGrid([createPart('geometry-1', geometry)], 1)
+    const result = createMaterialGrid([createPart('sample.shell', geometry)], 1)
     const points = readPoints(result.positions)
 
     expect(result.candidatePointCount).toBe(343)
@@ -73,8 +73,8 @@ describe('Material Grid generation', () => {
   it('uses the later scene Geometry material when solids overlap', () => {
     const geometry = primitives.cuboid({ size: [2, 2, 2] })
     const result = createMaterialGrid([
-      createPart('geometry-1', geometry, 'Core', '#2563eb'),
-      createPart('geometry-2', geometry, 'Cladding', '#f59e0b'),
+      createPart('sample.core', geometry, 'Core', '#2563eb'),
+      createPart('sample.cladding', geometry, 'Cladding', '#f59e0b'),
     ], 1)
 
     expect(result.visiblePointCount).toBe(27)
@@ -88,7 +88,7 @@ describe('Material Grid generation', () => {
 
   it('automatically increases spacing to stay at or below 100,000 candidates', () => {
     const geometry = primitives.cuboid({ size: [50, 50, 50] })
-    const result = createMaterialGrid([createPart('geometry-1', geometry)], 1)
+    const result = createMaterialGrid([createPart('sample.core', geometry)], 1)
 
     expect(result.effectiveSpacing).toBeGreaterThan(1)
     expect(result.candidatePointCount).toBeLessThanOrEqual(100_000)
@@ -96,7 +96,7 @@ describe('Material Grid generation', () => {
   })
 
   it('rejects invalid spacing values', () => {
-    const part = createPart('geometry-1', primitives.cube())
+    const part = createPart('sample.core', primitives.cube())
 
     expect(() => createMaterialGrid([part], 0)).toThrow('positive finite number')
     expect(() => createMaterialGrid([part], Number.NaN)).toThrow('positive finite number')

@@ -6,7 +6,7 @@ import { evaluateCad, h } from '../../index'
 const material = new Material('Primitive', {}, '#2563eb')
 
 function evaluate(tag: string, props: Record<string, unknown>) {
-  return evaluateCad(h(() => h(tag, props), { materials: [material] }))[0]
+  return evaluateCad(h(() => h(tag, props), { id: 'primitive', materials: [material] }))[0]
 }
 
 describe('CAD primitives', () => {
@@ -54,15 +54,15 @@ describe('CAD primitives', () => {
     const endTip = evaluate('cylinder', { radius: 2, radius_2: 0, height: 4, segments: 8 })
     const sphere = evaluate('sphere', { radius: 1, segments: 8 })
 
-    expect(box.id).toBe('geometry-1')
+    expect(box.id).toBe('primitive')
     expect(box.surfaces.map((surface) => surface.name)).toEqual(['-X', '+X', '-Y', '+Y', 'Bottom', 'Top'])
     expect(box.surfaces.map((surface) => surface.id)).toEqual([
-      'geometry-1/surface-1',
-      'geometry-1/surface-2',
-      'geometry-1/surface-3',
-      'geometry-1/surface-4',
-      'geometry-1/surface-5',
-      'geometry-1/surface-6',
+      'primitive/surface-1',
+      'primitive/surface-2',
+      'primitive/surface-3',
+      'primitive/surface-4',
+      'primitive/surface-5',
+      'primitive/surface-6',
     ])
     expect(cylinder.surfaces.map((surface) => surface.name)).toEqual(['Bottom', 'Side', 'Top'])
     expect(startTip.surfaces.map((surface) => surface.name)).toEqual(['Side', 'Top'])

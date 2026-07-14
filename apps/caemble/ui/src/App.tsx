@@ -1,12 +1,21 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { editor as MonacoEditor } from 'monaco-editor'
 import CadEditor from './editor/CadEditor'
 import { defaultCode } from './defaultCode'
 import { caembleExamples } from './examples'
 import SyntaxHelp from './help/SyntaxHelp'
 import type { CadScene, CadWorkerRequest, CadWorkerResponse } from './cad'
-import { resolveCadSceneSelection } from './cad/evaluation/selection'
+import { applyCadSceneGroups } from './cad/evaluation/groups'
+import { resolveCadSceneDraftSelection, resolveCadSceneSelection } from './cad/evaluation/selection'
+import type { StructureGroupMap } from './cad/model/core'
+import {
+  StructureGroupSyncError,
+  updateStructureGroupSource,
+  type StructureGroupProperty,
+} from './cad/source/structureGroups'
 import JscadViewer from './viewer/JscadViewer'
 import GeometryTree from './workspace/GeometryTree'
+import type { DraftSelection } from './workspace/groupDraft'
 
 type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
 type AppView = 'workspace' | 'help'
@@ -90,11 +99,17 @@ function createRequestId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
 }
 
+function sceneGroupMap(scene: CadScene, property: StructureGroupProperty): StructureGroupMap {
+  const groups = property === 'geometryGroup' ? scene.geometryGroups : scene.surfaceGroups
+  return Object.fromEntries(groups.map((group) => [group.name, group.memberIds]))
+}
+
 function App() {
   const [code, setCode] = useState(defaultCode)
   const [error, setError] = useState<RunError | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [view, setView] = useState<AppView>('workspace')
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('code')
@@ -104,6 +119,7 @@ function App() {
   const latestRequestIdRef = useRef('')
   const pendingRunRef = useRef<number | null>(null)
   const workspaceRef = useRef<HTMLElement | null>(null)
+  const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
 
   const clearPendingRun = useCallback(() => {
     if (pendingRunRef.current === null) return
@@ -240,7 +256,12 @@ function App() {
   }, [])
 
   const runIsBusy = status === 'Compiling' || status === 'Rendering'
-  const selection = useMemo(() => resolveCadSceneSelection(scene, selectedId), [scene, selectedId])
+  const selection = useMemo(
+    () => draftSelection
+      ? resolveCadSceneDraftSelection(scene, draftSelection)
+      : resolveCadSceneSelection(scene, selectedId),
+    [draftSelection, scene, selectedId],
+  )
   const selectedExample = caembleExamples.find((example) => example.code === code)
   const selectedExampleId = selectedExample?.id ?? ''
 
@@ -248,6 +269,55 @@ function App() {
     if (runIsBusy) return
     requestModelRun(code)
   }, [code, requestModelRun, runIsBusy])
+
+  const handleGroupsChange = useCallback((property: StructureGroupProperty, groups: StructureGroupMap) => {
+    const editor = editorRef.current
+    const model = editor?.getModel()
+    const source = model?.getValue() ?? code
+
+    try {
+      const update = updateStructureGroupSource(source, property, groups)
+      if (editor && model && model.getValue() === source) {
+        editor.pushUndoStop()
+        editor.executeEdits('geometry-tree-groups', update.edits.map((edit) => {
+          const start = model.getPositionAt(edit.start)
+          const end = model.getPositionAt(edit.end)
+          return {
+            range: {
+              startLineNumber: start.lineNumber,
+              startColumn: start.column,
+              endLineNumber: end.lineNumber,
+              endColumn: end.column,
+            },
+            text: edit.text,
+            forceMoveMarkers: true,
+          }
+        }))
+        editor.pushUndoStop()
+        setCode(model.getValue())
+      } else {
+        setCode(update.source)
+      }
+
+      if (scene) {
+        const nextScene = applyCadSceneGroups(scene, {
+          geometryGroup: property === 'geometryGroup' ? groups : sceneGroupMap(scene, 'geometryGroup'),
+          surfaceGroup: property === 'surfaceGroup' ? groups : sceneGroupMap(scene, 'surfaceGroup'),
+        })
+        setScene(nextScene)
+        setSelectedId((current) => resolveCadSceneSelection(nextScene, current) ? current : null)
+      }
+      setError(null)
+    } catch (groupError) {
+      setStatus('Error')
+      setError({
+        title: 'Group Sync Error',
+        message: groupError instanceof StructureGroupSyncError || groupError instanceof Error
+          ? groupError.message
+          : 'The Structure group could not be synchronized with Code Space.',
+      })
+    }
+  }, [code, scene])
 
   return (
     <main className="flex min-h-screen flex-col bg-white text-slate-950">
@@ -349,7 +419,13 @@ function App() {
               id="workspace-code-panel"
               role="tabpanel"
             >
-              <CadEditor value={code} onChange={setCode} />
+              <CadEditor
+                value={code}
+                onChange={setCode}
+                onMount={(editor) => {
+                  editorRef.current = editor
+                }}
+              />
             </div>
 
             <div
@@ -359,7 +435,14 @@ function App() {
               id="workspace-tree-panel"
               role="tabpanel"
             >
-              <GeometryTree scene={scene} selectedId={selectedId} onSelect={setSelectedId} />
+              <GeometryTree
+                draftSelection={draftSelection}
+                scene={scene}
+                selectedId={selectedId}
+                onDraftSelectionChange={setDraftSelection}
+                onGroupsChange={handleGroupsChange}
+                onSelect={setSelectedId}
+              />
             </div>
           </div>
 

@@ -73,6 +73,30 @@ function SyntaxHelp() {
                 its normalized transform values and custom props. The evaluator still applies the parent transform
                 once to the completed result.
               </p>
+              <p className="mt-1">
+                Every Geometry invocation requires a case-sensitive string{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">id</code> containing Unicode letters,
+                numbers, underscores, or hyphens. Sibling IDs must be unique under their nearest Geometry parent.
+                Global IDs join local IDs with dots; intrinsic tags and Fragment do not add path segments. Raw CAD
+                results without a Geometry ancestor are rejected.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Geometry and Surface Groups</p>
+              <p className="mt-1">
+                Structure accepts optional <code className="rounded bg-white px-1 py-0.5 text-xs">geometryGroup</code>{' '}
+                and <code className="rounded bg-white px-1 py-0.5 text-xs">surfaceGroup</code> maps from group names
+                to global IDs. Geometry groups may reference final parts or intermediate Geometry IDs, which resolve
+                to their surviving descendant parts. Surface groups use exact{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">partId/surface-N</code> IDs. Missing members
+                remain visible in the Tree without highlighting geometry.
+              </p>
+              <p className="mt-1">
+                Ctrl/Cmd-click same-kind Tree rows to create or extend a group. The current single selection becomes
+                the first draft member and every drafted result is highlighted together in the viewer. Named groups
+                contribute their declared members without becoming nested groups. They are displayed in separate
+                Geometry and Surface sections and can be selected, expanded, edited, or deleted. These edits update
+                the active default Sample&apos;s Structure in Code Space immediately.
+              </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>
               <p className="mt-1">
@@ -164,6 +188,9 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">[shape.x][shape.y][shape.z]</code>. Injected
                 custom props and per-cell pos, scale, or axis-angle rotate replace the child&apos;s base values. The
                 child transform runs before the lattice offset and the array&apos;s own scale, rotate, and pos. The
+                repeated child keeps its explicit local ID, while each generated parent path receives a reserved{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">$cell-x-y-z</code> segment. Injecting{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">id</code> is not supported. The
                 default example uses 60-degree x/y axes and centered A/B/A layers. Its B layer is offset by one-third
                 of both planar basis vectors, adjacent layers use ideal HCP spacing, and seedless random vars produce
                 unit-sphere-uniform rotation axes for all 27 cells.

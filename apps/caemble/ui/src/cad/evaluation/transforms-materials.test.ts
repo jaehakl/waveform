@@ -18,13 +18,14 @@ describe('CAD transforms-materials', () => {
     const core = new Material('Core', {}, '#2563eb')
     const rotated = evaluateCad(
       h(OffsetBox, {
+        id: 'offset',
         rotate: { axis: [0, 0, 5], angle: Math.PI / 2 },
         pos: [10, 0, 0],
         materials: [core],
       }),
     )[0]
     const scaled = evaluateCad(
-      h(OffsetBox, { scale: [2, 1, 1], pos: [10, 0, 0], materials: [core] }),
+      h(OffsetBox, { id: 'offset', scale: [2, 1, 1], pos: [10, 0, 0], materials: [core] }),
     )[0]
 
     expect(measurements.measureBoundingBox(rotated.geometry)).toEqual([
@@ -48,18 +49,22 @@ describe('CAD transforms-materials', () => {
       })
     }
 
-    const [primitive] = evaluateCad(h(Primitive, { materials: [core] }))
-    const [combined] = evaluateCad(
-      h(
+    function Combined() {
+      return h(
         'union',
         {
           scale: [2, 1, 1],
           rotate: { axis: [0, 0, 5], angle: Math.PI / 2 },
           pos: [5, 0, 0],
         },
-        h(Box, { materials: [core] }),
-        h(Box, { pos: [2, 0, 0], materials: [core] }),
-      ),
+        h(Box, { id: 'first' }),
+        h(Box, { id: 'second', pos: [2, 0, 0] }),
+      )
+    }
+
+    const [primitive] = evaluateCad(h(Primitive, { id: 'primitive', materials: [core] }))
+    const [combined] = evaluateCad(
+      h(Combined, { id: 'combined', materials: [core] }),
     )
 
     expect(measurements.measureBoundingBox(primitive.geometry)).toEqual([
@@ -76,7 +81,7 @@ describe('CAD transforms-materials', () => {
     const core = new Material('Core', {}, '#2563eb')
     const evaluate = (axis: number[]) =>
       evaluateCad(
-        h(OffsetBox, { rotate: { axis, angle: Math.PI / 2 }, materials: [core] }),
+        h(OffsetBox, { id: 'offset', rotate: { axis, angle: Math.PI / 2 }, materials: [core] }),
       )[0].geometry
 
     expect(measurements.measureBoundingBox(evaluate([0, 0, 5]))).toEqual(
@@ -88,10 +93,10 @@ describe('CAD transforms-materials', () => {
     const core = new Material('Core', { epsilon: 12 }, '#2563eb')
 
     function Parent() {
-      return h(Box, null)
+      return h(Box, { id: 'child' })
     }
 
-    const parts = evaluateCad(h(Parent, { materials: [core] }))
+    const parts = evaluateCad(h(Parent, { id: 'parent', materials: [core] }))
 
     expect(parts).toHaveLength(1)
     expect(parts[0]).toMatchObject({ materialName: 'Core', displayColor: '#2563eb' })
@@ -107,12 +112,12 @@ describe('CAD transforms-materials', () => {
       return h(
         Fragment,
         null,
-        h(Box, { materials: [core] }),
-        h(Box, { pos: [3, 0, 0], materials: [cladding] }),
+        h(Box, { id: 'core', materials: [core] }),
+        h(Box, { id: 'cladding', pos: [3, 0, 0], materials: [cladding] }),
       )
     }
 
-    const parts = evaluateCad(h(Group, null))
+    const parts = evaluateCad(h(Group, { id: 'group' }))
 
     expect(groupMaterials).toBeUndefined()
     expect(parts.map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
@@ -123,7 +128,7 @@ describe('CAD transforms-materials', () => {
       return h('box', { size })
     }
 
-    expect(() => evaluateCad(h(MateriallessBox, null))).toThrow(
+    expect(() => evaluateCad(h(MateriallessBox, { id: 'box' }))).toThrow(
       '<box> requires an explicit or inherited Material',
     )
   })
@@ -134,8 +139,8 @@ describe('CAD transforms-materials', () => {
     const root = h(
       Fragment,
       null,
-      h(Box, { materials: [core, cladding] }),
-      h(Box, { materials: [cladding, core] }),
+      h(Box, { id: 'core', materials: [core, cladding] }),
+      h(Box, { id: 'cladding', materials: [cladding, core] }),
     )
 
     expect(evaluateCad(root).map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
@@ -144,17 +149,27 @@ describe('CAD transforms-materials', () => {
   it('preserves different Material parts under positioned Geometry', () => {
     const core = new Material('Core', {}, '#2563eb')
     const cladding = new Material('Cladding', {}, '#f59e0b')
-    const root = h(Fragment, null, h(Box, { pos: [0, 0, 2], materials: [core] }), h(Box, { materials: [cladding] }))
+    const root = h(
+      Fragment,
+      null,
+      h(Box, { id: 'core', pos: [0, 0, 2], materials: [core] }),
+      h(Box, { id: 'cladding', materials: [cladding] }),
+    )
 
     expect(evaluateCad(root).map((part) => part.materialName)).toEqual(['Core', 'Cladding'])
   })
 
   it('rejects empty material arrays and duplicate names from different instances', () => {
-    expect(() => evaluateCad(h(Box, { materials: [] }))).toThrow('non-empty array of Material instances')
+    expect(() => evaluateCad(h(Box, { id: 'box', materials: [] }))).toThrow('non-empty array of Material instances')
 
     const first = new Material('Core', {}, '#2563eb')
     const second = new Material('Core', {}, '#f59e0b')
-    const root = h(Fragment, null, h(Box, { materials: [first] }), h(Box, { materials: [second] }))
+    const root = h(
+      Fragment,
+      null,
+      h(Box, { id: 'first', materials: [first] }),
+      h(Box, { id: 'second', materials: [second] }),
+    )
 
     expect(() => evaluateCad(root)).toThrow('used by more than one Material instance')
   })

@@ -14,12 +14,15 @@ function Root({ materials }) {
 
 const structure = new Structure({
   geometry: () => h(Root, {
+    id: 'root',
     materials: [new Material('Core', { epsilon: vars.epsilon }, '#2563eb')],
   }),
   varsSchema: {
     width: { shape: [], default: 4 },
     epsilon: { shape: [], default: 12 },
   },
+  geometryGroup: { body: ['root', 'missing'] },
+  surfaceGroup: { face: ['root/surface-1'] },
 })
 
 module.exports.default = new Sample(structure)
@@ -29,8 +32,10 @@ describe('compiled user module execution', () => {
   it('resolves @caemble/core and evaluates a default Sample', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Sample')
     expect(executeCompiledCode(validModule)).toMatchObject({
-      parts: [{ id: 'geometry-1', materialName: 'Core', displayColor: '#2563eb' }],
+      parts: [{ id: 'root', materialName: 'Core', displayColor: '#2563eb' }],
       tree: { label: 'Structure' },
+      geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
+      surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
     })
   })
 
@@ -42,6 +47,8 @@ describe('compiled user module execution', () => {
     expect(defaultCode).toContain('fourier={fourier}')
     expect(defaultCode).toContain('fourierModes')
     expect(defaultCode).toContain('const randomVars = structure.randomVars()')
+    expect(defaultCode).toContain("geometryGroup: {\n    bundle: ['bundle']")
+    expect(defaultCode).toContain("surfaceGroup: {\n    starts: ['bundle.1/surface-1'")
 
     const compiled = await transform(defaultCode, {
       format: 'cjs',
@@ -51,10 +58,17 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const { parts } = executeCompiledCode(compiled.code)
+    const { geometryGroups, parts, surfaceGroups } = executeCompiledCode(compiled.code)
+    const rerolled = executeCompiledCode(compiled.code)
 
     expect(parts).toHaveLength(3)
+    expect(parts.map((part) => part.id)).toEqual(['bundle.1', 'bundle.2', 'bundle.3'])
+    expect(rerolled.parts.map((part) => part.id)).toEqual(parts.map((part) => part.id))
     expect(parts.every((part) => part.materialName === 'Tapered Fiber')).toBe(true)
+    expect(geometryGroups[0]).toMatchObject({ name: 'bundle', geometryIds: parts.map((part) => part.id) })
+    expect(surfaceGroups[0]).toMatchObject({ name: 'starts', surfaceIds: [
+      'bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1',
+    ] })
     parts.forEach((part) => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
@@ -98,6 +112,11 @@ describe('compiled user module execution', () => {
       'Core', 'Layer 1', 'Layer 2',
       'Core', 'Layer 1', 'Layer 2', 'Layer 3',
     ])
+    expect(parts.map((part) => part.id)).toEqual([
+      'cylinder.$part-1', 'cylinder.$part-2',
+      'sphere.$part-1', 'sphere.$part-2', 'sphere.$part-3',
+      'fiber.$part-1', 'fiber.$part-2', 'fiber.$part-3', 'fiber.$part-4',
+    ])
     parts.forEach((part, index) => {
       expect(() => geometries.geom3.validate(part.geometry), `part ${index}`).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
@@ -136,6 +155,8 @@ describe('compiled user module execution', () => {
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(16)
+      expect(parts[0].id).toBe('$cell-0-0-0.cell')
+      expect(parts[15].id).toBe('$cell-3-3-0.cell')
       parts.forEach((part) => {
         expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       })
@@ -166,6 +187,8 @@ describe('compiled user module execution', () => {
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(48)
+      expect(parts[0].id).toBe('$cell-0-0-0.particle')
+      expect(parts[47].id).toBe('$cell-3-3-2.particle')
       parts.forEach((part) => {
         expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       })

@@ -18,7 +18,7 @@ npm run build
 npm run lint
 ```
 
-The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. Code Space and Geometry Tree share the left panel and can be switched with tabs while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, and their Surface IDs. Selecting a Geometry or Surface highlights it in the viewer; selecting an intermediate Tree group highlights all final Geometry below it.
+The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. Code Space and Geometry Tree share the left panel and can be switched with tabs while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, Surface IDs, and named Structure groups. Selecting a Geometry, Surface, intermediate Geometry, or named group highlights all resolved members in the viewer. Ctrl/Cmd-click rows to create or extend a group; group edits are written immediately to the active Structure in Code Space.
 
 ## CAD Library Layout
 
@@ -48,10 +48,16 @@ const Device: Geometry<{ materials: Material[] }> = () => (
 
 const structure = new Structure({
   geometry: () => (
-    <Device materials={[new Material('Fiber', { density: vars.density }, '#7c3aed')]} />
+    <Device id="device" materials={[new Material('Fiber', { density: vars.density }, '#7c3aed')]} />
   ),
   varsSchema: {
     density: { shape: [], default: 1.18 },
+  },
+  geometryGroup: {
+    body: ['device'],
+  },
+  surfaceGroup: {
+    contacts: ['device/surface-1'],
   },
 })
 
@@ -85,9 +91,34 @@ const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
 
 Different Materials may appear as sibling scene parts. `union`, `subtract`, and `intersect` require all operands to use the same Material instance. Different instances cannot share one Material name.
 
-Every final scene Geometry receives a deterministic `geometry-N` ID, and each of its semantic or derived surfaces receives a `geometry-N/surface-M` ID. Primitive surfaces use local shape semantics such as caps, sides, and axis faces. Topology-changing operations derive connected surfaces at sharp edges. These IDs belong to the evaluated scene and are not JSX attributes.
+Every user-defined Geometry invocation requires an explicit string `id`. Local IDs are case-sensitive and may contain Unicode letters, numbers, `_`, and `-`. They must be unique under their nearest Geometry parent; Fragment and intrinsic CAD tags do not create identity boundaries. Global IDs join local IDs with `.`, so `<Assembly id="assembly"><Cell id="core" /></Assembly>` produces `assembly.core`.
+
+Final scene part and Geometry Tree selection IDs use these global paths instead of evaluator-order IDs. A Geometry with one surviving direct part uses its global ID as the part ID. Multiple direct parts use the reserved `$part-1`, `$part-2`, ... segments. Array cells insert reserved `$cell-x-y-z` segments before the repeated child ID, for example `assembly.$cell-0-1-0.particle`; `inject.id` is not supported. A primitive or operation result without a user Geometry ancestor is rejected.
+
+Each semantic or derived surface receives `${partId}/surface-N`. Primitive surfaces use local shape semantics such as caps, sides, and axis faces. Topology-changing operations derive connected surfaces at sharp edges.
 
 Every Geometry and CAD element accepts `pos`, axis-angle `rotate`, and `scale`. Child geometry is evaluated first, followed by local scale, rotation, and position. Fragment does not accept transforms.
+
+## Geometry And Surface Groups
+
+`Structure` accepts optional `geometryGroup` and `surfaceGroup` maps. A Geometry group may reference a final part ID or an intermediate Geometry global ID; an intermediate ID resolves to all currently surviving descendant parts. A Surface group references exact `${partId}/surface-N` IDs.
+
+```tsx
+const structure = new Structure({
+  geometry: () => <Assembly id="assembly" />,
+  varsSchema: {},
+  geometryGroup: {
+    body: ['assembly.frame', 'assembly.cells'],
+  },
+  surfaceGroup: {
+    contacts: ['assembly.frame/surface-1', 'assembly.frame/surface-2'],
+  },
+})
+```
+
+Group names are trimmed non-empty Unicode strings. Member arrays may be empty; duplicate IDs are removed while preserving their first occurrence. The same ID may belong to multiple groups. Unknown or boolean-consumed IDs remain in the declaration and appear as `Missing` in the Geometry Tree, but do not highlight viewer geometry.
+
+Named Geometry and Surface groups appear in separate Tree sections. A group row selects all resolved members. Expand it to inspect or remove declared members, or delete the group. Ctrl/Cmd-click selectable Geometry or Surface rows to build a same-kind draft selection; the current single selection becomes the first draft member and every drafted result is highlighted together in the viewer. Named groups contribute their declared members, including Missing IDs, without creating nested groups. A mixed-kind modified click is ignored and a normal click clears the draft. Saving into an existing group appends new unique members. Tree edits update the active default-exported `Sample`'s `Structure` object in Code Space and remain ordinary undoable Monaco edits.
 
 `<array>` repeats exactly one direct Geometry child. `shape`, `period`, optional lattice `axes`, and `[x][y][z]`-prefixed injection tensors control each cell. Injected values replace the corresponding child props before the lattice and array transforms are applied.
 
@@ -179,9 +210,9 @@ Multiple strands are composed as ordinary Geometry with phase offsets:
 
 ```tsx
 <>
-  <Strand phase={0} />
-  <Strand phase={(Math.PI * 2) / 3} />
-  <Strand phase={(Math.PI * 4) / 3} />
+  <Strand id="1" phase={0} />
+  <Strand id="2" phase={(Math.PI * 2) / 3} />
+  <Strand id="3" phase={(Math.PI * 4) / 3} />
 </>
 ```
 
@@ -222,7 +253,7 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 <intersect>shapeA shapeB</intersect>
 
 <shell offsets={[-1, 2]}>
-  <Cell />
+  <Cell id="core" />
 </shell>
 
 <array
@@ -231,7 +262,7 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
   axes={{ x: [1, 0, 0], y: [0.5, Math.sqrt(3) / 2, 0], z: [0, 0, 1] }}
   inject={{ pos: positionTensor }}
 >
-  <Cell />
+  <Cell id="cell" />
 </array>
 ```
 
@@ -245,3 +276,12 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Fiber cross-sections are circular and capped; open tubes, elliptical profiles, and exact zero-radius tips are not implemented.
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
+
+
+## Experiment
+- 계산 unit 을 cell 이라 한다. (mesh 1칸, ray 1개, rigid body 1개, particle 1개)
+- cell 은 geometry 에 종속된다.(Solver 에서 Geometry Tag 로 구분하여 활용)
+- cell 은 계산 중에 새로 생기거나 소멸할 수 있다.
+- Geometry 는 변형될 수 있다. (vars 는 initial state 로 주어지며, Solver 에서 vars key 값으로 구분하여 활용)
+
+- 모든 Geometry 는 동일 parent 내 unique id 를 필수적으로 명시해야하며(번호로 해도 무난), local_id1.local_id2.local_id3 하는 규칙으로 global unique id 를 explicit 하게 유추할 수 있어야 함.

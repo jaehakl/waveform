@@ -68,6 +68,7 @@ const structure = new Structure({
       }}
     >
       <CurvedCell
+        id="cell"
         height={10}
         baseRadius={4.6}
         mode2Amplitude={0.5}

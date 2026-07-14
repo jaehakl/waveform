@@ -14,12 +14,31 @@ describe('CAD booleans', () => {
     const core = new Material('Core', {}, '#2563eb')
     const cladding = new Material('Cladding', {}, '#f59e0b')
 
-    expect(evaluateCad(h('union', null, h(Box, { materials: [core] }), h(Box, { materials: [core] })))).toHaveLength(1)
+    expect(evaluateCad(h(
+      () => h('union', null, h(Box, { id: 'first' }), h(Box, { id: 'second' })),
+      { id: 'result', materials: [core] },
+    ))).toHaveLength(1)
     expect(() =>
-      evaluateCad(h('union', null, h(Box, { materials: [core] }), h(Box, { materials: [cladding] }))),
+      evaluateCad(h(
+        () => h(
+          'union',
+          null,
+          h(Box, { id: 'first', materials: [core] }),
+          h(Box, { id: 'second', materials: [cladding] }),
+        ),
+        { id: 'result' },
+      )),
     ).toThrow('cannot combine Geometry with different Materials')
     expect(() =>
-      evaluateCad(h('intersect', null, h(Box, { materials: [core] }), h(Box, { materials: [cladding] }))),
+      evaluateCad(h(
+        () => h(
+          'intersect',
+          null,
+          h(Box, { id: 'first', materials: [core] }),
+          h(Box, { id: 'second', materials: [cladding] }),
+        ),
+        { id: 'result' },
+      )),
     ).toThrow('cannot combine Geometry with different Materials')
   })
 
@@ -28,16 +47,18 @@ describe('CAD booleans', () => {
     const second = new Material('Second', {}, '#f59e0b')
     const cutter = new Material('Cutter', {}, '#64748b')
     const parts = evaluateCad(
-      h(
-        'subtract',
-        null,
-        h(
-          Fragment,
+      h(() => h(
+          'subtract',
           null,
-          h(Box, { pos: [-2, 0, 0], scale: [2, 2, 2], materials: [first] }),
-          h(Box, { pos: [2, 0, 0], scale: [2, 2, 2], materials: [second] }),
+          h(
+            Fragment,
+            null,
+            h(Box, { id: 'first', pos: [-2, 0, 0], scale: [2, 2, 2], materials: [first] }),
+            h(Box, { id: 'second', pos: [2, 0, 0], scale: [2, 2, 2], materials: [second] }),
+          ),
+          h(Box, { id: 'cutter', pos: [0, -2, 0], scale: [6, 2, 3], materials: [cutter] }),
         ),
-        h(Box, { pos: [0, -2, 0], scale: [6, 2, 3], materials: [cutter] }),
+        { id: 'result' },
       ),
     )
 
@@ -60,9 +81,11 @@ describe('CAD booleans', () => {
       return h('cylinder', { radius: 0.5, height: 4, segments: 32 })
     }
 
-    const [part] = evaluateCad(
-      h('subtract', null, h(Base, { materials: [material] }), h(Cutter, { materials: [material] })),
-    )
+    function Result() {
+      return h('subtract', null, h(Base, { id: 'base' }), h(Cutter, { id: 'cutter' }))
+    }
+
+    const [part] = evaluateCad(h(Result, { id: 'result', materials: [material] }))
 
     expect(part.surfaces).toHaveLength(7)
     expect(part.surfaces.map((surface) => surface.name)).toEqual([

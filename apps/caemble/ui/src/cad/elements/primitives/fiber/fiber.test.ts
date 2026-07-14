@@ -110,13 +110,15 @@ describe('procedural fiber geometry', () => {
       return h('fiber', props)
     }
 
-    const [translated] = evaluateCad(h(Fiber, { pos: [3, 0, 0], materials: [material] }))
+    const [translated] = evaluateCad(h(Fiber, { id: 'fiber', pos: [3, 0, 0], materials: [material] }))
     const [combined] = evaluateCad(
-      h(
-        'union',
-        null,
-        h(Fiber, { materials: [material] }),
-        h(Fiber, { pos: [2, 0, 0], materials: [material] }),
+      h(() => h(
+          'union',
+          null,
+          h(Fiber, { id: 'first', materials: [material] }),
+          h(Fiber, { id: 'second', pos: [2, 0, 0], materials: [material] }),
+        ),
+        { id: 'combined' },
       ),
     )
 

@@ -1,8 +1,10 @@
 export { evaluateCad, evaluateCadScene } from './evaluation/evaluator'
 export { resolveCadSceneSelection } from './evaluation/selection'
+export { applyCadSceneGroups } from './evaluation/groups'
 export { Fragment, h } from './evaluation/jsx'
 export type {
   CadScene,
+  CadSceneGroup,
   CadScenePart,
   CadSceneSelection,
   CadSceneSurface,
@@ -16,7 +18,7 @@ export {
   Structure,
   vars,
 } from './model/core'
-export type { Geometry, GeometryAttributes } from './model/core'
+export type { Geometry, GeometryAttributes, StructureGroupMap } from './model/core'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { ShellAttributes } from './elements/operations/shell/definition'

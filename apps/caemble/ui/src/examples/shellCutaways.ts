@@ -89,19 +89,19 @@ const ShellCutaway: Geometry<{
   const core = offsets[0] < 0
     ? (
         <subtract>
-          <Shape kind={kind} materials={[materials[0]]} />
-          <Shape kind={kind} offsets={[offsets[0]]} materials={[materials[0]]} />
+          <Shape id="core" kind={kind} materials={[materials[0]]} />
+          <Shape id="inner-shell" kind={kind} offsets={[offsets[0]]} materials={[materials[0]]} />
         </subtract>
       )
-    : <Shape kind={kind} materials={[materials[0]]} />
+    : <Shape id="core" kind={kind} materials={[materials[0]]} />
 
   return (
     <subtract>
       <>
         {core}
-        <Shape kind={kind} offsets={offsets} materials={materials.slice(1)} />
+        <Shape id="shell" kind={kind} offsets={offsets} materials={materials.slice(1)} />
       </>
-      <Shape kind="cutaway" materials={[materials[0]]} />
+      <Shape id="cutaway" kind="cutaway" materials={[materials[0]]} />
     </subtract>
   )
 }
@@ -115,17 +115,20 @@ const structure = new Structure({
   geometry: () => (
     <>
       <ShellCutaway
+        id="cylinder"
         kind="curvedCylinder"
         offsets={[0.5]}
         pos={[-22, 0, 0]}
         materials={[coreMaterial, layer1Material]}
       />
       <ShellCutaway
+        id="sphere"
         kind="curvedSphere"
         offsets={[0.5, 1]}
         materials={[coreMaterial, layer1Material, layer2Material]}
       />
       <ShellCutaway
+        id="fiber"
         kind="fiber"
         offsets={[-0.5, 0.5, 1]}
         pos={[22, 0, 0]}

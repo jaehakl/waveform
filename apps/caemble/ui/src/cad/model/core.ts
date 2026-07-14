@@ -3,6 +3,7 @@ import type { Rotation, Tensor, Vars, Vec3 } from './types'
 export type { Rotation, Tensor, Vars, Vec3 } from './types'
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
+    id: string
     materials?: readonly Material[]
     pos?: Vec3
     rotate?: Rotation
@@ -19,9 +20,13 @@ type VarsSchemaEntry = {
   max?: Tensor
 }
 
+export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
+
 type StructureOptions = {
   geometry: () => unknown
   varsSchema: Record<string, VarsSchemaEntry>
+  geometryGroup?: StructureGroupMap
+  surfaceGroup?: StructureGroupMap
 }
 
 const defaultMaterialColor = '#3b82f6'
@@ -184,6 +189,47 @@ function normalizeVarsSchema(rawSchema: unknown) {
   return Object.freeze(normalized)
 }
 
+function normalizeStructureGroup(rawGroup: unknown, propertyName: 'geometryGroup' | 'surfaceGroup') {
+  if (rawGroup === undefined) return Object.freeze({}) as StructureGroupMap
+  if (!isRecord(rawGroup)) {
+    throw new CadModelError(`Structure ${propertyName} must be an object.`)
+  }
+
+  const names = new Set<string>()
+  const entries = Object.entries(rawGroup).map(([rawName, rawMembers]) => {
+    const name = rawName.trim()
+    if (!name) {
+      throw new CadModelError(`Structure ${propertyName} group names must not be empty.`)
+    }
+    if (names.has(name)) {
+      throw new CadModelError(`Structure ${propertyName} group name "${name}" is duplicated after trimming.`)
+    }
+    names.add(name)
+
+    if (!Array.isArray(rawMembers)) {
+      throw new CadModelError(`Structure ${propertyName}.${name} must be an array of global IDs.`)
+    }
+
+    const memberIds: string[] = []
+    const seenMemberIds = new Set<string>()
+    rawMembers.forEach((rawMember, index) => {
+      if (typeof rawMember !== 'string' || !rawMember.trim()) {
+        throw new CadModelError(
+          `Structure ${propertyName}.${name}[${index}] must be a non-empty string global ID.`,
+        )
+      }
+      const memberId = rawMember.trim()
+      if (seenMemberIds.has(memberId)) return
+      seenMemberIds.add(memberId)
+      memberIds.push(memberId)
+    })
+
+    return [name, Object.freeze(memberIds)] as const
+  })
+
+  return Object.freeze(Object.fromEntries(entries)) as StructureGroupMap
+}
+
 function normalizeVars(schema: Readonly<Record<string, VarsSchemaEntry>>, rawVars: unknown) {
   if (!isRecord(rawVars)) {
     throw new CadModelError('Sample vars must be an object.')
@@ -297,6 +343,8 @@ export class Material {
 export class Structure {
   readonly geometry: () => unknown
   readonly varsSchema: Readonly<Record<string, VarsSchemaEntry>>
+  readonly geometryGroup: StructureGroupMap
+  readonly surfaceGroup: StructureGroupMap
 
   constructor(options: StructureOptions) {
     if (!isRecord(options) || typeof options.geometry !== 'function') {
@@ -305,6 +353,8 @@ export class Structure {
 
     this.geometry = options.geometry
     this.varsSchema = normalizeVarsSchema(options.varsSchema)
+    this.geometryGroup = normalizeStructureGroup(options.geometryGroup, 'geometryGroup')
+    this.surfaceGroup = normalizeStructureGroup(options.surfaceGroup, 'surfaceGroup')
     Object.freeze(this)
   }
 

@@ -84,6 +84,47 @@ describe('Structure and Sample vars', () => {
     expect((first.offset as readonly number[])[1]).toBeLessThanOrEqual(3)
     expect(first.fixed).toEqual([[1, 2], [3, 4]])
   })
+
+  it('normalizes, deduplicates, and deeply freezes Structure groups', () => {
+    const structure = new Structure({
+      geometry: () => null,
+      varsSchema: {},
+      geometryGroup: {
+        ' 본체 ': [' assembly.body ', 'assembly.body', 'missing'],
+      },
+      surfaceGroup: { 접촉면: [] },
+    })
+
+    expect(structure.geometryGroup).toEqual({ 본체: ['assembly.body', 'missing'] })
+    expect(structure.surfaceGroup).toEqual({ 접촉면: [] })
+    expect(Object.isFrozen(structure.geometryGroup)).toBe(true)
+    expect(Object.isFrozen(structure.geometryGroup.본체)).toBe(true)
+    expect(Object.isFrozen(structure.surfaceGroup.접촉면)).toBe(true)
+    expect(createStructure().geometryGroup).toEqual({})
+  })
+
+  it('rejects malformed Structure group maps, names, and members', () => {
+    const options = { geometry: () => null, varsSchema: {} }
+
+    expect(() => new Structure({ ...options, geometryGroup: [] as never })).toThrow('geometryGroup must be an object')
+    expect(() => new Structure({ ...options, geometryGroup: { ' ': [] } })).toThrow('group names must not be empty')
+    expect(() => new Structure({
+      ...options,
+      geometryGroup: { duplicate: [], ' duplicate ': [] },
+    })).toThrow('duplicated after trimming')
+    expect(() => new Structure({
+      ...options,
+      geometryGroup: { invalid: 'assembly' as never },
+    })).toThrow('must be an array')
+    expect(() => new Structure({
+      ...options,
+      surfaceGroup: { invalid: [''] },
+    })).toThrow('must be a non-empty string')
+    expect(() => new Structure({
+      ...options,
+      surfaceGroup: { invalid: [1 as never] },
+    })).toThrow('must be a non-empty string')
+  })
 })
 
 describe('Material and global vars', () => {
@@ -113,6 +154,7 @@ describe('Geometry types', () => {
   it('combines custom props with shared Geometry attributes', () => {
     type LayoutProps = { gap: number; label: string }
     const attributes: GeometryAttributes<LayoutProps> = {
+      id: 'layout',
       gap: 4,
       label: 'core',
       pos: [1, 2, 3],

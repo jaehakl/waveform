@@ -47,7 +47,9 @@ function normalizeInject(value: unknown, shape: Vec3) {
 
   Object.entries(value).forEach(([key, tensor]) => {
     const path = `<array> inject.${key}`
-    if (key === 'materials' || key === 'children') throw new CadModelError(`${path} is not supported.`)
+    if (key === 'id' || key === 'materials' || key === 'children') {
+      throw new CadModelError(`${path} is not supported.`)
+    }
     if (key === 'rotate') {
       if (!isRecord(tensor)) throw new CadModelError(`${path} must be an object with axis and angle tensors.`)
       requireTensorShape(tensor.axis, [...shape, 3], `${path}.axis`)
@@ -144,6 +146,7 @@ export const arrayDefinition = {
           parts.push(...applyTransforms(context.evaluate(cell, context.inheritedMaterials, {
             key: `cell-${x}-${y}-${z}`,
             label: `Cell [${x}, ${y}, ${z}]`,
+            identitySegment: `$cell-${x}-${y}-${z}`,
           }), {
             scale: unitScale,
             rotate: undefined,
