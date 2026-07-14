@@ -1,12 +1,12 @@
-import { arrayManifest } from './elements/array/definition'
-import { boxManifest } from './elements/box/definition'
-import { coatingManifest } from './elements/coating/definition'
-import { intersectManifest, subtractManifest, unionManifest } from './elements/booleans/definition'
-import { cylinderManifest } from './elements/cylinder/definition'
-import { curvedEdgeCylinderManifest } from './elements/curvedEdgeCylinder/definition'
-import { curvedSurfaceSphereManifest } from './elements/curvedSurfaceSphere/definition'
-import { fiberManifest } from './elements/fiber/definition'
-import { sphereManifest } from './elements/sphere/definition'
+import { arrayManifest } from './elements/operations/array/definition'
+import { intersectManifest, subtractManifest, unionManifest } from './elements/operations/booleans/definition'
+import { shellManifest } from './elements/operations/shell/definition'
+import { boxManifest } from './elements/primitives/box/definition'
+import { cylinderManifest } from './elements/primitives/cylinder/definition'
+import { curvedEdgeCylinderManifest } from './elements/primitives/curvedEdgeCylinder/definition'
+import { curvedSurfaceSphereManifest } from './elements/primitives/curvedSurfaceSphere/definition'
+import { fiberManifest } from './elements/primitives/fiber/definition'
+import { sphereManifest } from './elements/primitives/sphere/definition'
 
 export const cadElementCatalog = [
   boxManifest,
@@ -15,7 +15,7 @@ export const cadElementCatalog = [
   sphereManifest,
   curvedSurfaceSphereManifest,
   fiberManifest,
-  coatingManifest,
+  shellManifest,
   arrayManifest,
   unionManifest,
   subtractManifest,

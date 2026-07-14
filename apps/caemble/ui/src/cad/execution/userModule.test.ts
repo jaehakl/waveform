@@ -77,8 +77,8 @@ describe('compiled user module execution', () => {
     }
   })
 
-  it('creates non-overlapping signed coating cutaways in core-to-outer order', async () => {
-    const example = caembleExamples.find(({ id }) => id === 'coating-cutaways')
+  it('creates non-overlapping signed shell cutaways in core-to-outer order', async () => {
+    const example = caembleExamples.find(({ id }) => id === 'shell-cutaways')
     expect(example).toBeDefined()
     expect(example!.code).toContain('offsets={[-0.5, 0.5, 1]}')
 

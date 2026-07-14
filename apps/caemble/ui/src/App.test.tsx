@@ -18,7 +18,7 @@ describe('App reroll control', () => {
 
     expect(markup).toContain('aria-label="Select example"')
     expect(markup).toContain('>Fiber Bundle</option>')
-    expect(markup).toContain('>Coating Cutaways</option>')
+    expect(markup).toContain('>Shell Cutaways</option>')
     expect(markup).toContain('>Random Curved Cylinder Array</option>')
     expect(markup).toContain('>Random Curved Sphere HCP Array</option>')
   })

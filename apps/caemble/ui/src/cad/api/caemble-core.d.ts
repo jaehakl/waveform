@@ -12,6 +12,7 @@ export type BoxAttributes = Readonly<{
 
 export type CylinderAttributes = Readonly<{
   radius: number
+  radius_2?: number
   height: number
   segments?: number
   pos?: Vec3
@@ -93,7 +94,7 @@ export type ArrayAttributes = Readonly<{
   children?: unknown
 }>
 
-export type CoatingAttributes = Readonly<{
+export type ShellAttributes = Readonly<{
   offsets: readonly number[]
   pos?: Vec3
   rotate?: Rotation

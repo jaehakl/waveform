@@ -22,7 +22,7 @@ The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source
 
 ## CAD Library Layout
 
-The complete CAD subsystem lives under `src/cad`. `model` contains Material–Structure–Sample state, `evaluation` interprets CAD JSX, `execution` runs compiled user modules, and `worker` compiles and evaluates TSX away from the UI thread. Geometry algorithms and registered tags live in `geometry` and `elements` respectively.
+The complete CAD subsystem lives under `src/cad`. `model` contains Material–Structure–Sample state, `evaluation` interprets CAD JSX, `execution` runs compiled user modules, and `worker` compiles and evaluates TSX away from the UI thread. Geometry algorithms live in `geometry`. Registered tags are grouped under `elements/primitives` for stand-alone solid generators and `elements/operations` for tags that derive geometry from child Geometry.
 
 UI code uses `src/cad/index.ts` as the CAD facade. Syntax Help imports the lightweight `catalog.ts`, while App references `cad/worker/cad.worker.ts` only as a Web Worker entrypoint.
 
@@ -187,9 +187,11 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 
 ## Supported CAD Tags
 
+### Primitives
+
 ```tsx
 <box size={[20, 20, 20]} />
-<cylinder radius={8} height={16} segments={32} />
+<cylinder radius={8} radius_2={4} height={16} segments={32} />
 <curvedEdgeCylinder
   height={16}
   azimuthalCurve={[{ amplitude: 8, phase: 0 }, { amplitude: 1, phase: 0 }]}
@@ -208,10 +210,18 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
   helix={{ turns: 6, phase: 0, radius: (_u, theta) => 4 * Math.exp(0.1 * Math.cos(theta)) }}
   fourier={[{ amplitude: 0.4, phase: 1.2 }]}
 />
+```
 
+### Geometry Operations
+
+```tsx
 <union>...</union>
 <subtract>base cutter</subtract>
 <intersect>shapeA shapeB</intersect>
+
+<shell offsets={[-1, 2]}>
+  <Cell />
+</shell>
 
 <array
   shape={[3, 3, 3]}
@@ -233,7 +243,3 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Fiber cross-sections are circular and capped; open tubes, elliptical profiles, and exact zero-radius tips are not implemented.
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
-
-
-##### Curved Edge Slab
--

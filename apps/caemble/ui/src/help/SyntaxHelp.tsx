@@ -1,7 +1,4 @@
-import { defaultCode } from '../defaultCode'
 import { cadElementCatalog } from '../cad/catalog'
-
-const structureExample = defaultCode.trim()
 
 function SyntaxHelp() {
   return (
@@ -17,17 +14,12 @@ function SyntaxHelp() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-          <div>
-            <h3 className="mb-3 text-sm font-semibold text-slate-800">Structure And Sample</h3>
-            <pre className="overflow-auto rounded border border-slate-200 bg-slate-950 p-4 text-xs leading-5 text-slate-100">
-              <code>{structureExample}</code>
-            </pre>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <h3 className="mb-3 text-sm font-semibold text-slate-800">Supported Tags</h3>
+        <div className="space-y-5">
+          {(['primitive', 'operation'] as const).map((category) => (
+            <div key={category}>
+              <h3 className="mb-3 text-sm font-semibold text-slate-800">
+                {category === 'primitive' ? 'Primitives' : 'Geometry Operations'}
+              </h3>
               <div className="overflow-hidden rounded border border-slate-200">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -38,7 +30,7 @@ function SyntaxHelp() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cadElementCatalog.map((element) => (
+                    {cadElementCatalog.filter((element) => element.category === category).map((element) => (
                       <tr key={element.tag} className="border-b border-slate-100 last:border-0">
                         <td className="px-3 py-2 align-top font-mono text-xs text-slate-700">{element.tag}</td>
                         <td className="px-3 py-2 align-top">
@@ -53,8 +45,9 @@ function SyntaxHelp() {
                 </table>
               </div>
             </div>
+          ))}
 
-            <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+          <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
               <p className="font-semibold text-slate-800">Vars</p>
               <p className="mt-1">
                 Every schema item declares a fixed shape and default. Optional min and max values may be scalars or
@@ -143,19 +136,19 @@ function SyntaxHelp() {
                 more resolution. Exact zero-radius tips and self-intersection repair are not supported.
               </p>
 
-              <p className="mt-3 font-semibold text-slate-800">Surface Coatings</p>
+              <p className="mt-3 font-semibold text-slate-800">Surface Shells</p>
               <p className="mt-1">
-                A <code className="rounded bg-white px-1 py-0.5 text-xs">coating</code> creates layers between signed{' '}
+                A <code className="rounded bg-white px-1 py-0.5 text-xs">shell</code> creates layers between signed{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">offsets</code> of one closed child solid.
                 Negative values point inward and positive values point outward. Offsets must be finite, non-zero,
                 and strictly increasing; the original surface at zero is inserted automatically. Child transforms
-                run before offsetting, and the coating&apos;s own transform runs after every layer is complete.
+                run before offsetting, and the shell&apos;s own transform runs after every layer is complete.
               </p>
               <p className="mt-1">
                 Layers are returned from the most inward boundary to the most outward boundary. The enclosing
                 Geometry must provide exactly one Material per explicit offset in that same order; child Materials
-                do not select layer Materials. Only coating layers are returned, not the core below the innermost
-                boundary, so placing the original solid beside an inward coating can create overlap.
+                do not select layer Materials. Only shell layers are returned, not the core below the innermost
+                boundary, so placing the original solid beside an inward shell can create overlap.
               </p>
               <p className="mt-1">
                 Offsets follow the child mesh resolution and preserve its topology, with mitered sharp edges.
@@ -181,7 +174,6 @@ function SyntaxHelp() {
                 Only <code className="rounded bg-white px-1 py-0.5 text-xs">@caemble/core</code> is available. Define
                 reusable Geometry and Material subclasses in the same file.
               </p>
-            </div>
           </div>
         </div>
       </div>

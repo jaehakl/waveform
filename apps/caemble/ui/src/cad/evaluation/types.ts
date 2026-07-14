@@ -29,7 +29,7 @@ export type NormalizedTransforms = {
 
 export type CadElementManifest<Tag extends string = string> = Readonly<{
   tag: Tag
-  category: 'primitive' | 'pattern' | 'boolean' | 'modifier'
+  category: 'primitive' | 'operation'
   syntax: string
   summary: string
 }>
@@ -46,8 +46,8 @@ export type PrimitiveElementDefinition<Tag extends string = string> = Readonly<{
   createGeometry: (props: Record<string, unknown>) => unknown
 }>
 
-export type CompoundElementDefinition<Tag extends string = string> = Readonly<{
-  kind: 'compound'
+export type GeometryOperationDefinition<Tag extends string = string> = Readonly<{
+  kind: 'operation'
   tag: Tag
   manifest: CadElementManifest<Tag>
   evaluate: (node: CadNode, context: CadElementEvaluationContext) => EvaluatedPart[]
@@ -55,4 +55,4 @@ export type CompoundElementDefinition<Tag extends string = string> = Readonly<{
 
 export type CadElementDefinition<Tag extends string = string> =
   | PrimitiveElementDefinition<Tag>
-  | CompoundElementDefinition<Tag>
+  | GeometryOperationDefinition<Tag>

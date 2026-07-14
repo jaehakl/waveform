@@ -20,12 +20,15 @@ describe('CAD registry contracts', () => {
 
     expect(catalogTags).toEqual(registryTags)
     expect(jsxTags).toEqual(registryTags)
+    expect(new Set(cadElementCatalog.map((manifest) => manifest.category))).toEqual(
+      new Set(['primitive', 'operation']),
+    )
   })
 
   it('uses shared declaration files for public core types and Monaco', () => {
     for (const typeName of [
       'BoxAttributes',
-      'CoatingAttributes',
+      'ShellAttributes',
       'CylinderAttributes',
       'CurvedEdgeCylinderAttributes',
       'CurvedEdgeCylinderFourierMode',
@@ -43,13 +46,16 @@ describe('CAD registry contracts', () => {
     expect(monacoSetupSource).toContain("'file:///node_modules/@caemble/core/index.d.ts'")
     expect(monacoSetupSource).not.toContain('const cadTypes')
 
-    const coatingDeclaration = coreDeclarations.match(/export type CoatingAttributes = Readonly<\{[\s\S]*?\n\}>/)?.[0]
-    expect(coatingDeclaration).toContain('offsets: readonly number[]')
-    expect(coatingDeclaration).not.toContain('depth')
-    expect(jsxDeclarations).toContain('coating: CoatingAttributes')
-    expect(cadElementCatalog.find((element) => element.tag === 'coating')).toMatchObject({
-      category: 'modifier',
-      syntax: '<coating offsets={[-inner, outer]}>Geometry</coating>',
+    const cylinderDeclaration = coreDeclarations.match(/export type CylinderAttributes = Readonly<\{[\s\S]*?\n\}>/)?.[0]
+    expect(cylinderDeclaration).toContain('radius_2?: number')
+
+    const shellDeclaration = coreDeclarations.match(/export type ShellAttributes = Readonly<\{[\s\S]*?\n\}>/)?.[0]
+    expect(shellDeclaration).toContain('offsets: readonly number[]')
+    expect(shellDeclaration).not.toContain('depth')
+    expect(jsxDeclarations).toContain('shell: ShellAttributes')
+    expect(cadElementCatalog.find((element) => element.tag === 'shell')).toMatchObject({
+      category: 'operation',
+      syntax: '<shell offsets={[-inner, outer]}>Geometry</shell>',
     })
   })
 

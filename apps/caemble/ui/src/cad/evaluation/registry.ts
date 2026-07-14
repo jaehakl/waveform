@@ -1,12 +1,12 @@
-import { arrayDefinition } from '../elements/array/runtime'
-import { boxDefinition } from '../elements/box/runtime'
-import { coatingDefinition } from '../elements/coating/runtime'
-import { intersectDefinition, subtractDefinition, unionDefinition } from '../elements/booleans/runtime'
-import { cylinderDefinition } from '../elements/cylinder/runtime'
-import { curvedEdgeCylinderDefinition } from '../elements/curvedEdgeCylinder/runtime'
-import { curvedSurfaceSphereDefinition } from '../elements/curvedSurfaceSphere/runtime'
-import { fiberDefinition } from '../elements/fiber/runtime'
-import { sphereDefinition } from '../elements/sphere/runtime'
+import { arrayDefinition } from '../elements/operations/array/runtime'
+import { intersectDefinition, subtractDefinition, unionDefinition } from '../elements/operations/booleans/runtime'
+import { shellDefinition } from '../elements/operations/shell/runtime'
+import { boxDefinition } from '../elements/primitives/box/runtime'
+import { cylinderDefinition } from '../elements/primitives/cylinder/runtime'
+import { curvedEdgeCylinderDefinition } from '../elements/primitives/curvedEdgeCylinder/runtime'
+import { curvedSurfaceSphereDefinition } from '../elements/primitives/curvedSurfaceSphere/runtime'
+import { fiberDefinition } from '../elements/primitives/fiber/runtime'
+import { sphereDefinition } from '../elements/primitives/sphere/runtime'
 import type { CadElementDefinition } from './types'
 
 export const cadElementDefinitions = [
@@ -16,7 +16,7 @@ export const cadElementDefinitions = [
   sphereDefinition,
   curvedSurfaceSphereDefinition,
   fiberDefinition,
-  coatingDefinition,
+  shellDefinition,
   arrayDefinition,
   unionDefinition,
   subtractDefinition,

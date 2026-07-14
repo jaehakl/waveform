@@ -1,5 +1,5 @@
 import { defaultCode } from '../defaultCode'
-import { coatingCutawaysCode } from './coatingCutaways'
+import { shellCutawaysCode } from './shellCutaways'
 import { curvedEdgeCylinderArrayCode } from './curvedEdgeCylinderArray'
 import { curvedSurfaceSphereHcpArrayCode } from './curvedSurfaceSphereHcpArray'
 
@@ -18,10 +18,10 @@ export const caembleExamples: readonly CaembleExample[] = Object.freeze([
     code: defaultCode,
   },
   {
-    id: 'coating-cutaways',
-    title: 'Coating Cutaways',
-    description: 'One, two, and three colored coating layers on cutaway procedural geometries.',
-    code: coatingCutawaysCode,
+    id: 'shell-cutaways',
+    title: 'Shell Cutaways',
+    description: 'One, two, and three colored shell layers on cutaway procedural geometries.',
+    code: shellCutawaysCode,
   },
   {
     id: 'random-curved-edge-cylinder-array',
