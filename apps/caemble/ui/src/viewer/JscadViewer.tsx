@@ -1,6 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadScenePart, CadSceneSelection } from '../cad'
+import type {
+  MaterialGridResult,
+  MaterialGridWorkerRequest,
+  MaterialGridWorkerResponse,
+} from './materialGrid'
 import { createRenderParts } from './selection'
 
 type RendererEntity = Record<string, unknown>
@@ -36,6 +41,27 @@ type ReglRendererApi = {
   prepareRender: (options: RendererOptions) => (options: RendererOptions) => void
 }
 
+type ReglBuffer = (data: unknown) => void
+type ReglCommand = (props: RendererEntity) => void
+type ReglApi = {
+  (options: Record<string, unknown>): ReglCommand
+  buffer: (data: unknown) => ReglBuffer
+}
+
+type PointGeometry = Readonly<{
+  colors: Float32Array
+  positions: Float32Array
+}>
+
+type ViewerMode = 'geometry' | 'material-grid'
+type MaterialGridStatus = 'idle' | 'calculating' | 'ready' | 'error'
+
+type MaterialGridSnapshot = Readonly<{
+  parts: CadScenePart[]
+  requestedSpacing: number
+  result: MaterialGridResult
+}>
+
 type JscadViewerProps = {
   onRenderEnd: () => void
   onRenderError: (message: string) => void
@@ -44,16 +70,244 @@ type JscadViewerProps = {
   selection: CadSceneSelection | null
 }
 
+type ViewerToolbarProps = {
+  gridError: string | null
+  gridResult: MaterialGridResult | null
+  gridStatus: MaterialGridStatus
+  mode: ViewerMode
+  onApplySpacing: () => void
+  onChangeSpacing: (value: string) => void
+  onSelectMode: (mode: ViewerMode) => void
+  spacingDraft: string
+  spacingError: string | null
+}
+
 const renderer = reglRenderer as unknown as ReglRendererApi
 
+function formatSpacing(value: number) {
+  return Number(value.toPrecision(6)).toString()
+}
+
+function drawPoints(regl: unknown, params: RendererEntity) {
+  const typedRegl = regl as ReglApi
+  const initialGeometry = params.geometry as PointGeometry
+  const positionBuffer = typedRegl.buffer(initialGeometry.positions)
+  const colorBuffer = typedRegl.buffer(initialGeometry.colors)
+  let renderedGeometry = initialGeometry
+  const command = typedRegl({
+    attributes: {
+      color: colorBuffer,
+      position: positionBuffer,
+    },
+    count: (_context: unknown, props: RendererEntity) => props.pointCount,
+    cull: { enable: false },
+    depth: { enable: true },
+    frag: `
+      precision mediump float;
+      varying vec4 pointColor;
+
+      void main() {
+        if (distance(gl_PointCoord, vec2(0.5)) > 0.5) discard;
+        gl_FragColor = pointColor;
+      }
+    `,
+    primitive: 'points',
+    uniforms: {
+      pointSize: (_context: unknown, props: RendererEntity) => props.pointSize,
+    },
+    vert: `
+      precision mediump float;
+      attribute vec3 position;
+      attribute vec4 color;
+      uniform mat4 view, projection;
+      uniform float pointSize;
+      varying vec4 pointColor;
+
+      void main() {
+        pointColor = color;
+        gl_Position = projection * view * vec4(position, 1.0);
+        gl_PointSize = pointSize;
+      }
+    `,
+  })
+
+  return (props: RendererEntity) => {
+    const geometry = props.geometry as PointGeometry
+    if (geometry !== renderedGeometry) {
+      positionBuffer(geometry.positions)
+      colorBuffer(geometry.colors)
+      renderedGeometry = geometry
+    }
+    command({ ...props, pointCount: geometry.positions.length / 3 })
+  }
+}
+
+export function ViewerToolbar({
+  gridError,
+  gridResult,
+  gridStatus,
+  mode,
+  onApplySpacing,
+  onChangeSpacing,
+  onSelectMode,
+  spacingDraft,
+  spacingError,
+}: ViewerToolbarProps) {
+  const appliedSpacingChanged = gridResult && gridResult.effectiveSpacing !== gridResult.requestedSpacing
+  const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const targetMode = event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'Home'
+      ? 'geometry'
+      : event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'End'
+        ? 'material-grid'
+        : null
+    if (!targetMode) return
+
+    event.preventDefault()
+    onSelectMode(targetMode)
+    document.getElementById(targetMode === 'geometry' ? 'viewer-geometry-tab' : 'viewer-material-grid-tab')?.focus()
+  }
+
+  return (
+    <div className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-2 py-1">
+      <div aria-label="Viewer modes" className="flex h-9 items-center" role="tablist">
+        <button
+          aria-controls="viewer-render-panel"
+          aria-selected={mode === 'geometry'}
+          className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+            mode === 'geometry'
+              ? 'border-slate-900 text-slate-950'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+          id="viewer-geometry-tab"
+          role="tab"
+          tabIndex={mode === 'geometry' ? 0 : -1}
+          type="button"
+          onClick={() => onSelectMode('geometry')}
+          onKeyDown={handleTabKeyDown}
+        >
+          Geometry
+        </button>
+        <button
+          aria-controls="viewer-render-panel"
+          aria-selected={mode === 'material-grid'}
+          className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+            mode === 'material-grid'
+              ? 'border-slate-900 text-slate-950'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+          id="viewer-material-grid-tab"
+          role="tab"
+          tabIndex={mode === 'material-grid' ? 0 : -1}
+          type="button"
+          onClick={() => onSelectMode('material-grid')}
+          onKeyDown={handleTabKeyDown}
+        >
+          Material Grid
+        </button>
+      </div>
+
+      {mode === 'material-grid' ? (
+        <>
+          <form
+            className="ml-auto flex items-center gap-1.5"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault()
+              onApplySpacing()
+            }}
+          >
+            <label className="text-xs font-medium text-slate-600" htmlFor="material-grid-spacing">
+              Spacing
+            </label>
+            <input
+              aria-describedby={spacingError ? 'material-grid-spacing-error' : undefined}
+              aria-invalid={spacingError ? true : undefined}
+              className="w-20 rounded border border-slate-300 bg-white px-2 py-1 text-right text-xs text-slate-800 outline-none focus:border-slate-500"
+              id="material-grid-spacing"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              type="number"
+              value={spacingDraft}
+              onChange={(event) => onChangeSpacing(event.target.value)}
+            />
+            <button
+              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950"
+              type="submit"
+            >
+              Apply
+            </button>
+          </form>
+
+          <div aria-live="polite" className="text-[10px] text-slate-500">
+            {gridStatus === 'calculating' ? 'Calculating grid…' : null}
+            {gridStatus === 'ready' && gridResult ? (
+              <>
+                {gridResult.visiblePointCount} points ·{' '}
+                {appliedSpacingChanged
+                  ? `requested ${formatSpacing(gridResult.requestedSpacing)} · applied ${formatSpacing(gridResult.effectiveSpacing)}`
+                  : `spacing ${formatSpacing(gridResult.effectiveSpacing)}`}
+              </>
+            ) : null}
+          </div>
+
+          {spacingError ? (
+            <div className="w-full pl-1 text-[10px] text-rose-600" id="material-grid-spacing-error" role="alert">
+              {spacingError}
+            </div>
+          ) : null}
+          {gridError ? (
+            <div className="w-full pl-1 text-[10px] text-rose-600" role="alert">
+              {gridError}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selection }: JscadViewerProps) {
+  const [gridError, setGridError] = useState<string | null>(null)
+  const [gridApplyVersion, setGridApplyVersion] = useState(0)
+  const [gridSnapshot, setGridSnapshot] = useState<MaterialGridSnapshot | null>(null)
+  const [gridStatus, setGridStatus] = useState<MaterialGridStatus>('idle')
+  const [requestedSpacing, setRequestedSpacing] = useState(1)
+  const [spacingDraft, setSpacingDraft] = useState('1')
+  const [spacingError, setSpacingError] = useState<string | null>(null)
+  const [viewerMode, setViewerMode] = useState<ViewerMode>('geometry')
+  const activeGridRenderRef = useRef<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
   const controlsRef = useRef<RendererState | null>(null)
-  const lastPointRef = useRef<{ button: number; x: number; y: number } | null>(null)
-  const optionsRef = useRef<RendererOptions | null>(null)
-  const renderRef = useRef<((options: RendererOptions) => void) | null>(null)
+  const gridRequestSequenceRef = useRef(0)
+  const gridSnapshotRef = useRef<MaterialGridSnapshot | null>(null)
+  const gridWorkerRef = useRef<Worker | null>(null)
   const lastFittedPartsRef = useRef<CadScenePart[] | null>(null)
+  const lastPointRef = useRef<{ button: number; x: number; y: number } | null>(null)
+  const lastRenderedModeRef = useRef<ViewerMode | null>(null)
+  const optionsRef = useRef<RendererOptions | null>(null)
+  const pointEntityRef = useRef<RendererEntity>({
+    geometry: { colors: new Float32Array(), positions: new Float32Array() },
+    pointSize: 5,
+    visuals: { drawCmd: 'drawPoints', show: true },
+  })
+  const referenceEntitiesRef = useRef<RendererEntity[]>([
+    {
+      size: [120, 120],
+      ticks: [10, 2],
+      visuals: { drawCmd: 'drawGrid', show: true },
+    },
+    {
+      size: 70,
+      visuals: { drawCmd: 'drawAxis', show: true },
+    },
+  ])
+  const renderRef = useRef<((options: RendererOptions) => void) | null>(null)
+
+  const currentGridResult = gridSnapshot?.parts === parts && gridSnapshot.requestedSpacing === requestedSpacing
+    ? gridSnapshot.result
+    : null
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -84,6 +338,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
         drawGrid: renderer.drawCommands.drawGrid,
         drawLines: renderer.drawCommands.drawLines,
         drawMesh: renderer.drawCommands.drawMesh,
+        drawPoints,
       },
       entities: [],
       glOptions: { canvas },
@@ -132,35 +387,101 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
   }, [])
 
   useEffect(() => {
+    if (viewerMode !== 'material-grid' || parts.length === 0) return
+
+    const cached = gridSnapshotRef.current
+    const requestId = `material-grid-${gridRequestSequenceRef.current + 1}`
+    gridRequestSequenceRef.current += 1
+    activeGridRenderRef.current = requestId
+    setGridError(null)
+    onRenderStart()
+
+    if (cached?.parts === parts && cached.requestedSpacing === requestedSpacing) {
+      setGridStatus('ready')
+      return
+    }
+
+    setGridStatus('calculating')
+    const worker = new Worker(new URL('./materialGrid.worker.ts', import.meta.url), { type: 'module' })
+    gridWorkerRef.current = worker
+
+    const finishWithError = (message: string) => {
+      if (activeGridRenderRef.current !== requestId) return
+      activeGridRenderRef.current = null
+      setGridError(message)
+      setGridStatus('error')
+      onRenderEnd()
+    }
+
+    worker.onmessage = (event: MessageEvent<MaterialGridWorkerResponse>) => {
+      const response = event.data
+      if (response.requestId !== requestId) return
+
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      if (response.type === 'error') {
+        finishWithError(response.message)
+        return
+      }
+
+      const snapshot = { parts, requestedSpacing, result: response.result }
+      gridSnapshotRef.current = snapshot
+      setGridSnapshot(snapshot)
+      setGridStatus('ready')
+    }
+
+    worker.onerror = (event) => {
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      finishWithError(event.message || 'Material Grid calculation failed.')
+    }
+
+    worker.postMessage({
+      parts,
+      requestId,
+      requestedSpacing,
+    } satisfies MaterialGridWorkerRequest)
+
+    return () => {
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      if (activeGridRenderRef.current === requestId) {
+        activeGridRenderRef.current = null
+        onRenderEnd()
+      }
+    }
+  }, [gridApplyVersion, onRenderEnd, onRenderStart, parts, requestedSpacing, viewerMode])
+
+  useEffect(() => {
     if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
 
     const shouldFit = lastFittedPartsRef.current !== parts
-    if (shouldFit) onRenderStart()
+    const modeChanged = lastRenderedModeRef.current !== viewerMode
+    const shouldReportGeometryRender = viewerMode === 'geometry' && (shouldFit || modeChanged)
+    if (shouldReportGeometryRender) onRenderStart()
 
     try {
-      const solidsEntities = createRenderParts(parts, selection).flatMap((part) =>
-        renderer.entitiesFromSolids(
-          { color: part.color, smoothNormals: true },
-          part.geometry,
-        ),
-      )
-      const gridEntity = {
-        size: [120, 120],
-        ticks: [10, 2],
-        visuals: {
-          drawCmd: 'drawGrid',
-          show: true,
-        },
-      }
-      const axisEntity = {
-        size: 70,
-        visuals: {
-          drawCmd: 'drawAxis',
-          show: true,
-        },
-      }
+      const solidsEntities = viewerMode === 'geometry' || shouldFit
+        ? createRenderParts(parts, viewerMode === 'geometry' ? selection : null).flatMap((part) =>
+            renderer.entitiesFromSolids(
+              { color: part.color, smoothNormals: true },
+              part.geometry,
+            ),
+          )
+        : []
+      const displayEntities = viewerMode === 'geometry'
+        ? solidsEntities
+        : currentGridResult
+          ? [Object.assign(pointEntityRef.current, {
+              geometry: {
+                colors: currentGridResult.colors,
+                positions: currentGridResult.positions,
+              },
+              pointSize: 5 * (window.devicePixelRatio || 1),
+            })]
+          : []
 
-      optionsRef.current.entities = [gridEntity, axisEntity, ...solidsEntities]
+      optionsRef.current.entities = [...referenceEntitiesRef.current, ...displayEntities]
 
       if (shouldFit) {
         const zoomed = renderer.controls.orbit.zoomToFit({
@@ -181,15 +502,20 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
       renderer.cameras.perspective.update(cameraRef.current, cameraRef.current)
 
       renderRef.current(optionsRef.current)
-      if (shouldFit) {
-        lastFittedPartsRef.current = parts
+      if (shouldFit) lastFittedPartsRef.current = parts
+      lastRenderedModeRef.current = viewerMode
+
+      if (shouldReportGeometryRender) onRenderEnd()
+      if (viewerMode === 'material-grid' && currentGridResult && activeGridRenderRef.current !== null) {
+        activeGridRenderRef.current = null
         onRenderEnd()
       }
     } catch (error) {
+      activeGridRenderRef.current = null
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [onRenderEnd, onRenderError, onRenderStart, parts, selection])
+  }, [currentGridResult, gridApplyVersion, onRenderEnd, onRenderError, onRenderStart, parts, selection, viewerMode])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -204,92 +530,129 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
     renderRef.current(optionsRef.current)
   }
 
+  const applySpacing = () => {
+    const spacing = Number(spacingDraft)
+    if (!Number.isFinite(spacing) || spacing <= 0) {
+      setSpacingError('Enter a positive finite spacing value.')
+      return
+    }
+
+    setSpacingError(null)
+    setRequestedSpacing(spacing)
+    setGridApplyVersion((current) => current + 1)
+  }
+
   return (
-    <div className="relative h-full min-h-[320px] w-full overflow-hidden bg-slate-50">
-      <canvas
-        ref={canvasRef}
-        className="block h-full w-full cursor-grab active:cursor-grabbing"
-        data-viewer-canvas="true"
-        onContextMenu={(event) => event.preventDefault()}
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId)
-          lastPointRef.current = { button: event.button, x: event.clientX, y: event.clientY }
-        }}
-        onPointerMove={(event) => {
-          const lastPoint = lastPointRef.current
-          if (!lastPoint || !cameraRef.current || !controlsRef.current) return
-
-          const dx = event.clientX - lastPoint.x
-          const dy = event.clientY - lastPoint.y
-          const controlChange =
-            lastPoint.button === 2
-              ? renderer.controls.orbit.pan(
-                  { camera: cameraRef.current, controls: controlsRef.current, speed: 0.002 },
-                  [dx, dy],
-                )
-              : renderer.controls.orbit.rotate(
-                  { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
-                  [dx, dy],
-                )
-
-          Object.assign(cameraRef.current, controlChange.camera)
-          Object.assign(controlsRef.current, controlChange.controls)
-          lastPointRef.current = { ...lastPoint, x: event.clientX, y: event.clientY }
-          renderWithControls()
-        }}
-        onPointerUp={(event) => {
-          event.currentTarget.releasePointerCapture(event.pointerId)
-          lastPointRef.current = null
-        }}
-        onWheel={(event) => {
-          if (!cameraRef.current || !controlsRef.current) return
-
-          event.preventDefault()
-          const controlChange = renderer.controls.orbit.zoom(
-            { camera: cameraRef.current, controls: controlsRef.current, speed: 0.12 },
-            event.deltaY > 0 ? 1 : -1,
-          )
-
-          Object.assign(cameraRef.current, controlChange.camera)
-          Object.assign(controlsRef.current, controlChange.controls)
-          renderWithControls()
-        }}
+    <div className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50">
+      <ViewerToolbar
+        gridError={gridError}
+        gridResult={currentGridResult}
+        gridStatus={gridStatus}
+        mode={viewerMode}
+        spacingDraft={spacingDraft}
+        spacingError={spacingError}
+        onApplySpacing={applySpacing}
+        onChangeSpacing={setSpacingDraft}
+        onSelectMode={setViewerMode}
       />
 
-      {parts.length === 0 ? (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
-          Waiting for model...
-        </div>
-      ) : null}
+      <div
+        aria-labelledby={viewerMode === 'geometry' ? 'viewer-geometry-tab' : 'viewer-material-grid-tab'}
+        className="relative min-h-0 flex-1 overflow-hidden"
+        id="viewer-render-panel"
+        role="tabpanel"
+      >
+        <canvas
+          ref={canvasRef}
+          className="block h-full w-full cursor-grab active:cursor-grabbing"
+          data-viewer-canvas="true"
+          onContextMenu={(event) => event.preventDefault()}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId)
+            lastPointRef.current = { button: event.button, x: event.clientX, y: event.clientY }
+          }}
+          onPointerMove={(event) => {
+            const lastPoint = lastPointRef.current
+            if (!lastPoint || !cameraRef.current || !controlsRef.current) return
 
-      {parts.length > 0 ? (
-        <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
-          {[...new Map(parts.map((part) => [part.materialName, part])).values()].map((part) => (
-            <div key={part.materialName} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
-                style={{ backgroundColor: part.displayColor }}
-              />
-              <span>{part.materialName}</span>
+            const dx = event.clientX - lastPoint.x
+            const dy = event.clientY - lastPoint.y
+            const controlChange =
+              lastPoint.button === 2
+                ? renderer.controls.orbit.pan(
+                    { camera: cameraRef.current, controls: controlsRef.current, speed: 0.002 },
+                    [dx, dy],
+                  )
+                : renderer.controls.orbit.rotate(
+                    { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
+                    [dx, dy],
+                  )
+
+            Object.assign(cameraRef.current, controlChange.camera)
+            Object.assign(controlsRef.current, controlChange.controls)
+            lastPointRef.current = { ...lastPoint, x: event.clientX, y: event.clientY }
+            renderWithControls()
+          }}
+          onPointerUp={(event) => {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+            lastPointRef.current = null
+          }}
+          onWheel={(event) => {
+            if (!cameraRef.current || !controlsRef.current) return
+
+            event.preventDefault()
+            const controlChange = renderer.controls.orbit.zoom(
+              { camera: cameraRef.current, controls: controlsRef.current, speed: 0.12 },
+              event.deltaY > 0 ? 1 : -1,
+            )
+
+            Object.assign(cameraRef.current, controlChange.camera)
+            Object.assign(controlsRef.current, controlChange.controls)
+            renderWithControls()
+          }}
+        />
+
+        {parts.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+            Waiting for model...
+          </div>
+        ) : null}
+
+        {viewerMode === 'material-grid' && gridStatus === 'ready' && currentGridResult?.visiblePointCount === 0 ? (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+            No Grid points fall inside the geometry at this spacing.
+          </div>
+        ) : null}
+
+        {parts.length > 0 ? (
+          <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
+            {[...new Map(parts.map((part) => [part.materialName, part])).values()].map((part) => (
+              <div key={part.materialName} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
+                  style={{ backgroundColor: part.displayColor }}
+                />
+                <span>{part.materialName}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {selection ? (
+          <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
+            <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
+              {selection.kind === 'group'
+                ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
+                : selection.label}
             </div>
-          ))}
-        </div>
-      ) : null}
-
-      {selection ? (
-        <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
-          <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
-            {selection.kind === 'group'
-              ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
-              : selection.label}
+            <div className="truncate font-mono text-[10px] text-slate-400">
+              {selection.id}
+            </div>
           </div>
-          <div className="truncate font-mono text-[10px] text-slate-400">
-            {selection.id}
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   )
 }

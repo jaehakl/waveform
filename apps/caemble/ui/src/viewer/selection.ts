@@ -5,7 +5,7 @@ type RenderSolid = Record<string, unknown> & { polygons: RenderPolygon[] }
 
 const selectedColor: [number, number, number, number] = [249 / 255, 115 / 255, 22 / 255, 1]
 
-function colorFromHex(hex: string): [number, number, number, number] {
+export function colorFromHex(hex: string): [number, number, number, number] {
   return [
     Number.parseInt(hex.slice(1, 3), 16) / 255,
     Number.parseInt(hex.slice(3, 5), 16) / 255,
