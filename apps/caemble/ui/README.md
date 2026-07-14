@@ -283,10 +283,11 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Geometry/Surface Group 별 cell initialize 규칙 관련 정보(initial condition 포함) (시뮬레이션 종류 별 특화 type)
 - Geometry/Surface Group 별 Boundary Condition 관련 정보 (시뮬레이션 종류 별 특화 type)
 - 이 때, Group 은 experiment.geometry 뿐 아니라 structure.geometry 것도 지정 가능 (다만 experiment 가 특정 structure 에 종속되는 건 아니고, Group 이름만 예약해두는 느슨한 결합, 다양한 structure 와 조합해서 쓸 수 있도록 하기 위함)
+- 시뮬레이션 실행 시, sample (structure) 는 Experiment 와 같은 좌표계를 사용한다고 가정한다.
 - experiment.vars 값 사용 가능 : experiment.geometry, initial condition, boundary condition 모두
 
 <참고 사항>
-- 계산되는 물리량을 담는 계산 unit 을 cell 이라 한다. (mesh 1칸, ray 1개, rigid body 1개, particle 1개)
+- 계산되는 물리량을 담는 계산 unit 을 cell 이라 한다. (구체적인 의미와 형태는 시뮬레이션의 종류에 따라 천차만별, ex : mesh 1칸, ray 1개, rigid body 1개, particle 1개 등)
 - cell 은 geometry 에 종속된다. (cell 이 없는 geometry 도 있을 수 있다.)
 
 
