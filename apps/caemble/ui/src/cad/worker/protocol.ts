@@ -1,4 +1,4 @@
-import type { CadScenePart } from '../evaluation/types'
+import type { CadScene } from '../evaluation/types'
 
 export type CadWorkerRequest = Readonly<{
   type: 'run'
@@ -12,7 +12,7 @@ export type CadWorkerResponse =
   | Readonly<{
       type: 'success'
       requestId: string
-      parts: CadScenePart[]
+      scene: CadScene
     }>
   | Readonly<{
       type: 'error'

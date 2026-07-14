@@ -47,6 +47,36 @@ describe('CAD primitives', () => {
     expect(measurements.measureVolume(cone)).toBeGreaterThan(0)
   })
 
+  it('assigns deterministic semantic surfaces to basic primitives', () => {
+    const box = evaluate('box', { size: [1, 2, 3], rotate: { axis: [0, 1, 0], angle: 0.4 } })
+    const cylinder = evaluate('cylinder', { radius: 2, radius_2: 1, height: 4, segments: 8 })
+    const startTip = evaluate('cylinder', { radius: 0, radius_2: 2, height: 4, segments: 8 })
+    const endTip = evaluate('cylinder', { radius: 2, radius_2: 0, height: 4, segments: 8 })
+    const sphere = evaluate('sphere', { radius: 1, segments: 8 })
+
+    expect(box.id).toBe('geometry-1')
+    expect(box.surfaces.map((surface) => surface.name)).toEqual(['-X', '+X', '-Y', '+Y', 'Bottom', 'Top'])
+    expect(box.surfaces.map((surface) => surface.id)).toEqual([
+      'geometry-1/surface-1',
+      'geometry-1/surface-2',
+      'geometry-1/surface-3',
+      'geometry-1/surface-4',
+      'geometry-1/surface-5',
+      'geometry-1/surface-6',
+    ])
+    expect(cylinder.surfaces.map((surface) => surface.name)).toEqual(['Bottom', 'Side', 'Top'])
+    expect(startTip.surfaces.map((surface) => surface.name)).toEqual(['Side', 'Top'])
+    expect(endTip.surfaces.map((surface) => surface.name)).toEqual(['Bottom', 'Side'])
+    expect(sphere.surfaces.map((surface) => surface.name)).toEqual(['Outer'])
+
+    const boxPolygonCount = geometries.geom3.toPolygons(
+      box.geometry as Parameters<typeof geometries.geom3.toPolygons>[0],
+    ).length
+    expect(box.surfaces.flatMap((surface) => surface.polygonIndices).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: boxPolygonCount }, (_value, index) => index),
+    )
+  })
+
   it('validates box size before invoking JSCAD', () => {
     for (const size of [undefined, [1, 2], [1, 2, 0], [1, Number.NaN, 3]]) {
       expect(() => evaluate('box', { size })).toThrowError(CadModelError)

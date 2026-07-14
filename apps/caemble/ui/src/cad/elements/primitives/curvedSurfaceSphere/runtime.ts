@@ -1,4 +1,4 @@
-import { primitives } from '@jscad/modeling'
+import { geometries, primitives } from '@jscad/modeling'
 import { CadModelError } from '../../../model/core'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
 import {
@@ -118,5 +118,9 @@ export const curvedSurfaceSphereDefinition = {
   manifest: curvedSurfaceSphereManifest,
   createGeometry(props) {
     return createCurvedSurfaceSphereGeometry(props as CurvedSurfaceSphereAttributes)
+  },
+  createSurfaces(geometry) {
+    const polygons = geometries.geom3.toPolygons(geometry as ReturnType<typeof geometries.geom3.create>)
+    return [{ name: 'Outer', polygonIndices: polygons.map((_polygon, index) => index) }]
   },
 } satisfies PrimitiveElementDefinition<'curvedSurfaceSphere'>

@@ -85,6 +85,7 @@ export const arrayDefinition = {
   kind: 'operation',
   tag: arrayManifest.tag,
   manifest: arrayManifest,
+  surfacePolicy: 'preserve',
   evaluate(node, context) {
     if (
       node.children.length !== 1 ||
@@ -140,7 +141,10 @@ export const arrayDefinition = {
             props: { ...child.props, ...injectedPropsAt(inject, x, y, z) },
             children: child.children,
           }
-          parts.push(...applyTransforms(context.evaluate(cell, context.inheritedMaterials), {
+          parts.push(...applyTransforms(context.evaluate(cell, context.inheritedMaterials, {
+            key: `cell-${x}-${y}-${z}`,
+            label: `Cell [${x}, ${y}, ${z}]`,
+          }), {
             scale: unitScale,
             rotate: undefined,
             pos: offset,

@@ -1,4 +1,4 @@
-import { primitives } from '@jscad/modeling'
+import { geometries, primitives } from '@jscad/modeling'
 import { CadModelError } from '../../../model/core'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
 import { sphereManifest } from './definition'
@@ -16,5 +16,9 @@ export const sphereDefinition = {
       throw new CadModelError('<sphere> segments must be a safe integer greater than or equal to 4.')
     }
     return primitives.sphere({ radius: props.radius, segments: segments as number })
+  },
+  createSurfaces(geometry) {
+    const polygons = geometries.geom3.toPolygons(geometry as ReturnType<typeof geometries.geom3.create>)
+    return [{ name: 'Outer', polygonIndices: polygons.map((_polygon, index) => index) }]
   },
 } satisfies PrimitiveElementDefinition<'sphere'>

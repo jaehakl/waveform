@@ -11,6 +11,8 @@ describe('App reroll control', () => {
     expect(button).toContain('title="Re-run the current code to generate a new random structure"')
     expect(button).not.toMatch(/\sdisabled(?:=|\s|>)/)
     expect(markup).toContain('>Reroll</button>')
+    expect(markup).toContain('Geometry Tree')
+    expect(markup).toContain('Waiting for model...')
   })
 
   it('shows the available modeling examples', () => {

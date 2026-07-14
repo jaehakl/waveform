@@ -13,6 +13,16 @@ describe('CAD registry contracts', () => {
     expect(() => createCadElementRegistry([duplicate, duplicate])).toThrow('Duplicate CAD element tag: box')
   })
 
+  it('requires primitive surface definitions and operation surface policies', () => {
+    cadElementDefinitions.forEach((definition) => {
+      if (definition.kind === 'primitive') {
+        expect(definition.createSurfaces).toEqual(expect.any(Function))
+      } else {
+        expect(['preserve', 'derive']).toContain(definition.surfacePolicy)
+      }
+    })
+  })
+
   it('keeps evaluation registry, catalog, and ambient JSX tags in sync', () => {
     const registryTags = cadElementDefinitions.map((definition) => definition.tag).sort()
     const catalogTags = cadElementCatalog.map((manifest) => manifest.tag).sort()
@@ -66,6 +76,7 @@ describe('CAD registry contracts', () => {
       Sample: expect.any(Function),
       Structure: expect.any(Function),
       evaluateCad: expect.any(Function),
+      evaluateCadScene: expect.any(Function),
       h: expect.any(Function),
     })
   })

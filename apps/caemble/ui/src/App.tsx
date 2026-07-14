@@ -3,8 +3,9 @@ import CadEditor from './editor/CadEditor'
 import { defaultCode } from './defaultCode'
 import { caembleExamples } from './examples'
 import SyntaxHelp from './help/SyntaxHelp'
-import type { CadScenePart, CadWorkerRequest, CadWorkerResponse } from './cad'
+import type { CadScene, CadWorkerRequest, CadWorkerResponse } from './cad'
 import JscadViewer from './viewer/JscadViewer'
+import GeometryTree from './workspace/GeometryTree'
 
 type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
 type AppView = 'workspace' | 'help'
@@ -28,7 +29,8 @@ function createRequestId() {
 function App() {
   const [code, setCode] = useState(defaultCode)
   const [error, setError] = useState<RunError | null>(null)
-  const [parts, setParts] = useState<CadScenePart[]>([])
+  const [scene, setScene] = useState<CadScene | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [view, setView] = useState<AppView>('workspace')
   const activeTimeoutRef = useRef<number | null>(null)
@@ -92,7 +94,13 @@ function App() {
         if (response.type === 'success') {
           setStatus('Rendering')
           setError(null)
-          setParts(response.parts)
+          setScene(response.scene)
+          setSelectedId((current) => {
+            if (current === null) return null
+            return response.scene.parts.some((part) =>
+              part.id === current || part.surfaces.some((surface) => surface.id === current),
+            ) ? current : null
+          })
           return
         }
 
@@ -257,9 +265,13 @@ function App() {
       </header>
 
       {view === 'workspace' ? (
-        <section className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(360px,44%)_minmax(0,1fr)]">
+        <section className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(340px,38%)_minmax(220px,260px)_minmax(0,1fr)]">
           <div className="min-h-[360px] border-b border-slate-200 lg:min-h-0 lg:border-b-0 lg:border-r">
             <CadEditor value={code} onChange={setCode} />
+          </div>
+
+          <div className="min-h-[240px] border-b border-slate-200 lg:min-h-0 lg:border-b-0 lg:border-r">
+            <GeometryTree scene={scene} selectedId={selectedId} onSelect={setSelectedId} />
           </div>
 
           <div className="min-h-[360px] min-w-0">
@@ -267,7 +279,8 @@ function App() {
               onRenderEnd={handleRenderEnd}
               onRenderError={handleRenderError}
               onRenderStart={handleRenderStart}
-              parts={parts}
+              parts={scene?.parts ?? []}
+              selectedId={selectedId}
             />
           </div>
         </section>

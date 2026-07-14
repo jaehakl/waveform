@@ -18,7 +18,7 @@ npm run build
 npm run lint
 ```
 
-The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model.
+The Workspace auto-runs 500 ms after an edit. `Reroll` executes unchanged source immediately, so a Sample built from seedless `structure.randomVars()` can generate another model. The Geometry Tree shows the evaluated JSX hierarchy, final Geometry IDs, and their Surface IDs. Selecting one Geometry or Surface highlights it in the viewer.
 
 ## CAD Library Layout
 
@@ -84,6 +84,8 @@ const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
 `Material(name, vars, displayColor?)` stores a read-only tensor dictionary. A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]`.
 
 Different Materials may appear as sibling scene parts. `union`, `subtract`, and `intersect` require all operands to use the same Material instance. Different instances cannot share one Material name.
+
+Every final scene Geometry receives a deterministic `geometry-N` ID, and each of its semantic or derived surfaces receives a `geometry-N/surface-M` ID. Primitive surfaces use local shape semantics such as caps, sides, and axis faces. Topology-changing operations derive connected surfaces at sharp edges. These IDs belong to the evaluated scene and are not JSX attributes.
 
 Every Geometry and CAD element accepts `pos`, axis-angle `rotate`, and `scale`. Child geometry is evaluated first, followed by local scale, rotation, and position. Fragment does not accept transforms.
 

@@ -1,3 +1,4 @@
+import { geometries } from '@jscad/modeling'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
 import { exampleManifest } from './definition'
 
@@ -8,5 +9,11 @@ export const exampleDefinition = {
   createGeometry(props) {
     // Validate props, then return one JSCAD geom3.
     return props
+  },
+  createSurfaces(geometry) {
+    const polygons = geometries.geom3.toPolygons(
+      geometry as ReturnType<typeof geometries.geom3.create>,
+    )
+    return [{ name: 'Outer', polygonIndices: polygons.map((_polygon, index) => index) }]
   },
 } satisfies PrimitiveElementDefinition<'example'>

@@ -1,5 +1,5 @@
 import { Material, Sample, Structure, CadModelError, evaluateWithVars, vars } from '../model/core'
-import { evaluateCad } from '../evaluation/evaluator'
+import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 
 const coreModule = Object.freeze({ Material, Sample, Structure })
@@ -31,7 +31,7 @@ export function executeCompiledCode(jsCode: string) {
     throw new CadModelError('The default export must be a Sample instance.')
   }
 
-  return evaluateWithVars(entry.vars, () => evaluateCad(entry.structure.geometry()))
+  return evaluateWithVars(entry.vars, () => evaluateCadScene(entry.structure.geometry()))
 }
 
 

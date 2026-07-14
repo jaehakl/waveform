@@ -1,4 +1,4 @@
-import { extrusions } from '@jscad/modeling'
+import { extrusions, geometries } from '@jscad/modeling'
 import { CadModelError } from '../../../model/core'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
 import {
@@ -108,5 +108,19 @@ export const curvedEdgeCylinderDefinition = {
   manifest: curvedEdgeCylinderManifest,
   createGeometry(props) {
     return createCurvedEdgeCylinderGeometry(props as CurvedEdgeCylinderAttributes)
+  },
+  createSurfaces(geometry) {
+    const groups = {
+      Bottom: [] as number[],
+      Side: [] as number[],
+      Top: [] as number[],
+    }
+    geometries.geom3.toPolygons(geometry as ReturnType<typeof geometries.geom3.create>).forEach((polygon, index) => {
+      const normalZ = geometries.poly3.plane(polygon)[2]
+      if (Math.abs(normalZ + 1) < 1e-10) groups.Bottom.push(index)
+      else if (Math.abs(normalZ - 1) < 1e-10) groups.Top.push(index)
+      else groups.Side.push(index)
+    })
+    return Object.entries(groups).map(([name, polygonIndices]) => ({ name, polygonIndices }))
   },
 } satisfies PrimitiveElementDefinition<'curvedEdgeCylinder'>

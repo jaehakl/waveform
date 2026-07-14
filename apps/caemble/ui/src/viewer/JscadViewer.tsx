@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadScenePart } from '../cad'
+import { createRenderParts } from './selection'
 
 type RendererEntity = Record<string, unknown>
 type RendererOptions = Record<string, unknown> & {
@@ -40,26 +41,19 @@ type JscadViewerProps = {
   onRenderError: (message: string) => void
   onRenderStart: () => void
   parts: CadScenePart[]
+  selectedId: string | null
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
 
-function colorFromHex(hex: string): [number, number, number, number] {
-  return [
-    Number.parseInt(hex.slice(1, 3), 16) / 255,
-    Number.parseInt(hex.slice(3, 5), 16) / 255,
-    Number.parseInt(hex.slice(5, 7), 16) / 255,
-    1,
-  ]
-}
-
-function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: JscadViewerProps) {
+function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selectedId }: JscadViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
   const controlsRef = useRef<RendererState | null>(null)
   const lastPointRef = useRef<{ button: number; x: number; y: number } | null>(null)
   const optionsRef = useRef<RendererOptions | null>(null)
   const renderRef = useRef<((options: RendererOptions) => void) | null>(null)
+  const lastFittedPartsRef = useRef<CadScenePart[] | null>(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -140,12 +134,13 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: Jscad
   useEffect(() => {
     if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
 
-    onRenderStart()
+    const shouldFit = lastFittedPartsRef.current !== parts
+    if (shouldFit) onRenderStart()
 
     try {
-      const solidsEntities = parts.flatMap((part) =>
+      const solidsEntities = createRenderParts(parts, selectedId).flatMap((part) =>
         renderer.entitiesFromSolids(
-          { color: colorFromHex(part.displayColor), smoothNormals: true },
+          { color: part.color, smoothNormals: true },
           part.geometry,
         ),
       )
@@ -167,13 +162,15 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: Jscad
 
       optionsRef.current.entities = [gridEntity, axisEntity, ...solidsEntities]
 
-      const zoomed = renderer.controls.orbit.zoomToFit({
-        camera: cameraRef.current,
-        controls: controlsRef.current,
-        entities: solidsEntities,
-      })
-      Object.assign(cameraRef.current, zoomed.camera)
-      Object.assign(controlsRef.current, zoomed.controls)
+      if (shouldFit) {
+        const zoomed = renderer.controls.orbit.zoomToFit({
+          camera: cameraRef.current,
+          controls: controlsRef.current,
+          entities: solidsEntities,
+        })
+        Object.assign(cameraRef.current, zoomed.camera)
+        Object.assign(controlsRef.current, zoomed.controls)
+      }
 
       const updated = renderer.controls.orbit.update({
         camera: cameraRef.current,
@@ -184,12 +181,15 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: Jscad
       renderer.cameras.perspective.update(cameraRef.current, cameraRef.current)
 
       renderRef.current(optionsRef.current)
-      onRenderEnd()
+      if (shouldFit) {
+        lastFittedPartsRef.current = parts
+        onRenderEnd()
+      }
     } catch (error) {
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [onRenderEnd, onRenderError, onRenderStart, parts])
+  }, [onRenderEnd, onRenderError, onRenderStart, parts, selectedId])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -203,6 +203,11 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: Jscad
     renderer.cameras.perspective.update(cameraRef.current, cameraRef.current)
     renderRef.current(optionsRef.current)
   }
+
+  const selectedPart = parts.find((part) =>
+    part.id === selectedId || part.surfaces.some((surface) => surface.id === selectedId),
+  )
+  const selectedSurface = selectedPart?.surfaces.find((surface) => surface.id === selectedId)
 
   return (
     <div className="relative h-full min-h-[320px] w-full overflow-hidden bg-slate-50">
@@ -274,6 +279,18 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts }: Jscad
               <span>{part.materialName}</span>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {selectedPart ? (
+        <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
+          <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
+            {selectedSurface?.name ?? `${selectedPart.id} · ${selectedPart.materialName}`}
+          </div>
+          <div className="truncate font-mono text-[10px] text-slate-400">
+            {selectedSurface?.id ?? selectedPart.id}
+          </div>
         </div>
       ) : null}
     </div>

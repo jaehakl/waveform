@@ -173,6 +173,24 @@ describe('shell evaluation', () => {
     expect(parts.map((part) => part.materialName)).toEqual(['Shared shell', 'Shared shell'])
   })
 
+  it('derives sharp box boundaries and smooth sphere boundaries', () => {
+    const box = evaluateCad(
+      h(
+        () => h('shell', { offsets: [1] }, h('box', { size: [4, 4, 4] })),
+        { materials: [innerMaterial] },
+      ),
+    )[0]
+    const sphere = evaluateCad(
+      h(
+        () => h('shell', { offsets: [1] }, h('sphere', { radius: 3, segments: 16 })),
+        { materials: [innerMaterial] },
+      ),
+    )[0]
+
+    expect(box.surfaces).toHaveLength(12)
+    expect(sphere.surfaces).toHaveLength(2)
+  })
+
   it('registers Material names for every generated layer', () => {
     const first = new Material('Duplicate shell', {}, '#2563eb')
     const second = new Material('Duplicate shell', {}, '#dc2626')

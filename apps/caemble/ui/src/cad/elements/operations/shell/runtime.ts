@@ -246,6 +246,7 @@ export const shellDefinition = {
   kind: 'operation',
   tag: shellManifest.tag,
   manifest: shellManifest,
+  surfacePolicy: 'derive',
   evaluate(node, context) {
     if (node.children.length !== 1) {
       throw new CadModelError('<shell> requires exactly one direct child Geometry.')

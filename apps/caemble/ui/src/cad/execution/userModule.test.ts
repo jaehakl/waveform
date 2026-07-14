@@ -28,9 +28,10 @@ module.exports.default = new Sample(structure)
 describe('compiled user module execution', () => {
   it('resolves @caemble/core and evaluates a default Sample', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Sample')
-    expect(executeCompiledCode(validModule)).toMatchObject([
-      { materialName: 'Core', displayColor: '#2563eb' },
-    ])
+    expect(executeCompiledCode(validModule)).toMatchObject({
+      parts: [{ id: 'geometry-1', materialName: 'Core', displayColor: '#2563eb' }],
+      tree: { label: 'Structure' },
+    })
   })
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
@@ -50,7 +51,7 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const parts = executeCompiledCode(compiled.code)
+    const { parts } = executeCompiledCode(compiled.code)
 
     expect(parts).toHaveLength(3)
     expect(parts.every((part) => part.materialName === 'Tapered Fiber')).toBe(true)
@@ -73,7 +74,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      expect(executeCompiledCode(compiled.code).length).toBeGreaterThan(0)
+      expect(executeCompiledCode(compiled.code).parts.length).toBeGreaterThan(0)
     }
   })
 
@@ -90,7 +91,7 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const parts = executeCompiledCode(compiled.code)
+    const { parts } = executeCompiledCode(compiled.code)
 
     expect(parts.map((part) => part.materialName)).toEqual([
       'Core', 'Layer 1',
@@ -131,7 +132,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      const parts = executeCompiledCode(compiled.code)
+      const { parts } = executeCompiledCode(compiled.code)
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(16)
@@ -161,7 +162,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      const parts = executeCompiledCode(compiled.code)
+      const { parts } = executeCompiledCode(compiled.code)
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(48)

@@ -28,6 +28,7 @@ function createBooleanDefinition<Tag extends 'union' | 'subtract' | 'intersect'>
     kind: 'operation',
     tag: manifest.tag,
     manifest,
+    surfacePolicy: 'derive',
     evaluate(node, context) {
       const minimum = manifest.tag === 'union' ? 1 : 2
       if (node.children.length < minimum) {

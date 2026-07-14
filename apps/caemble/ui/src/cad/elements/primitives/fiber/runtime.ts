@@ -1,4 +1,4 @@
-import { extrusions } from '@jscad/modeling'
+import { extrusions, geometries } from '@jscad/modeling'
 import type { MutableVec3 } from '../../../geometry/vec3'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
 import { fiberManifest, type FiberAttributes } from './definition'
@@ -39,5 +39,26 @@ export const fiberDefinition = {
   manifest: fiberManifest,
   createGeometry(props) {
     return createFiberGeometry(props as FiberAttributes)
+  },
+  createSurfaces(geometry, props) {
+    const polygons = geometries.geom3.toPolygons(geometry as ReturnType<typeof geometries.geom3.create>)
+    const radialSegments = props.radialSegments === undefined ? 12 : props.radialSegments as number
+    const capPolygonCount = radialSegments - 2
+    const endCapStart = polygons.length - capPolygonCount * 2
+    const startCapStart = polygons.length - capPolygonCount
+    return [
+      {
+        name: 'Start cap',
+        polygonIndices: Array.from({ length: capPolygonCount }, (_value, index) => startCapStart + index),
+      },
+      {
+        name: 'Side',
+        polygonIndices: Array.from({ length: endCapStart }, (_value, index) => index),
+      },
+      {
+        name: 'End cap',
+        polygonIndices: Array.from({ length: capPolygonCount }, (_value, index) => endCapStart + index),
+      },
+    ]
   },
 } satisfies PrimitiveElementDefinition<'fiber'>

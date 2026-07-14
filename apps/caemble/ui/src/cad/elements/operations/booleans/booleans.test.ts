@@ -48,4 +48,31 @@ describe('CAD booleans', () => {
       expect(measurements.measureBoundingBox(part.geometry)[0][1]).toBeCloseTo(0, 6)
     })
   })
+
+  it('derives six outer box surfaces and one cylindrical cut surface', () => {
+    const material = new Material('Machined', {}, '#2563eb')
+
+    function Base() {
+      return h('box', { size: [3, 3, 3] })
+    }
+
+    function Cutter() {
+      return h('cylinder', { radius: 0.5, height: 4, segments: 32 })
+    }
+
+    const [part] = evaluateCad(
+      h('subtract', null, h(Base, { materials: [material] }), h(Cutter, { materials: [material] })),
+    )
+
+    expect(part.surfaces).toHaveLength(7)
+    expect(part.surfaces.map((surface) => surface.name)).toEqual([
+      'Surface 1',
+      'Surface 2',
+      'Surface 3',
+      'Surface 4',
+      'Surface 5',
+      'Surface 6',
+      'Surface 7',
+    ])
+  })
 })
