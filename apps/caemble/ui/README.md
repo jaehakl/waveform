@@ -278,10 +278,21 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
 
 
-## Experiment
-- 계산 unit 을 cell 이라 한다. (mesh 1칸, ray 1개, rigid body 1개, particle 1개)
-- cell 은 geometry 에 종속된다.(Solver 에서 Geometry Tag 로 구분하여 활용)
-- cell 은 계산 중에 새로 생기거나 소멸할 수 있다.
-- Geometry 는 변형될 수 있다. (vars 는 initial state 로 주어지며, Solver 에서 vars key 값으로 구분하여 활용)
+## Experiment class
+- Structure class 가 가진 것들을 갖는다. (geometry, varsSchema (vars), geometryGroup, surfaceGroup)
+- Geometry/Surface Group 별 cell initialize 규칙 관련 정보(initial condition 포함) (시뮬레이션 종류 별 특화 type)
+- Geometry/Surface Group 별 Boundary Condition 관련 정보 (시뮬레이션 종류 별 특화 type)
+- 이 때, Group 은 experiment.geometry 뿐 아니라 structure.geometry 것도 지정 가능 (다만 experiment 가 특정 structure 에 종속되는 건 아니고, Group 이름만 예약해두는 느슨한 결합, 다양한 structure 와 조합해서 쓸 수 있도록 하기 위함)
+- experiment.vars 값 사용 가능 : experiment.geometry, initial condition, boundary condition 모두
 
-- 모든 Geometry 는 동일 parent 내 unique id 를 필수적으로 명시해야하며(번호로 해도 무난), local_id1.local_id2.local_id3 하는 규칙으로 global unique id 를 explicit 하게 유추할 수 있어야 함.
+<참고 사항>
+- 계산되는 물리량을 담는 계산 unit 을 cell 이라 한다. (mesh 1칸, ray 1개, rigid body 1개, particle 1개)
+- cell 은 geometry 에 종속된다. (cell 이 없는 geometry 도 있을 수 있다.)
+
+
+- cell 은 solver 알고리즘에 따라 계산 중에 새로 생기거나 소멸할 수 있다.
+- Geometry 는 변형될 수 있다. (vars 는 initial state 로 주어지며, Solver 에서 vars key 값으로 구분하여 활용)
+- Geometry, Surface 는 Boundary Condition 을 가질 수 있다. (time dependent or independent)
+
+
+
