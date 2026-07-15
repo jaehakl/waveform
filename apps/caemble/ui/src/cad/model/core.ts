@@ -9,6 +9,12 @@ export type MaterialVariable =
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
 export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+export type SolverParameters = Readonly<Record<string, MaterialVariable>>
+export type ExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: () => SolverParameters
+}>
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
     id: string
@@ -30,9 +36,11 @@ export type VarsSchemaEntry = {
 
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
-export type ExperimentRule<T> = Readonly<{
+export type ExperimentRule<TParameters extends object = Record<string, unknown>> = Readonly<{
   target: readonly ExperimentTarget[]
-  value: T
+  label: string
+  methodId: string
+  parameters: TParameters
 }>
 
 type StructureOptions = {
@@ -42,9 +50,15 @@ type StructureOptions = {
   surfaceGroup?: StructureGroupMap
 }
 
-type ExperimentOptions<TInitialCondition, TBoundaryCondition> = StructureOptions & {
-  initialConditions?: () => readonly ExperimentRule<TInitialCondition>[]
-  boundaryConditions?: () => readonly ExperimentRule<TBoundaryCondition>[]
+type ExperimentOptions<
+  TInitialConditionParameters extends object,
+  TBoundaryConditionParameters extends object,
+  TRecordedDataParameters extends object,
+> = StructureOptions & {
+  solver: ExperimentSolver
+  initialConditions?: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
+  recordedData?: () => readonly ExperimentRule<TRecordedDataParameters>[]
 }
 
 export class CadModelError extends Error {
@@ -56,6 +70,54 @@ export class CadModelError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))
+}
+
+function normalizeJsonValue(
+  value: unknown,
+  path: string,
+  ancestors = new Set<object>(),
+): MaterialVariable {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new CadModelError(`${path} must be a finite number.`)
+    return value
+  }
+  if (typeof value !== 'object') {
+    throw new CadModelError(`${path} must be JSON-compatible.`)
+  }
+  if (ancestors.has(value)) throw new CadModelError(`${path} must not contain circular references.`)
+
+  ancestors.add(value)
+  if (Array.isArray(value)) {
+    const normalized = Array.from(value, (item, index) =>
+      normalizeJsonValue(item, `${path}[${index}]`, ancestors))
+    ancestors.delete(value)
+    return Object.freeze(normalized)
+  }
+  if (!isPlainObject(value)) {
+    ancestors.delete(value)
+    throw new CadModelError(`${path} must contain only plain objects.`)
+  }
+
+  const normalized: Record<string, MaterialVariable> = {}
+  Object.entries(value).forEach(([key, item]) => {
+    if (!key.trim()) throw new CadModelError(`${path} property names must not be empty.`)
+    normalized[key] = normalizeJsonValue(item, `${path}.${key}`, ancestors)
+  })
+  ancestors.delete(value)
+  return Object.freeze(normalized)
+}
+
+function normalizeJsonObject(value: unknown, path: string): Readonly<Record<string, MaterialVariable>> {
+  if (!isPlainObject(value)) {
+    throw new CadModelError(`${path} must be a plain object.`)
+  }
+
+  return normalizeJsonValue(value, path) as Readonly<Record<string, MaterialVariable>>
 }
 
 function cloneTensor(value: Tensor): Tensor {
@@ -346,47 +408,14 @@ export class Material {
     const rawVariables = typeof versionOrVariables === 'string'
       ? versionVariables === undefined ? {} : versionVariables
       : versionOrVariables === undefined ? {} : versionOrVariables
-    if (!isRecord(rawVariables)
-      || ![Object.prototype, null].includes(Object.getPrototypeOf(rawVariables))) {
+    if (!isPlainObject(rawVariables)) {
       throw new CadModelError(`Material ${symbol} variables must be a plain object.`)
-    }
-
-    const ancestors = new Set<object>()
-    const normalizeVariable = (value: unknown, path: string): MaterialVariable => {
-      if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
-      if (typeof value === 'number') {
-        if (!Number.isFinite(value)) throw new CadModelError(`${path} must be a finite number.`)
-        return value
-      }
-      if (typeof value !== 'object') {
-        throw new CadModelError(`${path} must be JSON-compatible.`)
-      }
-      if (ancestors.has(value)) throw new CadModelError(`${path} must not contain circular references.`)
-
-      ancestors.add(value)
-      if (Array.isArray(value)) {
-        const normalized = Array.from(value, (item, index) => normalizeVariable(item, `${path}[${index}]`))
-        ancestors.delete(value)
-        return Object.freeze(normalized)
-      }
-      if (![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
-        ancestors.delete(value)
-        throw new CadModelError(`${path} must contain only plain objects.`)
-      }
-
-      const normalized: Record<string, MaterialVariable> = {}
-      Object.entries(value).forEach(([key, item]) => {
-        if (!key.trim()) throw new CadModelError(`${path} property names must not be empty.`)
-        normalized[key] = normalizeVariable(item, `${path}.${key}`)
-      })
-      ancestors.delete(value)
-      return Object.freeze(normalized)
     }
 
     const normalizedVariables: Record<string, MaterialVariable> = {}
     Object.entries(rawVariables).forEach(([key, value]) => {
       if (!key.trim()) throw new CadModelError(`Material ${symbol} variable names must not be empty.`)
-      normalizedVariables[key] = normalizeVariable(value, `Material ${symbol} variables.${key}`)
+      normalizedVariables[key] = normalizeJsonValue(value, `Material ${symbol} variables.${key}`)
     })
     if (normalizedVariables.color !== undefined) {
       if (typeof normalizedVariables.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(normalizedVariables.color)) {
@@ -442,34 +471,70 @@ function emptyRuleFactory() {
 }
 
 export class Experiment<
-  TInitialCondition = unknown,
-  TBoundaryCondition = unknown,
+  TInitialConditionParameters extends object = Record<string, unknown>,
+  TBoundaryConditionParameters extends object = Record<string, unknown>,
+  TRecordedDataParameters extends object = Record<string, unknown>,
 > extends Structure {
-  readonly initialConditions: () => readonly ExperimentRule<TInitialCondition>[]
-  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryCondition>[]
+  readonly solver: ExperimentSolver
+  readonly initialConditions: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
+  readonly recordedData: () => readonly ExperimentRule<TRecordedDataParameters>[]
 
-  constructor(options: ExperimentOptions<TInitialCondition, TBoundaryCondition>) {
+  constructor(options: ExperimentOptions<
+    TInitialConditionParameters,
+    TBoundaryConditionParameters,
+    TRecordedDataParameters
+  >) {
     super(options)
 
+    if (!isPlainObject(options.solver)) {
+      throw new CadModelError('Experiment solver must be a plain object.')
+    }
+    if (typeof options.solver.name !== 'string' || !options.solver.name.trim()) {
+      throw new CadModelError('Experiment solver name must be a non-empty string.')
+    }
+    if (typeof options.solver.version !== 'string' || !options.solver.version.trim()) {
+      throw new CadModelError('Experiment solver version must be a non-empty string.')
+    }
+    if (typeof options.solver.parameters !== 'function') {
+      throw new CadModelError('Experiment solver parameters must be a function.')
+    }
     if (options.initialConditions !== undefined && typeof options.initialConditions !== 'function') {
       throw new CadModelError('Experiment initialConditions must be a function.')
     }
     if (options.boundaryConditions !== undefined && typeof options.boundaryConditions !== 'function') {
       throw new CadModelError('Experiment boundaryConditions must be a function.')
     }
+    if (options.recordedData !== undefined && typeof options.recordedData !== 'function') {
+      throw new CadModelError('Experiment recordedData must be a function.')
+    }
 
+    this.solver = Object.freeze({
+      name: options.solver.name.trim(),
+      version: options.solver.version.trim(),
+      parameters: options.solver.parameters,
+    })
     this.initialConditions = options.initialConditions ?? emptyRuleFactory
     this.boundaryConditions = options.boundaryConditions ?? emptyRuleFactory
+    this.recordedData = options.recordedData ?? emptyRuleFactory
     Object.freeze(this)
   }
 }
 
+export function evaluateExperimentSolver(experiment: Experiment<object, object, object>) {
+  return Object.freeze({
+    name: experiment.solver.name,
+    version: experiment.solver.version,
+    parameters: normalizeJsonObject(experiment.solver.parameters(), 'Experiment solver parameters'),
+  })
+}
+
 function normalizeExperimentTarget(
   rawTarget: unknown,
-  propertyName: 'initialConditions' | 'boundaryConditions',
+  propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
   ruleIndex: number,
   targetIndex: number,
-  experiment: Experiment,
+  experiment: Experiment<object, object, object>,
 ) {
   const targetPath = `Experiment ${propertyName}[${ruleIndex}].target[${targetIndex}]`
   if (typeof rawTarget !== 'string') {
@@ -506,47 +571,81 @@ function normalizeExperimentTarget(
   return `${source}.${kind}.${group}` as ExperimentTarget
 }
 
-function normalizeExperimentRuleList<T>(
+function normalizeExperimentRuleList<TParameters extends object>(
   rawRules: unknown,
-  propertyName: 'initialConditions' | 'boundaryConditions',
-  experiment: Experiment,
+  propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
+  experiment: Experiment<object, object, object>,
 ) {
   if (!Array.isArray(rawRules)) {
     throw new CadModelError(`Experiment ${propertyName} must return an array.`)
   }
 
-  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<T> => {
+  const labels = new Set<string>()
+  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<TParameters> => {
     if (
       !isRecord(rawRule)
       || !Object.prototype.hasOwnProperty.call(rawRule, 'target')
-      || !Object.prototype.hasOwnProperty.call(rawRule, 'value')
+      || !Object.prototype.hasOwnProperty.call(rawRule, 'label')
+      || !Object.prototype.hasOwnProperty.call(rawRule, 'methodId')
+      || !Object.prototype.hasOwnProperty.call(rawRule, 'parameters')
     ) {
-      throw new CadModelError(`Experiment ${propertyName}[${index}] must contain target and value.`)
+      throw new CadModelError(
+        `Experiment ${propertyName}[${index}] must contain target, label, methodId, and parameters.`,
+      )
     }
     if (!Array.isArray(rawRule.target) || rawRule.target.length === 0) {
       throw new CadModelError(`Experiment ${propertyName}[${index}].target must be a non-empty array.`)
+    }
+    if (typeof rawRule.label !== 'string' || !rawRule.label.trim()) {
+      throw new CadModelError(`Experiment ${propertyName}[${index}].label must be a non-empty string.`)
+    }
+    const label = rawRule.label.trim()
+    if (labels.has(label)) {
+      throw new CadModelError(`Experiment ${propertyName} label "${label}" is duplicated.`)
+    }
+    labels.add(label)
+    if (typeof rawRule.methodId !== 'string' || !rawRule.methodId.trim()) {
+      throw new CadModelError(`Experiment ${propertyName}[${index}].methodId must be a non-empty string.`)
+    }
+    if (!isRecord(rawRule.parameters)) {
+      throw new CadModelError(`Experiment ${propertyName}[${index}].parameters must be an object.`)
     }
 
     return Object.freeze({
       target: Object.freeze(rawRule.target.map((target, targetIndex) =>
         normalizeExperimentTarget(target, propertyName, index, targetIndex, experiment))),
-      value: rawRule.value as T,
+      label,
+      methodId: rawRule.methodId.trim(),
+      parameters: rawRule.parameters as TParameters,
     })
   }))
 }
 
-export function evaluateExperimentRules<TInitialCondition, TBoundaryCondition>(
-  experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+export function evaluateExperimentRules<
+  TInitialConditionParameters extends object,
+  TBoundaryConditionParameters extends object,
+  TRecordedDataParameters extends object,
+>(
+  experiment: Experiment<
+    TInitialConditionParameters,
+    TBoundaryConditionParameters,
+    TRecordedDataParameters
+  >,
 ) {
   return Object.freeze({
-    initialConditions: normalizeExperimentRuleList<TInitialCondition>(
+    initialConditions: normalizeExperimentRuleList<TInitialConditionParameters>(
       experiment.initialConditions(),
       'initialConditions',
       experiment,
     ),
-    boundaryConditions: normalizeExperimentRuleList<TBoundaryCondition>(
+    boundaryConditions: normalizeExperimentRuleList<TBoundaryConditionParameters>(
       experiment.boundaryConditions(),
       'boundaryConditions',
+      experiment,
+    ),
+    recordedData: normalizeExperimentRuleList<TRecordedDataParameters>(
+      experiment.recordedData(),
+      'recordedData',
       experiment,
     ),
   })
@@ -588,14 +687,25 @@ export class Sample extends VariableObject<Structure> {
   }
 }
 
-export class Setup<TInitialCondition = unknown, TBoundaryCondition = unknown>
-  extends VariableObject<Experiment<TInitialCondition, TBoundaryCondition>> {
+export class Setup<
+  TInitialConditionParameters extends object = Record<string, unknown>,
+  TBoundaryConditionParameters extends object = Record<string, unknown>,
+  TRecordedDataParameters extends object = Record<string, unknown>,
+> extends VariableObject<Experiment<
+    TInitialConditionParameters,
+    TBoundaryConditionParameters,
+    TRecordedDataParameters
+  >> {
   get experiment() {
     return this.object
   }
 
   constructor(
-    experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+    experiment: Experiment<
+      TInitialConditionParameters,
+      TBoundaryConditionParameters,
+      TRecordedDataParameters
+    >,
     partialVars: Partial<Vars> = {},
   ) {
     if (!(experiment instanceof Experiment)) {

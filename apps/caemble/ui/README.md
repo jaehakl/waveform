@@ -71,7 +71,7 @@ Evaluation order is Sample vars resolution → global `vars` binding → lazy ge
 
 ## Experiment And Setup
 
-`Experiment` extends `Structure`, so it inherits `geometry`, `varsSchema`, `geometryGroup`, `surfaceGroup`, and `randomVars()`. It adds lazy initial-condition and boundary-condition rule factories. `Sample` and `Setup` share the abstract `VariableObject` base: `sample.object === sample.structure`, and `setup.object === setup.experiment`. A plain `Sample` cannot wrap an Experiment.
+`Experiment` extends `Structure`, so it inherits `geometry`, `varsSchema`, `geometryGroup`, `surfaceGroup`, and `randomVars()`. Every Experiment requires a Solver name, version, and lazy JSON-compatible parameters factory. It also adds lazy initial-condition, boundary-condition, and recorded-data rule factories. `Sample` and `Setup` share the abstract `VariableObject` base: `sample.object === sample.structure`, and `setup.object === setup.experiment`. A plain `Sample` cannot wrap an Experiment.
 
 ```text
 Structure
@@ -82,17 +82,30 @@ VariableObject<TObject>
 └─ Setup  → Experiment
 ```
 
-Rule values are solver-specific opaque values. They may contain functions, including time-dependent boundary values. Both factories run with Setup values available through the same read-only global `vars` binding used by geometry.
+Every rule contains targets, an Experiment label, a simulation-engine method ID, and solver-specific parameter data. Parameters may contain functions, including time-dependent boundary values. All three factories run with Setup values available through the same read-only global `vars` binding used by geometry.
 
 ```tsx
 import { Experiment, Material, Setup, type Geometry, type Vec3 } from '@caemble/core'
 
-type InitialCondition = { initialValue: number }
-type BoundaryCondition = { value: number | ((time: number) => number) }
+type InitialConditionParameters = { initialValue: number }
+type BoundaryConditionParameters = { value: number | ((time: number) => number) }
+type RecordedDataParameters = { interval: number }
 
 const Domain: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
 
-const experiment = new Experiment<InitialCondition, BoundaryCondition>({
+const experiment = new Experiment<
+  InitialConditionParameters,
+  BoundaryConditionParameters,
+  RecordedDataParameters
+>({
+  solver: {
+    name: 'generic-field-solver',
+    version: '1.0.0',
+    parameters: () => ({
+      timeStep: vars.timeStep as number,
+      iterations: 100,
+    }),
+  },
   geometry: () => (
     <Domain
       id="domain"
@@ -102,27 +115,41 @@ const experiment = new Experiment<InitialCondition, BoundaryCondition>({
   ),
   varsSchema: {
     domainSize: { shape: [3], default: [36, 24, 18] },
+    timeStep: { shape: [], default: 0.01 },
     initialValue: { shape: [], default: 0.25 },
     amplitude: { shape: [], default: 0.2 },
+    recordInterval: { shape: [], default: 10 },
   },
   geometryGroup: { domain: ['domain'] },
   surfaceGroup: { outerBoundary: ['domain/surface-1'] },
   initialConditions: () => [{
     target: ['experiment.geometry.domain', 'structure.geometry.sample'],
-    value: { initialValue: vars.initialValue as number },
+    label: 'Initial field',
+    methodId: 'field.initialize',
+    parameters: { initialValue: vars.initialValue as number },
   }],
   boundaryConditions: () => [{
     target: ['structure.surface.sampleBoundary'],
-    value: { value: (time: number) => (vars.amplitude as number) * Math.sin(time) },
+    label: 'Sample boundary',
+    methodId: 'field.time-boundary',
+    parameters: { value: (time: number) => (vars.amplitude as number) * Math.sin(time) },
+  }],
+  recordedData: () => [{
+    target: ['experiment.geometry.domain'],
+    label: 'Domain average',
+    methodId: 'field.average',
+    parameters: { interval: vars.recordInterval as number },
   }],
 })
 
 export default new Setup(experiment)
 ```
 
-Each rule has a non-empty `target` array, so one solver value may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. `experiment.*` targets must reference groups declared by the Experiment. `structure.*` targets reserve names for a future Sample without coupling this Experiment to a particular Structure.
+Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. `experiment.*` targets must reference groups declared by the Experiment. `structure.*` targets reserve names for a future Sample without coupling this Experiment to a particular Structure. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
 
-Experiment geometry and a paired Sample are assumed to use the same coordinate system. The standalone editor previews and validates only Experiment geometry and rules; it does not create cells or run a solver. A cell is a solver-defined calculation unit associated with geometry, such as a mesh element, ray, rigid body, or particle. Solvers may later create or remove cells, deform geometry, and interpret vars as initial state.
+Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, finite numbers, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, class instances, and circular references are rejected.
+
+Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Experiment geometry and a paired Sample are assumed to use the same coordinate system. The standalone editor previews and validates only Experiment geometry, Solver parameters, and rules; it does not load or run a solver. A cell is a solver-defined calculation unit associated with geometry, such as a mesh element, ray, rigid body, or particle. Solvers may later create or remove cells, deform geometry, and interpret vars as initial state.
 
 ## Vars
 

@@ -24,11 +24,13 @@ export {
 } from './model/core'
 export type {
   ExperimentRule,
+  ExperimentSolver,
   ExperimentTarget,
   Geometry,
   GeometryAttributes,
   MaterialVariable,
   MaterialVariables,
+  SolverParameters,
   StructureGroupMap,
   VarsSchemaEntry,
 } from './model/core'

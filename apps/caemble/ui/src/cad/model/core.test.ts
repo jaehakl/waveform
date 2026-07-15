@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CadModelError,
   evaluateExperimentRules,
+  evaluateExperimentSolver,
   Material,
   Experiment,
   Sample,
@@ -13,6 +14,10 @@ import {
   type Geometry,
   type GeometryAttributes,
 } from './core'
+
+function createSolver(parameters: () => Record<string, never> = () => ({})) {
+  return { name: 'test-solver', version: '1.0.0', parameters }
+}
 
 function createStructure() {
   return new Structure({
@@ -136,6 +141,7 @@ describe('Experiment and Setup', () => {
     const structure = createStructure()
     const sample = new Sample(structure, { width: 24 })
     const experiment = new Experiment({
+      solver: createSolver(),
       geometry: () => null,
       varsSchema: {
         initialValue: { shape: [], default: 0.25, min: 0, max: 1 },
@@ -152,6 +158,7 @@ describe('Experiment and Setup', () => {
     expect(setup.object).toBe(experiment)
     expect(setup.experiment).toBe(experiment)
     expect(setup.vars.initialValue).toBe(0.75)
+    expect(experiment.recordedData()).toEqual([])
     expect(Object.isFrozen(experiment)).toBe(true)
     expect(Object.isFrozen(sample)).toBe(true)
     expect(Object.isFrozen(setup)).toBe(true)
@@ -159,7 +166,7 @@ describe('Experiment and Setup', () => {
 
   it('rejects invalid VariableObject pairings and direct abstract construction', () => {
     const structure = createStructure()
-    const experiment = new Experiment({ geometry: () => null, varsSchema: {} })
+    const experiment = new Experiment({ solver: createSolver(), geometry: () => null, varsSchema: {} })
     const DirectVariableObject = VariableObject as unknown as new (
       object: Structure,
     ) => VariableObject<Structure>
@@ -169,57 +176,156 @@ describe('Experiment and Setup', () => {
     expect(() => new DirectVariableObject(structure)).toThrow('abstract and cannot be instantiated directly')
   })
 
-  it('normalizes ordered rule target arrays while preserving duplicates and opaque values', () => {
+  it('evaluates and normalizes all method rows in order under Setup vars', () => {
     const timeValue = (time: number) => time * 2
-    const experiment = new Experiment<Readonly<{ initialValue: number }>, Readonly<{ value: number | typeof timeValue }>>({
-      geometry: () => null,
+    const order: string[] = []
+    let recordedParameters: Readonly<{ interval: number; transform: typeof timeValue }> | undefined
+    const experiment = new Experiment<
+      Readonly<{ initialValue: number }>,
+      Readonly<{ value: number | typeof timeValue; offset: number }>,
+      Readonly<{ interval: number; transform: typeof timeValue }>
+    >({
+      solver: createSolver(),
+      geometry: () => {
+        order.push('geometry')
+        return null
+      },
       varsSchema: { initialValue: { shape: [], default: 0.5 } },
       geometryGroup: { domain: [] },
       surfaceGroup: { 'outer.boundary': [] },
-      initialConditions: () => [
-        {
+      initialConditions: () => {
+        order.push('initialConditions')
+        return [{
           target: [
             ' experiment.geometry.domain ' as 'experiment.geometry.domain',
             'structure.geometry.sample',
             'structure.geometry.sample',
           ],
-          value: { initialValue: vars.initialValue as number },
-        },
-        {
-          target: ['structure.geometry.sample'],
-          value: { initialValue: 1 },
-        },
-      ],
-      boundaryConditions: () => [
-        {
+          label: ' Shared label ',
+          methodId: ' field.apply ',
+          parameters: { initialValue: vars.initialValue as number },
+        }]
+      },
+      boundaryConditions: () => {
+        order.push('boundaryConditions')
+        return [{
           target: ['experiment.surface.outer.boundary', 'structure.surface.sampleBoundary'],
-          value: { value: timeValue },
-        },
-      ],
+          label: 'Shared label',
+          methodId: 'field.apply',
+          parameters: { value: timeValue, offset: vars.initialValue as number },
+        }]
+      },
+      recordedData: () => {
+        order.push('recordedData')
+        recordedParameters = { interval: vars.initialValue as number, transform: timeValue }
+        return [{
+          target: [
+            'experiment.geometry.domain',
+            'structure.geometry.sample',
+            'experiment.surface.outer.boundary',
+            'structure.surface.sampleBoundary',
+          ],
+          label: ' Recorded field ',
+          methodId: ' field.record ',
+          parameters: recordedParameters,
+        }]
+      },
     })
     const setup = new Setup(experiment, { initialValue: 0.75 })
-    const rules = evaluateWithVars(setup.vars, () => evaluateExperimentRules(experiment))
+    const rules = evaluateWithVars(setup.vars, () => {
+      experiment.geometry()
+      return evaluateExperimentRules(experiment)
+    })
 
-    expect(rules.initialConditions.map(({ target }) => target)).toEqual([
-      ['experiment.geometry.domain', 'structure.geometry.sample', 'structure.geometry.sample'],
-      ['structure.geometry.sample'],
-    ])
-    expect(rules.initialConditions[0].value).toEqual({ initialValue: 0.75 })
+    expect(order).toEqual(['geometry', 'initialConditions', 'boundaryConditions', 'recordedData'])
+    expect(rules.initialConditions[0]).toMatchObject({
+      target: ['experiment.geometry.domain', 'structure.geometry.sample', 'structure.geometry.sample'],
+      label: 'Shared label',
+      methodId: 'field.apply',
+      parameters: { initialValue: 0.75 },
+    })
     expect(rules.boundaryConditions[0].target).toEqual([
       'experiment.surface.outer.boundary', 'structure.surface.sampleBoundary',
     ])
-    expect(rules.boundaryConditions[0].value.value).toBe(timeValue)
+    expect(rules.boundaryConditions[0].parameters.value).toBe(timeValue)
+    expect(rules.boundaryConditions[0].parameters.offset).toBe(0.75)
+    expect(rules.recordedData[0]).toMatchObject({
+      target: [
+        'experiment.geometry.domain',
+        'structure.geometry.sample',
+        'experiment.surface.outer.boundary',
+        'structure.surface.sampleBoundary',
+      ],
+      label: 'Recorded field',
+      methodId: 'field.record',
+    })
+    expect(rules.recordedData[0].parameters).toBe(recordedParameters)
+    expect(Object.isFrozen(recordedParameters)).toBe(false)
     expect(Object.isFrozen(rules.initialConditions)).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0])).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0].target)).toBe(true)
+    expect(Object.isFrozen(rules.recordedData)).toBe(true)
+  })
+
+  it('rejects invalid common row fields and duplicate labels within a category', () => {
+    const createExperiment = (row: unknown) => new Experiment({
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      initialConditions: () => [row] as never,
+    })
+    const validRow = {
+      target: ['structure.geometry.sample'] as const,
+      label: 'Sample field',
+      methodId: 'field.apply',
+      parameters: {},
+    }
+
+    expect(() => evaluateExperimentRules(createExperiment({ target: [] }))).toThrow(
+      'must contain target, label, methodId, and parameters',
+    )
+    expect(() => evaluateExperimentRules(createExperiment({ ...validRow, label: ' ' }))).toThrow(
+      'label must be a non-empty string',
+    )
+    expect(() => evaluateExperimentRules(createExperiment({ ...validRow, methodId: '' }))).toThrow(
+      'methodId must be a non-empty string',
+    )
+    ;[null, []].forEach((parameters) => {
+      expect(() => evaluateExperimentRules(createExperiment({ ...validRow, parameters }))).toThrow(
+        'parameters must be an object',
+      )
+    })
+
+    const duplicated = new Experiment({
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      recordedData: () => [
+        { ...validRow, label: 'Recorded field' },
+        { ...validRow, label: ' Recorded field ' },
+      ],
+    })
+    expect(() => evaluateExperimentRules(duplicated)).toThrow('recordedData label "Recorded field" is duplicated')
+    expect(() => new Experiment({
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      recordedData: [] as never,
+    })).toThrow('recordedData must be a function')
   })
 
   it('rejects empty, malformed, non-string, or unresolved Experiment rule targets', () => {
     const createExperiment = (target: unknown) => new Experiment({
+      solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
       geometryGroup: { domain: [] },
-      initialConditions: () => [{ target, value: null }] as never,
+      initialConditions: () => [{
+        target,
+        label: 'Initial field',
+        methodId: 'field.initialize',
+        parameters: {},
+      }] as never,
     })
 
     expect(() => evaluateExperimentRules(createExperiment([]))).toThrow('target must be a non-empty array')
@@ -237,11 +343,92 @@ describe('Experiment and Setup', () => {
     expect(() => evaluateExperimentRules(missing)).toThrow('missing geometry group "missing"')
 
     const nonArray = new Experiment({
+      solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
-      initialConditions: (() => null) as never,
+      recordedData: (() => null) as never,
     })
-    expect(() => evaluateExperimentRules(nonArray)).toThrow('initialConditions must return an array')
+    expect(() => evaluateExperimentRules(nonArray)).toThrow('recordedData must return an array')
+  })
+
+  it('normalizes required Solver metadata and evaluates deeply frozen parameters before geometry', () => {
+    const order: string[] = []
+    const source = { nested: { values: [true, null, 2] } }
+    const experiment = new Experiment({
+      solver: {
+        name: ' generic-field-solver ',
+        version: ' 1.0.0 ',
+        parameters: () => {
+          order.push('solver')
+          return { timeStep: vars.timeStep as number, source }
+        },
+      },
+      geometry: () => {
+        order.push('geometry')
+        return null
+      },
+      varsSchema: { timeStep: { shape: [], default: 0.01 } },
+    })
+    const setup = new Setup(experiment, { timeStep: 0.02 })
+    const solver = evaluateWithVars(setup.vars, () => {
+      const normalized = evaluateExperimentSolver(experiment)
+      experiment.geometry()
+      return normalized
+    })
+
+    expect(order).toEqual(['solver', 'geometry'])
+    expect(experiment.solver).toMatchObject({ name: 'generic-field-solver', version: '1.0.0' })
+    expect(Object.isFrozen(experiment.solver)).toBe(true)
+    expect(solver).toEqual({
+      name: 'generic-field-solver',
+      version: '1.0.0',
+      parameters: { timeStep: 0.02, source },
+    })
+    expect(Object.isFrozen(solver)).toBe(true)
+    expect(Object.isFrozen(solver.parameters)).toBe(true)
+    expect(Object.isFrozen(solver.parameters.source)).toBe(true)
+    source.nested.values[0] = false
+    expect(solver.parameters.source).not.toEqual(source)
+  })
+
+  it('rejects invalid Solver metadata and non-JSON parameter results', () => {
+    const options = { geometry: () => null, varsSchema: {} }
+
+    expect(() => new Experiment(options as never)).toThrow('solver must be a plain object')
+    ;[null, []].forEach((solver) => {
+      expect(() => new Experiment({ ...options, solver } as never)).toThrow('solver must be a plain object')
+    })
+    expect(() => new Experiment({
+      ...options,
+      solver: { name: ' ', version: '1', parameters: () => ({}) },
+    })).toThrow('solver name must be a non-empty string')
+    expect(() => new Experiment({
+      ...options,
+      solver: { name: 'solver', version: '', parameters: () => ({}) },
+    })).toThrow('solver version must be a non-empty string')
+    expect(() => new Experiment({
+      ...options,
+      solver: { name: 'solver', version: '1', parameters: {} },
+    } as never)).toThrow('solver parameters must be a function')
+
+    const rejectsParameters = (parameters: unknown) => {
+      const experiment = new Experiment({
+        ...options,
+        solver: { name: 'solver', version: '1', parameters: () => parameters as never },
+      })
+      expect(() => evaluateExperimentSolver(experiment)).toThrow(CadModelError)
+    }
+
+    rejectsParameters([])
+    rejectsParameters({ value: undefined })
+    rejectsParameters({ value: () => 1 })
+    rejectsParameters({ value: Number.NaN })
+    rejectsParameters({ value: Number.POSITIVE_INFINITY })
+    rejectsParameters({ value: new Date() })
+
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    rejectsParameters(circular)
   })
 })
 

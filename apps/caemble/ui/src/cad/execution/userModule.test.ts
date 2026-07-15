@@ -46,8 +46,14 @@ describe('compiled user module execution', () => {
   })
 
   it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
-    expect(defaultExperimentCode).toContain('new Experiment<InitialCondition, BoundaryCondition>')
+    expect(defaultExperimentCode).toContain('InitialConditionParameters,')
+    expect(defaultExperimentCode).toContain('RecordedDataParameters')
+    expect(defaultExperimentCode).toContain("name: 'generic-field-solver'")
+    expect(defaultExperimentCode).toContain('timeStep: vars.timeStep as number')
     expect(defaultExperimentCode).toContain('initialConditions: () => [')
+    expect(defaultExperimentCode).toContain('recordedData: () => [')
+    expect(defaultExperimentCode).toContain("methodId: 'field.average'")
+    expect(defaultExperimentCode).toContain('parameters: { interval: vars.recordInterval as number }')
     expect(defaultExperimentCode).toContain("'experiment.geometry.domain'")
     expect(defaultExperimentCode).toContain("'structure.surface.sampleBoundary'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment, experiment.randomVars())')
@@ -65,6 +71,7 @@ describe('compiled user module execution', () => {
     )
     const scene = executeCompiledCode(compiled.code, 'experiment')
 
+    expect(scene).not.toHaveProperty('solver')
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(1)
     expect(scene.parts[0]).toMatchObject({

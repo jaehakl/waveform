@@ -10,9 +10,11 @@ export type VarsSchemaEntry = Readonly<{
   max?: Tensor
 }>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
-export type ExperimentRule<T> = Readonly<{
+export type ExperimentRule<TParameters extends object = Record<string, unknown>> = Readonly<{
   target: readonly ExperimentTarget[]
-  value: T
+  label: string
+  methodId: string
+  parameters: TParameters
 }>
 
 export type BoxAttributes = Readonly<{
@@ -134,6 +136,12 @@ export type MaterialVariable =
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
 export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+export type SolverParameters = Readonly<Record<string, MaterialVariable>>
+export type ExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: () => SolverParameters
+}>
 
 export class CadModelError extends Error {
   constructor(message: string)
@@ -163,17 +171,25 @@ export class Structure {
   randomVars(seed?: number): Vars
 }
 
-export class Experiment<TInitialCondition = unknown, TBoundaryCondition = unknown> extends Structure {
+export class Experiment<
+  TInitialConditionParameters extends object = Record<string, unknown>,
+  TBoundaryConditionParameters extends object = Record<string, unknown>,
+  TRecordedDataParameters extends object = Record<string, unknown>,
+> extends Structure {
   constructor(options: {
+    solver: ExperimentSolver
     geometry: () => unknown
     varsSchema: Record<string, VarsSchemaEntry>
     geometryGroup?: StructureGroupMap
     surfaceGroup?: StructureGroupMap
-    initialConditions?: () => readonly ExperimentRule<TInitialCondition>[]
-    boundaryConditions?: () => readonly ExperimentRule<TBoundaryCondition>[]
+    initialConditions?: () => readonly ExperimentRule<TInitialConditionParameters>[]
+    boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
+    recordedData?: () => readonly ExperimentRule<TRecordedDataParameters>[]
   })
-  readonly initialConditions: () => readonly ExperimentRule<TInitialCondition>[]
-  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryCondition>[]
+  readonly solver: ExperimentSolver
+  readonly initialConditions: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
+  readonly recordedData: () => readonly ExperimentRule<TRecordedDataParameters>[]
 }
 
 export abstract class VariableObject<TObject extends Structure> {
@@ -187,11 +203,26 @@ export class Sample extends VariableObject<Structure> {
   readonly structure: Structure
 }
 
-export class Setup<TInitialCondition = unknown, TBoundaryCondition = unknown>
-  extends VariableObject<Experiment<TInitialCondition, TBoundaryCondition>> {
+export class Setup<
+  TInitialConditionParameters extends object = Record<string, unknown>,
+  TBoundaryConditionParameters extends object = Record<string, unknown>,
+  TRecordedDataParameters extends object = Record<string, unknown>,
+> extends VariableObject<Experiment<
+    TInitialConditionParameters,
+    TBoundaryConditionParameters,
+    TRecordedDataParameters
+  >> {
   constructor(
-    experiment: Experiment<TInitialCondition, TBoundaryCondition>,
+    experiment: Experiment<
+      TInitialConditionParameters,
+      TBoundaryConditionParameters,
+      TRecordedDataParameters
+    >,
     partialVars?: Record<string, Tensor>,
   )
-  readonly experiment: Experiment<TInitialCondition, TBoundaryCondition>
+  readonly experiment: Experiment<
+    TInitialConditionParameters,
+    TBoundaryConditionParameters,
+    TRecordedDataParameters
+  >
 }

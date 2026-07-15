@@ -6,19 +6,35 @@ export const defaultExperimentCode = `import {
   type Vec3,
 } from '@caemble/core'
 
-type InitialCondition = Readonly<{
+type InitialConditionParameters = Readonly<{
   initialValue: number
 }>
 
-type BoundaryCondition = Readonly<{
+type BoundaryConditionParameters = Readonly<{
   value: number | ((time: number) => number)
+}>
+
+type RecordedDataParameters = Readonly<{
+  interval: number
 }>
 
 const Domain: Geometry<{ size: Vec3 }> = ({ size }) => (
   <box size={size} />
 )
 
-const experiment = new Experiment<InitialCondition, BoundaryCondition>({
+const experiment = new Experiment<
+  InitialConditionParameters,
+  BoundaryConditionParameters,
+  RecordedDataParameters
+>({
+  solver: {
+    name: 'generic-field-solver',
+    version: '1.0.0',
+    parameters: () => ({
+      timeStep: vars.timeStep as number,
+      iterations: 100,
+    }),
+  },
   geometry: () => (
     <Domain
       id="domain"
@@ -36,9 +52,11 @@ const experiment = new Experiment<InitialCondition, BoundaryCondition>({
       max: [44, 30, 22],
     },
     displayWeight: { shape: [], default: 1 },
+    timeStep: { shape: [], default: 0.01, min: 0.001, max: 0.1 },
     initialValue: { shape: [], default: 0.25, min: 0, max: 1 },
     outerBoundaryValue: { shape: [], default: 1, min: 0.5, max: 1.5 },
     amplitude: { shape: [], default: 0.2, min: 0.1, max: 0.4 },
+    recordInterval: { shape: [], default: 10, min: 1, max: 20 },
   },
   geometryGroup: {
     domain: ['domain'],
@@ -52,19 +70,33 @@ const experiment = new Experiment<InitialCondition, BoundaryCondition>({
         'experiment.geometry.domain',
         'structure.geometry.sample',
       ],
-      value: { initialValue: vars.initialValue as number },
+      label: 'Initial field',
+      methodId: 'field.initialize',
+      parameters: { initialValue: vars.initialValue as number },
     },
   ],
   boundaryConditions: () => [
     {
       target: ['experiment.surface.outerBoundary'],
-      value: { value: vars.outerBoundaryValue as number },
+      label: 'Outer boundary',
+      methodId: 'field.fixed-boundary',
+      parameters: { value: vars.outerBoundaryValue as number },
     },
     {
       target: ['structure.surface.sampleBoundary'],
-      value: {
+      label: 'Sample boundary',
+      methodId: 'field.time-boundary',
+      parameters: {
         value: (time: number) => (vars.amplitude as number) * Math.sin(time),
       },
+    },
+  ],
+  recordedData: () => [
+    {
+      target: ['experiment.geometry.domain'],
+      label: 'Domain average',
+      methodId: 'field.average',
+      parameters: { interval: vars.recordInterval as number },
     },
   ],
 })

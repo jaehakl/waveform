@@ -1,6 +1,7 @@
 import {
   CadModelError,
   evaluateExperimentRules,
+  evaluateExperimentSolver,
   evaluateWithVars,
   Experiment,
   Material,
@@ -46,6 +47,7 @@ export function executeCompiledCode(jsCode: string, documentType: CadDocumentTyp
 
     return evaluateWithVars(entry.vars, () => {
       const experiment = entry.experiment
+      evaluateExperimentSolver(experiment)
       const scene = evaluateCadScene(experiment.geometry(), {
         geometryGroup: experiment.geometryGroup,
         surfaceGroup: experiment.surfaceGroup,

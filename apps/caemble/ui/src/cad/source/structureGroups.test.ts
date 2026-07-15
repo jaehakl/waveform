@@ -21,7 +21,7 @@ export default new Sample(active)
   })
 
   it('traces aliased imports and top-level Sample and options bindings', () => {
-    const source = `import { Sample as ActiveSample, Structure as ActiveStructure } from '@caemble/core'
+const source = `import { Sample as ActiveSample, Structure as ActiveStructure } from '@caemble/core'
 const options = { geometry: () => null, varsSchema: {}, surfaceGroup: oldGroups }
 const structure = new ActiveStructure(options)
 const sample = new ActiveSample(structure)
@@ -76,8 +76,13 @@ export default new Sample(Math.random() ? first : second)
 describe('Experiment group source synchronization', () => {
   it('updates only the Experiment used by the default Setup', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
-const unused = new Experiment({ geometry: () => null, varsSchema: {} })
+const unused = new Experiment({
+  solver: { name: 'unused', version: '1', parameters: () => ({}) },
+  geometry: () => null,
+  varsSchema: {},
+})
 const active = new Experiment({
+  solver: { name: 'active', version: '1', parameters: () => ({}) },
   geometry: () => null,
   varsSchema: {},
 })
@@ -89,12 +94,17 @@ export default new Setup(active)
 
     expect(updated).toContain('geometryGroup: {\n    "domain": ["experiment-domain"],\n  },')
     expect(updated.match(/geometryGroup/g)).toHaveLength(1)
-    expect(updated).toContain('const unused = new Experiment({ geometry: () => null, varsSchema: {} })')
+    expect(updated).toContain("solver: { name: 'unused', version: '1', parameters: () => ({}) }")
   })
 
   it('traces aliased Setup, Experiment, and options bindings', () => {
     const source = `import { Experiment as ActiveExperiment, Setup as ActiveSetup } from '@caemble/core'
-const options = { geometry: () => null, varsSchema: {}, surfaceGroup: oldGroups }
+const options = {
+  solver: { name: 'active', version: '1', parameters: () => ({}) },
+  geometry: () => null,
+  varsSchema: {},
+  surfaceGroup: oldGroups,
+}
 const experiment = new ActiveExperiment(options)
 const setup = new ActiveSetup(experiment)
 export default setup
@@ -103,7 +113,7 @@ export default setup
       외곽면: ['domain/surface-1'],
     }).source
 
-    expect(updated).toContain('surfaceGroup: {\n  "외곽면": ["domain/surface-1"],\n}')
+    expect(updated).toContain('  surfaceGroup: {\n    "외곽면": ["domain/surface-1"],\n  },')
     expect(updated).not.toContain('surfaceGroup: oldGroups')
   })
 

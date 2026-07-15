@@ -104,14 +104,26 @@ function SyntaxHelp() {
                 the active default Sample&apos;s Structure or Setup&apos;s Experiment in Code Space immediately.
               </p>
 
-              <p className="mt-3 font-semibold text-slate-800">Experiments and Conditions</p>
+              <p className="mt-3 font-semibold text-slate-800">Experiments, Solvers, Conditions, and Recorded Data</p>
               <p className="mt-1">
-                <code className="rounded bg-white px-1 py-0.5 text-xs">Experiment</code> extends Structure, adding
-                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initialConditions</code> and{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code> rule arrays.{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">Experiment</code> extends Structure. Every
+                Experiment requires a <code className="rounded bg-white px-1 py-0.5 text-xs">solver</code> with
+                static non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">name</code> and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">version</code> strings plus a lazy{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">parameters</code> factory. It also adds
+                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initialConditions</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code>, and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays.{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
                 vars just as Sample pairs a Structure with vars. The Experiment editor previews only Experiment
                 geometry; a later simulation may combine it with a Sample in the same coordinate system.
+              </p>
+              <p className="mt-1">
+                Solver parameters run first with Setup values available through global{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code>. They must form a plain
+                JSON-compatible object and are recursively copied and frozen. The editor then evaluates Experiment
+                geometry, initial conditions, boundary conditions, and recorded data in that order. It validates
+                Solver configuration but does not load or run the Solver.
               </p>
               <p className="mt-1">
                 Each rule has a non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">target</code> array,
@@ -119,8 +131,9 @@ function SyntaxHelp() {
                 example <code className="rounded bg-white px-1 py-0.5 text-xs">['experiment.geometry.domain']</code> or{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.sampleBoundary']</code>.
                 Experiment targets must name one of its own groups; Structure targets reserve a group name for a
-                future Sample. Rule values are solver-defined and may contain time-dependent functions. Both rule
-                factories run with Setup values available through the global{' '}
+                future Sample. Every rule also has a category-unique Experiment label, a reusable simulation method
+                ID, and an opaque parameters object that may contain time-dependent functions. All three factories
+                run with Setup values available through the global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
               </p>
 
