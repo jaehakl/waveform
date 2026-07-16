@@ -30,6 +30,7 @@ export type {
   ExperimentScalarParameter,
   ExperimentSolver,
   ExperimentTarget,
+  ExperimentTensorAxis,
   ExperimentTensorDType,
   ExperimentTensorParameter,
   Geometry,

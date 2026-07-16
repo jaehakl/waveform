@@ -32,11 +32,16 @@ export type ExperimentScalarParameter =
   | Readonly<{ type: 'string'; value: string }>
   | Readonly<{ type: 'int'; value: number }>
   | Readonly<{ type: 'float'; value: number }>
+export type ExperimentTensorAxis = Readonly<{
+  name?: string
+  ticks?: readonly (number | string)[]
+}>
 export type ExperimentTensorParameter = Readonly<{
   type: 'tensor'
   dimension: number
   shape: readonly number[]
   dtype: ExperimentTensorDType
+  axes?: readonly ExperimentTensorAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
@@ -46,6 +51,7 @@ export type RecordedDataResult = Readonly<{
   dimension: number
   shape: readonly number[]
   dtype: ExperimentTensorDType
+  axes?: readonly ExperimentTensorAxis[]
 }>
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]

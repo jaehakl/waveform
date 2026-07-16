@@ -15,6 +15,10 @@ const rules: EvaluatedExperimentRules = {
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
+        axes: [
+          { name: 'batch', ticks: ['sample'] },
+          { name: 'position', ticks: [0, 0.5] },
+        ],
         value: [[0.1, 0.2]],
       },
     },
@@ -25,7 +29,7 @@ const rules: EvaluatedExperimentRules = {
     label: 'Domain average',
     methodId: 'field.average',
     parameters: { interval: 10 },
-    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [] },
   }],
 }
 
@@ -36,7 +40,11 @@ const experiment = new Experiment({
     target: ['structure.geometry.sample'], label: 'Initial profile', methodId: 'field.initialize',
     parameters: {
       scalarOnly: 1,
-      profile: { type: 'tensor', dimension: 2, shape: [1, 2], dtype: 'float32', value: tensorValues },
+      profile: {
+        type: 'tensor', dimension: 2, shape: [1, 2], dtype: 'float32',
+        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 0.5] }],
+        value: tensorValues,
+      },
     },
   }],
   recordedData: () => [{
@@ -63,11 +71,19 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('field.initialize')
     expect(markup).toContain('profile')
     expect(markup).toContain('float32 · 2D · shape [1,2]')
+    expect(markup).toContain('aria-label="Initial profile profile axes"')
+    expect(markup).toContain('batch')
+    expect(markup).toContain('sample')
+    expect(markup).toContain('position')
+    expect(markup).toContain('[0,0.5]')
     expect(markup).toContain('Recorded result schema (source-only)')
     expect(markup).toContain('float64 · 0D · shape []')
+    expect(markup).toContain('aria-label="Domain average result axes"')
+    expect(markup).toContain('[] (0D tensor)')
     expect(markup).toContain('1 scalar parameter hidden here')
     expect(markup).not.toContain('>scalarOnly<')
     expect(markup).not.toContain('Result value')
+    expect(markup.match(/<textarea/g)).toHaveLength(1)
   })
 
   it('makes tensor JSON read-only without an Experiment change callback', () => {

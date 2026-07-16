@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type {
   EvaluatedExperimentRules,
   ExperimentRule,
+  ExperimentTensorAxis,
   ExperimentTensorParameter,
   RecordedDataRule,
 } from '../cad'
@@ -27,6 +28,30 @@ const categories = [
 
 function isTensorParameter(value: unknown): value is ExperimentTensorParameter {
   return typeof value === 'object' && value !== null && 'type' in value && value.type === 'tensor'
+}
+
+function TensorAxes({ axes, label }: { axes?: readonly ExperimentTensorAxis[]; label: string }) {
+  if (!axes) return null
+
+  return (
+    <div aria-label={label} className="mt-3 rounded border border-slate-200 bg-white p-2 text-xs text-slate-600">
+      <div className="font-semibold text-slate-700">Axes (source-only)</div>
+      {axes.length === 0 ? (
+        <div className="mt-1 font-mono">[] (0D tensor)</div>
+      ) : (
+        <div className="mt-1 space-y-1.5">
+          {axes.map((axis, index) => (
+            <div className="grid gap-1 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]" key={`${axis.name}-${index}`}>
+              <span className="font-medium text-slate-700">{axis.name ?? `axis ${index}`}</span>
+              <code className="overflow-x-auto whitespace-nowrap text-slate-600">
+                {JSON.stringify(axis.ticks ?? [])}
+              </code>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function TensorParameterEditor({
@@ -108,6 +133,8 @@ function TensorParameterEditor({
         </div>
       </div>
 
+      <TensorAxes axes={parameter.axes} label={`${ruleLabel} ${parameterKey} axes`} />
+
       <textarea
         aria-label={`${ruleLabel} ${parameterKey} tensor JSON`}
         className="mt-3 min-h-36 w-full resize-y rounded border border-slate-300 bg-white p-2 font-mono text-xs leading-5 text-slate-800 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 read-only:bg-slate-100 read-only:text-slate-500"
@@ -175,6 +202,7 @@ function RuleCard({
           <div className="mt-1 font-mono">
             {rule.result.dtype} · {rule.result.dimension}D · shape {JSON.stringify(rule.result.shape)}
           </div>
+          <TensorAxes axes={rule.result.axes} label={`${rule.label} result axes`} />
         </div>
       ) : null}
 
@@ -230,7 +258,7 @@ export default function ExperimentalParameters({
     <div className="h-full overflow-auto bg-slate-50 px-4 py-4">
       <div className="mb-4 rounded border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
         Only tensor parameters are editable here. Edit bool, string, int, and float parameters in Experiment Source.
-        Tensor dtype, dimension, shape, and recorded result schemas are also source-only.
+        Tensor dtype, dimension, shape, axes, and recorded result schemas are also source-only.
       </div>
 
       <div className="space-y-5">

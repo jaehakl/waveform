@@ -144,21 +144,25 @@ function SyntaxHelp() {
               <p className="mt-1">
                 Tensor parameters use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'tensor\', dimension, shape, dtype, value }'}
+                  {'{ type: \'tensor\', dimension, shape, dtype, axes?, value }'}
                 </code>{' '}
                 with dimension at least one, positive fixed shape sizes, and an exact recursive value shape. Dtypes
                 are bool, string, signed or unsigned 8/16/32/64-bit integers, or float16/32/64; 64-bit integers are
-                limited to JavaScript safe integers. Prefer a top-level const for raw tensor data. Experimental
-                Parameters edits only inline and top-level const JSON arrays; computed and vars-backed values remain
-                read-only, and scalar or schema edits stay in Experiment Source.
+                limited to JavaScript safe integers. Optional axes contains one name/ticks object per dimension.
+                Missing names become axis 0, axis 1, and so on; missing ticks become zero-based indices matching the
+                corresponding shape size. Explicit ticks accept strings and finite numbers. Prefer a top-level const
+                for raw tensor data. Experimental Parameters edits only inline and top-level const JSON arrays;
+                normalized axes are displayed read-only, computed and vars-backed values remain read-only, and
+                scalar or schema edits stay in Experiment Source.
               </p>
               <p className="mt-1">
                 Every recorded-data rule also declares a tensor-only{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
                   {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\' }'}
-                </code>. The schema is shown read-only; this workspace does not accept solver result values and does
-                not provide a Result tab or result visualization.
+                </code>, which normalizes to an empty axes array. Result axes use the same optional metadata and are
+                shown read-only; this workspace does not accept solver result values and does not provide a Result
+                tab or result visualization.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

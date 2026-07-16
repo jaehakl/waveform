@@ -15,6 +15,7 @@ import {
   type Geometry,
   type GeometryAttributes,
   type ExperimentTensorDType,
+  type ExperimentTensorParameter,
 } from './core'
 
 function createSolver(parameters: () => Record<string, never> = () => ({})) {
@@ -184,13 +185,7 @@ describe('Experiment and Setup', () => {
     const experiment = new Experiment<
       Readonly<{
         initialValue: number
-        profile: Readonly<{
-          type: 'tensor'
-          dimension: number
-          shape: readonly number[]
-          dtype: 'float32'
-          value: readonly unknown[]
-        }>
+        profile: ExperimentTensorParameter
       }>,
       Readonly<{ active: boolean; label: Readonly<{ type: 'string'; value: string }> }>,
       Readonly<{ interval: Readonly<{ type: 'int'; value: number }> }>
@@ -268,6 +263,10 @@ describe('Experiment and Setup', () => {
       dimension: 2,
       shape: [2, 2],
       dtype: 'float32',
+      axes: [
+        { name: 'axis 0', ticks: [0, 1] },
+        { name: 'axis 1', ticks: [0, 1] },
+      ],
       value: profile,
     })
     expect(rules.boundaryConditions[0].target).toEqual([
@@ -295,10 +294,14 @@ describe('Experiment and Setup', () => {
     expect(Object.isFrozen(rules.initialConditions[0].parameters)).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0].parameters.profile)).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.shape)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes?.[0])).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes?.[0].ticks)).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.value)).toBe(true)
     expect(Object.isFrozen(rules.recordedData)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result.shape)).toBe(true)
+    expect(Object.isFrozen(rules.recordedData[0].result.axes)).toBe(true)
     profile[0][0] = 9
     expect(rules.initialConditions[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
   })
@@ -397,6 +400,78 @@ describe('Experiment and Setup', () => {
     })
   })
 
+  it('normalizes optional tensor axes with 0-based defaults and deeply freezes them', () => {
+    const sourceAxes = [
+      { name: ' layer ', ticks: ['lower', 'upper'] },
+      { ticks: [0, 0.5, 1] },
+    ]
+    const explicit = normalizeExperimentTensorParameter({
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 3],
+      dtype: 'float32',
+      axes: sourceAxes,
+      value: [[1, 2, 3], [4, 5, 6]],
+    })
+    const defaults = normalizeExperimentTensorParameter({
+      type: 'tensor',
+      dimension: 1,
+      shape: [3],
+      dtype: 'float32',
+      value: [1, 2, 3],
+    })
+
+    expect(explicit.axes).toEqual([
+      { name: 'layer', ticks: ['lower', 'upper'] },
+      { name: 'axis 1', ticks: [0, 0.5, 1] },
+    ])
+    expect(defaults.axes).toEqual([{ name: 'axis 0', ticks: [0, 1, 2] }])
+    expect(Object.isFrozen(explicit.axes)).toBe(true)
+    expect(Object.isFrozen(explicit.axes?.[0])).toBe(true)
+    expect(Object.isFrozen(explicit.axes?.[0].ticks)).toBe(true)
+    sourceAxes[0].name = 'changed'
+    sourceAxes[0].ticks[0] = 'changed'
+    expect(explicit.axes?.[0]).toEqual({ name: 'layer', ticks: ['lower', 'upper'] })
+  })
+
+  it('rejects malformed tensor axes and reports actual and expected lengths', () => {
+    const descriptor = {
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 2],
+      dtype: 'float64',
+      value: [[1, 2], [3, 4]],
+    }
+
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: {} })).toThrow(
+      '.axes must be an array',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{}] })).toThrow(
+      '.axes has length 1; expected 2',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [null, {}] })).toThrow(
+      '.axes[0] must be a plain object',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ unit: 'm' }, {}] })).toThrow(
+      '.axes[0] must contain exactly',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ name: ' ' }, {}] })).toThrow(
+      '.axes[0].name must be a non-empty string',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ ticks: null }, {}] })).toThrow(
+      '.axes[0].ticks must be an array',
+    )
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ ticks: [0] }, {}] })).toThrow(
+      '.axes[0].ticks has length 1; expected 2 for shape[0]',
+    )
+    ;[true, null, Number.POSITIVE_INFINITY].forEach((tick) => {
+      expect(() => normalizeExperimentTensorParameter({
+        ...descriptor,
+        axes: [{ ticks: [0, tick] }, {}],
+      })).toThrow('.axes[0].ticks[1] must be a string or finite number')
+    })
+  })
+
   it('reports actual and expected tensor shapes and enforces schema dimensions', () => {
     expect(() => normalizeExperimentTensorParameter({
       type: 'tensor',
@@ -491,8 +566,11 @@ describe('Experiment and Setup', () => {
       type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
     }))
     expect(rules.recordedData[0].result).toEqual({
-      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
     })
+    expect(evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
+    })).recordedData[0].result.axes).toEqual([])
     expect(() => evaluateExperimentRules(createRecordedExperiment(undefined, false))).toThrow(
       'must contain a result tensor descriptor',
     )

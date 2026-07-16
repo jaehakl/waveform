@@ -58,11 +58,16 @@ export type ExperimentScalarParameter =
   | Readonly<{ type: 'string'; value: string }>
   | Readonly<{ type: 'int'; value: number }>
   | Readonly<{ type: 'float'; value: number }>
+export type ExperimentTensorAxis = Readonly<{
+  name?: string
+  ticks?: readonly (number | string)[]
+}>
 export type ExperimentTensorParameter = Readonly<{
   type: 'tensor'
   dimension: number
   shape: readonly number[]
   dtype: ExperimentTensorDType
+  axes?: readonly ExperimentTensorAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
@@ -72,6 +77,7 @@ export type RecordedDataResult = Readonly<{
   dimension: number
   shape: readonly number[]
   dtype: ExperimentTensorDType
+  axes?: readonly ExperimentTensorAxis[]
 }>
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
@@ -613,6 +619,50 @@ function assertDescriptorKeys(value: Record<string, unknown>, expected: readonly
   }
 }
 
+function normalizeTensorAxes(value: unknown, shape: readonly number[], path: string) {
+  if (value !== undefined && !Array.isArray(value)) {
+    throw new CadModelError(`${path}.axes must be an array.`)
+  }
+  const rawAxes = value ?? Array.from({ length: shape.length }, () => ({}))
+  if ((rawAxes as readonly unknown[]).length !== shape.length) {
+    throw new CadModelError(
+      `${path}.axes has length ${(rawAxes as readonly unknown[]).length}; expected ${shape.length}.`,
+    )
+  }
+
+  return Object.freeze(Array.from(rawAxes as readonly unknown[], (rawAxis, axisIndex) => {
+    const axisPath = `${path}.axes[${axisIndex}]`
+    if (!isPlainObject(rawAxis)) {
+      throw new CadModelError(`${axisPath} must be a plain object.`)
+    }
+    const axisKeys = ['name', 'ticks'].filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
+    assertDescriptorKeys(rawAxis, axisKeys, axisPath)
+
+    const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
+    if (typeof name !== 'string' || !name.trim()) {
+      throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
+    }
+
+    const rawTicks = rawAxis.ticks === undefined
+      ? Array.from({ length: shape[axisIndex] }, (_, tickIndex) => tickIndex)
+      : rawAxis.ticks
+    if (!Array.isArray(rawTicks)) {
+      throw new CadModelError(`${axisPath}.ticks must be an array.`)
+    }
+    if (rawTicks.length !== shape[axisIndex]) {
+      throw new CadModelError(
+        `${axisPath}.ticks has length ${rawTicks.length}; expected ${shape[axisIndex]} for shape[${axisIndex}].`,
+      )
+    }
+    const ticks = Object.freeze(Array.from(rawTicks, (tick, tickIndex) => {
+      if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
+      throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
+    }))
+
+    return Object.freeze({ name: name.trim(), ticks })
+  }))
+}
+
 function normalizeTensorSchema(
   value: Record<string, unknown>,
   path: string,
@@ -639,6 +689,7 @@ function normalizeTensorSchema(
     throw new CadModelError(`${path}.dtype must be a supported tensor dtype.`)
   }
   return {
+    axes: normalizeTensorAxes(value.axes, shape, path),
     dimension: value.dimension as number,
     dtype: value.dtype as ExperimentTensorDType,
     shape: Object.freeze(shape),
@@ -738,7 +789,9 @@ export function normalizeExperimentTensorParameter(
   if (!isPlainObject(value) || value.type !== 'tensor') {
     throw new CadModelError(`${path} must be a tensor descriptor.`)
   }
-  assertDescriptorKeys(value, ['type', 'dimension', 'shape', 'dtype', 'value'], path)
+  const descriptorKeys = ['type', 'dimension', 'shape', 'dtype', 'value']
+  if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
+  assertDescriptorKeys(value, descriptorKeys, path)
   const schema = normalizeTensorSchema(value, path, 1)
   return Object.freeze({
     type: 'tensor' as const,
@@ -805,7 +858,9 @@ function normalizeRecordedDataResult(value: unknown, path: string): RecordedData
   if (!isPlainObject(value) || value.type !== 'tensor') {
     throw new CadModelError(`${path} must be a tensor descriptor.`)
   }
-  assertDescriptorKeys(value, ['type', 'dimension', 'shape', 'dtype'], path)
+  const descriptorKeys = ['type', 'dimension', 'shape', 'dtype']
+  if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
+  assertDescriptorKeys(value, descriptorKeys, path)
   return Object.freeze({
     type: 'tensor' as const,
     ...normalizeTensorSchema(value, path, 0),

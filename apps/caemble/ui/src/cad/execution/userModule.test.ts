@@ -62,6 +62,8 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain('parameters: { interval: vars.recordInterval as number }')
     expect(defaultExperimentCode).toContain('const initialProfileData = [')
     expect(defaultExperimentCode).toContain("dtype: 'float32'")
+    expect(defaultExperimentCode).toContain("{ name: 'layer', ticks: ['lower', 'upper'] }")
+    expect(defaultExperimentCode).toContain("{ name: 'position', ticks: [0, 0.5, 1] }")
     expect(defaultExperimentCode).toContain("result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }")
     expect(defaultExperimentCode).toContain("'experiment.geometry.domain'")
     expect(defaultExperimentCode).toContain("'structure.surface.sampleBoundary'")
@@ -93,12 +95,17 @@ describe('compiled user module execution', () => {
       dimension: 2,
       shape: [2, 3],
       dtype: 'float32',
+      axes: [
+        { name: 'layer', ticks: ['lower', 'upper'] },
+        { name: 'position', ticks: [0, 0.5, 1] },
+      ],
     })
     expect(experimentRules?.recordedData[0].result).toEqual({
       type: 'tensor',
       dimension: 0,
       shape: [],
       dtype: 'float64',
+      axes: [],
     })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(1)

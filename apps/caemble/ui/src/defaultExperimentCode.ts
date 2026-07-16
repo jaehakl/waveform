@@ -87,6 +87,10 @@ const experiment = new Experiment<
           dimension: 2,
           shape: [2, 3],
           dtype: 'float32',
+          axes: [
+            { name: 'layer', ticks: ['lower', 'upper'] },
+            { name: 'position', ticks: [0, 0.5, 1] },
+          ],
           value: initialProfileData,
         },
       },

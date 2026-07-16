@@ -18,6 +18,7 @@ const experiment = new Experiment({
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
+        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 1] }],
         value: [[1, 2]] as const,
       },
     },
@@ -33,6 +34,7 @@ export default new Setup(experiment)
     expect(update.source).toMatch(/value: \[\n\s+\[\n\s+3,\n\s+4\n\s+]\n\s+] as const/)
     expect(update.source).toContain('shape: [1, 2]')
     expect(update.source).toContain("dtype: 'float32'")
+    expect(update.source).toContain("axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 1] }]")
   })
 
   it('updates a top-level const array and reports when the binding is shared', () => {
@@ -41,11 +43,15 @@ const sharedData = [1, 2] as const
 const experiment = new Experiment({
   initialConditions: () => [{
     target: ['structure.geometry.sample'], label: 'Initial', methodId: 'initial',
-    parameters: { profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', value: sharedData } },
+    parameters: {
+      profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', axes: [{ name: 'x' }], value: sharedData },
+    },
   }],
   boundaryConditions: () => [{
     target: ['structure.geometry.sample'], label: 'Boundary', methodId: 'boundary',
-    parameters: { profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', value: sharedData } },
+    parameters: {
+      profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', axes: [{ name: 'x' }], value: sharedData },
+    },
   }],
 })
 export default new Setup(experiment)
@@ -58,6 +64,7 @@ export default new Setup(experiment)
     expect(update.shared).toBe(true)
     expect(update.source).toMatch(/const sharedData = \[\n\s+7,\n\s+8\n\s+] as const/)
     expect(update.source.match(/value: sharedData/g)).toHaveLength(2)
+    expect(update.source.match(/axes: \[\{ name: 'x' }]/g)).toHaveLength(2)
   })
 
   it('preserves CRLF and UTF-8 Korean text while replacing a const array', () => {
@@ -68,7 +75,12 @@ const experiment = new Experiment({
     target: ['structure.geometry.sample'],
     label: '한국어 기록',
     methodId: 'record.text',
-    parameters: { names: { type: 'tensor', dimension: 1, shape: [2], dtype: 'string', value: profile } },
+    parameters: {
+      names: {
+        type: 'tensor', dimension: 1, shape: [2], dtype: 'string',
+        axes: [{ name: '이름', ticks: ['첫째', '둘째'] }], value: profile,
+      },
+    },
     result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
   }],
 })
@@ -78,6 +90,7 @@ export default new Setup(experiment)
     const update = updateExperimentTensorSource(source, 'recordedData', 0, 'names', ['수정', '완료'])
 
     expect(update.source).toContain('한국어 기록')
+    expect(update.source).toContain("axes: [{ name: '이름', ticks: ['첫째', '둘째'] }]")
     expect(update.source).toContain('"수정"')
     expect(update.source).toContain('"완료"')
     expect(update.source.replace(/\r\n/g, '')).not.toContain('\n')
