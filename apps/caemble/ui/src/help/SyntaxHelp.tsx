@@ -86,9 +86,20 @@ function SyntaxHelp() {
                 dictionary. Put an optional <code className="rounded bg-white px-1 py-0.5 text-xs">color</code> in
                 that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>.
                 Raw numeric leaves are safe integers; fractional, physical, and dimensionless float leaves use the
-                float descriptor, including nested arrays and objects.
+                float descriptor, including nested arrays and objects. A top-level Material float additionally requires
+                a unitless <code className="rounded bg-white px-1 py-0.5 text-xs">errorRate</code> in{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">[0, 1)</code>;{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">0.001</code> means{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">0.1%</code>. Top-level float16, float32, and
+                float64 tensors require the same field.
                 Geometry without a Material or color is shown as a neutral wireframe. Different instances may share
                 a symbol and version.
+              </p>
+              <p className="mt-1">
+                Each Sample and Setup keeps one Material realization across preview and Solver use. Scalars receive one
+                uniform multiplier; float tensor elements are sampled independently. Rerolling creates a new realization.
+                The original Material keeps its nominal value and errorRate, while scene and Solver variables expose only
+                the realized value. Nested floats, non-float tensors, color, and other metadata are unchanged.
               </p>
               <p className="mt-1">
                 A Geometry inherits its parent materials array unless it supplies a replacement. Materialless

@@ -1,4 +1,4 @@
-import { CadModelError, Material } from '../model/core'
+import { CadModelError, Material, resolveMaterialVariables } from '../model/core'
 import { deriveGeometrySurfaces, validateSurfacePartition } from '../geometry/surfaces'
 import { getCadElementDefinition } from './registry'
 import { flattenValues, Fragment, isCadNode } from './jsx'
@@ -313,7 +313,7 @@ export function evaluateCadScene(
         material = Object.freeze({
           symbol: part.material.symbol,
           ...(part.material.version === undefined ? {} : { version: part.material.version }),
-          variables: part.material.variables,
+          variables: resolveMaterialVariables(part.material),
         })
         sceneMaterials.set(part.material, material)
       }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { evaluateCadScene } from '../cad/evaluation/evaluator'
 import { h } from '../cad/evaluation/jsx'
 import {
+  evaluateWithVars,
   Experiment,
   Material,
   Sample,
@@ -23,7 +25,10 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     lengthUnit: 'mm',
     geometry: () => h(Conductor, {
       id: 'conductor',
-      materials: [new Material('Test', { value: vars.materialValue, color: '#2563eb' })],
+      materials: [new Material('Test', {
+        value: { type: 'float', value: vars.materialValue as number, errorRate: 0.1 },
+        color: '#2563eb',
+      })],
     }),
     varsSchema: {
       length: { shape: [], default: 10 },
@@ -67,6 +72,10 @@ function valueModule(solve?: SolverModule['solve']): SolverModule {
 describe('SolverController', () => {
   it('prepares actual Sample and Setup models, dispatches exactly, and publishes process states', async () => {
     const { sample, setup } = createPair()
+    const previewScene = evaluateWithVars(sample.vars, () => evaluateCadScene(sample.structure.geometry(), {
+      geometryGroup: sample.structure.geometryGroup,
+      surfaceGroup: sample.structure.surfaceGroup,
+    }, 'Structure', sample.structure.lengthUnit))
     const states: string[] = []
     const controller = new SolverController([valueModule(async (input) => {
       expect(input.structure.model).toBe(sample.structure)
@@ -74,6 +83,13 @@ describe('SolverController', () => {
       expect(input.structure.scene.geometryGroups[0].geometryIds).toEqual(['conductor'])
       expect(input.structure.scene.lengthUnit).toBe('mm')
       expect(input.experiment.scene.lengthUnit).toBe('mm')
+      expect(input.structure.scene.parts[0].material?.variables).toEqual(
+        previewScene.parts[0].material?.variables,
+      )
+      const appliedMaterialValue = input.structure.scene.parts[0].material?.variables.value as { value: number }
+      expect(appliedMaterialValue.value).toBeGreaterThanOrEqual(3.6)
+      expect(appliedMaterialValue.value).toBeLessThanOrEqual(4.4)
+      expect(appliedMaterialValue).not.toHaveProperty('errorRate')
       expect(input.experiment.solver.parameters).toEqual({ scale: { type: 'float', value: 5 } })
       return { Value: { value: 20 } }
     })])

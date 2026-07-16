@@ -27,7 +27,7 @@ const structure = new Structure({
   geometry: () => h(Conductor, {
     id: 'conductor',
     materials: [new Material('Copper', {
-      electricalConductivity: { type: 'float', value: 5.96e7, unit: 'S/m' },
+      electricalConductivity: { type: 'float', value: 5.96e7, errorRate: 0, unit: 'S/m' },
     })],
   }),
   varsSchema: {},

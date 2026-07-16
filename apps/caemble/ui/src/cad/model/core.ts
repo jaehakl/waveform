@@ -14,6 +14,12 @@ export type FloatValue = Readonly<{
   value: number
   unit?: UcumUnit
 }>
+export type MaterialFloatValue = Readonly<{
+  type: 'float'
+  value: number
+  errorRate: number
+  unit?: UcumUnit
+}>
 export type MaterialVariable =
   | string
   | number
@@ -22,7 +28,6 @@ export type MaterialVariable =
   | FloatValue
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
-export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
 export type SolverParameters = Readonly<Record<string, MaterialVariable>>
 export type ExperimentSolver = Readonly<{
   name: string
@@ -91,6 +96,22 @@ export type ExperimentTensorParameter = Readonly<{
   unit?: UcumUnit
   value: boolean | string | number | readonly unknown[]
 }>
+export type MaterialFloatTensorValue = Readonly<{
+  type: 'tensor'
+  dimension: number
+  shape: readonly number[]
+  dtype: 'float16' | 'float32' | 'float64'
+  axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
+  value: number | readonly unknown[]
+  errorRate: number
+}>
+export type MaterialVariables = Readonly<
+  Record<string, MaterialVariable | MaterialFloatValue | MaterialFloatTensorValue> & { color?: string }
+>
+export type ResolvedMaterialVariables = Readonly<
+  Record<string, MaterialVariable | ExperimentTensorParameter> & { color?: string }
+>
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
 export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
 export type RecordedDataResult = Readonly<{
@@ -514,10 +535,55 @@ export class Material {
       throw new CadModelError(`Material ${symbol} variables must be a plain object.`)
     }
 
-    const normalizedVariables: Record<string, MaterialVariable> = {}
+    const normalizedVariables: Record<string, MaterialVariable | MaterialFloatValue | MaterialFloatTensorValue> = {}
     Object.entries(rawVariables).forEach(([key, value]) => {
       if (!key.trim()) throw new CadModelError(`Material ${symbol} variable names must not be empty.`)
-      normalizedVariables[key] = normalizeJsonValue(value, `Material ${symbol} variables.${key}`)
+      const path = `Material ${symbol} variables.${key}`
+      if (isPlainObject(value) && value.type === 'float') {
+        const parameter = value as Record<string, unknown>
+        const descriptorKeys = ['type', 'value', 'errorRate']
+        if (Object.prototype.hasOwnProperty.call(parameter, 'unit')) descriptorKeys.push('unit')
+        assertDescriptorKeys(parameter, descriptorKeys, path)
+        if (typeof parameter.value !== 'number' || !Number.isFinite(parameter.value)) {
+          throw new CadModelError(`${path}.value must be a finite number.`)
+        }
+        if (typeof parameter.errorRate !== 'number' || !Number.isFinite(parameter.errorRate)
+          || parameter.errorRate < 0 || parameter.errorRate >= 1) {
+          throw new CadModelError(`${path}.errorRate must be a finite number in [0, 1).`)
+        }
+        const unit = parameter.unit === undefined ? undefined : normalizeUcumUnit(parameter.unit, `${path}.unit`)
+        normalizedVariables[key] = Object.freeze({
+          type: 'float' as const,
+          value: parameter.value,
+          errorRate: parameter.errorRate,
+          ...(unit === undefined ? {} : { unit }),
+        })
+      } else if (
+        isPlainObject(value)
+        && value.type === 'tensor'
+        && typeof value.dtype === 'string'
+        && isExperimentFloatDType(value.dtype as ExperimentTensorDType)
+      ) {
+        const descriptorKeys = ['type', 'dimension', 'shape', 'dtype', 'value', 'errorRate']
+        if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
+        if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
+        assertDescriptorKeys(value, descriptorKeys, path)
+        if (typeof value.errorRate !== 'number' || !Number.isFinite(value.errorRate)
+          || value.errorRate < 0 || value.errorRate >= 1) {
+          throw new CadModelError(`${path}.errorRate must be a finite number in [0, 1).`)
+        }
+        const schema = normalizeTensorSchema(value, path, 1)
+        normalizedVariables[key] = Object.freeze({
+          type: 'tensor' as const,
+          ...schema,
+          dtype: schema.dtype as MaterialFloatTensorValue['dtype'],
+          value: normalizeTensorValue(value.value, schema.shape, schema.dtype, `${path}.value`) as
+            MaterialFloatTensorValue['value'],
+          errorRate: value.errorRate,
+        })
+      } else {
+        normalizedVariables[key] = normalizeJsonValue(value, path)
+      }
     })
     if (normalizedVariables.color !== undefined) {
       if (typeof normalizedVariables.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(normalizedVariables.color)) {
@@ -1089,6 +1155,8 @@ export function evaluateExperimentRules<
   })
 }
 
+const materialRandomSeeds = new WeakMap<Readonly<Vars>, number>()
+
 export abstract class VariableObject<TObject extends Structure> {
   readonly object: TObject
   readonly vars: Readonly<Vars>
@@ -1104,6 +1172,7 @@ export abstract class VariableObject<TObject extends Structure> {
 
     this.object = object
     this.vars = normalizeVars(object.varsSchema, partialVars, variableObjectName)
+    materialRandomSeeds.set(this.vars, Math.floor(Math.random() * 0x1_0000_0000))
   }
 }
 
@@ -1156,6 +1225,79 @@ export class Setup<
 }
 
 let activeVars: Readonly<Vars> | null = null
+let activeMaterialRandom: (() => number) | null = null
+
+function sampleMaterialTensorValue(
+  value: number | readonly unknown[],
+  dtype: MaterialFloatTensorValue['dtype'],
+  errorRate: number,
+  path: string,
+): number | readonly unknown[] {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((item, index) => sampleMaterialTensorValue(
+      item as number | readonly unknown[],
+      dtype,
+      errorRate,
+      `${path}[${index}]`,
+    )))
+  }
+
+  const multiplier = activeMaterialRandom === null || errorRate === 0
+    ? 1
+    : 1 - errorRate + 2 * errorRate * activeMaterialRandom()
+  return normalizeExperimentTensorElement((value as number) * multiplier, dtype, path) as number
+}
+
+export function resolveMaterialVariables(material: Material): ResolvedMaterialVariables {
+  const resolved: Record<string, MaterialVariable | ExperimentTensorParameter> = {}
+
+  Object.entries(material.variables).forEach(([key, value]) => {
+    const path = `Material ${material.symbol} variables.${key}`
+    if (isPlainObject(value) && value.type === 'float'
+      && Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
+      const parameter = value as MaterialFloatValue
+      const multiplier = activeMaterialRandom === null || parameter.errorRate === 0
+        ? 1
+        : 1 - parameter.errorRate + 2 * parameter.errorRate * activeMaterialRandom()
+      const sampledValue = parameter.value * multiplier
+      if (!Number.isFinite(sampledValue)) {
+        throw new CadModelError(`${path}.value must remain finite after applying errorRate.`)
+      }
+      resolved[key] = Object.freeze({
+        type: 'float' as const,
+        value: sampledValue,
+        ...(parameter.unit === undefined ? {} : { unit: parameter.unit }),
+      })
+      return
+    }
+
+    if (isPlainObject(value) && value.type === 'tensor'
+      && typeof value.dtype === 'string'
+      && isExperimentFloatDType(value.dtype as ExperimentTensorDType)
+      && Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
+      const parameter = value as MaterialFloatTensorValue
+      resolved[key] = Object.freeze({
+        type: 'tensor' as const,
+        dimension: parameter.dimension,
+        shape: parameter.shape,
+        dtype: parameter.dtype,
+        ...(parameter.axes === undefined ? {} : { axes: parameter.axes }),
+        ...(parameter.unit === undefined ? {} : { unit: parameter.unit }),
+        value: sampleMaterialTensorValue(
+          parameter.value,
+          parameter.dtype,
+          parameter.errorRate,
+          `${path}.value`,
+        ),
+      })
+      return
+    }
+
+    resolved[key] = value
+  })
+
+  return Object.freeze(resolved)
+}
 
 export const vars = new Proxy<Record<string, Tensor>>(
   {},
@@ -1195,12 +1337,16 @@ export const vars = new Proxy<Record<string, Tensor>>(
 
 export function evaluateWithVars<T>(sampleVars: Readonly<Vars>, evaluate: () => T) {
   const previousVars = activeVars
+  const previousMaterialRandom = activeMaterialRandom
   activeVars = sampleVars
+  const materialSeed = materialRandomSeeds.get(sampleVars)
+  activeMaterialRandom = materialSeed === undefined ? null : createRandom(materialSeed)
 
   try {
     return evaluate()
   } finally {
     activeVars = previousVars
+    activeMaterialRandom = previousMaterialRandom
   }
 }
 

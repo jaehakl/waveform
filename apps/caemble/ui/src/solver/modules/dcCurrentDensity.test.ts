@@ -87,6 +87,7 @@ function createDcPair(options: {
         electricalConductivity: {
           type: 'float',
           value: conductivity,
+          errorRate: 0,
           ...(conductivityUnit === null ? {} : { unit: conductivityUnit }),
         },
         color: '#d97706',
@@ -435,7 +436,7 @@ describe('dc-current-density@1.0.0', () => {
         h(Conductor, {
           id: 'conductor',
           materials: [new Material('Copper', {
-            electricalConductivity: { type: 'float', value: 5.96e7, unit: 'S/m' },
+            electricalConductivity: { type: 'float', value: 5.96e7, errorRate: 0, unit: 'S/m' },
           })],
         }),
         h(Extra, { id: 'extra', pos: [0, 10, 0] }),

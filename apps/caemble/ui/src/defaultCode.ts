@@ -30,6 +30,7 @@ const structure = new Structure({
           electricalConductivity: {
             type: 'float',
             value: vars.electricalConductivity as number,
+            errorRate: 0.001,
             unit: 'S/m',
           },
           color: '#d97706',

@@ -199,7 +199,28 @@ export type MaterialVariable =
   | FloatValue
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
-export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+export type MaterialFloatValue = Readonly<{
+  type: 'float'
+  value: number
+  errorRate: number
+  unit?: UcumUnit
+}>
+export type MaterialFloatTensorValue = Readonly<{
+  type: 'tensor'
+  dimension: number
+  shape: readonly number[]
+  dtype: 'float16' | 'float32' | 'float64'
+  axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
+  value: number | readonly unknown[]
+  errorRate: number
+}>
+export type MaterialVariables = Readonly<
+  Record<string, MaterialVariable | MaterialFloatValue | MaterialFloatTensorValue> & { color?: string }
+>
+export type ResolvedMaterialVariables = Readonly<
+  Record<string, MaterialVariable | ExperimentTensorParameter> & { color?: string }
+>
 export type SolverParameters = Readonly<Record<string, MaterialVariable>>
 export type ExperimentSolver = Readonly<{
   name: string

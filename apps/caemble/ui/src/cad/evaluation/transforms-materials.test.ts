@@ -1,7 +1,7 @@
 import { measurements } from '@jscad/modeling'
-import { describe, expect, it } from 'vitest'
-import { Material } from '../model/core'
-import { Fragment, evaluateCad, h } from '../index'
+import { describe, expect, it, vi } from 'vitest'
+import { evaluateWithVars, Material, Sample, Structure } from '../model/core'
+import { Fragment, evaluateCad, evaluateCadScene, h } from '../index'
 
 const size = [2, 2, 2]
 
@@ -183,7 +183,7 @@ describe('CAD transforms-materials', () => {
 
   it('shares one serializable snapshot for parts using the same Material instance', () => {
     const shared = new Material('Core', 'Kittel_1988', {
-      density: { type: 'float', value: 2.7, unit: 'g/cm3' },
+      density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' },
       color: '#2563eb',
     })
     const parts = evaluateCad(h(
@@ -198,9 +198,49 @@ describe('CAD transforms-materials', () => {
     expect(parts[0].material).toEqual({
       symbol: 'Core',
       version: 'Kittel_1988',
-      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' }, color: '#2563eb' },
+      variables: {
+        density: { type: 'float', value: 2.7, unit: 'g/cm3' },
+        color: '#2563eb',
+      },
     })
     expect(cloned[0].material).toBe(cloned[1].material)
+  })
+
+  it('shares one realization per Material instance and samples distinct instances independently', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const shared = new Material('Shared', {
+        density: { type: 'float', value: 10, errorRate: 0.2 },
+      })
+      const first = new Material('Separate', {
+        density: { type: 'float', value: 10, errorRate: 0.2 },
+      })
+      const second = new Material('Separate', {
+        density: { type: 'float', value: 10, errorRate: 0.2 },
+      })
+      const structure = new Structure({
+        lengthUnit: 'mm',
+        geometry: () => h(
+          Fragment,
+          null,
+          h(Box, { id: 'shared-first', materials: [shared] }),
+          h(Box, { id: 'shared-second', pos: [3, 0, 0], materials: [shared] }),
+          h(Box, { id: 'separate-first', pos: [6, 0, 0], materials: [first] }),
+          h(Box, { id: 'separate-second', pos: [9, 0, 0], materials: [second] }),
+        ),
+        varsSchema: {},
+      })
+      const sample = new Sample(structure)
+      const scene = evaluateWithVars(sample.vars, () => evaluateCadScene(structure.geometry()))
+      const applied = scene.parts.map((part) => part.material?.variables.density as { value: number })
+
+      expect(scene.parts[0].material).toBe(scene.parts[1].material)
+      expect(applied[0]).toEqual(applied[1])
+      expect(applied[2].value).not.toBe(applied[3].value)
+      applied.forEach((density) => expect(density).not.toHaveProperty('errorRate'))
+    } finally {
+      random.mockRestore()
+    }
   })
 })
 

@@ -1,4 +1,4 @@
-import type { Material, MaterialVariables } from '../model/core'
+import type { Material, ResolvedMaterialVariables } from '../model/core'
 import type { Rotation, Vec3 } from '../model/types'
 import type { UcumUnit } from '../model/units'
 
@@ -40,7 +40,7 @@ export type CadScenePart = {
 export type CadSceneMaterial = Readonly<{
   symbol: string
   version?: string
-  variables: MaterialVariables
+  variables: ResolvedMaterialVariables
 }>
 
 export type CadSceneTreeNode = {

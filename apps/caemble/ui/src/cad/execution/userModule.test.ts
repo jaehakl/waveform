@@ -161,6 +161,7 @@ describe('compiled user module execution', () => {
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain("unit: 'S/m'")
+    expect(defaultCode).toContain('errorRate: 0.001')
     expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 12, 10] }')
     expect(defaultCode).toContain('notchSize: { shape: [3], default: [30, 5, 5] }')
     expect(defaultCode).toContain('notchPosition: { shape: [3], default: [0, 4.5, 2.5] }')
@@ -183,11 +184,15 @@ describe('compiled user module execution', () => {
         symbol: 'Copper',
         version: 'reference',
         variables: {
-          electricalConductivity: { type: 'float', value: 5.96e7, unit: 'S/m' },
+          electricalConductivity: { type: 'float', value: expect.any(Number), unit: 'S/m' },
           color: '#d97706',
         },
       },
     })
+    const conductivity = parts[0].material?.variables.electricalConductivity as { value: number }
+    expect(conductivity.value).toBeGreaterThanOrEqual(5.96e7 * (1 - 0.001))
+    expect(conductivity.value).toBeLessThanOrEqual(5.96e7 * (1 + 0.001))
+    expect(conductivity).not.toHaveProperty('errorRate')
     expect(geometryGroups[0]).toMatchObject({ name: 'conductor', geometryIds: ['conductor'] })
     expect(surfaceGroups.map((group) => group.name)).toEqual(['sourceTerminal', 'referenceTerminal'])
     if (!geometries.geom3.isA(parts[0].geometry)) throw new Error('Expected the default conductor to be a geom3 solid.')

@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   CadModelError,
   evaluateExperimentRules,
   evaluateExperimentSolver,
   normalizeExperimentTensorParameter,
+  resolveMaterialVariables,
   Material,
   Experiment,
   Sample,
@@ -784,9 +785,11 @@ describe('Experiment and Setup', () => {
 describe('Material and global vars', () => {
   it('supports every Material constructor overload', () => {
     expect(new Material('Al')).toMatchObject({ symbol: 'Al', variables: {} })
-    expect(new Material('Al', { density: { type: 'float', value: 2.7, unit: 'g/cm3' } })).toMatchObject({
+    expect(new Material('Al', {
+      density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' },
+    })).toMatchObject({
       symbol: 'Al',
-      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' } },
+      variables: { density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' } },
     })
     expect(new Material('Al', 'Kittel_1988')).toMatchObject({
       symbol: 'Al',
@@ -794,13 +797,163 @@ describe('Material and global vars', () => {
       variables: {},
     })
     expect(new Material('Al', 'Kittel_1988', {
-      density: { type: 'float', value: 2.7, unit: 'g/cm3' },
+      density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' },
     })).toMatchObject({
       symbol: 'Al',
       version: 'Kittel_1988',
-      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' } },
+      variables: { density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' } },
     })
     expect(new Material('Al').variables).not.toHaveProperty('color')
+  })
+
+  it('normalizes required top-level Material float error rates and preserves other values', () => {
+    const material = new Material('Measured', {
+      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V' },
+      field: {
+        type: 'tensor',
+        dimension: 2,
+        shape: [1, 2],
+        dtype: 'float32',
+        axes: [{ name: 'row' }, { name: 'column', ticks: ['a', 'b'] }],
+        unit: 'V',
+        value: [[1.5, -2]],
+        errorRate: 0.1,
+      },
+      nested: { baseline: { type: 'float', value: 1.5 } },
+      integerTensor: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int32', value: [1, 2] },
+    })
+
+    expect(material.variables).toMatchObject({
+      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V' },
+      field: {
+        type: 'tensor',
+        dimension: 2,
+        shape: [1, 2],
+        dtype: 'float32',
+        unit: 'V',
+        value: [[1.5, -2]],
+        errorRate: 0.1,
+      },
+      nested: { baseline: { type: 'float', value: 1.5 } },
+      integerTensor: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int32', value: [1, 2] },
+    })
+    expect(Object.isFrozen(material.variables)).toBe(true)
+    expect(Object.isFrozen(material.variables.field)).toBe(true)
+    expect(Object.isFrozen((material.variables.field as { value: readonly unknown[] }).value)).toBe(true)
+    expect(new Material('Boundary', {
+      exact: { type: 'float', value: 1, errorRate: 0 },
+      upper: { type: 'float', value: 1, errorRate: 1 - Number.EPSILON },
+    }).variables).toMatchObject({
+      exact: { errorRate: 0 },
+      upper: { errorRate: 1 - Number.EPSILON },
+    })
+
+    expect(() => new Material('Missing', {
+      scalar: { type: 'float', value: 1 },
+    })).toThrow('must contain exactly type, value, errorRate')
+    expect(() => new Material('Missing tensor', {
+      field: { type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1] },
+    })).toThrow('must contain exactly type, dimension, shape, dtype, value, errorRate')
+    ;[-0.001, 1, Number.NaN, Number.POSITIVE_INFINITY, '0.1'].forEach((errorRate) => {
+      expect(() => new Material('Invalid', {
+        scalar: { type: 'float', value: 1, errorRate } as never,
+      })).toThrow('errorRate must be a finite number in [0, 1)')
+      expect(() => new Material('Invalid tensor', {
+        field: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [1],
+          dtype: 'float64',
+          value: [1],
+          errorRate,
+        } as never,
+      })).toThrow('errorRate must be a finite number in [0, 1)')
+    })
+  })
+
+  it('realizes independent float values once per Sample or Setup and strips error rates from applied values', () => {
+    const random = vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValue(0.25)
+    try {
+      const material = new Material('Variable', {
+        scalar: { type: 'float', value: 100, errorRate: 0.1, unit: 'V' },
+        fixed: { type: 'float', value: 25, errorRate: 0 },
+        field: {
+          type: 'tensor',
+          dimension: 2,
+          shape: [1, 2],
+          dtype: 'float64',
+          value: [[10, 20]],
+          errorRate: 0.2,
+        },
+        nested: { baseline: { type: 'float', value: 1.5 } },
+      })
+      const firstSample = new Sample(createStructure())
+      const secondSample = new Sample(createStructure())
+      const experiment = new Experiment({
+        lengthUnit: 'mm',
+        solver: createSolver(),
+        geometry: () => null,
+        varsSchema: {},
+      })
+      const setup = new Setup(experiment)
+      const direct = resolveMaterialVariables(material)
+      const first = evaluateWithVars(firstSample.vars, () => resolveMaterialVariables(material))
+      const replay = evaluateWithVars(firstSample.vars, () => resolveMaterialVariables(material))
+      const second = evaluateWithVars(secondSample.vars, () => resolveMaterialVariables(material))
+      const setupFirst = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
+      const setupReplay = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
+
+      expect(direct.scalar).toEqual({ type: 'float', value: 100, unit: 'V' })
+      expect(first).toEqual(replay)
+      expect(setupFirst).toEqual(setupReplay)
+      expect(second).not.toEqual(first)
+      expect(first.scalar).not.toHaveProperty('errorRate')
+      expect(first.field).not.toHaveProperty('errorRate')
+      expect(material.variables.scalar).toMatchObject({ value: 100, errorRate: 0.1 })
+      expect(first.fixed).toEqual({ type: 'float', value: 25 })
+      expect(first.nested).toEqual({ baseline: { type: 'float', value: 1.5 } })
+      expect(Object.isFrozen(first)).toBe(true)
+      expect(Object.isFrozen(first.field)).toBe(true)
+
+      const scalar = first.scalar as { value: number }
+      expect(scalar.value).toBeGreaterThanOrEqual(90)
+      expect(scalar.value).toBeLessThanOrEqual(110)
+      const field = (first.field as { value: readonly (readonly number[])[] }).value[0]
+      const multipliers = [field[0] / 10, field[1] / 20]
+      multipliers.forEach((multiplier) => {
+        expect(multiplier).toBeGreaterThanOrEqual(0.8)
+        expect(multiplier).toBeLessThanOrEqual(1.2)
+      })
+      expect(multipliers[0]).not.toBe(multipliers[1])
+    } finally {
+      random.mockRestore()
+    }
+  })
+
+  it('rejects a sampled float tensor value that exceeds its dtype range', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(1 / 4294967296)
+    try {
+      const sample = new Sample(createStructure())
+      const material = new Material('Overflow', {
+        field: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [1],
+          dtype: 'float16',
+          value: [65504],
+          errorRate: 0.5,
+        },
+      })
+
+      expect(() => evaluateWithVars(sample.vars, () => resolveMaterialVariables(material))).toThrow(
+        'must be a finite float16 value in [-65504, 65504]',
+      )
+    } finally {
+      random.mockRestore()
+    }
   })
 
   it('constructs Materials after vars are bound and deeply freezes JSON variables', () => {
@@ -843,7 +996,7 @@ describe('Material and global vars', () => {
     expect(() => new Material('Core', { values: [1, Number.POSITIVE_INFINITY] })).toThrow('finite number')
     expect(() => new Material('Core', { density: 1.5 })).toThrow('float descriptor')
     expect(() => new Material('Core', {
-      density: { type: 'float', value: 1.5, unit: 'invalid-unit' },
+      density: { type: 'float', value: 1.5, errorRate: 0, unit: 'invalid-unit' },
     })).toThrow('valid case-sensitive UCUM code')
     expect(() => new Material('Core', { color: 'blue' })).toThrow('#RRGGBB')
     expect(() => new Material('Core', null as never)).toThrow('plain object')
