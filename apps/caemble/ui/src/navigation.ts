@@ -1,13 +1,10 @@
-export type AppView = 'experiment' | 'help' | 'structure'
+export type AppView = 'help' | 'viewer'
 
 export const viewHashes: Readonly<Record<AppView, string>> = {
-  structure: '#structure',
-  experiment: '#experiment',
+  viewer: '#viewer',
   help: '#help',
 }
 
 export function appViewFromHash(hash: string): AppView {
-  if (hash === viewHashes.experiment) return 'experiment'
-  if (hash === viewHashes.help) return 'help'
-  return 'structure'
+  return hash === viewHashes.help ? 'help' : 'viewer'
 }

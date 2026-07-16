@@ -170,4 +170,26 @@ describe('GeometryTree', () => {
     expect(markup.match(/data-group-draft-selected="true"/g)).toHaveLength(2)
     expect(markup.match(/aria-pressed="true"/g)?.length).toBeGreaterThanOrEqual(3)
   })
+
+  it('keeps Tree selection available while hiding group mutations in read-only mode', () => {
+    const markup = renderToStaticMarkup(
+      <GeometryTree
+        draftSelection={{ kind: 'geometry', memberIds: ['assembly.core'] }}
+        readOnly
+        scene={scene}
+        selectedId={null}
+        onDraftSelectionChange={() => undefined}
+        onGroupsChange={() => undefined}
+        onSelect={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('1 geometry selected')
+    expect(markup).toContain('>Clear</button>')
+    expect(markup).toContain('aria-pressed="true"')
+    expect(markup).not.toContain('aria-label="Target group"')
+    expect(markup).not.toContain('aria-label="New group name"')
+    expect(markup).not.toContain('>Create group</button>')
+    expect(markup).not.toContain('aria-label="Delete group body"')
+  })
 })

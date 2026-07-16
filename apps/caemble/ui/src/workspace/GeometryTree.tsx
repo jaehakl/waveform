@@ -11,6 +11,7 @@ import {
 
 type GeometryTreeProps = {
   draftSelection: DraftSelection | null
+  readOnly?: boolean
   scene: CadScene | null
   selectedId: string | null
   onDraftSelectionChange: (selection: DraftSelection | null) => void
@@ -134,6 +135,7 @@ function NamedGroupSection({
   onRemoveMember,
   onSelect,
   onToggle,
+  readOnly,
   selectedId,
   title,
 }: {
@@ -144,6 +146,7 @@ function NamedGroupSection({
   onRemoveMember: (group: CadSceneGroup, memberId: string) => void
   onSelect: (group: CadSceneGroup, modified: boolean) => void
   onToggle: (id: string) => void
+  readOnly: boolean
   selectedId: string | null
   title: string
 }) {
@@ -189,14 +192,16 @@ function NamedGroupSection({
                       {group.memberIds.length - group.missingMemberIds.length}/{group.memberIds.length} resolved
                     </span>
                   </button>
-                  <button
-                    aria-label={`Delete group ${group.name}`}
-                    className="mr-1 rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-rose-50 hover:text-rose-700"
-                    type="button"
-                    onClick={() => onDelete(group)}
-                  >
-                    Delete
-                  </button>
+                  {!readOnly ? (
+                    <button
+                      aria-label={`Delete group ${group.name}`}
+                      className="mr-1 rounded px-1.5 py-1 text-[10px] text-slate-400 hover:bg-rose-50 hover:text-rose-700"
+                      type="button"
+                      onClick={() => onDelete(group)}
+                    >
+                      Delete
+                    </button>
+                  ) : null}
                 </div>
                 {isExpanded ? (
                   <ul className="bg-slate-50/70 py-1">
@@ -208,14 +213,16 @@ function NamedGroupSection({
                         {missing.has(memberId) ? (
                           <span className="rounded bg-amber-100 px-1 text-amber-800">Missing</span>
                         ) : null}
-                        <button
-                          aria-label={`Remove ${memberId} from ${group.name}`}
-                          className="text-slate-400 hover:text-rose-700"
-                          type="button"
-                          onClick={() => onRemoveMember(group, memberId)}
-                        >
-                          Remove
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            aria-label={`Remove ${memberId} from ${group.name}`}
+                            className="text-slate-400 hover:text-rose-700"
+                            type="button"
+                            onClick={() => onRemoveMember(group, memberId)}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -234,6 +241,7 @@ function GeometryTree({
   onDraftSelectionChange,
   onGroupsChange,
   onSelect,
+  readOnly = false,
   scene,
   selectedId,
 }: GeometryTreeProps) {
@@ -314,6 +322,7 @@ function GeometryTree({
   }
 
   const applyGroupMap = (kind: DraftSelection['kind'], groups: StructureGroupMap) => {
+    if (readOnly) return
     onGroupsChange(kind === 'geometry' ? 'geometryGroup' : 'surfaceGroup', groups)
   }
 
@@ -376,35 +385,43 @@ function GeometryTree({
                 Clear
               </button>
             </div>
-            <select
-              aria-label="Target group"
-              className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs"
-              value={targetGroup}
-              onChange={(event) => setTargetGroup(event.target.value)}
-            >
-              <option value="">New group</option>
-              {draftGroups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}
-            </select>
-            {!targetGroup ? (
-              <input
-                aria-label="New group name"
-                className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
-                placeholder="Group name"
-                value={newGroupName}
-                onChange={(event) => setNewGroupName(event.target.value)}
-              />
+            {!readOnly ? (
+              <>
+                <select
+                  aria-label="Target group"
+                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+                  value={targetGroup}
+                  onChange={(event) => setTargetGroup(event.target.value)}
+                >
+                  <option value="">New group</option>
+                  {draftGroups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}
+                </select>
+                {!targetGroup ? (
+                  <input
+                    aria-label="New group name"
+                    className="w-full rounded border border-slate-300 px-2 py-1 text-xs"
+                    placeholder="Group name"
+                    value={newGroupName}
+                    onChange={(event) => setNewGroupName(event.target.value)}
+                  />
+                ) : null}
+                <button
+                  className="w-full rounded bg-slate-900 px-2 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canSaveDraft}
+                  type="button"
+                  onClick={saveDraft}
+                >
+                  {targetGroup ? 'Add to group' : 'Create group'}
+                </button>
+              </>
             ) : null}
-            <button
-              className="w-full rounded bg-slate-900 px-2 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!canSaveDraft}
-              type="button"
-              onClick={saveDraft}
-            >
-              {targetGroup ? 'Add to group' : 'Create group'}
-            </button>
           </div>
         ) : (
-          <p className="text-[11px] leading-4 text-slate-400">Ctrl/Cmd-click Geometry or Surface rows to assign a group.</p>
+          <p className="text-[11px] leading-4 text-slate-400">
+            {readOnly
+              ? 'Ctrl/Cmd-click Geometry or Surface rows to highlight multiple items.'
+              : 'Ctrl/Cmd-click Geometry or Surface rows to assign a group.'}
+          </p>
         )}
       </div>
 
@@ -419,6 +436,7 @@ function GeometryTree({
               onRemoveMember={removeMember}
               onSelect={handleNamedGroupSelect}
               onToggle={toggleGroup}
+              readOnly={readOnly}
               selectedId={selectedId}
               title="Geometry Groups"
             />
@@ -430,6 +448,7 @@ function GeometryTree({
               onRemoveMember={removeMember}
               onSelect={handleNamedGroupSelect}
               onToggle={toggleGroup}
+              readOnly={readOnly}
               selectedId={selectedId}
               title="Surface Groups"
             />

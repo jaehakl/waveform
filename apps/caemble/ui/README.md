@@ -18,7 +18,16 @@ npm run build
 npm run lint
 ```
 
-The Structure and Experiment links keep independent code, scene, selection, and workspace state. Each editor auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. Code Space and Geometry Tree share the left panel while the viewer remains visible. On large screens, drag the vertical divider to resize the left panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to edit groups in the active Structure or Experiment source.
+The Viewer page injects Structure and Experiment source into the reusable `StructureExperimentViewer`. Its four tabs switch between Structure Source, Structure Tree, Experiment Source, and Experiment Tree while the 3D viewer remains visible. Missing sources hide their tab pair, and a source without its matching change callback is read-only. Each active document auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. On large screens, drag the vertical divider to resize the modeling panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; editable sources can save that selection into groups.
+
+```tsx
+<StructureExperimentViewer
+  structure={structure}
+  experiment={experiment}
+  onStructureChange={setStructure}
+  onExperimentChange={setExperiment}
+/>
+```
 
 ## CAD Library Layout
 
@@ -374,3 +383,60 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Structure 에서는 Material 의 symbol, 버전명(선택), 직접 입력값 dictionary (선택) 를 포함하는 Material 객체를 선언.
 - 직접 입력값 dictionary 의 `color` 변수는 `#RRGGBB` 형식의 UI 표시 색상이며, 생략하면 UI 기본색을 사용.
 - Measurement 를 Build 할 때, Experiment 에서 필요한 값들을 Structure 직접 입력값, DB 값, var 로 정의되는 Custom 물질 랜덤값 생성 등을 통해 실제 값 고정
+
+
+## 제공할 기능
+
+Structure 편집
+Experiment 편집
+Sample, Setup 생성
+Parameter sweep
+Optimization
+Measurement 생성 (Simulation Run)
+Single, Batch
+Material 및 Parameter 관리 (Override)
+Solver 및 Parameter 관리 (Override)
+GP Station Slave 관리
+Structure 분석 (다양한 Experiment)
+Experiment 분석 (다양한 Structure)
+Structure + Experiment 분석
+다양한 Measurement Data 통계
+데이터 기반 Prediction
+
+inverse Design
+유사 구조 Structure Code Embedding 비교
+ML 모델 관리
+모델은 Structure + Experiment 의존
+유사한 Structure, Experiment 를 Embedding 으로 찾아서 참고하는 것은 가능
+원격 ML 수행
+Model Load, Save, Train, Predict
+모델은 cache, 저장소는 AWS Bucket
+ML 기반 Prediction 데이터 생성 및 활용
+
+## UI 설계
+
+다양한 독립적인 페이지를 추가할 수 있도록 Navbar 에 2단 목록 메뉴 제공
+각 페이지는 기본적으로 독립적인 SPA
+Dashboard
+최근 Structure 목록
+최근 Experiment 목록
+최근 Measurement 결과 목록
+Worker 목록, 상태
+Solver 목록
+Structure + Experiment + Measurement 통합 화면
+
+
+## DB Table
+
+- Structure
+- Sample
+- Experiment
+- Setup
+- Measurement
+- MeasurementData
+- Material
+- MaterialParameter
+- Solver
+- SolverParameter
+- PredictionModel
+- DesignerModel

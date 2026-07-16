@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { editor as MonacoEditor } from 'monaco-editor'
 import type {
   CadDocumentType,
   CadScene,
   CadWorkerRequest,
   CadWorkerResponse,
 } from '../cad'
-import { applyCadSceneGroups } from '../cad/evaluation/groups'
 import { resolveCadSceneDraftSelection, resolveCadSceneSelection } from '../cad/evaluation/selection'
 import type { StructureGroupMap } from '../cad/model/core'
 import {
@@ -34,30 +32,23 @@ function createRequestId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
 }
 
-function sceneGroupMap(scene: CadScene, property: StructureGroupProperty): StructureGroupMap {
-  const groups = property === 'geometryGroup' ? scene.geometryGroups : scene.surfaceGroups
-  return Object.fromEntries(groups.map((group) => [group.name, group.memberIds]))
-}
-
 export function useCadDocument(
-  initialCode: string,
+  source: string | null | undefined,
   documentType: CadDocumentType,
   active: boolean,
+  onSourceChange: ((source: string) => void) | undefined,
 ) {
-  const [code, setCode] = useState(initialCode)
   const [error, setError] = useState<RunError | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
-  const [workspaceTab, setWorkspaceTab] = useState<'code' | 'tree'>('code')
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(44)
   const activeTimeoutRef = useRef<number | null>(null)
   const activeWorkerRef = useRef<Worker | null>(null)
   const latestRequestIdRef = useRef('')
   const pendingRunRef = useRef<number | null>(null)
-  const workspaceRef = useRef<HTMLElement | null>(null)
-  const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null)
+  const workspaceRef = useRef<HTMLDivElement | null>(null)
 
   const clearPendingRun = useCallback(() => {
     if (pendingRunRef.current === null) return
@@ -155,15 +146,15 @@ export function useCadDocument(
   }, [clearPendingRun, runModel])
 
   useEffect(() => {
-    if (!active) return
+    if (!active || source === null || source === undefined) return
 
     pendingRunRef.current = window.setTimeout(() => {
       pendingRunRef.current = null
-      requestModelRun(code)
+      requestModelRun(source)
     }, 500)
 
     return clearPendingRun
-  }, [active, clearPendingRun, code, requestModelRun])
+  }, [active, clearPendingRun, requestModelRun, source])
 
   useEffect(() => {
     if (active) return
@@ -175,6 +166,18 @@ export function useCadDocument(
     clearPendingRun()
     clearActiveRun()
   }, [clearActiveRun, clearPendingRun])
+
+  useEffect(() => {
+    if (source !== null && source !== undefined) return
+
+    clearPendingRun()
+    clearActiveRun()
+    setDraftSelection(null)
+    setError(null)
+    setScene(null)
+    setSelectedId(null)
+    setStatus('Ready')
+  }, [clearActiveRun, clearPendingRun, source])
 
   const handleRenderStart = useCallback(() => setStatus('Rendering'), [])
   const handleRenderEnd = useCallback(() => setStatus('Ready'), [])
@@ -192,47 +195,20 @@ export function useCadDocument(
   )
 
   const handleReroll = useCallback(() => {
-    if (runIsBusy) return
-    requestModelRun(code)
-  }, [code, requestModelRun, runIsBusy])
+    if (runIsBusy || source === null || source === undefined) return
+    requestModelRun(source)
+  }, [requestModelRun, runIsBusy, source])
+
+  const handleSourceChange = useCallback((nextSource: string) => {
+    onSourceChange?.(nextSource)
+  }, [onSourceChange])
 
   const handleGroupsChange = useCallback((property: StructureGroupProperty, groups: StructureGroupMap) => {
-    const editor = editorRef.current
-    const model = editor?.getModel()
-    const source = model?.getValue() ?? code
+    if (source === null || source === undefined || !onSourceChange) return
 
     try {
       const update = updateModelGroupSource(source, documentType, property, groups)
-      if (editor && model && model.getValue() === source) {
-        editor.pushUndoStop()
-        editor.executeEdits('geometry-tree-groups', update.edits.map((edit) => {
-          const start = model.getPositionAt(edit.start)
-          const end = model.getPositionAt(edit.end)
-          return {
-            range: {
-              startLineNumber: start.lineNumber,
-              startColumn: start.column,
-              endLineNumber: end.lineNumber,
-              endColumn: end.column,
-            },
-            text: edit.text,
-            forceMoveMarkers: true,
-          }
-        }))
-        editor.pushUndoStop()
-        setCode(model.getValue())
-      } else {
-        setCode(update.source)
-      }
-
-      if (scene) {
-        const nextScene = applyCadSceneGroups(scene, {
-          geometryGroup: property === 'geometryGroup' ? groups : sceneGroupMap(scene, 'geometryGroup'),
-          surfaceGroup: property === 'surfaceGroup' ? groups : sceneGroupMap(scene, 'surfaceGroup'),
-        })
-        setScene(nextScene)
-        setSelectedId((current) => resolveCadSceneSelection(nextScene, current) ? current : null)
-      }
+      onSourceChange(update.source)
       setError(null)
     } catch (groupError) {
       setStatus('Error')
@@ -243,32 +219,29 @@ export function useCadDocument(
           : `The ${documentType} group could not be synchronized with Code Space.`,
       })
     }
-  }, [code, documentType, scene])
+  }, [documentType, onSourceChange, source])
 
   return {
-    code,
     documentType,
     draftSelection,
-    editorRef,
     error,
     handleGroupsChange,
     handleRenderEnd,
     handleRenderError,
     handleRenderStart,
     handleReroll,
+    handleSourceChange,
+    readOnly: !onSourceChange,
     runIsBusy,
     scene,
     selectedId,
     selection,
-    setCode,
     setDraftSelection,
     setSelectedId,
     setWorkspaceLeftPercent,
-    setWorkspaceTab,
     status,
     workspaceLeftPercent,
     workspaceRef,
-    workspaceTab,
   }
 }
 
