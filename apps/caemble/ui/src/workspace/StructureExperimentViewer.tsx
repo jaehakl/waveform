@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useState } from 'react'
 import type { CadDocumentType } from '../cad'
 import CadEditor from '../editor/CadEditor'
 import JscadViewer from '../viewer/JscadViewer'
+import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
 import { useCadDocument, type CadDocumentController } from './useCadDocument'
 
@@ -17,6 +18,12 @@ const workspaceTabs = [
   { id: 'structure-tree', documentType: 'structure', panel: 'tree', label: 'Structure Tree' },
   { id: 'experiment-source', documentType: 'experiment', panel: 'source', label: 'Experiment Source' },
   { id: 'experiment-tree', documentType: 'experiment', panel: 'tree', label: 'Experiment Tree' },
+  {
+    id: 'experimental-parameters',
+    documentType: 'experiment',
+    panel: 'parameters',
+    label: 'Experimental Parameters',
+  },
 ] as const
 
 type WorkspaceTab = (typeof workspaceTabs)[number]['id']
@@ -174,7 +181,7 @@ export function StructureExperimentViewer({
                     value={source ?? ''}
                     onChange={document.handleSourceChange}
                   />
-                ) : (
+                ) : tab.panel === 'tree' ? (
                   <GeometryTree
                     draftSelection={document.draftSelection}
                     readOnly={document.readOnly}
@@ -183,6 +190,13 @@ export function StructureExperimentViewer({
                     onDraftSelectionChange={document.setDraftSelection}
                     onGroupsChange={document.handleGroupsChange}
                     onSelect={document.setSelectedId}
+                  />
+                ) : (
+                  <ExperimentalParameters
+                    onSourceChange={experimentDocument.handleSourceChange}
+                    readOnly={experimentDocument.readOnly}
+                    rules={experimentDocument.experimentRules}
+                    source={experiment ?? ''}
                   />
                 )}
               </div>

@@ -1,4 +1,5 @@
 import type { CadScene } from '../evaluation/types'
+import type { EvaluatedExperimentRules } from '../model/core'
 
 export type CadDocumentType = 'structure' | 'experiment'
 
@@ -16,6 +17,7 @@ export type CadWorkerResponse =
       type: 'success'
       requestId: string
       scene: CadScene
+      experimentRules?: EvaluatedExperimentRules
     }>
   | Readonly<{
       type: 'error'

@@ -34,15 +34,20 @@ describe('compiled user module execution', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Sample')
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Setup')
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Experiment')
-    expect(executeCompiledCode(validModule)).toMatchObject({
-      parts: [{
-        id: 'root',
-        material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
-      }],
-      tree: { label: 'Structure' },
-      geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
-      surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
+    const execution = executeCompiledCode(validModule)
+
+    expect(execution).toMatchObject({
+      scene: {
+        parts: [{
+          id: 'root',
+          material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
+        }],
+        tree: { label: 'Structure' },
+        geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
+        surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
+      },
     })
+    expect(execution).not.toHaveProperty('experimentRules')
   })
 
   it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
@@ -54,6 +59,9 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'field.average'")
     expect(defaultExperimentCode).toContain('parameters: { interval: vars.recordInterval as number }')
+    expect(defaultExperimentCode).toContain('const initialProfileData = [')
+    expect(defaultExperimentCode).toContain("dtype: 'float32'")
+    expect(defaultExperimentCode).toContain("result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }")
     expect(defaultExperimentCode).toContain("'experiment.geometry.domain'")
     expect(defaultExperimentCode).toContain("'structure.surface.sampleBoundary'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment, experiment.randomVars())')
@@ -69,9 +77,23 @@ describe('compiled user module execution', () => {
     expect(() => executeCompiledCode(compiled.code)).toThrow(
       'default export must be a Sample instance',
     )
-    const scene = executeCompiledCode(compiled.code, 'experiment')
+    const execution = executeCompiledCode(compiled.code, 'experiment')
+    const { experimentRules, scene } = execution
 
-    expect(scene).not.toHaveProperty('solver')
+    expect(execution).not.toHaveProperty('solver')
+    expect(experimentRules).toBeDefined()
+    expect(experimentRules?.initialConditions[0].parameters.initialProfile).toMatchObject({
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 3],
+      dtype: 'float32',
+    })
+    expect(experimentRules?.recordedData[0].result).toEqual({
+      type: 'tensor',
+      dimension: 0,
+      shape: [],
+      dtype: 'float64',
+    })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(1)
     expect(scene.parts[0]).toMatchObject({
@@ -104,8 +126,8 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const { geometryGroups, parts, surfaceGroups } = executeCompiledCode(compiled.code)
-    const rerolled = executeCompiledCode(compiled.code)
+    const { geometryGroups, parts, surfaceGroups } = executeCompiledCode(compiled.code).scene
+    const rerolled = executeCompiledCode(compiled.code).scene
 
     expect(parts).toHaveLength(3)
     expect(parts.map((part) => part.id)).toEqual(['bundle.1', 'bundle.2', 'bundle.3'])
@@ -134,7 +156,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      expect(executeCompiledCode(compiled.code).parts.length).toBeGreaterThan(0)
+      expect(executeCompiledCode(compiled.code).scene.parts.length).toBeGreaterThan(0)
     }
   })
 
@@ -151,7 +173,7 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const { parts } = executeCompiledCode(compiled.code)
+    const { parts } = executeCompiledCode(compiled.code).scene
 
     expect(parts.map((part) => part.material.symbol)).toEqual([
       'Core', 'Layer 1',
@@ -197,7 +219,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      const { parts } = executeCompiledCode(compiled.code)
+      const { parts } = executeCompiledCode(compiled.code).scene
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(16)
@@ -229,7 +251,7 @@ describe('compiled user module execution', () => {
         platform: 'browser',
         target: 'es2020',
       })
-      const { parts } = executeCompiledCode(compiled.code)
+      const { parts } = executeCompiledCode(compiled.code).scene
       const volumes = parts.map((part) => measurements.measureVolume(part.geometry))
 
       expect(parts).toHaveLength(48)

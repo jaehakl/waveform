@@ -36,11 +36,60 @@ export type VarsSchemaEntry = {
 
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
-export type ExperimentRule<TParameters extends object = Record<string, unknown>> = Readonly<{
+export type ExperimentTensorDType =
+  | 'bool'
+  | 'string'
+  | 'int8'
+  | 'int16'
+  | 'int32'
+  | 'int64'
+  | 'uint8'
+  | 'uint16'
+  | 'uint32'
+  | 'uint64'
+  | 'float16'
+  | 'float32'
+  | 'float64'
+export type ExperimentScalarParameter =
+  | boolean
+  | string
+  | number
+  | Readonly<{ type: 'bool'; value: boolean }>
+  | Readonly<{ type: 'string'; value: string }>
+  | Readonly<{ type: 'int'; value: number }>
+  | Readonly<{ type: 'float'; value: number }>
+export type ExperimentTensorParameter = Readonly<{
+  type: 'tensor'
+  dimension: number
+  shape: readonly number[]
+  dtype: ExperimentTensorDType
+  value: boolean | string | number | readonly unknown[]
+}>
+export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
+export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
+export type RecordedDataResult = Readonly<{
+  type: 'tensor'
+  dimension: number
+  shape: readonly number[]
+  dtype: ExperimentTensorDType
+}>
+export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
   label: string
   methodId: string
   parameters: TParameters
+}>
+export type RecordedDataRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<
+  ExperimentRule<TParameters> & { result: RecordedDataResult }
+>
+export type EvaluatedExperimentRules<
+  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
+> = Readonly<{
+  initialConditions: readonly ExperimentRule<TInitialConditionParameters>[]
+  boundaryConditions: readonly ExperimentRule<TBoundaryConditionParameters>[]
+  recordedData: readonly RecordedDataRule<TRecordedDataParameters>[]
 }>
 
 type StructureOptions = {
@@ -51,14 +100,14 @@ type StructureOptions = {
 }
 
 type ExperimentOptions<
-  TInitialConditionParameters extends object,
-  TBoundaryConditionParameters extends object,
-  TRecordedDataParameters extends object,
+  TInitialConditionParameters extends ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters,
 > = StructureOptions & {
   solver: ExperimentSolver
   initialConditions?: () => readonly ExperimentRule<TInitialConditionParameters>[]
   boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
-  recordedData?: () => readonly ExperimentRule<TRecordedDataParameters>[]
+  recordedData?: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 }
 
 export class CadModelError extends Error {
@@ -464,21 +513,21 @@ export class Structure {
   }
 }
 
-const emptyExperimentRules = Object.freeze([]) as readonly ExperimentRule<never>[]
+const emptyExperimentRules = Object.freeze([]) as readonly never[]
 
-function emptyRuleFactory() {
-  return emptyExperimentRules
+function emptyRuleFactory<TRule>() {
+  return emptyExperimentRules as readonly TRule[]
 }
 
 export class Experiment<
-  TInitialConditionParameters extends object = Record<string, unknown>,
-  TBoundaryConditionParameters extends object = Record<string, unknown>,
-  TRecordedDataParameters extends object = Record<string, unknown>,
+  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends Structure {
   readonly solver: ExperimentSolver
   readonly initialConditions: () => readonly ExperimentRule<TInitialConditionParameters>[]
   readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
-  readonly recordedData: () => readonly ExperimentRule<TRecordedDataParameters>[]
+  readonly recordedData: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 
   constructor(options: ExperimentOptions<
     TInitialConditionParameters,
@@ -521,11 +570,245 @@ export class Experiment<
   }
 }
 
-export function evaluateExperimentSolver(experiment: Experiment<object, object, object>) {
+export function evaluateExperimentSolver(experiment: Experiment) {
   return Object.freeze({
     name: experiment.solver.name,
     version: experiment.solver.version,
     parameters: normalizeJsonObject(experiment.solver.parameters(), 'Experiment solver parameters'),
+  })
+}
+
+const experimentTensorDTypes = new Set<ExperimentTensorDType>([
+  'bool',
+  'string',
+  'int8',
+  'int16',
+  'int32',
+  'int64',
+  'uint8',
+  'uint16',
+  'uint32',
+  'uint64',
+  'float16',
+  'float32',
+  'float64',
+])
+const experimentIntegerRanges: Partial<Record<ExperimentTensorDType, readonly [number, number]>> = {
+  int8: [-128, 127],
+  int16: [-32768, 32767],
+  int32: [-2147483648, 2147483647],
+  int64: [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+  uint8: [0, 255],
+  uint16: [0, 65535],
+  uint32: [0, 4294967295],
+  uint64: [0, Number.MAX_SAFE_INTEGER],
+}
+
+function assertDescriptorKeys(value: Record<string, unknown>, expected: readonly string[], path: string) {
+  const keys = Reflect.ownKeys(value)
+  const invalid = keys.filter((key) => typeof key !== 'string' || !expected.includes(key))
+  const missing = expected.filter((key) => !Object.prototype.hasOwnProperty.call(value, key))
+  if (invalid.length > 0 || missing.length > 0 || keys.length !== expected.length) {
+    throw new CadModelError(`${path} must contain exactly ${expected.join(', ')}.`)
+  }
+}
+
+function normalizeTensorSchema(
+  value: Record<string, unknown>,
+  path: string,
+  minimumDimension: number,
+) {
+  if (!Number.isSafeInteger(value.dimension) || (value.dimension as number) < minimumDimension) {
+    throw new CadModelError(`${path}.dimension must be a safe integer greater than or equal to ${minimumDimension}.`)
+  }
+  if (!Array.isArray(value.shape)) {
+    throw new CadModelError(`${path}.shape must be an array.`)
+  }
+  const shape = Array.from(value.shape, (size, index) => {
+    if (!Number.isSafeInteger(size) || size <= 0) {
+      throw new CadModelError(`${path}.shape[${index}] must be a positive safe integer.`)
+    }
+    return size
+  })
+  if (value.dimension !== shape.length) {
+    throw new CadModelError(
+      `${path}.dimension is ${String(value.dimension)}, but shape ${JSON.stringify(shape)} has dimension ${shape.length}.`,
+    )
+  }
+  if (typeof value.dtype !== 'string' || !experimentTensorDTypes.has(value.dtype as ExperimentTensorDType)) {
+    throw new CadModelError(`${path}.dtype must be a supported tensor dtype.`)
+  }
+  return {
+    dimension: value.dimension as number,
+    dtype: value.dtype as ExperimentTensorDType,
+    shape: Object.freeze(shape),
+  }
+}
+
+function describeTensorShape(value: unknown, ancestors = new Set<unknown>()): string {
+  if (!Array.isArray(value)) return '[]'
+  if (ancestors.has(value)) return '[circular]'
+  if (value.length === 0) return '[0]'
+
+  ancestors.add(value)
+  const childShapes = value.map((item) => describeTensorShape(item, ancestors))
+  ancestors.delete(value)
+  const uniqueShapes = [...new Set(childShapes)]
+  if (uniqueShapes.length !== 1) {
+    return `[${value.length}, ragged ${uniqueShapes.join(' | ')}]`
+  }
+  const child = uniqueShapes[0]
+  return child === '[]'
+    ? `[${value.length}]`
+    : `[${value.length}, ${child.slice(1, -1)}]`
+}
+
+function tensorShapeError(path: string, value: unknown, shape: readonly number[]): CadModelError {
+  return new CadModelError(
+    `${path} has actual shape ${describeTensorShape(value)}; expected shape ${JSON.stringify(shape)}.`,
+  )
+}
+
+function normalizeTensorElement(value: unknown, dtype: ExperimentTensorDType, path: string) {
+  if (dtype === 'bool') {
+    if (typeof value !== 'boolean') throw new CadModelError(`${path} must be a bool element.`)
+    return value
+  }
+  if (dtype === 'string') {
+    if (typeof value !== 'string') throw new CadModelError(`${path} must be a string element.`)
+    return value
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new CadModelError(`${path} must be a finite ${dtype} element.`)
+  }
+
+  const range = experimentIntegerRanges[dtype]
+  if (range) {
+    if (!Number.isSafeInteger(value) || value < range[0] || value > range[1]) {
+      throw new CadModelError(`${path} must be a ${dtype} safe integer in [${range[0]}, ${range[1]}].`)
+    }
+    return value
+  }
+  if (dtype === 'float16' && Math.abs(value) > 65504) {
+    throw new CadModelError(`${path} must be a finite float16 value in [-65504, 65504].`)
+  }
+  if (dtype === 'float32' && !Number.isFinite(Math.fround(value))) {
+    throw new CadModelError(`${path} must be representable as a finite float32 value.`)
+  }
+  return value
+}
+
+function normalizeTensorValue(
+  value: unknown,
+  shape: readonly number[],
+  dtype: ExperimentTensorDType,
+  path: string,
+  rootValue = value,
+  rootPath = path,
+  depth = 0,
+  ancestors = new Set<unknown>(),
+): boolean | string | number | readonly unknown[] {
+  if (depth === shape.length) {
+    if (Array.isArray(value)) throw tensorShapeError(rootPath, rootValue, shape)
+    return normalizeTensorElement(value, dtype, path)
+  }
+  if (!Array.isArray(value) || value.length !== shape[depth] || ancestors.has(value)) {
+    throw tensorShapeError(rootPath, rootValue, shape)
+  }
+
+  ancestors.add(value)
+  const normalized = value.map((item, index) => normalizeTensorValue(
+    item,
+    shape,
+    dtype,
+    `${path}[${index}]`,
+    rootValue,
+    rootPath,
+    depth + 1,
+    ancestors,
+  ))
+  ancestors.delete(value)
+  return Object.freeze(normalized)
+}
+
+export function normalizeExperimentTensorParameter(
+  value: unknown,
+  path = 'Experiment tensor parameter',
+): ExperimentTensorParameter {
+  if (!isPlainObject(value) || value.type !== 'tensor') {
+    throw new CadModelError(`${path} must be a tensor descriptor.`)
+  }
+  assertDescriptorKeys(value, ['type', 'dimension', 'shape', 'dtype', 'value'], path)
+  const schema = normalizeTensorSchema(value, path, 1)
+  return Object.freeze({
+    type: 'tensor' as const,
+    ...schema,
+    value: normalizeTensorValue(value.value, schema.shape, schema.dtype, `${path}.value`),
+  })
+}
+
+function normalizeScalarDescriptor(value: Record<string, unknown>, path: string): ExperimentScalarParameter {
+  assertDescriptorKeys(value, ['type', 'value'], path)
+  if (value.type === 'bool') {
+    if (typeof value.value !== 'boolean') throw new CadModelError(`${path}.value must be a boolean.`)
+    return Object.freeze({ type: 'bool' as const, value: value.value })
+  }
+  if (value.type === 'string') {
+    if (typeof value.value !== 'string') throw new CadModelError(`${path}.value must be a string.`)
+    return Object.freeze({ type: 'string' as const, value: value.value })
+  }
+  if (value.type === 'int') {
+    if (typeof value.value !== 'number' || !Number.isSafeInteger(value.value)) {
+      throw new CadModelError(`${path}.value must be a safe integer.`)
+    }
+    return Object.freeze({ type: 'int' as const, value: value.value })
+  }
+  if (value.type === 'float') {
+    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
+      throw new CadModelError(`${path}.value must be a finite number.`)
+    }
+    return Object.freeze({ type: 'float' as const, value: value.value })
+  }
+  throw new CadModelError(`${path}.type must be bool, string, int, float, or tensor.`)
+}
+
+function normalizeExperimentParameter(value: unknown, path: string): ExperimentParameter {
+  if (typeof value === 'boolean' || typeof value === 'string') return value
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new CadModelError(`${path} must be finite.`)
+    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+      throw new CadModelError(`${path} integer must be safe.`)
+    }
+    return value
+  }
+  if (!isPlainObject(value)) {
+    throw new CadModelError(`${path} must be a scalar or an explicit tensor descriptor.`)
+  }
+  return value.type === 'tensor'
+    ? normalizeExperimentTensorParameter(value, path)
+    : normalizeScalarDescriptor(value, path)
+}
+
+function normalizeExperimentParameters<TParameters extends ExperimentParameters>(
+  value: unknown,
+  path: string,
+): TParameters {
+  if (!isPlainObject(value)) throw new CadModelError(`${path} must be an object.`)
+  const normalized: Record<string, ExperimentParameter> = {}
+  Object.entries(value).forEach(([key, parameter]) => {
+    normalized[key] = normalizeExperimentParameter(parameter, `${path}.${key}`)
+  })
+  return Object.freeze(normalized) as TParameters
+}
+
+function normalizeRecordedDataResult(value: unknown, path: string): RecordedDataResult {
+  if (!isPlainObject(value) || value.type !== 'tensor') {
+    throw new CadModelError(`${path} must be a tensor descriptor.`)
+  }
+  assertDescriptorKeys(value, ['type', 'dimension', 'shape', 'dtype'], path)
+  return Object.freeze({
+    type: 'tensor' as const,
+    ...normalizeTensorSchema(value, path, 0),
   })
 }
 
@@ -534,7 +817,7 @@ function normalizeExperimentTarget(
   propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
   ruleIndex: number,
   targetIndex: number,
-  experiment: Experiment<object, object, object>,
+  experiment: Pick<Structure, 'geometryGroup' | 'surfaceGroup'>,
 ) {
   const targetPath = `Experiment ${propertyName}[${ruleIndex}].target[${targetIndex}]`
   if (typeof rawTarget !== 'string') {
@@ -571,17 +854,17 @@ function normalizeExperimentTarget(
   return `${source}.${kind}.${group}` as ExperimentTarget
 }
 
-function normalizeExperimentRuleList<TParameters extends object>(
+function normalizeExperimentRuleList<TParameters extends ExperimentParameters>(
   rawRules: unknown,
   propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
-  experiment: Experiment<object, object, object>,
+  experiment: Pick<Structure, 'geometryGroup' | 'surfaceGroup'>,
 ) {
   if (!Array.isArray(rawRules)) {
     throw new CadModelError(`Experiment ${propertyName} must return an array.`)
   }
 
   const labels = new Set<string>()
-  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<TParameters> => {
+  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<TParameters> | RecordedDataRule<TParameters> => {
     if (
       !isRecord(rawRule)
       || !Object.prototype.hasOwnProperty.call(rawRule, 'target')
@@ -611,43 +894,58 @@ function normalizeExperimentRuleList<TParameters extends object>(
       throw new CadModelError(`Experiment ${propertyName}[${index}].parameters must be an object.`)
     }
 
-    return Object.freeze({
+    const rule = {
       target: Object.freeze(rawRule.target.map((target, targetIndex) =>
         normalizeExperimentTarget(target, propertyName, index, targetIndex, experiment))),
       label,
       methodId: rawRule.methodId.trim(),
-      parameters: rawRule.parameters as TParameters,
+      parameters: normalizeExperimentParameters<TParameters>(
+        rawRule.parameters,
+        `Experiment ${propertyName}[${index}].parameters`,
+      ),
+    }
+    if (propertyName !== 'recordedData') return Object.freeze(rule)
+    if (!Object.prototype.hasOwnProperty.call(rawRule, 'result')) {
+      throw new CadModelError(`Experiment recordedData[${index}] must contain a result tensor descriptor.`)
+    }
+    return Object.freeze({
+      ...rule,
+      result: normalizeRecordedDataResult(rawRule.result, `Experiment recordedData[${index}].result`),
     })
   }))
 }
 
 export function evaluateExperimentRules<
-  TInitialConditionParameters extends object,
-  TBoundaryConditionParameters extends object,
-  TRecordedDataParameters extends object,
+  TInitialConditionParameters extends ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters,
 >(
   experiment: Experiment<
     TInitialConditionParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >,
-) {
+): EvaluatedExperimentRules<
+  TInitialConditionParameters,
+  TBoundaryConditionParameters,
+  TRecordedDataParameters
+> {
   return Object.freeze({
     initialConditions: normalizeExperimentRuleList<TInitialConditionParameters>(
       experiment.initialConditions(),
       'initialConditions',
       experiment,
-    ),
+    ) as readonly ExperimentRule<TInitialConditionParameters>[],
     boundaryConditions: normalizeExperimentRuleList<TBoundaryConditionParameters>(
       experiment.boundaryConditions(),
       'boundaryConditions',
       experiment,
-    ),
+    ) as readonly ExperimentRule<TBoundaryConditionParameters>[],
     recordedData: normalizeExperimentRuleList<TRecordedDataParameters>(
       experiment.recordedData(),
       'recordedData',
       experiment,
-    ),
+    ) as readonly RecordedDataRule<TRecordedDataParameters>[],
   })
 }
 
@@ -688,9 +986,9 @@ export class Sample extends VariableObject<Structure> {
 }
 
 export class Setup<
-  TInitialConditionParameters extends object = Record<string, unknown>,
-  TBoundaryConditionParameters extends object = Record<string, unknown>,
-  TRecordedDataParameters extends object = Record<string, unknown>,
+  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends VariableObject<Experiment<
     TInitialConditionParameters,
     TBoundaryConditionParameters,

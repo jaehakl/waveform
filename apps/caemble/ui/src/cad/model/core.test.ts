@@ -3,6 +3,7 @@ import {
   CadModelError,
   evaluateExperimentRules,
   evaluateExperimentSolver,
+  normalizeExperimentTensorParameter,
   Material,
   Experiment,
   Sample,
@@ -13,6 +14,7 @@ import {
   vars,
   type Geometry,
   type GeometryAttributes,
+  type ExperimentTensorDType,
 } from './core'
 
 function createSolver(parameters: () => Record<string, never> = () => ({})) {
@@ -176,14 +178,22 @@ describe('Experiment and Setup', () => {
     expect(() => new DirectVariableObject(structure)).toThrow('abstract and cannot be instantiated directly')
   })
 
-  it('evaluates and normalizes all method rows in order under Setup vars', () => {
-    const timeValue = (time: number) => time * 2
+  it('evaluates, copies, and freezes all method rows in order under Setup vars', () => {
     const order: string[] = []
-    let recordedParameters: Readonly<{ interval: number; transform: typeof timeValue }> | undefined
+    const profile = [[0.1, 0.2], [0.3, 0.4]]
     const experiment = new Experiment<
-      Readonly<{ initialValue: number }>,
-      Readonly<{ value: number | typeof timeValue; offset: number }>,
-      Readonly<{ interval: number; transform: typeof timeValue }>
+      Readonly<{
+        initialValue: number
+        profile: Readonly<{
+          type: 'tensor'
+          dimension: number
+          shape: readonly number[]
+          dtype: 'float32'
+          value: readonly unknown[]
+        }>
+      }>,
+      Readonly<{ active: boolean; label: Readonly<{ type: 'string'; value: string }> }>,
+      Readonly<{ interval: Readonly<{ type: 'int'; value: number }> }>
     >({
       solver: createSolver(),
       geometry: () => {
@@ -203,7 +213,16 @@ describe('Experiment and Setup', () => {
           ],
           label: ' Shared label ',
           methodId: ' field.apply ',
-          parameters: { initialValue: vars.initialValue as number },
+          parameters: {
+            initialValue: vars.initialValue as number,
+            profile: {
+              type: 'tensor',
+              dimension: 2,
+              shape: [2, 2],
+              dtype: 'float32',
+              value: profile,
+            },
+          },
         }]
       },
       boundaryConditions: () => {
@@ -212,12 +231,11 @@ describe('Experiment and Setup', () => {
           target: ['experiment.surface.outer.boundary', 'structure.surface.sampleBoundary'],
           label: 'Shared label',
           methodId: 'field.apply',
-          parameters: { value: timeValue, offset: vars.initialValue as number },
+          parameters: { active: true, label: { type: 'string', value: 'fixed' } },
         }]
       },
       recordedData: () => {
         order.push('recordedData')
-        recordedParameters = { interval: vars.initialValue as number, transform: timeValue }
         return [{
           target: [
             'experiment.geometry.domain',
@@ -227,7 +245,8 @@ describe('Experiment and Setup', () => {
           ],
           label: ' Recorded field ',
           methodId: ' field.record ',
-          parameters: recordedParameters,
+          parameters: { interval: { type: 'int', value: 10 } },
+          result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
         }]
       },
     })
@@ -244,11 +263,20 @@ describe('Experiment and Setup', () => {
       methodId: 'field.apply',
       parameters: { initialValue: 0.75 },
     })
+    expect(rules.initialConditions[0].parameters.profile).toEqual({
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 2],
+      dtype: 'float32',
+      value: profile,
+    })
     expect(rules.boundaryConditions[0].target).toEqual([
       'experiment.surface.outer.boundary', 'structure.surface.sampleBoundary',
     ])
-    expect(rules.boundaryConditions[0].parameters.value).toBe(timeValue)
-    expect(rules.boundaryConditions[0].parameters.offset).toBe(0.75)
+    expect(rules.boundaryConditions[0].parameters).toEqual({
+      active: true,
+      label: { type: 'string', value: 'fixed' },
+    })
     expect(rules.recordedData[0]).toMatchObject({
       target: [
         'experiment.geometry.domain',
@@ -258,13 +286,136 @@ describe('Experiment and Setup', () => {
       ],
       label: 'Recorded field',
       methodId: 'field.record',
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
     })
-    expect(rules.recordedData[0].parameters).toBe(recordedParameters)
-    expect(Object.isFrozen(recordedParameters)).toBe(false)
+    expect(rules.recordedData[0].parameters).toEqual({ interval: { type: 'int', value: 10 } })
     expect(Object.isFrozen(rules.initialConditions)).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0])).toBe(true)
     expect(Object.isFrozen(rules.initialConditions[0].target)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.shape)).toBe(true)
+    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.value)).toBe(true)
     expect(Object.isFrozen(rules.recordedData)).toBe(true)
+    expect(Object.isFrozen(rules.recordedData[0].result)).toBe(true)
+    expect(Object.isFrozen(rules.recordedData[0].result.shape)).toBe(true)
+    profile[0][0] = 9
+    expect(rules.initialConditions[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
+  })
+
+  it('accepts raw and explicit scalar parameters and rejects every unsupported parameter form', () => {
+    const evaluateParameter = (parameter: unknown) => evaluateExperimentRules(new Experiment({
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      initialConditions: () => [{
+        target: ['structure.geometry.sample'],
+        label: 'Scalar',
+        methodId: 'scalar.apply',
+        parameters: { value: parameter },
+      }] as never,
+    })).initialConditions[0].parameters.value
+
+    expect(evaluateParameter(true)).toBe(true)
+    expect(evaluateParameter('text')).toBe('text')
+    expect(evaluateParameter(12)).toBe(12)
+    expect(evaluateParameter(1.25)).toBe(1.25)
+    expect(evaluateParameter({ type: 'bool', value: false })).toEqual({ type: 'bool', value: false })
+    expect(evaluateParameter({ type: 'string', value: 'value' })).toEqual({ type: 'string', value: 'value' })
+    expect(evaluateParameter({ type: 'int', value: 4 })).toEqual({ type: 'int', value: 4 })
+    expect(evaluateParameter({ type: 'float', value: 4 })).toEqual({ type: 'float', value: 4 })
+
+    ;[
+      () => 1,
+      null,
+      [1, 2],
+      { nested: true },
+      undefined,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.MAX_SAFE_INTEGER + 1,
+      { type: 'bool', value: 1 },
+      { type: 'string', value: false },
+      { type: 'int', value: 1.5 },
+      { type: 'float', value: Number.NEGATIVE_INFINITY },
+    ].forEach((parameter) => {
+      expect(() => evaluateParameter(parameter)).toThrow(CadModelError)
+    })
+  })
+
+  it('validates every tensor dtype without rounding accepted values', () => {
+    const valid: readonly [ExperimentTensorDType, unknown][] = [
+      ['bool', [true]],
+      ['string', ['value']],
+      ['int8', [-128, 127]],
+      ['int16', [-32768, 32767]],
+      ['int32', [-2147483648, 2147483647]],
+      ['int64', [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
+      ['uint8', [0, 255]],
+      ['uint16', [0, 65535]],
+      ['uint32', [0, 4294967295]],
+      ['uint64', [0, Number.MAX_SAFE_INTEGER]],
+      ['float16', [-65504, 65504]],
+      ['float32', [0.1, 3.4028234e38]],
+      ['float64', [Number.MIN_VALUE, Number.MAX_VALUE]],
+    ]
+
+    valid.forEach(([dtype, value]) => {
+      const normalized = normalizeExperimentTensorParameter({
+        type: 'tensor',
+        dimension: 1,
+        shape: [(value as unknown[]).length],
+        dtype,
+        value,
+      })
+      expect(normalized.value).toEqual(value)
+    })
+
+    const invalid: readonly [ExperimentTensorDType, unknown][] = [
+      ['bool', [1]],
+      ['string', [true]],
+      ['int8', [128]],
+      ['int16', [32768]],
+      ['int32', [2147483648]],
+      ['int64', [Number.MAX_SAFE_INTEGER + 1]],
+      ['uint8', [-1]],
+      ['uint16', [65536]],
+      ['uint32', [4294967296]],
+      ['uint64', [-1]],
+      ['float16', [65505]],
+      ['float32', [3.5e38]],
+      ['float64', [Number.POSITIVE_INFINITY]],
+    ]
+    invalid.forEach(([dtype, value]) => {
+      expect(() => normalizeExperimentTensorParameter({
+        type: 'tensor',
+        dimension: 1,
+        shape: [1],
+        dtype,
+        value,
+      }), dtype).toThrow(CadModelError)
+    })
+  })
+
+  it('reports actual and expected tensor shapes and enforces schema dimensions', () => {
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 2],
+      dtype: 'float64',
+      value: [[1, 2], [3]],
+    }, 'Experiment initialConditions[0].parameters.profile')).toThrow(
+      'Experiment initialConditions[0].parameters.profile.value has actual shape [2, ragged [2] | [1]]; expected shape [2,2]',
+    )
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 2, shape: [2], dtype: 'float64', value: [1, 2],
+    })).toThrow('shape [2] has dimension 1')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64', value: 1,
+    })).toThrow('dimension must be a safe integer greater than or equal to 1')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [0], dtype: 'float64', value: [],
+    })).toThrow('must be a positive safe integer')
   })
 
   it('rejects invalid common row fields and duplicate labels within a category', () => {
@@ -301,8 +452,16 @@ describe('Experiment and Setup', () => {
       geometry: () => null,
       varsSchema: {},
       recordedData: () => [
-        { ...validRow, label: 'Recorded field' },
-        { ...validRow, label: ' Recorded field ' },
+        {
+          ...validRow,
+          label: 'Recorded field',
+          result: { type: 'tensor' as const, dimension: 0, shape: [], dtype: 'float64' as const },
+        },
+        {
+          ...validRow,
+          label: ' Recorded field ',
+          result: { type: 'tensor' as const, dimension: 0, shape: [], dtype: 'float64' as const },
+        },
       ],
     })
     expect(() => evaluateExperimentRules(duplicated)).toThrow('recordedData label "Recorded field" is duplicated')
@@ -312,6 +471,40 @@ describe('Experiment and Setup', () => {
       varsSchema: {},
       recordedData: [] as never,
     })).toThrow('recordedData must be a function')
+  })
+
+  it('requires a fixed tensor result schema for recorded data and permits 0D results', () => {
+    const createRecordedExperiment = (result: unknown, includeResult = true) => new Experiment({
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      recordedData: () => [{
+        target: ['structure.geometry.sample'],
+        label: 'Recorded value',
+        methodId: 'field.record',
+        parameters: {},
+        ...(includeResult ? { result } : {}),
+      }] as never,
+    })
+
+    const rules = evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+    }))
+    expect(rules.recordedData[0].result).toEqual({
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+    })
+    expect(() => evaluateExperimentRules(createRecordedExperiment(undefined, false))).toThrow(
+      'must contain a result tensor descriptor',
+    )
+    expect(() => evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 0, shape: [1], dtype: 'float64',
+    }))).toThrow('shape [1] has dimension 1')
+    expect(() => evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'unknown',
+    }))).toThrow('dtype must be a supported tensor dtype')
+    expect(() => evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1],
+    }))).toThrow('must contain exactly type, dimension, shape, dtype')
   })
 
   it('rejects empty, malformed, non-string, or unresolved Experiment rule targets', () => {

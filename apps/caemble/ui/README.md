@@ -18,7 +18,7 @@ npm run build
 npm run lint
 ```
 
-The Viewer page injects Structure and Experiment source into the reusable `StructureExperimentViewer`. Its four tabs switch between Structure Source, Structure Tree, Experiment Source, and Experiment Tree while the 3D viewer remains visible. Missing sources hide their tab pair, and a source without its matching change callback is read-only. Each active document auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. On large screens, drag the vertical divider to resize the modeling panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; editable sources can save that selection into groups.
+The Viewer page injects Structure and Experiment source into the reusable `StructureExperimentViewer`. Its Structure Source, Structure Tree, Experiment Source, Experiment Tree, and Experimental Parameters tabs share one left panel while the 3D viewer remains visible. The fifth tab exists only when Experiment source is present. Missing sources hide their tabs, and a source without its matching change callback is read-only. Each active document auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. On large screens, drag the vertical divider to resize the modeling panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; editable sources can save that selection into groups.
 
 ```tsx
 <StructureExperimentViewer
@@ -91,16 +91,30 @@ VariableObject<TObject>
 └─ Setup  → Experiment
 ```
 
-Every rule contains targets, an Experiment label, a simulation-engine method ID, and solver-specific parameter data. Parameters may contain functions, including time-dependent boundary values. All three factories run with Setup values available through the same read-only global `vars` binding used by geometry.
+Every rule contains targets, an Experiment label, a simulation-engine method ID, and solver-specific parameter data. Rule parameter values are limited to bool, string, int, float, or an explicit tensor descriptor. Functions, null, raw arrays, arbitrary nested objects, undefined, and non-finite numbers are not parameters. All three factories run with Setup values available through the same read-only global `vars` binding used by geometry.
 
 ```tsx
-import { Experiment, Material, Setup, type Geometry, type Vec3 } from '@caemble/core'
+import {
+  Experiment,
+  Material,
+  Setup,
+  type ExperimentTensorParameter,
+  type Geometry,
+  type Vec3,
+} from '@caemble/core'
 
-type InitialConditionParameters = { initialValue: number }
-type BoundaryConditionParameters = { value: number | ((time: number) => number) }
+type InitialConditionParameters = {
+  initialValue: number
+  initialProfile: ExperimentTensorParameter
+}
+type BoundaryConditionParameters = { value: number }
 type RecordedDataParameters = { interval: number }
 
 const Domain: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
+const initialProfileData = [
+  [0.1, 0.2, 0.3],
+  [0.4, 0.5, 0.6],
+] as const
 
 const experiment = new Experiment<
   InitialConditionParameters,
@@ -135,19 +149,29 @@ const experiment = new Experiment<
     target: ['experiment.geometry.domain', 'structure.geometry.sample'],
     label: 'Initial field',
     methodId: 'field.initialize',
-    parameters: { initialValue: vars.initialValue as number },
+    parameters: {
+      initialValue: vars.initialValue as number,
+      initialProfile: {
+        type: 'tensor',
+        dimension: 2,
+        shape: [2, 3],
+        dtype: 'float32',
+        value: initialProfileData,
+      },
+    },
   }],
   boundaryConditions: () => [{
     target: ['structure.surface.sampleBoundary'],
     label: 'Sample boundary',
-    methodId: 'field.time-boundary',
-    parameters: { value: (time: number) => (vars.amplitude as number) * Math.sin(time) },
+    methodId: 'field.sample-boundary',
+    parameters: { value: vars.amplitude as number },
   }],
   recordedData: () => [{
     target: ['experiment.geometry.domain'],
     label: 'Domain average',
     methodId: 'field.average',
     parameters: { interval: vars.recordInterval as number },
+    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
   }],
 })
 
@@ -155,6 +179,12 @@ export default new Setup(experiment)
 ```
 
 Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. `experiment.*` targets must reference groups declared by the Experiment. `structure.*` targets reserve names for a future Sample without coupling this Experiment to a particular Structure. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
+
+Raw scalar parameters may be booleans, strings, or finite numbers. Integer-valued raw numbers must be safe integers. Explicit scalar descriptors use `{ type: 'bool' | 'string' | 'int' | 'float', value }`. A tensor parameter uses `{ type: 'tensor', dimension, shape, dtype, value }`, requires `dimension >= 1`, and must have `dimension === shape.length`; every shape size is a positive safe integer. Supported element dtypes are `bool`, `string`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, and `float64`. `int64` and `uint64` remain limited to JavaScript safe integers. Tensor values are checked recursively against both shape and dtype, copied, and frozen.
+
+Every recorded-data rule additionally requires a tensor-only output schema in `result`. A scalar recorded result is a 0D tensor: `{ type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }`. This schema describes future solver output only; the component does not accept result values and has no Result tab or result visualization.
+
+Experimental Parameters displays only tensor parameters. It shows recorded result schemas as read-only metadata and leaves scalar, tensor schema, dtype, and result schema edits to Experiment Source. Editable values use N-dimensional JSON. Prefer a top-level `const` array, as in `initialProfileData`, instead of writing large raw tensors inline. Inline arrays and top-level const arrays can be patched back into the complete controlled source; computed expressions and `vars`-backed values remain visible but read-only. Editing a shared const affects every reference.
 
 Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, finite numbers, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, class instances, and circular references are rejected.
 

@@ -10,7 +10,8 @@ function SyntaxHelp() {
             A Structure file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>,
             while an Experiment file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Setup</code>.
             Both resolve vars before lazily creating Materials and evaluating root Geometry in the Worker. Each
-            editor auto-runs changed code, and Reroll immediately executes its current source again.
+            editor auto-runs changed code, and Reroll immediately executes its current source again. Experiment
+            tensor values are available in the Experimental Parameters tab while the 3D Viewer remains visible.
           </p>
         </div>
 
@@ -132,9 +133,30 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.sampleBoundary']</code>.
                 Experiment targets must name one of its own groups; Structure targets reserve a group name for a
                 future Sample. Every rule also has a category-unique Experiment label, a reusable simulation method
-                ID, and an opaque parameters object that may contain time-dependent functions. All three factories
-                run with Setup values available through the global{' '}
+                ID, and a parameters object whose values are raw bool, string, finite int/float scalars, explicit
+                scalar descriptors, or explicit tensor descriptors. Functions, null, raw arrays, arbitrary nested
+                objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
+                available through the global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
+              </p>
+              <p className="mt-1">
+                Tensor parameters use{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">
+                  {'{ type: \'tensor\', dimension, shape, dtype, value }'}
+                </code>{' '}
+                with dimension at least one, positive fixed shape sizes, and an exact recursive value shape. Dtypes
+                are bool, string, signed or unsigned 8/16/32/64-bit integers, or float16/32/64; 64-bit integers are
+                limited to JavaScript safe integers. Prefer a top-level const for raw tensor data. Experimental
+                Parameters edits only inline and top-level const JSON arrays; computed and vars-backed values remain
+                read-only, and scalar or schema edits stay in Experiment Source.
+              </p>
+              <p className="mt-1">
+                Every recorded-data rule also declares a tensor-only{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">
+                  {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\' }'}
+                </code>. The schema is shown read-only; this workspace does not accept solver result values and does
+                not provide a Result tab or result visualization.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

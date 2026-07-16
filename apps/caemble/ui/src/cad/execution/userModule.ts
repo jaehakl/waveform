@@ -13,9 +13,16 @@ import {
 } from '../model/core'
 import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
+import type { CadScene } from '../evaluation/types'
+import type { EvaluatedExperimentRules } from '../model/core'
 import type { CadDocumentType } from '../worker/protocol'
 
 const coreModule = Object.freeze({ Experiment, Material, Sample, Setup, Structure, VariableObject })
+
+export type CadExecutionResult = Readonly<{
+  scene: CadScene
+  experimentRules?: EvaluatedExperimentRules
+}>
 
 export function requireCaembleModule(specifier: string) {
   if (specifier !== '@caemble/core') {
@@ -25,7 +32,10 @@ export function requireCaembleModule(specifier: string) {
   return coreModule
 }
 
-export function executeCompiledCode(jsCode: string, documentType: CadDocumentType = 'structure') {
+export function executeCompiledCode(
+  jsCode: string,
+  documentType: CadDocumentType = 'structure',
+): CadExecutionResult {
   const exports: Record<string, unknown> = {}
   const module = { exports }
   const runner = new Function(
@@ -52,8 +62,8 @@ export function executeCompiledCode(jsCode: string, documentType: CadDocumentTyp
         geometryGroup: experiment.geometryGroup,
         surfaceGroup: experiment.surfaceGroup,
       }, 'Experiment')
-      evaluateExperimentRules(experiment)
-      return scene
+      const experimentRules = evaluateExperimentRules(experiment)
+      return Object.freeze({ scene, experimentRules })
     })
   }
 
@@ -61,9 +71,11 @@ export function executeCompiledCode(jsCode: string, documentType: CadDocumentTyp
     throw new CadModelError('The default export must be a Sample instance in the Structure editor.')
   }
 
-  return evaluateWithVars(entry.vars, () => evaluateCadScene(entry.structure.geometry(), {
-    geometryGroup: entry.structure.geometryGroup,
-    surfaceGroup: entry.structure.surfaceGroup,
+  return evaluateWithVars(entry.vars, () => Object.freeze({
+    scene: evaluateCadScene(entry.structure.geometry(), {
+      geometryGroup: entry.structure.geometryGroup,
+      surfaceGroup: entry.structure.surfaceGroup,
+    }),
   }))
 }
 

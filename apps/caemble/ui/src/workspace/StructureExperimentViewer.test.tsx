@@ -8,7 +8,7 @@ function tabLabels(markup: string) {
 }
 
 describe('StructureExperimentViewer', () => {
-  it('shows all four tabs when both controlled sources exist', () => {
+  it('shows all five tabs when both controlled sources exist', () => {
     const markup = renderToStaticMarkup(
       <StructureExperimentViewer
         experiment="experiment source"
@@ -23,6 +23,7 @@ describe('StructureExperimentViewer', () => {
       'Structure Tree',
       'Experiment Source',
       'Experiment Tree',
+      'Experimental Parameters',
     ])
     expect(markup).toContain('id="structure-source-panel" role="tabpanel"')
     expect(markup).toContain('id="experiment-tree-panel" role="tabpanel"')
@@ -38,7 +39,11 @@ describe('StructureExperimentViewer', () => {
 
     expect(tabLabels(structureMarkup)).toEqual(['Structure Source', 'Structure Tree'])
     expect(structureMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="structure-source-tab"/)
-    expect(tabLabels(experimentMarkup)).toEqual(['Experiment Source', 'Experiment Tree'])
+    expect(tabLabels(experimentMarkup)).toEqual([
+      'Experiment Source',
+      'Experiment Tree',
+      'Experimental Parameters',
+    ])
     expect(experimentMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="experiment-source-tab"/)
   })
 
@@ -52,5 +57,14 @@ describe('StructureExperimentViewer', () => {
     expect(missingMarkup).not.toContain('role="tablist"')
     expect(tabLabels(emptySourceMarkup)).toEqual(['Structure Source', 'Structure Tree'])
     expect(emptySourceMarkup).not.toContain('No modeling source')
+  })
+
+  it('never exposes the excluded Result tab', () => {
+    const markup = renderToStaticMarkup(
+      <StructureExperimentViewer experiment="experiment source" onExperimentChange={() => undefined} />,
+    )
+
+    expect(tabLabels(markup)).not.toContain('Result')
+    expect(markup).not.toContain('result-tab')
   })
 })

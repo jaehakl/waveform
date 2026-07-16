@@ -2,16 +2,18 @@ export const defaultExperimentCode = `import {
   Experiment,
   Material,
   Setup,
+  type ExperimentTensorParameter,
   type Geometry,
   type Vec3,
 } from '@caemble/core'
 
 type InitialConditionParameters = Readonly<{
   initialValue: number
+  initialProfile: ExperimentTensorParameter
 }>
 
 type BoundaryConditionParameters = Readonly<{
-  value: number | ((time: number) => number)
+  value: number
 }>
 
 type RecordedDataParameters = Readonly<{
@@ -21,6 +23,12 @@ type RecordedDataParameters = Readonly<{
 const Domain: Geometry<{ size: Vec3 }> = ({ size }) => (
   <box size={size} />
 )
+
+// Keep tensor raw data in a top-level variable so Experimental Parameters can update it.
+const initialProfileData = [
+  [0.1, 0.2, 0.3],
+  [0.4, 0.5, 0.6],
+] as const
 
 const experiment = new Experiment<
   InitialConditionParameters,
@@ -72,7 +80,16 @@ const experiment = new Experiment<
       ],
       label: 'Initial field',
       methodId: 'field.initialize',
-      parameters: { initialValue: vars.initialValue as number },
+      parameters: {
+        initialValue: vars.initialValue as number,
+        initialProfile: {
+          type: 'tensor',
+          dimension: 2,
+          shape: [2, 3],
+          dtype: 'float32',
+          value: initialProfileData,
+        },
+      },
     },
   ],
   boundaryConditions: () => [
@@ -85,10 +102,8 @@ const experiment = new Experiment<
     {
       target: ['structure.surface.sampleBoundary'],
       label: 'Sample boundary',
-      methodId: 'field.time-boundary',
-      parameters: {
-        value: (time: number) => (vars.amplitude as number) * Math.sin(time),
-      },
+      methodId: 'field.sample-boundary',
+      parameters: { value: vars.amplitude as number },
     },
   ],
   recordedData: () => [
@@ -97,6 +112,7 @@ const experiment = new Experiment<
       label: 'Domain average',
       methodId: 'field.average',
       parameters: { interval: vars.recordInterval as number },
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
     },
   ],
 })

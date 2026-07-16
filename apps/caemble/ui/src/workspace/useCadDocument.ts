@@ -4,6 +4,7 @@ import type {
   CadScene,
   CadWorkerRequest,
   CadWorkerResponse,
+  EvaluatedExperimentRules,
 } from '../cad'
 import { resolveCadSceneDraftSelection, resolveCadSceneSelection } from '../cad/evaluation/selection'
 import type { StructureGroupMap } from '../cad/model/core'
@@ -39,6 +40,7 @@ export function useCadDocument(
   onSourceChange: ((source: string) => void) | undefined,
 ) {
   const [error, setError] = useState<RunError | null>(null)
+  const [experimentRules, setExperimentRules] = useState<EvaluatedExperimentRules | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
@@ -104,6 +106,7 @@ export function useCadDocument(
         setStatus('Rendering')
         setError(null)
         setScene(response.scene)
+        setExperimentRules(response.experimentRules ?? null)
         setSelectedId((current) => resolveCadSceneSelection(response.scene, current) ? current : null)
         return
       }
@@ -174,6 +177,7 @@ export function useCadDocument(
     clearActiveRun()
     setDraftSelection(null)
     setError(null)
+    setExperimentRules(null)
     setScene(null)
     setSelectedId(null)
     setStatus('Ready')
@@ -225,6 +229,7 @@ export function useCadDocument(
     documentType,
     draftSelection,
     error,
+    experimentRules,
     handleGroupsChange,
     handleRenderEnd,
     handleRenderError,
