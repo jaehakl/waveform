@@ -1,8 +1,16 @@
-import type { CadDocumentType, CadScenePart, CadSceneSelection } from '../cad'
+import { transforms } from '@jscad/modeling'
+import {
+  convertUcumValue,
+  type CadDocumentType,
+  type CadScenePart,
+  type CadSceneSelection,
+  type UcumUnit,
+} from '../cad'
 import { createRenderParts } from './selection'
 
 export type JscadViewerLayer = Readonly<{
   documentType: CadDocumentType
+  lengthUnit: UcumUnit
   parts: CadScenePart[]
 }>
 
@@ -10,6 +18,33 @@ export type JscadViewerSelection = Readonly<{
   documentType: CadDocumentType
   selection: CadSceneSelection
 }>
+
+export function scaleViewerLayers(
+  layers: readonly JscadViewerLayer[],
+  displayLengthUnit: UcumUnit,
+): readonly JscadViewerLayer[] {
+  const scaleGeometry = transforms.scale as unknown as (
+    factors: readonly [number, number, number],
+    geometry: unknown,
+  ) => unknown
+  return layers.map((layer) => {
+    const factor = convertUcumValue(
+      1,
+      layer.lengthUnit,
+      displayLengthUnit,
+      `${layer.documentType} viewer lengthUnit`,
+    )
+    if (factor === 1) return layer
+    return {
+      ...layer,
+      lengthUnit: displayLengthUnit,
+      parts: layer.parts.map((part) => ({
+        ...part,
+        geometry: scaleGeometry([factor, factor, factor], part.geometry),
+      })),
+    }
+  })
+}
 
 export function materialGridPartsFromLayers(layers: readonly JscadViewerLayer[]) {
   return (['experiment', 'structure'] as const).flatMap((documentType) => (

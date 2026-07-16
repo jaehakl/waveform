@@ -5,6 +5,7 @@ import CadViewer from './CadViewer'
 import { resolveCadViewerContent } from './cadViewerContent'
 
 const structureScene: CadScene = {
+  lengthUnit: 'mm',
   parts: [{ id: 'structure-part', geometry: {}, surfaces: [] }],
   tree: { key: 'structure', label: 'Structure', children: [] },
   geometryGroups: [],
@@ -12,6 +13,7 @@ const structureScene: CadScene = {
 }
 
 const experimentScene: CadScene = {
+  lengthUnit: 'mm',
   parts: [{ id: 'experiment-part', geometry: {}, surfaces: [] }],
   tree: { key: 'experiment', label: 'Experiment', children: [] },
   geometryGroups: [],
@@ -68,9 +70,24 @@ describe('CadViewer', () => {
 
     expect(visible.visibleSources).toEqual(['structure', 'experiment'])
     expect(visible.layers.map((layer) => layer.documentType)).toEqual(['experiment', 'structure'])
+    expect(visible.lengthUnit).toBe('mm')
     expect(hidden.visibleSources).toEqual([])
     expect(hidden.layers).toEqual([])
     expect(hidden.emptyMessage).toBe('All Structure and Experiment sources are hidden.')
+  })
+
+  it('prefers the Structure display unit while preserving each layer unit', () => {
+    const meterExperimentScene = { ...experimentScene, lengthUnit: 'm' } as const
+    const content = resolveCadViewerContent(
+      { scene: structureScene, variables: {} },
+      { scene: meterExperimentScene, variables: {} },
+      true,
+      true,
+    )
+
+    expect(content.lengthUnit).toBe('mm')
+    expect(content.layers.map((layer) => layer.lengthUnit)).toEqual(['m', 'mm'])
+    expect(meterExperimentScene.lengthUnit).toBe('m')
   })
 
   it('shows Results only when the Experiment exposes recorded rules', () => {

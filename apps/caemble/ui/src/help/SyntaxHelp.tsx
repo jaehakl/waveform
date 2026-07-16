@@ -53,7 +53,31 @@ function SyntaxHelp() {
               <p className="mt-1">
                 Every schema item declares a fixed shape and default. Optional min and max values may be scalars or
                 tensors with the same shape. Use <code className="rounded bg-white px-1 py-0.5 text-xs">vars.key</code>
-                inside the lazy geometry factory and Geometry functions.
+                inside the lazy geometry factory and Geometry functions. Vars remain unitless intermediate values;
+                declare units where those values enter a scene, Material, solver, rule, or result schema.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">UCUM Units</p>
+              <p className="mt-1">
+                Every Structure and Experiment requires a case-sensitive UCUM length code in{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthUnit</code>. Native scene coordinates
+                keep that unit. The Viewer uses the Structure unit when available and scales copied layers before
+                rendering and Material Grid sampling, leaving the source scenes unchanged. Grid spacing is displayed
+                in the selected Viewer unit.
+              </p>
+              <p className="mt-1">
+                Floating-point values use{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">
+                  {'{ type: \'float\', value, unit? }'}
+                </code>. Units follow the official UCUM grammar and are validated with a parser, not a partial
+                regular expression. Codes such as <code className="rounded bg-white px-1 py-0.5 text-xs">A/m2</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">S/m</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">mV</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">1</code>, and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">%</code> preserve their exact spelling;
+                surrounding whitespace, invalid case, and incompatible conversions fail. Omitting unit means
+                dimensionless, equivalent to <code className="rounded bg-white px-1 py-0.5 text-xs">1</code>, while
+                percent carries its UCUM scale.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Materials</p>
@@ -61,6 +85,8 @@ function SyntaxHelp() {
                 A Material contains a symbol, an optional version, and a deeply read-only JSON-compatible variables
                 dictionary. Put an optional <code className="rounded bg-white px-1 py-0.5 text-xs">color</code> in
                 that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>.
+                Raw numeric leaves are safe integers; fractional, physical, and dimensionless float leaves use the
+                float descriptor, including nested arrays and objects.
                 Geometry without a Material or color is shown as a neutral wireframe. Different instances may share
                 a symbol and version.
               </p>
@@ -119,13 +145,14 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays.{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
                 vars just as Sample pairs a Structure with vars. The editor previews Experiment geometry and the
-                manual simulation combines its latest successful Setup with the latest successful Sample in the same
-                coordinate system.
+                manual simulation combines its latest successful Setup with the latest successful Sample. Each scene
+                retains its declared length unit; viewers and solver modules convert only at their consumption boundary.
               </p>
               <p className="mt-1">
                 Solver parameters run first with Setup values available through global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code>. They must form a plain
-                JSON-compatible object and are recursively copied and frozen. The editor then evaluates Experiment
+                JSON-compatible object and are recursively copied and frozen. Safe integers remain raw; every float
+                leaf uses the unit-aware float descriptor, including nested arrays and objects. The editor then evaluates Experiment
                 geometry, initial conditions, boundary conditions, and recorded data in that order. Once both latest
                 document revisions are Ready, use <strong>Run Simulation</strong> in the Viewer toolbar. Editing or
                 rerolling previews only and never runs the Solver automatically.
@@ -145,35 +172,38 @@ function SyntaxHelp() {
                 Experiment targets must name one of its own groups. Structure targets are deferred during preview,
                 then simulation preparation verifies the paired Structure group and every referenced member. Every
                 rule also has a category-unique Experiment label, a reusable simulation method ID, and a parameters
-                object whose values are raw bool, string, finite int/float scalars, explicit
-                scalar descriptors, or explicit tensor descriptors. Functions, null, raw arrays, arbitrary nested
-                objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
+                object whose values are raw bool, string, safe integer scalars, explicit scalar descriptors, or
+                explicit tensor descriptors. Raw fractional numbers are rejected; use a float descriptor with an
+                optional UCUM unit. Functions, null, raw arrays, arbitrary nested objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
                 available through the global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
               </p>
               <p className="mt-1">
                 Tensor parameters use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'tensor\', dimension, shape, dtype, axes?, value }'}
+                  {'{ type: \'tensor\', dimension, shape, dtype, axes?, unit?, value }'}
                 </code>{' '}
                 with dimension at least one, positive fixed shape sizes, and an exact recursive value shape. Dtypes
                 are bool, string, signed or unsigned 8/16/32/64-bit integers, or float16/32/64; 64-bit integers are
-                limited to JavaScript safe integers. Optional axes contains one name/ticks object per dimension.
+                limited to JavaScript safe integers. Only float dtypes accept a tensor unit. Optional axes contains
+                one name/ticks/unit object per dimension.
                 Missing names become axis 0, axis 1, and so on; missing ticks become zero-based indices matching the
                 corresponding shape size. Explicit ticks accept strings and finite numbers. Prefer a top-level const
                 for raw tensor data. Experimental Parameters edits only inline and top-level const JSON arrays;
-                normalized axes are displayed read-only, computed and vars-backed values remain read-only, and
-                scalar or schema edits stay in Experiment Source.
+                normalized axes and their units are displayed read-only, computed and vars-backed values remain
+                read-only, and scalar or schema edits stay in Experiment Source. Scalar parameters are also listed
+                with their declared unit or as unitless.
               </p>
               <p className="mt-1">
                 Every recorded-data rule also declares a tensor-only{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\' }'}
+                  {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\', unit: \'A\' }'}
                 </code>, which normalizes to an empty axes array. Result shapes, unlike parameter shapes, may use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">-1</code> on multiple axes. A wildcard axis
-                may declare its name but must omit source ticks; its length and optional ticks are resolved from the
-                matching result payload, falling back to zero-based indices.
+                may declare its name and unit but must omit source ticks; its length and optional ticks are resolved
+                from the matching result payload, falling back to zero-based indices. Float results accept a UCUM
+                unit; non-float result dtypes reject one.
               </p>
               <p className="mt-1">
                 CadViewer recordedData is a dictionary keyed by the unique recorded rule label. Each entry contains{' '}
@@ -181,7 +211,8 @@ function SyntaxHelp() {
                 dtype, dimension, shape, and axis names remain defined by Experiment Source. Results appears whenever
                 recorded rules exist, shows empty plot shells before values arrive, and renders 0D scalars, numeric
                 1D line charts, numeric 2D heatmaps, and bool/string tables. Higher-dimensional tensors use leading
-                axis selectors and visualize the final two axes. A solver success must include every rule label and
+                axis selectors and visualize the final two axes. Scalar suffixes, plot axes, and heatmap colorbars
+                use schema units, with omission displayed as unitless. A solver success must include every rule label and
                 no unknown labels; shape, dtype, and axes are validated before the recursively frozen result is
                 accepted. Result plots are read-only and their local validation errors do not change CAD compile or
                 render status.
@@ -196,18 +227,23 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>, uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>, and samples
                 the axial face near the notch entrance with{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">crossSectionPosition = 0.35</code>. Geometry
-                and result coordinates are converted to SI with{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters = 0.001</code>.
+                <code className="rounded bg-white px-1 py-0.5 text-xs">
+                  {'crossSectionPosition = { type: \'float\', value: 0.35 }'}
+                </code>. The solver derives geometry conversion from Structure{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthUnit</code>; the former{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters</code> parameter is removed.
               </p>
               <p className="mt-1">
                 The Worker builds a cell-centered voxel finite-volume system for{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">∇·(σ∇V) = 0</code>, applies 1 mV/0 V
                 Dirichlet terminals and insulating conditions elsewhere, and solves it with Jacobi-preconditioned
                 conjugate gradient. The signed source-to-reference axial current density is returned as a float64{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">41×41</code> heatmap in A/m² with u/v ticks
-                in meters; exterior and notch cells are zero. Total current is the absolute signed flux integral in
-                amperes. A uniform <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 5, 5] mm</code>{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">41×41</code> heatmap declared as{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">A/m2</code>, with u/v axes declared as{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">m</code>; exterior and notch cells are zero.
+                Compatible alternative result/axis units are converted before publishing. Total current is the
+                absolute signed flux integral in amperes. A uniform{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 5, 5] mm</code>{' '}
                 verification bar converges to <code className="rounded bg-white px-1 py-0.5 text-xs">596000 A/m²</code>{' '}
                 and <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
               </p>
@@ -215,7 +251,8 @@ function SyntaxHelp() {
                 The v1 2D heatmap schema intentionally breaks the former three-component vector schema. Resolution
                 affects notch details, so refine the grid and compare flux before treating a result as converged.
                 Runs are limited to 250,000 voxels and one connected, homogeneous, isotropic Material part with two
-                planar opposing terminals; invalid inputs or PCG nonconvergence fail without replacing the last
+                planar opposing terminals. Terminal voltage is converted to V, conductivity to S/m, and scene
+                lengths to m; missing or dimensionally incompatible units, invalid inputs, or PCG nonconvergence fail without replacing the last
                 successful result. Occupancy and PCG yield periodically so Cancel is effective. Future browser or
                 API-backed modules use the same UI-independent SolverModule contract; an API module may perform fetch
                 while honoring the supplied AbortSignal.

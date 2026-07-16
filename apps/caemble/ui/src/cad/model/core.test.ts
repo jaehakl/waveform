@@ -16,6 +16,7 @@ import {
   type GeometryAttributes,
   type ExperimentTensorDType,
   type ExperimentTensorParameter,
+  type FloatValue,
 } from './core'
 
 function createSolver(parameters: () => Record<string, never> = () => ({})) {
@@ -23,7 +24,7 @@ function createSolver(parameters: () => Record<string, never> = () => ({})) {
 }
 
 function createStructure() {
-  return new Structure({
+  return new Structure({ lengthUnit: 'mm',
     geometry: () => null,
     varsSchema: {
       width: { shape: [], default: 20, min: 10, max: 30 },
@@ -64,7 +65,7 @@ describe('Structure and Sample vars', () => {
   it('validates schema defaults and scalar or tensor bounds', () => {
     expect(
       () =>
-        new Structure({
+        new Structure({ lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
             invalid: { shape: [2], default: [0, 3], min: [0, 0], max: [2, 2] },
@@ -74,7 +75,7 @@ describe('Structure and Sample vars', () => {
 
     expect(
       () =>
-        new Structure({
+        new Structure({ lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
             invalid: { shape: [], default: 1, min: 0 },
@@ -98,7 +99,7 @@ describe('Structure and Sample vars', () => {
   })
 
   it('normalizes, deduplicates, and deeply freezes Structure groups', () => {
-    const structure = new Structure({
+    const structure = new Structure({ lengthUnit: 'mm',
       geometry: () => null,
       varsSchema: {},
       geometryGroup: {
@@ -118,21 +119,21 @@ describe('Structure and Sample vars', () => {
   it('rejects malformed Structure group maps, names, and members', () => {
     const options = { geometry: () => null, varsSchema: {} }
 
-    expect(() => new Structure({ ...options, geometryGroup: [] as never })).toThrow('geometryGroup must be an object')
-    expect(() => new Structure({ ...options, geometryGroup: { ' ': [] } })).toThrow('group names must not be empty')
-    expect(() => new Structure({
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: [] as never })).toThrow('geometryGroup must be an object')
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: { ' ': [] } })).toThrow('group names must not be empty')
+    expect(() => new Structure({ lengthUnit: 'mm',
       ...options,
       geometryGroup: { duplicate: [], ' duplicate ': [] },
     })).toThrow('duplicated after trimming')
-    expect(() => new Structure({
+    expect(() => new Structure({ lengthUnit: 'mm',
       ...options,
       geometryGroup: { invalid: 'assembly' as never },
     })).toThrow('must be an array')
-    expect(() => new Structure({
+    expect(() => new Structure({ lengthUnit: 'mm',
       ...options,
       surfaceGroup: { invalid: [''] },
     })).toThrow('must be a non-empty string')
-    expect(() => new Structure({
+    expect(() => new Structure({ lengthUnit: 'mm',
       ...options,
       surfaceGroup: { invalid: [1 as never] },
     })).toThrow('must be a non-empty string')
@@ -143,7 +144,7 @@ describe('Experiment and Setup', () => {
   it('inherits Structure behavior and exposes VariableObject aliases', () => {
     const structure = createStructure()
     const sample = new Sample(structure, { width: 24 })
-    const experiment = new Experiment({
+    const experiment = new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {
@@ -169,7 +170,7 @@ describe('Experiment and Setup', () => {
 
   it('rejects invalid VariableObject pairings and direct abstract construction', () => {
     const structure = createStructure()
-    const experiment = new Experiment({ solver: createSolver(), geometry: () => null, varsSchema: {} })
+    const experiment = new Experiment({ lengthUnit: 'mm', solver: createSolver(), geometry: () => null, varsSchema: {} })
     const DirectVariableObject = VariableObject as unknown as new (
       object: Structure,
     ) => VariableObject<Structure>
@@ -184,12 +185,13 @@ describe('Experiment and Setup', () => {
     const profile = [[0.1, 0.2], [0.3, 0.4]]
     const experiment = new Experiment<
       Readonly<{
-        initialValue: number
+        initialValue: FloatValue
         profile: ExperimentTensorParameter
       }>,
       Readonly<{ active: boolean; label: Readonly<{ type: 'string'; value: string }> }>,
       Readonly<{ interval: Readonly<{ type: 'int'; value: number }> }>
     >({
+      lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => {
         order.push('geometry')
@@ -209,7 +211,7 @@ describe('Experiment and Setup', () => {
           label: ' Shared label ',
           methodId: ' field.apply ',
           parameters: {
-            initialValue: vars.initialValue as number,
+            initialValue: { type: 'float', value: vars.initialValue as number, unit: 'V' },
             profile: {
               type: 'tensor',
               dimension: 2,
@@ -256,7 +258,7 @@ describe('Experiment and Setup', () => {
       target: ['experiment.geometry.domain', 'structure.geometry.sample', 'structure.geometry.sample'],
       label: 'Shared label',
       methodId: 'field.apply',
-      parameters: { initialValue: 0.75 },
+      parameters: { initialValue: { type: 'float', value: 0.75, unit: 'V' } },
     })
     expect(rules.initialConditions[0].parameters.profile).toEqual({
       type: 'tensor',
@@ -306,8 +308,8 @@ describe('Experiment and Setup', () => {
     expect(rules.initialConditions[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
   })
 
-  it('accepts raw and explicit scalar parameters and rejects every unsupported parameter form', () => {
-    const evaluateParameter = (parameter: unknown) => evaluateExperimentRules(new Experiment({
+  it('accepts integer and explicit scalar parameters and rejects raw floats and unsupported forms', () => {
+    const evaluateParameter = (parameter: unknown) => evaluateExperimentRules(new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -322,13 +324,16 @@ describe('Experiment and Setup', () => {
     expect(evaluateParameter(true)).toBe(true)
     expect(evaluateParameter('text')).toBe('text')
     expect(evaluateParameter(12)).toBe(12)
-    expect(evaluateParameter(1.25)).toBe(1.25)
     expect(evaluateParameter({ type: 'bool', value: false })).toEqual({ type: 'bool', value: false })
     expect(evaluateParameter({ type: 'string', value: 'value' })).toEqual({ type: 'string', value: 'value' })
     expect(evaluateParameter({ type: 'int', value: 4 })).toEqual({ type: 'int', value: 4 })
     expect(evaluateParameter({ type: 'float', value: 4 })).toEqual({ type: 'float', value: 4 })
+    expect(evaluateParameter({ type: 'float', value: 1, unit: 'mV' })).toEqual({
+      type: 'float', value: 1, unit: 'mV',
+    })
 
     ;[
+      1.25,
       () => 1,
       null,
       [1, 2],
@@ -341,6 +346,7 @@ describe('Experiment and Setup', () => {
       { type: 'string', value: false },
       { type: 'int', value: 1.5 },
       { type: 'float', value: Number.NEGATIVE_INFINITY },
+      { type: 'float', value: 1, unit: 'not-a-unit' },
     ].forEach((parameter) => {
       expect(() => evaluateParameter(parameter)).toThrow(CadModelError)
     })
@@ -403,13 +409,14 @@ describe('Experiment and Setup', () => {
   it('normalizes optional tensor axes with 0-based defaults and deeply freezes them', () => {
     const sourceAxes = [
       { name: ' layer ', ticks: ['lower', 'upper'] },
-      { ticks: [0, 0.5, 1] },
+      { ticks: [0, 0.5, 1], unit: 's' },
     ]
     const explicit = normalizeExperimentTensorParameter({
       type: 'tensor',
       dimension: 2,
       shape: [2, 3],
       dtype: 'float32',
+      unit: 'V',
       axes: sourceAxes,
       value: [[1, 2, 3], [4, 5, 6]],
     })
@@ -423,8 +430,9 @@ describe('Experiment and Setup', () => {
 
     expect(explicit.axes).toEqual([
       { name: 'layer', ticks: ['lower', 'upper'] },
-      { name: 'axis 1', ticks: [0, 0.5, 1] },
+      { name: 'axis 1', ticks: [0, 0.5, 1], unit: 's' },
     ])
+    expect(explicit.unit).toBe('V')
     expect(defaults.axes).toEqual([{ name: 'axis 0', ticks: [0, 1, 2] }])
     expect(Object.isFrozen(explicit.axes)).toBe(true)
     expect(Object.isFrozen(explicit.axes?.[0])).toBe(true)
@@ -432,6 +440,9 @@ describe('Experiment and Setup', () => {
     sourceAxes[0].name = 'changed'
     sourceAxes[0].ticks[0] = 'changed'
     expect(explicit.axes?.[0]).toEqual({ name: 'layer', ticks: ['lower', 'upper'] })
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', unit: 'm', value: [1],
+    })).toThrow('unit is allowed only for float tensor dtypes')
   })
 
   it('rejects malformed tensor axes and reports actual and expected lengths', () => {
@@ -452,7 +463,7 @@ describe('Experiment and Setup', () => {
     expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [null, {}] })).toThrow(
       '.axes[0] must be a plain object',
     )
-    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ unit: 'm' }, {}] })).toThrow(
+    expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ symbol: 'm' }, {}] })).toThrow(
       '.axes[0] must contain exactly',
     )
     expect(() => normalizeExperimentTensorParameter({ ...descriptor, axes: [{ name: ' ' }, {}] })).toThrow(
@@ -497,7 +508,7 @@ describe('Experiment and Setup', () => {
   })
 
   it('rejects invalid common row fields and duplicate labels within a category', () => {
-    const createExperiment = (row: unknown) => new Experiment({
+    const createExperiment = (row: unknown) => new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -525,7 +536,7 @@ describe('Experiment and Setup', () => {
       )
     })
 
-    const duplicated = new Experiment({
+    const duplicated = new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -543,7 +554,7 @@ describe('Experiment and Setup', () => {
       ],
     })
     expect(() => evaluateExperimentRules(duplicated)).toThrow('recordedData label "Recorded field" is duplicated')
-    expect(() => new Experiment({
+    expect(() => new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -552,7 +563,7 @@ describe('Experiment and Setup', () => {
   })
 
   it('requires a tensor result schema and permits 0D and dynamic recorded result shapes', () => {
-    const createRecordedExperiment = (result: unknown, includeResult = true) => new Experiment({
+    const createRecordedExperiment = (result: unknown, includeResult = true) => new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -579,14 +590,16 @@ describe('Experiment and Setup', () => {
       dimension: 2,
       shape: [-1, -1],
       dtype: 'float32',
-      axes: [{ name: 'row' }, {}],
+      unit: 'V',
+      axes: [{ name: 'row', unit: 's' }, {}],
     })).recordedData[0].result
     expect(dynamicResult).toEqual({
       type: 'tensor',
       dimension: 2,
       shape: [-1, -1],
       dtype: 'float32',
-      axes: [{ name: 'row' }, { name: 'axis 1' }],
+      unit: 'V',
+      axes: [{ name: 'row', unit: 's' }, { name: 'axis 1' }],
     })
     expect(Object.isFrozen(dynamicResult.shape)).toBe(true)
     expect(Object.isFrozen(dynamicResult.axes)).toBe(true)
@@ -613,12 +626,15 @@ describe('Experiment and Setup', () => {
       type: 'tensor', dimension: 1, shape: [1], dtype: 'unknown',
     }))).toThrow('dtype must be a supported tensor dtype')
     expect(() => evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', unit: 'm',
+    }))).toThrow('unit is allowed only for float tensor dtypes')
+    expect(() => evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1],
     }))).toThrow('must contain exactly type, dimension, shape, dtype')
   })
 
   it('rejects empty, malformed, non-string, or unresolved Experiment rule targets', () => {
-    const createExperiment = (target: unknown) => new Experiment({
+    const createExperiment = (target: unknown) => new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -645,7 +661,7 @@ describe('Experiment and Setup', () => {
     const missing = createExperiment(['experiment.geometry.missing'])
     expect(() => evaluateExperimentRules(missing)).toThrow('missing geometry group "missing"')
 
-    const nonArray = new Experiment({
+    const nonArray = new Experiment({ lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
@@ -656,14 +672,21 @@ describe('Experiment and Setup', () => {
 
   it('normalizes required Solver metadata and evaluates deeply frozen parameters before geometry', () => {
     const order: string[] = []
-    const source = { nested: { values: [true, null, 2] } }
-    const experiment = new Experiment({
+    const source = {
+      nested: {
+        values: [true, null, 2, { type: 'float' as const, value: 0.5 }],
+      },
+    }
+    const experiment = new Experiment({ lengthUnit: 'mm',
       solver: {
         name: ' generic-field-solver ',
         version: ' 1.0.0 ',
         parameters: () => {
           order.push('solver')
-          return { timeStep: vars.timeStep as number, source }
+          return {
+            timeStep: { type: 'float', value: vars.timeStep as number, unit: 's' },
+            source,
+          }
         },
       },
       geometry: () => {
@@ -685,11 +708,12 @@ describe('Experiment and Setup', () => {
     expect(solver).toEqual({
       name: 'generic-field-solver',
       version: '1.0.0',
-      parameters: { timeStep: 0.02, source },
+      parameters: { timeStep: { type: 'float', value: 0.02, unit: 's' }, source },
     })
     expect(Object.isFrozen(solver)).toBe(true)
     expect(Object.isFrozen(solver.parameters)).toBe(true)
     expect(Object.isFrozen(solver.parameters.source)).toBe(true)
+    expect(Object.isFrozen((solver.parameters.source as typeof source).nested.values[3])).toBe(true)
     source.nested.values[0] = false
     expect(solver.parameters.source).not.toEqual(source)
   })
@@ -697,25 +721,25 @@ describe('Experiment and Setup', () => {
   it('rejects invalid Solver metadata and non-JSON parameter results', () => {
     const options = { geometry: () => null, varsSchema: {} }
 
-    expect(() => new Experiment(options as never)).toThrow('solver must be a plain object')
+    expect(() => new Experiment({ lengthUnit: 'mm', ...options } as never)).toThrow('solver must be a plain object')
     ;[null, []].forEach((solver) => {
-      expect(() => new Experiment({ ...options, solver } as never)).toThrow('solver must be a plain object')
+      expect(() => new Experiment({ lengthUnit: 'mm', ...options, solver } as never)).toThrow('solver must be a plain object')
     })
-    expect(() => new Experiment({
+    expect(() => new Experiment({ lengthUnit: 'mm',
       ...options,
       solver: { name: ' ', version: '1', parameters: () => ({}) },
     })).toThrow('solver name must be a non-empty string')
-    expect(() => new Experiment({
+    expect(() => new Experiment({ lengthUnit: 'mm',
       ...options,
       solver: { name: 'solver', version: '', parameters: () => ({}) },
     })).toThrow('solver version must be a non-empty string')
-    expect(() => new Experiment({
+    expect(() => new Experiment({ lengthUnit: 'mm',
       ...options,
       solver: { name: 'solver', version: '1', parameters: {} },
     } as never)).toThrow('solver parameters must be a function')
 
     const rejectsParameters = (parameters: unknown) => {
-      const experiment = new Experiment({
+      const experiment = new Experiment({ lengthUnit: 'mm',
         ...options,
         solver: { name: 'solver', version: '1', parameters: () => parameters as never },
       })
@@ -727,30 +751,43 @@ describe('Experiment and Setup', () => {
     rejectsParameters({ value: () => 1 })
     rejectsParameters({ value: Number.NaN })
     rejectsParameters({ value: Number.POSITIVE_INFINITY })
+    rejectsParameters({ value: 1.5 })
     rejectsParameters({ value: new Date() })
 
     const circular: Record<string, unknown> = {}
     circular.self = circular
     rejectsParameters(circular)
   })
+
+  it('requires a valid UCUM lengthUnit', () => {
+    expect(() => new Structure({ geometry: () => null, varsSchema: {} } as never)).toThrow(
+      'Structure lengthUnit',
+    )
+    expect(() => new Structure({ lengthUnit: 's', geometry: () => null, varsSchema: {} })).toThrow(
+      'cannot convert s to m',
+    )
+    expect(new Structure({ lengthUnit: 'cm', geometry: () => null, varsSchema: {} }).lengthUnit).toBe('cm')
+  })
 })
 
 describe('Material and global vars', () => {
   it('supports every Material constructor overload', () => {
     expect(new Material('Al')).toMatchObject({ symbol: 'Al', variables: {} })
-    expect(new Material('Al', { density: 2.7 })).toMatchObject({
+    expect(new Material('Al', { density: { type: 'float', value: 2.7, unit: 'g/cm3' } })).toMatchObject({
       symbol: 'Al',
-      variables: { density: 2.7 },
+      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' } },
     })
     expect(new Material('Al', 'Kittel_1988')).toMatchObject({
       symbol: 'Al',
       version: 'Kittel_1988',
       variables: {},
     })
-    expect(new Material('Al', 'Kittel_1988', { density: 2.7 })).toMatchObject({
+    expect(new Material('Al', 'Kittel_1988', {
+      density: { type: 'float', value: 2.7, unit: 'g/cm3' },
+    })).toMatchObject({
       symbol: 'Al',
       version: 'Kittel_1988',
-      variables: { density: 2.7 },
+      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' } },
     })
     expect(new Material('Al').variables).not.toHaveProperty('color')
   })
@@ -793,6 +830,10 @@ describe('Material and global vars', () => {
     expect(() => new Material('', {})).toThrow('non-empty string')
     expect(() => new Material('Core', ' ')).toThrow('version must be a non-empty string')
     expect(() => new Material('Core', { values: [1, Number.POSITIVE_INFINITY] })).toThrow('finite number')
+    expect(() => new Material('Core', { density: 1.5 })).toThrow('float descriptor')
+    expect(() => new Material('Core', {
+      density: { type: 'float', value: 1.5, unit: 'invalid-unit' },
+    })).toThrow('valid case-sensitive UCUM code')
     expect(() => new Material('Core', { color: 'blue' })).toThrow('#RRGGBB')
     expect(() => new Material('Core', null as never)).toThrow('plain object')
     expect(() => new Material('Core', 'measured', null as never)).toThrow('plain object')

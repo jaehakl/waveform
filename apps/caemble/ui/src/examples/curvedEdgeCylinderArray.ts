@@ -52,6 +52,7 @@ const CurvedCell: Geometry<{
 )
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => (
     <array
       shape={arrayShape}
@@ -78,7 +79,10 @@ const structure = new Structure({
         verticalSlope={0}
         verticalCurvature={0}
         materials={[
-          new Material('Curved Polymer', { density: 1.12, color: '#0f766e' }),
+          new Material('Curved Polymer', {
+            density: { type: 'float', value: 1.12, unit: 'g/cm3' },
+            color: '#0f766e',
+          }),
         ]}
       />
     </array>

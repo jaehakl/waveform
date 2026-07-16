@@ -1,5 +1,6 @@
 import type { Material, MaterialVariables } from '../model/core'
 import type { Rotation, Vec3 } from '../model/types'
+import type { UcumUnit } from '../model/units'
 
 export type GeometryComponent = (props: Record<string, unknown>) => unknown
 export type CadElementType = string | GeometryComponent
@@ -64,6 +65,7 @@ export type CadSceneGroup = {
 }
 
 export type CadScene = {
+  lengthUnit: UcumUnit
   parts: CadScenePart[]
   tree: CadSceneTreeNode
   geometryGroups: CadSceneGroup[]

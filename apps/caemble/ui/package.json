@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.7",
+    "@fhir-toolkit/ucum": "0.2.0",
     "@jscad/modeling": "^2.13.0",
     "@jscad/regl-renderer": "^2.6.15",
     "@monaco-editor/react": "^4.7.0",

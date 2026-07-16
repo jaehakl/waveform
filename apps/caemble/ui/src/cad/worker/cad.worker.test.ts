@@ -23,9 +23,12 @@ const structureSource = `
 const { Material, Sample, Structure } = require('@caemble/core')
 function Conductor() { return h('box', { size: [100, 5, 5] }) }
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => h(Conductor, {
     id: 'conductor',
-    materials: [new Material('Copper', { electricalConductivity: 5.96e7 })],
+    materials: [new Material('Copper', {
+      electricalConductivity: { type: 'float', value: 5.96e7, unit: 'S/m' },
+    })],
   }),
   varsSchema: {},
   geometryGroup: { conductor: ['conductor'] },
@@ -41,15 +44,15 @@ const experimentSource = `
 const { Experiment, Setup } = require('@caemble/core')
 function Probe() { return h('box', { size: [1, 1, 1] }) }
 const experiment = new Experiment({
+  lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
       gridShape: [20, 11, 11],
-      crossSectionPosition: 0.5,
-      relativeTolerance: 1e-10,
+      crossSectionPosition: { type: 'float', value: 0.5 },
+      relativeTolerance: { type: 'float', value: 1e-10 },
       maxIterations: 1000,
     }),
   },
@@ -60,13 +63,13 @@ const experiment = new Experiment({
       target: ['structure.surface.sourceTerminal'],
       label: 'Source',
       methodId: 'dc.source-potential',
-      parameters: { voltage: 0.001 },
+      parameters: { voltage: { type: 'float', value: 1, unit: 'mV' } },
     },
     {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference',
       methodId: 'dc.reference-potential',
-      parameters: { voltage: 0 },
+      parameters: { voltage: { type: 'float', value: 0, unit: 'mV' } },
     },
   ],
   recordedData: () => [
@@ -80,9 +83,10 @@ const experiment = new Experiment({
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
+        unit: 'A/m2',
         axes: [
-          { name: 'cross-section v (m)' },
-          { name: 'cross-section u (m)' },
+          { name: 'cross-section v', unit: 'm' },
+          { name: 'cross-section u', unit: 'm' },
         ],
       },
     },
@@ -91,7 +95,7 @@ const experiment = new Experiment({
       label: 'Total current',
       methodId: 'dc.total-current',
       parameters: {},
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
     },
   ],
 })
@@ -140,8 +144,13 @@ describe('persistent CAD Worker', () => {
       documentType: 'experiment',
     })
 
-    await waitForResponse('document-success', 'structure-2')
-    await waitForResponse('document-success', 'experiment-2')
+    const structureSuccess = await waitForResponse('document-success', 'structure-2')
+    const experimentSuccess = await waitForResponse('document-success', 'experiment-2')
+    if (structureSuccess.type !== 'document-success' || experimentSuccess.type !== 'document-success') {
+      throw new Error('Expected document-success responses.')
+    }
+    expect(structureSuccess.scene.lengthUnit).toBe('mm')
+    expect(experimentSuccess.scene.lengthUnit).toBe('mm')
     expect(esbuild.initialize).toHaveBeenCalledTimes(1)
     expect(responses.some((response) => response.requestId === 'structure-1')).toBe(false)
 

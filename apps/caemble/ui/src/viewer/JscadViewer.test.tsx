@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { measurements, primitives } from '@jscad/modeling'
 import { describe, expect, it } from 'vitest'
 import JscadViewer, { ViewerToolbar } from './JscadViewer'
-import { createLayerRenderParts, materialGridPartsFromLayers } from './sourceLayers'
+import { createLayerRenderParts, materialGridPartsFromLayers, scaleViewerLayers } from './sourceLayers'
 
 describe('JscadViewer modes', () => {
   it('defaults to the Geometry tab and exposes the shared render panel', () => {
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -48,7 +50,8 @@ describe('JscadViewer modes', () => {
     expect(markup).toContain('id="material-grid-spacing"')
     expect(markup).toContain('value="0.1"')
     expect(markup).toContain('>Apply</button>')
-    expect(markup).toContain('12 points · requested 0.1 · applied 0.25')
+    expect(markup).toContain('Spacing (m)')
+    expect(markup).toContain('12 points · requested 0.1 m · applied 0.25 m')
   })
 
   it('marks invalid spacing and reports a local validation message', () => {
@@ -222,6 +225,7 @@ describe('JscadViewer modes', () => {
   it('keeps Geometry selected when recorded data becomes available', () => {
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         layers={[]}
         recordedData={{ 'Total current': { value: 14.9 } }}
         recordedDataRules={[{
@@ -253,8 +257,8 @@ describe('JscadViewer source layers', () => {
 
   it('applies selection only to the active document layer when Geometry IDs collide', () => {
     const parts = createLayerRenderParts([
-      { documentType: 'experiment', parts: [experimentPart] },
-      { documentType: 'structure', parts: [structurePart] },
+      { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
+      { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
     ], {
       documentType: 'structure',
       selection: { id: 'shared', kind: 'geometry', label: 'Shared', geometryIds: ['shared'] },
@@ -266,9 +270,38 @@ describe('JscadViewer source layers', () => {
 
   it('orders Experiment before Structure so Structure wins Material Grid overlap', () => {
     expect(materialGridPartsFromLayers([
-      { documentType: 'structure', parts: [structurePart] },
-      { documentType: 'experiment', parts: [experimentPart] },
+      { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
+      { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
     ])).toEqual([experimentPart, structurePart])
+  })
+
+  it('scales mixed-unit layers into the display unit without changing source geometry', () => {
+    const structureGeometry = primitives.cuboid({ size: [100, 10, 10] })
+    const experimentGeometry = primitives.cuboid({ size: [0.1, 0.01, 0.01] })
+    const layers = [
+      {
+        documentType: 'structure' as const,
+        lengthUnit: 'mm',
+        parts: [{ id: 'structure', geometry: structureGeometry, surfaces: [] }],
+      },
+      {
+        documentType: 'experiment' as const,
+        lengthUnit: 'm',
+        parts: [{ id: 'experiment', geometry: experimentGeometry, surfaces: [] }],
+      },
+    ]
+
+    const scaled = scaleViewerLayers(layers, 'mm')
+
+    expect(measurements.measureBoundingBox(scaled[0].parts[0].geometry as never)).toEqual(
+      measurements.measureBoundingBox(scaled[1].parts[0].geometry as never),
+    )
+    expect(scaled[0].parts[0].geometry).toBe(structureGeometry)
+    expect(scaled[1].parts[0].geometry).not.toBe(experimentGeometry)
+    expect(measurements.measureBoundingBox(experimentGeometry)).toEqual([
+      [-0.05, -0.005, -0.005],
+      [0.05, 0.005, 0.005],
+    ])
   })
 })
 
@@ -278,11 +311,12 @@ describe('JscadViewer Material legend', () => {
     const cladding = { symbol: 'Cladding', variables: {} }
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selected={null}
-        layers={[{ documentType: 'structure', parts: [
+        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
           { id: 'assembly.core-1', geometry: {}, material: core, surfaces: [] },
           { id: 'assembly.core-2', geometry: {}, material: core, surfaces: [] },
           { id: 'assembly.cladding', geometry: {}, material: cladding, surfaces: [] },
@@ -305,11 +339,12 @@ describe('JscadViewer Material legend', () => {
   it('keeps distinct Material instances with the same symbol in separate rows', () => {
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selected={null}
-        layers={[{ documentType: 'structure', parts: [
+        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
           {
             id: 'assembly.first',
             geometry: {},
@@ -334,6 +369,7 @@ describe('JscadViewer Material legend', () => {
   it('shows the selected Surface name and ID', () => {
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -347,7 +383,7 @@ describe('JscadViewer Material legend', () => {
             surfaceIds: ['assembly.core/surface-1'],
           },
         }}
-        layers={[{ documentType: 'structure', parts: [{
+        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [{
           id: 'assembly.core',
           geometry: {},
           material: { symbol: 'Core', variables: { color: '#2563eb' } },
@@ -364,6 +400,7 @@ describe('JscadViewer Material legend', () => {
   it('shows a selected group label, ID, and Geometry count', () => {
     const markup = renderToStaticMarkup(
       <JscadViewer
+        lengthUnit="mm"
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -376,7 +413,7 @@ describe('JscadViewer Material legend', () => {
             geometryIds: ['assembly.first', 'assembly.second'],
           },
         }}
-        layers={[{ documentType: 'structure', parts: [
+        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
           {
             id: 'assembly.first',
             geometry: {},

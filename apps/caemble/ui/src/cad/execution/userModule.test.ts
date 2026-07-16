@@ -14,6 +14,7 @@ function Root({ materials }) {
 }
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => h(Root, {
     id: 'root',
     materials: [new Material('Core', { epsilon: vars.epsilon, color: '#2563eb' })],
@@ -39,6 +40,7 @@ describe('compiled user module execution', () => {
     expect(execution).toMatchObject({
       variables: { width: 4, epsilon: 12 },
       scene: {
+        lengthUnit: 'mm',
         parts: [{
           id: 'root',
           material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
@@ -53,14 +55,14 @@ describe('compiled user module execution', () => {
 
   it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
     expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
-    expect(defaultExperimentCode).toContain('lengthScaleToMeters: 0.001')
+    expect(defaultExperimentCode).not.toContain('lengthScaleToMeters')
     expect(defaultExperimentCode).toContain("conductivityVariable: 'electricalConductivity'")
     expect(defaultExperimentCode).toContain('boundaryConditions: () => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
-    expect(defaultExperimentCode).toContain("{ name: 'cross-section v (m)' }")
-    expect(defaultExperimentCode).toContain("{ name: 'cross-section u (m)' }")
-    expect(defaultExperimentCode).toContain("result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }")
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section v', unit: 'm' }")
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section u', unit: 'm' }")
+    expect(defaultExperimentCode).toContain("dtype: 'float64', unit: 'A' }")
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment)')
 
@@ -82,11 +84,10 @@ describe('compiled user module execution', () => {
       name: 'dc-current-density',
       version: '1.0.0',
       parameters: {
-        lengthScaleToMeters: 0.001,
         conductivityVariable: 'electricalConductivity',
         gridShape: [100, 41, 41],
-        crossSectionPosition: 0.35,
-        relativeTolerance: 1e-8,
+        crossSectionPosition: { type: 'float', value: 0.35 },
+        relativeTolerance: { type: 'float', value: 1e-8 },
         maxIterations: 2000,
       },
     })
@@ -94,7 +95,7 @@ describe('compiled user module execution', () => {
     expect(variables).toMatchObject({
       electrodeOffset: 50.5,
       electrodeSize: [1, 14, 12],
-      sourceVoltage: 0.001,
+      sourceVoltage: 1,
       referenceVoltage: 0,
     })
     expect(experimentRules?.initialConditions).toEqual([])
@@ -102,15 +103,19 @@ describe('compiled user module execution', () => {
       'dc.source-potential',
       'dc.reference-potential',
     ])
-    expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([0.001, 0])
+    expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([
+      { type: 'float', value: 1, unit: 'mV' },
+      { type: 'float', value: 0, unit: 'mV' },
+    ])
     expect(experimentRules?.recordedData[0].result).toEqual({
       type: 'tensor',
       dimension: 2,
       shape: [-1, -1],
       dtype: 'float64',
+      unit: 'A/m2',
       axes: [
-        { name: 'cross-section v (m)' },
-        { name: 'cross-section u (m)' },
+        { name: 'cross-section v', unit: 'm' },
+        { name: 'cross-section u', unit: 'm' },
       ],
     })
     expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
@@ -122,6 +127,7 @@ describe('compiled user module execution', () => {
       dimension: 0,
       shape: [],
       dtype: 'float64',
+      unit: 'A',
       axes: [],
     })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
@@ -136,7 +142,7 @@ describe('compiled user module execution', () => {
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
-    expect(defaultCode).toContain('electricalConductivity: vars.electricalConductivity')
+    expect(defaultCode).toContain("unit: 'S/m'")
     expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 12, 10] }')
     expect(defaultCode).toContain('notchSize: { shape: [3], default: [30, 5, 5] }')
     expect(defaultCode).toContain('notchPosition: { shape: [3], default: [0, 4.5, 2.5] }')
@@ -158,7 +164,10 @@ describe('compiled user module execution', () => {
       material: {
         symbol: 'Copper',
         version: 'reference',
-        variables: { electricalConductivity: 5.96e7, color: '#d97706' },
+        variables: {
+          electricalConductivity: { type: 'float', value: 5.96e7, unit: 'S/m' },
+          color: '#d97706',
+        },
       },
     })
     expect(geometryGroups[0]).toMatchObject({ name: 'conductor', geometryIds: ['conductor'] })

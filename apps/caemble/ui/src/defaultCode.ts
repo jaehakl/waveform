@@ -18,6 +18,7 @@ const Conductor: Geometry<{
 )
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => (
     <Conductor
       id="conductor"
@@ -26,7 +27,11 @@ const structure = new Structure({
       notchSize={vars.notchSize as Vec3}
       materials={[
         new Material('Copper', 'reference', {
-          electricalConductivity: vars.electricalConductivity,
+          electricalConductivity: {
+            type: 'float',
+            value: vars.electricalConductivity as number,
+            unit: 'S/m',
+          },
           color: '#d97706',
         }),
       ]}

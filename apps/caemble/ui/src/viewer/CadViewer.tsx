@@ -77,6 +77,7 @@ export function CadViewer({
         availableSources={content.availableSources}
         emptyMessage={content.emptyMessage}
         layers={content.layers}
+        lengthUnit={content.lengthUnit}
         recordedData={recordedData}
         recordedDataRules={experiment?.experimentRules?.recordedData}
         simulation={simulation}

@@ -47,7 +47,17 @@ function schemaAxis(rule: RecordedDataRule, axisIndex: number) {
   return {
     name: rule.result.axes?.[axisIndex]?.name ?? `axis ${axisIndex}`,
     ticks: rule.result.axes?.[axisIndex]?.ticks,
+    unit: rule.result.axes?.[axisIndex]?.unit,
   }
+}
+
+function unitLabel(unit: string | undefined) {
+  return unit ?? 'unitless'
+}
+
+function axisTitle(rule: RecordedDataRule, axisIndex: number) {
+  const axis = schemaAxis(rule, axisIndex)
+  return `${axis.name} (${unitLabel(axis.unit)})`
 }
 
 function visualizationKind(rule: RecordedDataRule) {
@@ -67,11 +77,11 @@ function EmptyPlot({ rule }: { rule: RecordedDataRule }) {
       <div className="absolute inset-x-4 bottom-3 truncate text-center text-[10px] text-slate-400">
         {rule.result.dimension === 0
           ? '0D scalar'
-          : schemaAxis(rule, rule.result.dimension - 1).name}
+          : axisTitle(rule, rule.result.dimension - 1)}
       </div>
       {rule.result.dimension >= 2 ? (
         <div className="absolute bottom-8 left-2 top-2 flex items-center text-[10px] text-slate-400 [writing-mode:vertical-rl]">
-          {schemaAxis(rule, rule.result.dimension - 2).name}
+          {axisTitle(rule, rule.result.dimension - 2)}
         </div>
       ) : null}
       <div className="text-center">
@@ -126,14 +136,17 @@ function getSlice(value: ResolvedRecordedTensor['value'], indices: readonly numb
   return indices.reduce<unknown>((slice, index) => (slice as readonly unknown[])[index], value)
 }
 
-function MatrixTable({ tensor, value }: { tensor: ResolvedRecordedTensor; value: unknown }) {
+function MatrixTable({ rule, tensor, value }: { rule: RecordedDataRule; tensor: ResolvedRecordedTensor; value: unknown }) {
   if (tensor.shape.length === 1) {
     const axis = tensor.axes[0]
     return (
       <div className="max-h-80 overflow-auto rounded border border-slate-200">
         <table className="w-full border-collapse text-left text-xs">
           <thead className="sticky top-0 bg-slate-100 text-slate-600">
-            <tr><th className="px-3 py-2">{axis.name}</th><th className="px-3 py-2">Value</th></tr>
+            <tr>
+              <th className="px-3 py-2">{axisTitle(rule, 0)}</th>
+              <th className="px-3 py-2">Value ({unitLabel(rule.result.unit)})</th>
+            </tr>
           </thead>
           <tbody>
             {(value as readonly unknown[]).map((item, index) => (
@@ -155,7 +168,9 @@ function MatrixTable({ tensor, value }: { tensor: ResolvedRecordedTensor; value:
       <table className="min-w-full border-collapse text-center text-xs">
         <thead className="sticky top-0 bg-slate-100 text-slate-600">
           <tr>
-            <th className="px-3 py-2">{rowAxis.name} / {columnAxis.name}</th>
+            <th className="px-3 py-2">
+              {axisTitle(rule, tensor.axes.length - 2)} / {axisTitle(rule, tensor.axes.length - 1)}
+            </th>
             {columnAxis.ticks.map((tick, index) => <th className="px-3 py-2" key={index}>{String(tick)}</th>)}
           </tr>
         </thead>
@@ -174,7 +189,7 @@ function MatrixTable({ tensor, value }: { tensor: ResolvedRecordedTensor; value:
   )
 }
 
-function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
+function TensorVisualization({ rule, tensor }: { rule: RecordedDataRule; tensor: ResolvedRecordedTensor }) {
   const leadingAxisCount = Math.max(0, tensor.shape.length - 2)
   const [sliceIndices, setSliceIndices] = useState(() => Array.from({ length: leadingAxisCount }, () => 0))
   const safeIndices = sliceIndices.map((index, axisIndex) => Math.min(index, Math.max(0, tensor.shape[axisIndex] - 1)))
@@ -184,10 +199,11 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
     return (
       <div
         aria-label="Recorded scalar value"
-        className="grid min-h-32 place-items-center rounded border border-slate-200 bg-slate-50 font-mono text-3xl text-slate-900"
+        className="flex min-h-32 items-baseline justify-center gap-2 rounded border border-slate-200 bg-slate-50 font-mono text-3xl text-slate-900"
         data-result-visualization="scalar"
       >
-        {String(tensor.value)}
+        <span>{String(tensor.value)}</span>
+        <span className="text-base text-slate-500">{unitLabel(rule.result.unit)}</span>
       </div>
     )
   }
@@ -209,7 +225,7 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
         const axis = tensor.axes[axisIndex]
         return (
           <label className="text-xs font-medium text-slate-600" key={axisIndex}>
-            <span className="mr-2">{axis.name}</span>
+            <span className="mr-2">{axisTitle(rule, axisIndex)}</span>
             <select
               aria-label={`Select ${axis.name} slice`}
               className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
@@ -231,7 +247,7 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
   ) : null
 
   if (!isNumericRecordedDType(tensor.dtype)) {
-    return <>{controls}<MatrixTable tensor={tensor} value={value} /></>
+    return <>{controls}<MatrixTable rule={rule} tensor={tensor} value={value} /></>
   }
 
   if (tensor.shape.length === 1) {
@@ -241,7 +257,7 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
       <PlotlyFigure
         label="line chart"
         data={[{
-          hovertemplate: `${axis.name}: %{customdata}<br>value: %{y}<extra></extra>`,
+          hovertemplate: `${axisTitle(rule, 0)}: %{customdata}<br>value (${unitLabel(rule.result.unit)}): %{y}<extra></extra>`,
           customdata: tickText(axis.ticks),
           mode: 'lines+markers',
           type: 'scatter',
@@ -249,8 +265,8 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
           y: values,
         }]}
         layout={{
-          xaxis: { title: axis.name, tickmode: 'array', ticktext: tickText(axis.ticks), tickvals: values.map((_, i) => i) },
-          yaxis: { title: 'Value' },
+          xaxis: { title: axisTitle(rule, 0), tickmode: 'array', ticktext: tickText(axis.ticks), tickvals: values.map((_, i) => i) },
+          yaxis: { title: `Value (${unitLabel(rule.result.unit)})` },
         }}
       />
     )
@@ -266,11 +282,12 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
         label="heatmap"
         data={[{
           colorscale: 'Viridis',
+          colorbar: { title: unitLabel(rule.result.unit) },
           customdata: matrix.map((row, rowIndex) => row.map((_, columnIndex) => [
             rowAxis.ticks[rowIndex],
             columnAxis.ticks[columnIndex],
           ])),
-          hovertemplate: `${rowAxis.name}: %{customdata[0]}<br>${columnAxis.name}: %{customdata[1]}<br>value: %{z}<extra></extra>`,
+          hovertemplate: `${axisTitle(rule, tensor.axes.length - 2)}: %{customdata[0]}<br>${axisTitle(rule, tensor.axes.length - 1)}: %{customdata[1]}<br>value (${unitLabel(rule.result.unit)}): %{z}<extra></extra>`,
           type: 'heatmap',
           x: columnAxis.ticks.map((_, index) => index),
           y: rowAxis.ticks.map((_, index) => index),
@@ -278,14 +295,14 @@ function TensorVisualization({ tensor }: { tensor: ResolvedRecordedTensor }) {
         }]}
         layout={{
           xaxis: {
-            title: columnAxis.name,
+            title: axisTitle(rule, tensor.axes.length - 1),
             tickmode: 'array',
             ticktext: tickText(columnAxis.ticks),
             tickvals: columnAxis.ticks.map((_, index) => index),
           },
           yaxis: {
             autorange: 'reversed',
-            title: rowAxis.name,
+            title: axisTitle(rule, tensor.axes.length - 2),
             tickmode: 'array',
             ticktext: tickText(rowAxis.ticks),
             tickvals: rowAxis.ticks.map((_, index) => index),
@@ -310,7 +327,7 @@ function RecordedResultCard({
           <p className="mt-1 font-mono text-xs text-slate-500">{rule.methodId}</p>
         </div>
         <div className="text-right font-mono text-xs text-slate-500">
-          <div>{rule.result.dtype} · {rule.result.dimension}D</div>
+          <div>{rule.result.dtype} · {rule.result.dimension}D · {unitLabel(rule.result.unit)}</div>
           <div>expected {JSON.stringify(rule.result.shape)}</div>
           {tensor ? <div>actual {JSON.stringify(tensor.shape)}</div> : null}
         </div>
@@ -322,6 +339,7 @@ function RecordedResultCard({
           return (
             <div className="rounded bg-slate-50 px-3 py-2" key={axisIndex}>
               <span className="font-semibold text-slate-700">{axis.name}</span>{' · '}
+              <span>{unitLabel(axis.unit)}</span>{' · '}
               <span className="font-mono">
                 {tensor
                   ? JSON.stringify(tensor.axes[axisIndex].ticks)
@@ -339,6 +357,7 @@ function RecordedResultCard({
         {tensor ? (
           <TensorVisualization
             key={`${rule.result.dtype}-${JSON.stringify(tensor.shape)}`}
+            rule={rule}
             tensor={tensor}
           />
         ) : <EmptyPlot rule={rule} />}

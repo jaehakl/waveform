@@ -112,6 +112,7 @@ const layer2Material = new Material('Layer 2', { color: '#f59e0b' })
 const layer3Material = new Material('Layer 3', { color: '#d946ef' })
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => (
     <>
       <ShellCutaway

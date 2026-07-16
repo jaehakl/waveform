@@ -62,6 +62,7 @@ const CurvedParticle: Geometry<{
 )
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => (
     <array
       shape={arrayShape}
@@ -92,7 +93,10 @@ const structure = new Structure({
         polarMode2Amplitude={0.015}
         polarMode2Phase={0}
         materials={[
-          new Material('HCP Particle', { density: 1.05, color: '#7c3aed' }),
+          new Material('HCP Particle', {
+            density: { type: 'float', value: 1.05, unit: 'g/cm3' },
+            color: '#7c3aed',
+          }),
         ]}
       />
     </array>

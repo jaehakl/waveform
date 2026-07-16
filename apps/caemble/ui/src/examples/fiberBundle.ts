@@ -93,6 +93,7 @@ const Bundle: Geometry<{
 )
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => {
     const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
       amplitude,
@@ -108,7 +109,10 @@ const structure = new Structure({
         fourier={fourier}
         turns={vars.turns as number}
         materials={[
-          new Polymer('Tapered Fiber', { density: vars.density, color: '#7c3aed' }),
+          new Polymer('Tapered Fiber', {
+            density: { type: 'float', value: vars.density as number, unit: 'g/cm3' },
+            color: '#7c3aed',
+          }),
         ]}
       />
     )

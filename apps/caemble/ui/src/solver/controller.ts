@@ -113,14 +113,14 @@ function prepareSolverInput(sample: Sample, setup: Setup): SolverModuleInput {
   const structureScene = evaluateWithVars(sample.vars, () => evaluateCadScene(sample.structure.geometry(), {
     geometryGroup: sample.structure.geometryGroup,
     surfaceGroup: sample.structure.surfaceGroup,
-  }))
+  }, 'Structure', sample.structure.lengthUnit))
   const experimentEvaluation = evaluateWithVars(setup.vars, () => {
     const experiment = setup.experiment
     const solver = evaluateExperimentSolver(experiment)
     const scene = evaluateCadScene(experiment.geometry(), {
       geometryGroup: experiment.geometryGroup,
       surfaceGroup: experiment.surfaceGroup,
-    }, 'Experiment')
+    }, 'Experiment', experiment.lengthUnit)
     const rules = evaluateExperimentRules(experiment)
     return Object.freeze({ rules, scene, solver })
   })

@@ -20,8 +20,10 @@ export {
   Setup,
   Structure,
   VariableObject,
+  isExperimentFloatDType,
   vars,
 } from './model/core'
+export { assertUcumUnitComparable, convertUcumValue, normalizeUcumUnit } from './model/units'
 export type {
   EvaluatedExperimentRules,
   ExperimentParameter,
@@ -33,6 +35,7 @@ export type {
   ExperimentTensorAxis,
   ExperimentTensorDType,
   ExperimentTensorParameter,
+  FloatValue,
   Geometry,
   GeometryAttributes,
   MaterialVariable,
@@ -47,6 +50,7 @@ export type {
   StructureGroupMap,
   VarsSchemaEntry,
 } from './model/core'
+export type { UcumUnit } from './model/units'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
 export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/recordedData'
 export type { ResolvedRecordedTensor } from './model/recordedData'

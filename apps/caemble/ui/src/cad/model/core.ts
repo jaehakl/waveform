@@ -1,11 +1,25 @@
 import type { Rotation, Tensor, Vars, Vec3 } from './types'
+import { CadModelError } from './errors'
+import {
+  assertUcumUnitComparable,
+  normalizeUcumUnit,
+  type UcumUnit,
+} from './units'
 
 export type { Rotation, Tensor, Vars, Vec3 } from './types'
+export { CadModelError } from './errors'
+export type { UcumUnit } from './units'
+export type FloatValue = Readonly<{
+  type: 'float'
+  value: number
+  unit?: UcumUnit
+}>
 export type MaterialVariable =
   | string
   | number
   | boolean
   | null
+  | FloatValue
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
 export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
@@ -62,10 +76,11 @@ export type ExperimentScalarParameter =
   | Readonly<{ type: 'bool'; value: boolean }>
   | Readonly<{ type: 'string'; value: string }>
   | Readonly<{ type: 'int'; value: number }>
-  | Readonly<{ type: 'float'; value: number }>
+  | FloatValue
 export type ExperimentTensorAxis = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
+  unit?: UcumUnit
 }>
 export type ExperimentTensorParameter = Readonly<{
   type: 'tensor'
@@ -73,6 +88,7 @@ export type ExperimentTensorParameter = Readonly<{
   shape: readonly number[]
   dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
   value: boolean | string | number | readonly unknown[]
 }>
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
@@ -83,6 +99,7 @@ export type RecordedDataResult = Readonly<{
   shape: readonly number[]
   dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
 }>
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
@@ -113,6 +130,7 @@ export type EvaluatedExperimentRules<
 
 type StructureOptions = {
   geometry: () => unknown
+  lengthUnit: UcumUnit
   varsSchema: Record<string, VarsSchemaEntry>
   geometryGroup?: StructureGroupMap
   surfaceGroup?: StructureGroupMap
@@ -129,19 +147,28 @@ type ExperimentOptions<
   recordedData?: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 }
 
-export class CadModelError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'CadModelError'
-  }
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return isRecord(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))
+}
+
+function normalizeFloatValue(value: Record<string, unknown>, path: string): FloatValue {
+  const descriptorKeys = ['type', 'value']
+  if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
+  assertDescriptorKeys(value, descriptorKeys, path)
+  if (value.type !== 'float') throw new CadModelError(`${path}.type must be float.`)
+  if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
+    throw new CadModelError(`${path}.value must be a finite number.`)
+  }
+  const unit = value.unit === undefined ? undefined : normalizeUcumUnit(value.unit, `${path}.unit`)
+  return Object.freeze({
+    type: 'float' as const,
+    value: value.value,
+    ...(unit === undefined ? {} : { unit }),
+  })
 }
 
 function normalizeJsonValue(
@@ -152,6 +179,9 @@ function normalizeJsonValue(
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new CadModelError(`${path} must be a finite number.`)
+    if (!Number.isSafeInteger(value)) {
+      throw new CadModelError(`${path} raw numbers must be safe integers; use a float descriptor for float values.`)
+    }
     return value
   }
   if (typeof value !== 'object') {
@@ -169,6 +199,10 @@ function normalizeJsonValue(
   if (!isPlainObject(value)) {
     ancestors.delete(value)
     throw new CadModelError(`${path} must contain only plain objects.`)
+  }
+  if (value.type === 'float') {
+    ancestors.delete(value)
+    return normalizeFloatValue(value, path)
   }
 
   const normalized: Record<string, MaterialVariable> = {}
@@ -500,6 +534,7 @@ export class Material {
 
 export class Structure {
   readonly geometry: () => unknown
+  readonly lengthUnit: UcumUnit
   readonly varsSchema: Readonly<Record<string, VarsSchemaEntry>>
   readonly geometryGroup: StructureGroupMap
   readonly surfaceGroup: StructureGroupMap
@@ -509,8 +544,11 @@ export class Structure {
     if (!isRecord(options) || typeof options.geometry !== 'function') {
       throw new CadModelError(`${objectName} geometry must be a function.`)
     }
+    const lengthUnit = normalizeUcumUnit(options.lengthUnit, `${objectName} lengthUnit`)
+    assertUcumUnitComparable(lengthUnit, 'm', `${objectName} lengthUnit`)
 
     this.geometry = options.geometry
+    this.lengthUnit = lengthUnit
     this.varsSchema = normalizeVarsSchema(options.varsSchema, objectName)
     this.geometryGroup = normalizeStructureGroup(options.geometryGroup, 'geometryGroup', objectName)
     this.surfaceGroup = normalizeStructureGroup(options.surfaceGroup, 'surfaceGroup', objectName)
@@ -623,6 +661,10 @@ const experimentIntegerRanges: Partial<Record<ExperimentTensorDType, readonly [n
   uint64: [0, Number.MAX_SAFE_INTEGER],
 }
 
+export function isExperimentFloatDType(dtype: ExperimentTensorDType) {
+  return dtype === 'float16' || dtype === 'float32' || dtype === 'float64'
+}
+
 function assertDescriptorKeys(value: Record<string, unknown>, expected: readonly string[], path: string) {
   const keys = Reflect.ownKeys(value)
   const invalid = keys.filter((key) => typeof key !== 'string' || !expected.includes(key))
@@ -653,19 +695,20 @@ function normalizeTensorAxes(
     if (!isPlainObject(rawAxis)) {
       throw new CadModelError(`${axisPath} must be a plain object.`)
     }
-    const axisKeys = ['name', 'ticks'].filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
+    const axisKeys = ['name', 'ticks', 'unit'].filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
     assertDescriptorKeys(rawAxis, axisKeys, axisPath)
 
     const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
     if (typeof name !== 'string' || !name.trim()) {
       throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
     }
+    const unit = rawAxis.unit === undefined ? undefined : normalizeUcumUnit(rawAxis.unit, `${axisPath}.unit`)
 
     if (allowDynamicShape && shape[axisIndex] === -1) {
       if (Object.prototype.hasOwnProperty.call(rawAxis, 'ticks')) {
         throw new CadModelError(`${axisPath}.ticks must be omitted when shape[${axisIndex}] is -1.`)
       }
-      return Object.freeze({ name: name.trim() })
+      return Object.freeze({ name: name.trim(), ...(unit === undefined ? {} : { unit }) })
     }
 
     const rawTicks = rawAxis.ticks === undefined
@@ -684,7 +727,7 @@ function normalizeTensorAxes(
       throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
     }))
 
-    return Object.freeze({ name: name.trim(), ticks })
+    return Object.freeze({ name: name.trim(), ticks, ...(unit === undefined ? {} : { unit }) })
   }))
 }
 
@@ -719,11 +762,17 @@ function normalizeTensorSchema(
   if (typeof value.dtype !== 'string' || !experimentTensorDTypes.has(value.dtype as ExperimentTensorDType)) {
     throw new CadModelError(`${path}.dtype must be a supported tensor dtype.`)
   }
+  const dtype = value.dtype as ExperimentTensorDType
+  if (value.unit !== undefined && !isExperimentFloatDType(dtype)) {
+    throw new CadModelError(`${path}.unit is allowed only for float tensor dtypes.`)
+  }
+  const unit = value.unit === undefined ? undefined : normalizeUcumUnit(value.unit, `${path}.unit`)
   return {
     axes: normalizeTensorAxes(value.axes, shape, path, allowDynamicShape),
     dimension: value.dimension as number,
-    dtype: value.dtype as ExperimentTensorDType,
+    dtype,
     shape: Object.freeze(shape),
+    ...(unit === undefined ? {} : { unit }),
   }
 }
 
@@ -826,6 +875,7 @@ export function normalizeExperimentTensorParameter(
   }
   const descriptorKeys = ['type', 'dimension', 'shape', 'dtype', 'value']
   if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
+  if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
   assertDescriptorKeys(value, descriptorKeys, path)
   const schema = normalizeTensorSchema(value, path, 1)
   return Object.freeze({
@@ -836,6 +886,7 @@ export function normalizeExperimentTensorParameter(
 }
 
 function normalizeScalarDescriptor(value: Record<string, unknown>, path: string): ExperimentScalarParameter {
+  if (value.type === 'float') return normalizeFloatValue(value, path)
   assertDescriptorKeys(value, ['type', 'value'], path)
   if (value.type === 'bool') {
     if (typeof value.value !== 'boolean') throw new CadModelError(`${path}.value must be a boolean.`)
@@ -851,12 +902,6 @@ function normalizeScalarDescriptor(value: Record<string, unknown>, path: string)
     }
     return Object.freeze({ type: 'int' as const, value: value.value })
   }
-  if (value.type === 'float') {
-    if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
-      throw new CadModelError(`${path}.value must be a finite number.`)
-    }
-    return Object.freeze({ type: 'float' as const, value: value.value })
-  }
   throw new CadModelError(`${path}.type must be bool, string, int, float, or tensor.`)
 }
 
@@ -864,8 +909,8 @@ function normalizeExperimentParameter(value: unknown, path: string): ExperimentP
   if (typeof value === 'boolean' || typeof value === 'string') return value
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new CadModelError(`${path} must be finite.`)
-    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-      throw new CadModelError(`${path} integer must be safe.`)
+    if (!Number.isSafeInteger(value)) {
+      throw new CadModelError(`${path} raw numbers must be safe integers; use a float descriptor for float values.`)
     }
     return value
   }
@@ -895,6 +940,7 @@ function normalizeRecordedDataResult(value: unknown, path: string): RecordedData
   }
   const descriptorKeys = ['type', 'dimension', 'shape', 'dtype']
   if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
+  if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
   assertDescriptorKeys(value, descriptorKeys, path)
   return Object.freeze({
     type: 'tensor' as const,

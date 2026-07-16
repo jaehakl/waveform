@@ -10,14 +10,17 @@ const rules: EvaluatedExperimentRules = {
     methodId: 'field.initialize',
     parameters: {
       scalarOnly: 1,
+      ratio: { type: 'float', value: 0.25 },
+      voltage: { type: 'float', value: 1, unit: 'mV' },
       profile: {
         type: 'tensor',
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
+        unit: 'V',
         axes: [
           { name: 'batch', ticks: ['sample'] },
-          { name: 'position', ticks: [0, 0.5] },
+          { name: 'position', ticks: [0, 0.5], unit: 'm' },
         ],
         value: [[0.1, 0.2]],
       },
@@ -46,14 +49,15 @@ const rules: EvaluatedExperimentRules = {
 
 const source = `import { Experiment, Setup } from '@caemble/core'
 const tensorValues = [[0.1, 0.2]] as const
-const experiment = new Experiment({
+const experiment = new Experiment({ lengthUnit: 'mm',
   initialConditions: () => [{
     target: ['structure.geometry.sample'], label: 'Initial profile', methodId: 'field.initialize',
     parameters: {
       scalarOnly: 1,
       profile: {
         type: 'tensor', dimension: 2, shape: [1, 2], dtype: 'float32',
-        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 0.5] }],
+        unit: 'V',
+        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 0.5], unit: 'm' }],
         value: tensorValues,
       },
     },
@@ -68,7 +72,7 @@ export default new Setup(experiment)
 `
 
 describe('ExperimentalParameters', () => {
-  it('shows tensor editors and recorded result schemas but no scalar editor', () => {
+  it('shows tensor/result units and read-only scalar parameter units', () => {
     const markup = renderToStaticMarkup(
       <ExperimentalParameters
         onSourceChange={() => undefined}
@@ -81,11 +85,12 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('Initial profile')
     expect(markup).toContain('field.initialize')
     expect(markup).toContain('profile')
-    expect(markup).toContain('float32 · 2D · shape [1,2]')
+    expect(markup).toContain('float32 · 2D · shape [1,2] · V')
     expect(markup).toContain('aria-label="Initial profile profile axes"')
     expect(markup).toContain('batch')
     expect(markup).toContain('sample')
     expect(markup).toContain('position')
+    expect(markup).toContain('position · m')
     expect(markup).toContain('[0,0.5]')
     expect(markup).toContain('Recorded result schema (source-only)')
     expect(markup).toContain('float64 · 0D · shape []')
@@ -93,8 +98,13 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('[] (0D tensor)')
     expect(markup).toContain('Dynamic profile')
     expect(markup).toContain('dynamic ticks from result')
-    expect(markup).toContain('1 scalar parameter hidden here')
-    expect(markup).not.toContain('>scalarOnly<')
+    expect(markup).toContain('Scalar parameters (source-only)')
+    expect(markup).toContain('>scalarOnly</code>')
+    expect(markup).toContain('1 · integer')
+    expect(markup).toContain('>ratio</code>')
+    expect(markup).toContain('0.25 · unitless')
+    expect(markup).toContain('>voltage</code>')
+    expect(markup).toContain('1 · mV')
     expect(markup).not.toContain('Result value')
     expect(markup.match(/<textarea/g)).toHaveLength(1)
   })

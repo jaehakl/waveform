@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
-import type { CadDocumentType, CadScenePart, RecordedDataRule } from '../cad'
+import type { CadDocumentType, CadScenePart, RecordedDataRule, UcumUnit } from '../cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
 import RecordedDataResults from './RecordedDataResults'
 import type { CadViewerRecordedData } from './recordedData'
@@ -14,6 +14,7 @@ import { createWireframeGeometries } from './selection'
 import {
   createLayerRenderParts,
   materialGridPartsFromLayers,
+  scaleViewerLayers,
   type JscadViewerLayer,
   type JscadViewerSelection,
 } from './sourceLayers'
@@ -76,6 +77,7 @@ type JscadViewerProps = {
   availableSources?: readonly CadDocumentType[]
   emptyMessage?: string
   layers: readonly JscadViewerLayer[]
+  lengthUnit: UcumUnit
   onRenderEnd: () => void
   onRenderError: (message: string) => void
   onRenderStart: () => void
@@ -93,6 +95,7 @@ type ViewerToolbarProps = {
   gridResult: MaterialGridResult | null
   gridStatus: MaterialGridStatus
   hasResults?: boolean
+  lengthUnit?: UcumUnit
   mode: ViewerMode
   onApplySpacing: () => void
   onChangeSpacing: (value: string) => void
@@ -170,6 +173,7 @@ export function ViewerToolbar({
   gridResult,
   gridStatus,
   hasResults = false,
+  lengthUnit = 'm',
   mode,
   onApplySpacing,
   onChangeSpacing,
@@ -297,7 +301,7 @@ export function ViewerToolbar({
             }}
           >
             <label className="text-xs font-medium text-slate-600" htmlFor="material-grid-spacing">
-              Spacing
+              Spacing ({lengthUnit})
             </label>
             <input
               aria-describedby={spacingError ? 'material-grid-spacing-error' : undefined}
@@ -325,8 +329,8 @@ export function ViewerToolbar({
               <>
                 {gridResult.visiblePointCount} points ·{' '}
                 {appliedSpacingChanged
-                  ? `requested ${formatSpacing(gridResult.requestedSpacing)} · applied ${formatSpacing(gridResult.effectiveSpacing)}`
-                  : `spacing ${formatSpacing(gridResult.effectiveSpacing)}`}
+                  ? `requested ${formatSpacing(gridResult.requestedSpacing)} ${lengthUnit} · applied ${formatSpacing(gridResult.effectiveSpacing)} ${lengthUnit}`
+                  : `spacing ${formatSpacing(gridResult.effectiveSpacing)} ${lengthUnit}`}
               </>
             ) : null}
           </div>
@@ -408,6 +412,7 @@ function JscadViewer({
   availableSources,
   emptyMessage = 'Waiting for model...',
   layers,
+  lengthUnit,
   onRenderEnd,
   onRenderError,
   onRenderStart,
@@ -418,7 +423,8 @@ function JscadViewer({
   simulation,
   visibleSources,
 }: JscadViewerProps) {
-  const parts = useMemo(() => materialGridPartsFromLayers(layers), [layers])
+  const displayLayers = useMemo(() => scaleViewerLayers(layers, lengthUnit), [layers, lengthUnit])
+  const parts = useMemo(() => materialGridPartsFromLayers(displayLayers), [displayLayers])
   const selection = selected?.selection ?? null
   const [gridError, setGridError] = useState<string | null>(null)
   const [gridApplyVersion, setGridApplyVersion] = useState(0)
@@ -620,7 +626,7 @@ function JscadViewer({
     if (shouldReportGeometryRender) onRenderStart()
 
     try {
-      const renderParts = createLayerRenderParts(layers, selected)
+      const renderParts = createLayerRenderParts(displayLayers, selected)
       const wireframeEntities = renderParts
         .filter((part) => part.wireframe)
         .flatMap((part) => createWireframeGeometries(part).map((geometry) => ({
@@ -688,7 +694,7 @@ function JscadViewer({
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [currentGridResult, gridApplyVersion, layers, onRenderEnd, onRenderError, onRenderStart, parts, selected, viewerMode])
+  }, [currentGridResult, displayLayers, gridApplyVersion, onRenderEnd, onRenderError, onRenderStart, parts, selected, viewerMode])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -723,6 +729,7 @@ function JscadViewer({
         gridResult={currentGridResult}
         gridStatus={gridStatus}
         hasResults={hasResults}
+        lengthUnit={lengthUnit}
         mode={viewerMode}
         spacingDraft={spacingDraft}
         spacingError={spacingError}

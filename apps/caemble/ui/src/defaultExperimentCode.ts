@@ -11,15 +11,15 @@ const Terminal: Geometry<{ size: Vec3 }> = ({ size }) => (
 )
 
 const experiment = new Experiment({
+  lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
       gridShape: [100, 41, 41],
-      crossSectionPosition: 0.35,
-      relativeTolerance: 1e-8,
+      crossSectionPosition: { type: 'float', value: 0.35 },
+      relativeTolerance: { type: 'float', value: 1e-8 },
       maxIterations: 2000,
     }),
   },
@@ -42,7 +42,7 @@ const experiment = new Experiment({
   varsSchema: {
     electrodeOffset: { shape: [], default: 50.5 },
     electrodeSize: { shape: [3], default: [1, 14, 12] },
-    sourceVoltage: { shape: [], default: 0.001 },
+    sourceVoltage: { shape: [], default: 1 },
     referenceVoltage: { shape: [], default: 0 },
   },
   geometryGroup: {
@@ -53,13 +53,17 @@ const experiment = new Experiment({
       target: ['structure.surface.sourceTerminal'],
       label: 'Applied potential',
       methodId: 'dc.source-potential',
-      parameters: { voltage: vars.sourceVoltage as number },
+      parameters: {
+        voltage: { type: 'float', value: vars.sourceVoltage as number, unit: 'mV' },
+      },
     },
     {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference potential',
       methodId: 'dc.reference-potential',
-      parameters: { voltage: vars.referenceVoltage as number },
+      parameters: {
+        voltage: { type: 'float', value: vars.referenceVoltage as number, unit: 'mV' },
+      },
     },
   ],
   recordedData: () => [
@@ -73,9 +77,10 @@ const experiment = new Experiment({
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
+        unit: 'A/m2',
         axes: [
-          { name: 'cross-section v (m)' },
-          { name: 'cross-section u (m)' },
+          { name: 'cross-section v', unit: 'm' },
+          { name: 'cross-section u', unit: 'm' },
         ],
       },
     },
@@ -84,7 +89,7 @@ const experiment = new Experiment({
       label: 'Total current',
       methodId: 'dc.total-current',
       parameters: {},
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
     },
   ],
 })

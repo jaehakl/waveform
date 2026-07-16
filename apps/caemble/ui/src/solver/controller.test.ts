@@ -20,6 +20,7 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     return h('box', { size: [1, 1, 1] })
   }
   const structure = new Structure({
+    lengthUnit: 'mm',
     geometry: () => h(Conductor, {
       id: 'conductor',
       materials: [new Material('Test', { value: vars.materialValue, color: '#2563eb' })],
@@ -31,7 +32,12 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     geometryGroup: { conductor: ['conductor'] },
   })
   const experiment = new Experiment({
-    solver: { name, version, parameters: () => ({ scale: vars.scale as number }) },
+    lengthUnit: 'mm',
+    solver: {
+      name,
+      version,
+      parameters: () => ({ scale: { type: 'float', value: vars.scale as number } }),
+    },
     geometry: () => h(Probe, { id: 'probe' }),
     varsSchema: { scale: { shape: [], default: 2 } },
     recordedData: () => [{
@@ -66,7 +72,9 @@ describe('SolverController', () => {
       expect(input.structure.model).toBe(sample.structure)
       expect(input.experiment.model).toBe(setup.experiment)
       expect(input.structure.scene.geometryGroups[0].geometryIds).toEqual(['conductor'])
-      expect(input.experiment.solver.parameters).toEqual({ scale: 5 })
+      expect(input.structure.scene.lengthUnit).toBe('mm')
+      expect(input.experiment.scene.lengthUnit).toBe('mm')
+      expect(input.experiment.solver.parameters).toEqual({ scale: { type: 'float', value: 5 } })
       return { Value: { value: 20 } }
     })])
     controller.subscribe((process) => states.push(process.status))
@@ -121,7 +129,7 @@ describe('SolverController', () => {
     function Probe() {
       return h('box', { size: [1, 1, 1] })
     }
-    const experiment = new Experiment({
+    const experiment = new Experiment({ lengthUnit: 'mm',
       solver: { name: 'test-solver', version: '1.0.0', parameters: () => ({}) },
       geometry: () => h(Probe, { id: 'probe' }),
       varsSchema: {},

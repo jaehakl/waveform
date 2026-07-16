@@ -84,7 +84,7 @@ export function evaluateDocumentEntry(
       const scene = evaluateCadScene(experiment.geometry(), {
         geometryGroup: experiment.geometryGroup,
         surfaceGroup: experiment.surfaceGroup,
-      }, 'Experiment')
+      }, 'Experiment', experiment.lengthUnit)
       const experimentRules = evaluateExperimentRules(experiment)
       return Object.freeze({ scene, variables: entry.vars, experimentRules, solver })
     })
@@ -98,7 +98,7 @@ export function evaluateDocumentEntry(
     scene: evaluateCadScene(entry.structure.geometry(), {
       geometryGroup: entry.structure.geometryGroup,
       surfaceGroup: entry.structure.surfaceGroup,
-    }),
+    }, 'Structure', entry.structure.lengthUnit),
     variables: entry.vars,
   }))
 }

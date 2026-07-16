@@ -7,6 +7,8 @@ function rule(
   label: string,
   shape: readonly number[],
   dtype: RecordedDataRule['result']['dtype'],
+  unit?: string,
+  axisUnit?: string,
 ): RecordedDataRule {
   return {
     target: ['experiment.geometry.domain'],
@@ -18,8 +20,10 @@ function rule(
       dimension: shape.length,
       shape,
       dtype,
+      ...(unit ? { unit } : {}),
       axes: shape.map((size, index) => ({
         name: `axis ${index}`,
+        ...(axisUnit ? { unit: axisUnit } : {}),
         ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
       })),
     },
@@ -28,9 +32,9 @@ function rule(
 
 describe('RecordedDataResults', () => {
   const rules = [
-    rule('Average', [], 'float64'),
-    rule('Profile', [3], 'float32'),
-    rule('Field', [2, 3], 'float32'),
+    rule('Average', [], 'float64', 'A'),
+    rule('Profile', [3], 'float32', 'A/m2', 'm'),
+    rule('Field', [2, 3], 'float32', 'A/m2', 'm'),
   ]
 
   it('shows schema-driven scalar, chart, and heatmap shells without values', () => {
@@ -58,7 +62,8 @@ describe('RecordedDataResults', () => {
 
     expect(markup).toContain('Unknown recordedData labels: Unknown')
     expect(markup).toContain('aria-label="Recorded scalar value"')
-    expect(markup).toContain('>0.5</div>')
+    expect(markup).toContain('<span>0.5</span>')
+    expect(markup).toContain('<span class="text-base text-slate-500">A</span>')
     expect(markup).toContain('actual shape [2]; expected shape [3]')
     expect(markup).toContain('aria-label="Profile empty line chart"')
   })

@@ -5,6 +5,7 @@ import { flattenValues, Fragment, isCadNode } from './jsx'
 import { applyTransforms, normalizeTransforms } from './transforms'
 import { applyCadSceneGroups, type CadSceneGroupOptions } from './groups'
 import type { CadScene, CadSceneMaterial, CadScenePart, CadSceneTreeNode, EvaluatedPart } from './types'
+import { assertUcumUnitComparable, normalizeUcumUnit, type UcumUnit } from '../model/units'
 
 type EvaluationState = {
   nodes: Map<string, CadSceneTreeNode>
@@ -226,7 +227,10 @@ export function evaluateCadScene(
   root: unknown,
   groupOptions: CadSceneGroupOptions = {},
   rootLabel = 'Structure',
+  rawLengthUnit: UcumUnit = 'm',
 ): CadScene {
+  const lengthUnit = normalizeUcumUnit(rawLengthUnit, `${rootLabel} scene lengthUnit`)
+  assertUcumUnitComparable(lengthUnit, 'm', `${rootLabel} scene lengthUnit`)
   const rootKey = rootLabel.toLowerCase()
   const tree: CadSceneTreeNode = { key: rootKey, label: rootLabel, children: [] }
   const state: EvaluationState = {
@@ -325,7 +329,7 @@ export function evaluateCadScene(
 
   annotateGeometryNodes(tree)
 
-  return applyCadSceneGroups({ parts, tree, geometryGroups: [], surfaceGroups: [] }, groupOptions)
+  return applyCadSceneGroups({ lengthUnit, parts, tree, geometryGroups: [], surfaceGroups: [] }, groupOptions)
 }
 
 export function evaluateCad(root: unknown): CadScenePart[] {

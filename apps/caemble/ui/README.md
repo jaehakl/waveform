@@ -87,6 +87,7 @@ const Conductor: Geometry<{
 )
 
 const structure = new Structure({
+  lengthUnit: 'mm',
   geometry: () => (
     <Conductor
       id="conductor"
@@ -94,7 +95,11 @@ const structure = new Structure({
       notchPosition={vars.notchPosition as Vec3}
       notchSize={vars.notchSize as Vec3}
       materials={[new Material('Copper', 'reference', {
-        electricalConductivity: vars.electricalConductivity,
+        electricalConductivity: {
+          type: 'float',
+          value: vars.electricalConductivity as number,
+          unit: 'S/m',
+        },
         color: '#d97706',
       })]}
     />
@@ -116,6 +121,8 @@ export default new Sample(structure)
 ```
 
 The Structure example menu keeps the former procedural model as **Fiber Bundle**; **DC Conductor** is the default first item.
+
+Every Structure, including Experiment, declares a required UCUM `lengthUnit`. Geometry operations and the resulting `CadScene` keep coordinates in that authoring unit. The Viewer chooses the Structure unit as its display unit (falling back to the Experiment unit) and scales copied layers immediately before rendering and Material Grid sampling; source scenes are not mutated.
 
 Evaluation order is Sample vars resolution → global `vars` binding → lazy geometry factory → Material construction → Geometry evaluation.
 
@@ -146,15 +153,15 @@ import {
 const Terminal: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
 
 const experiment = new Experiment({
+  lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
       gridShape: [100, 41, 41],
-      crossSectionPosition: 0.35,
-      relativeTolerance: 1e-8,
+      crossSectionPosition: { type: 'float', value: 0.35 },
+      relativeTolerance: { type: 'float', value: 1e-8 },
       maxIterations: 2000,
     }),
   },
@@ -175,7 +182,7 @@ const experiment = new Experiment({
     </>
   ),
   varsSchema: {
-    sourceVoltage: { shape: [], default: 0.001 },
+    sourceVoltage: { shape: [], default: 1 },
     referenceVoltage: { shape: [], default: 0 },
   },
   boundaryConditions: () => [
@@ -183,13 +190,17 @@ const experiment = new Experiment({
       target: ['structure.surface.sourceTerminal'],
       label: 'Applied potential',
       methodId: 'dc.source-potential',
-      parameters: { voltage: vars.sourceVoltage as number },
+      parameters: {
+        voltage: { type: 'float', value: vars.sourceVoltage as number, unit: 'mV' },
+      },
     },
     {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference potential',
       methodId: 'dc.reference-potential',
-      parameters: { voltage: vars.referenceVoltage as number },
+      parameters: {
+        voltage: { type: 'float', value: vars.referenceVoltage as number, unit: 'mV' },
+      },
     },
   ],
   recordedData: () => [
@@ -203,9 +214,10 @@ const experiment = new Experiment({
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
+        unit: 'A/m2',
         axes: [
-          { name: 'cross-section v (m)' },
-          { name: 'cross-section u (m)' },
+          { name: 'cross-section v', unit: 'm' },
+          { name: 'cross-section u', unit: 'm' },
         ],
       },
     },
@@ -214,7 +226,7 @@ const experiment = new Experiment({
       label: 'Total current',
       methodId: 'dc.total-current',
       parameters: {},
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
     },
   ],
 })
@@ -222,33 +234,41 @@ const experiment = new Experiment({
 export default new Setup(experiment)
 ```
 
+### UCUM units
+
+Physical units use case-sensitive [UCUM](https://ucum.org/docs/formal-grammar) codes. UCUM does not publish one authoritative regular expression for its full grammar, so Caemble validates codes and conversions with the browser-compatible [@fhir-toolkit/ucum](https://github.com/robertoAraneda/fhir-toolkit/tree/main/packages/ucum) parser. Source strings are preserved exactly: empty strings, surrounding whitespace, invalid codes, wrong case, and incompatible conversions raise `CadModelError`. Common declarations include `A/m2`, `S/m`, `mV`, `mm`, `1`, and `%`.
+
+`FloatValue` is `{ type: 'float', value: number, unit?: UcumUnit }`. Omitted `unit` means dimensionless and converts like UCUM `1`; an explicit `unit: '1'` is equivalent, while `%` is a compatible scaled unit (`35 % = 0.35`). Raw numbers in Material variables, solver parameters, and rule scalar parameters are reserved for safe integers. Fractions, tolerances, ratios, and physical values—including physical zero—use `FloatValue`. Nested arrays and plain objects remain supported, but every float leaf follows the same descriptor rule and normalized data is recursively frozen.
+
+`varsSchema` and its resolved `vars` payload deliberately remain unitless intermediate data. Units are fixed where values enter a Material, solver parameter, rule parameter, float tensor/result schema, or tensor axis. Float tensors and recorded results accept `unit?`; non-float tensor dtypes reject a result/value unit. Axes independently accept `unit?`. Omission is valid for dimensionless float values, but a solver rejects omission when its contract requires a physical dimension.
+
 Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. Experiment preview validates `experiment.*` targets immediately and defers `structure.*` targets; simulation preparation then cross-validates every target against the paired, evaluated Sample, including missing group members and empty resolutions. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
 
-Raw scalar parameters may be booleans, strings, or finite numbers. Integer-valued raw numbers must be safe integers. Explicit scalar descriptors use `{ type: 'bool' | 'string' | 'int' | 'float', value }`. A tensor parameter uses `{ type: 'tensor', dimension, shape, dtype, axes?, value }`, requires `dimension >= 1`, and must have `dimension === shape.length`; every shape size is a positive safe integer. Supported element dtypes are `bool`, `string`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, and `float64`. `int64` and `uint64` remain limited to JavaScript safe integers. Tensor values are checked recursively against both shape and dtype, copied, and frozen.
+Raw scalar parameters may be booleans, strings, or safe integers. Explicit scalar descriptors use `{ type: 'bool' | 'string' | 'int', value }` or `{ type: 'float', value, unit? }`. A tensor parameter uses `{ type: 'tensor', dimension, shape, dtype, axes?, unit?, value }`, requires `dimension >= 1`, and must have `dimension === shape.length`; every shape size is a positive safe integer. Supported element dtypes are `bool`, `string`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, and `float64`. `int64` and `uint64` remain limited to JavaScript safe integers. Tensor values are checked recursively against both shape and dtype, copied, and frozen.
 
-Optional `axes` contains one `{ name?, ticks? }` object per dimension. When the complete field is omitted, every fixed axis receives the 0-based name `axis 0`, `axis 1`, and so on, with ticks `[0, 1, ... shape[i] - 1]`. When supplied, the axes array length must equal `dimension`; omitted names and fixed-axis ticks receive the same defaults. Explicit names must be non-empty, and ticks must contain exactly `shape[i]` string or finite-number values. Tick order and duplicates are preserved and are independent of tensor dtype. Normalized fixed-axis metadata is copied and deeply frozen.
+Optional `axes` contains one `{ name?, ticks?, unit? }` object per dimension. When the complete field is omitted, every fixed axis receives the 0-based name `axis 0`, `axis 1`, and so on, with ticks `[0, 1, ... shape[i] - 1]`. When supplied, the axes array length must equal `dimension`; omitted names and fixed-axis ticks receive the same defaults. Explicit names must be non-empty, and ticks must contain exactly `shape[i]` string or finite-number values. Tick order and duplicates are preserved and are independent of tensor dtype. Normalized fixed-axis metadata is copied and deeply frozen.
 
-Every recorded-data rule additionally requires a tensor-only output schema in `result` and accepts the same optional axes metadata. A scalar recorded result is a 0D tensor: `{ type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }`, normalized with `axes: []`. Recorded result shapes may use `-1` on any number of axes, for example `{ dimension: 2, shape: [-1, 3], axes: [{ name: 'time' }, { name: 'position', ticks: [0, 0.5, 1] }] }`. Tensor parameters cannot use `-1`. A wildcard axis may declare a name but must omit source ticks; its actual size and ticks are resolved from the external result, with missing ticks defaulting to 0-based indices.
+Every recorded-data rule additionally requires a tensor-only output schema in `result` and accepts the same optional units and axes metadata. A scalar physical result is a 0D tensor such as `{ type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' }`, normalized with `axes: []`. Recorded result shapes may use `-1` on any number of axes, for example `{ dimension: 2, shape: [-1, 3], unit: 'V', axes: [{ name: 'time', unit: 's' }, { name: 'position', ticks: [0, 0.5, 1], unit: 'm' }] }`. Tensor parameters cannot use `-1`. A wildcard axis may declare a name and unit but must omit source ticks; its actual size and ticks are resolved from the external result, with missing ticks defaulting to 0-based indices.
 
 `RecordedData` and its `CadViewerRecordedData` compatibility alias are JSON dictionaries keyed by the unique recorded rule label. Each value uses `{ value, axes?: [{ ticks? }, ...] }`; dtype, dimension, shape, and axis names remain authoritative in the Experiment schema. Payload axes, when supplied, have exactly one ticks-only object per dimension. Fixed ticks must equal the schema, while wildcard ticks must match the resolved value length. A successful solver response must include every declared label and no unknown labels; value dtype/shape and axes are validated and the accepted result is recursively frozen. The standalone Results renderer remains tolerant of missing snapshots so it can show empty schema-driven plots before the first run.
 
-Results renders 0D scalars, numeric 1D Plotly line charts, numeric 2D Plotly heatmaps, and bool/string tables. For tensors above 2D, leading-axis selectors choose a slice and the final two axes form the heatmap or matrix. Results is read-only, loads Plotly only when a populated numeric plot is shown, and does not feed result errors into CAD compilation or rendering status.
+Results renders 0D scalars, numeric 1D Plotly line charts, numeric 2D Plotly heatmaps, and bool/string tables. Scalar suffixes, Plotly axis titles, and heatmap colorbars use the Experiment schema units; omitted units are shown as `unitless`. For tensors above 2D, leading-axis selectors choose a slice and the final two axes form the heatmap or matrix. Results is read-only, loads Plotly only when a populated numeric plot is shown, and does not feed result errors into CAD compilation or rendering status.
 
-Experimental Parameters displays only tensor parameters. It shows normalized axis names and complete ticks plus recorded result schemas as read-only metadata, leaving scalar, shape, dtype, axes, and result schema edits to Experiment Source. Editable values use N-dimensional JSON. Prefer a named top-level `const` array instead of writing large raw tensors inline. Inline arrays and top-level const arrays can be patched back into the complete controlled source without changing axes; computed expressions and `vars`-backed values remain visible but read-only. Editing a shared const affects every reference.
+Experimental Parameters displays scalar values with their unit or `unitless`, and shows tensor/result units, normalized axis names, axis units, and complete ticks. Scalar, unit, shape, dtype, axes, and result-schema edits stay in Experiment Source. Editable tensor values use N-dimensional JSON. Prefer a named top-level `const` array instead of writing large raw tensors inline. Inline arrays and top-level const arrays can be patched back into the complete controlled source without changing metadata; computed expressions and `vars`-backed values remain visible but read-only. Editing a shared const affects every reference.
 
-Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, finite numbers, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, class instances, and circular references are rejected.
+Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, safe integers, `FloatValue`, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, raw fractional numbers, class instances, and circular references are rejected.
 
-Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Experiment geometry and a paired Sample use the same coordinate system. Editing either source or pressing `Reroll` updates its preview only; simulation is always manual. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
+Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Each scene retains its own declared length unit; the Viewer aligns copied layers for display, while solver modules explicitly convert inputs to the units they require. Editing either source or pressing `Reroll` updates its preview only; simulation is always manual. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
 
 ## Solver Controller And DC Current Density
 
 `src/solver` is UI-independent. `SolverController.run(sample, setup)` evaluates both vars contexts, geometry, Materials, groups, solver parameters, and Experiment rules before dispatching by an exact, case-sensitive `name@version`. It permits one active run, passes an `AbortSignal` to the selected module, publishes immutable process snapshots through `getProcess()` and `subscribe()`, and validates/finalizes `RecordedData`. Duplicate module registration and unsupported identities fail explicitly. A future backend or external solver implements the same `SolverModule.solve(input, signal)` contract and may use `fetch`; no Controller or UI contract changes are required.
 
-The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
+The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It converts the Structure scene `lengthUnit` to `m`, terminal potentials to `V`, and Material conductivity to `S/m`; the removed `lengthScaleToMeters` parameter is no longer accepted. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
 
-The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. `gridShape: [100, 41, 41]` and `crossSectionPosition: 0.35` sample the axial face near the notch entrance at approximately `x = -15 mm`. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap in `A/m²`; its two result axes carry the actual SI-coordinate ticks in meters. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral through that same face in amperes.
+The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. `gridShape: [100, 41, 41]` and dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` sample the axial face near the notch entrance at approximately `x = -15 mm`. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
 
-This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema: an Experiment still declaring the old schema fails explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m` and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires positive finite SI scale and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
+This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema: an Experiment still declaring the old schema fails explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m` and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires a valid positive length conversion and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Missing or incompatible physical units, nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
 
 Source edits and `Reroll` immediately mark an existing result **Stale** and never trigger a run. A failed or cancelled replacement keeps the last successful result with its error and stale marker. The shared Worker has no queue or run history. If a document evaluation times out, the Worker is restarted, the last scenes/results remain visible, the timed-out document becomes Error, and only the successful peer is restored automatically; retry the timed-out document by editing it or pressing `Reroll`.
 
@@ -274,7 +294,7 @@ const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
 
 ## Materials And Geometry
 
-`Material` stores a non-empty `symbol`, an optional non-empty `version`, and a deeply read-only JSON-compatible `variables` dictionary. Supported forms are `Material(symbol)`, `Material(symbol, variables)`, `Material(symbol, version)`, and `Material(symbol, version, variables)`. A top-level `variables.color` uses `#RRGGBB`. Geometry without a Material or without `variables.color` is rendered as a neutral `#475569` wireframe instead of a filled mesh.
+`Material` stores a non-empty `symbol`, an optional non-empty `version`, and a deeply read-only JSON-compatible `variables` dictionary. Supported forms are `Material(symbol)`, `Material(symbol, variables)`, `Material(symbol, version)`, and `Material(symbol, version, variables)`. Raw numeric leaves are safe integers; every floating-point leaf uses `{ type: 'float', value, unit? }`, including nested arrays and objects. A top-level `variables.color` uses `#RRGGBB`. Geometry without a Material or without `variables.color` is rendered as a neutral `#475569` wireframe instead of a filled mesh.
 
 A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]` when available and otherwise produces an unassigned scene part.
 

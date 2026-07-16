@@ -24,6 +24,12 @@ export type ExperimentTensorDType =
   | 'float16'
   | 'float32'
   | 'float64'
+export type UcumUnit = string
+export type FloatValue = Readonly<{
+  type: 'float'
+  value: number
+  unit?: UcumUnit
+}>
 export type ExperimentScalarParameter =
   | boolean
   | string
@@ -31,10 +37,11 @@ export type ExperimentScalarParameter =
   | Readonly<{ type: 'bool'; value: boolean }>
   | Readonly<{ type: 'string'; value: string }>
   | Readonly<{ type: 'int'; value: number }>
-  | Readonly<{ type: 'float'; value: number }>
+  | FloatValue
 export type ExperimentTensorAxis = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
+  unit?: UcumUnit
 }>
 export type ExperimentTensorParameter = Readonly<{
   type: 'tensor'
@@ -42,6 +49,7 @@ export type ExperimentTensorParameter = Readonly<{
   shape: readonly number[]
   dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
   value: boolean | string | number | readonly unknown[]
 }>
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
@@ -52,6 +60,7 @@ export type RecordedDataResult = Readonly<{
   shape: readonly number[]
   dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
+  unit?: UcumUnit
 }>
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
@@ -187,6 +196,7 @@ export type MaterialVariable =
   | number
   | boolean
   | null
+  | FloatValue
   | readonly MaterialVariable[]
   | Readonly<{ [key: string]: MaterialVariable }>
 export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
@@ -206,6 +216,20 @@ export class CadModelError extends Error {
   constructor(message: string)
 }
 
+export function normalizeUcumUnit(value: unknown, path: string): UcumUnit
+export function convertUcumValue(
+  value: number,
+  fromUnit: UcumUnit | undefined,
+  toUnit: UcumUnit | undefined,
+  path?: string,
+): number
+export function assertUcumUnitComparable(
+  unit: UcumUnit | undefined,
+  expectedUnit: UcumUnit | undefined,
+  path: string,
+): void
+export function isExperimentFloatDType(dtype: ExperimentTensorDType): boolean
+
 export class Material {
   constructor(symbol: string)
   constructor(symbol: string, variables: MaterialVariables)
@@ -219,11 +243,13 @@ export class Material {
 export class Structure {
   constructor(options: {
     geometry: () => unknown
+    lengthUnit: UcumUnit
     varsSchema: Record<string, VarsSchemaEntry>
     geometryGroup?: StructureGroupMap
     surfaceGroup?: StructureGroupMap
   })
   readonly geometry: () => unknown
+  readonly lengthUnit: UcumUnit
   readonly varsSchema: Readonly<Record<string, unknown>>
   readonly geometryGroup: StructureGroupMap
   readonly surfaceGroup: StructureGroupMap
@@ -238,6 +264,7 @@ export class Experiment<
   constructor(options: {
     solver: ExperimentSolver
     geometry: () => unknown
+    lengthUnit: UcumUnit
     varsSchema: Record<string, VarsSchemaEntry>
     geometryGroup?: StructureGroupMap
     surfaceGroup?: StructureGroupMap

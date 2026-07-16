@@ -21,13 +21,16 @@ export function resolveCadViewerContent(
     ...(structure && structureVisible ? ['structure' as const] : []),
     ...(experiment && experimentVisible ? ['experiment' as const] : []),
   ]
+  const lengthUnit = structure?.scene?.lengthUnit ?? experiment?.scene?.lengthUnit ?? 'm'
   const layers = [
     ...(experiment && experimentVisible ? [{
       documentType: 'experiment' as const,
+      lengthUnit: experiment.scene?.lengthUnit ?? lengthUnit,
       parts: experiment.scene?.parts ?? [],
     }] : []),
     ...(structure && structureVisible ? [{
       documentType: 'structure' as const,
+      lengthUnit: structure.scene?.lengthUnit ?? lengthUnit,
       parts: structure.scene?.parts ?? [],
     }] : []),
   ] satisfies JscadViewerLayer[]
@@ -40,6 +43,7 @@ export function resolveCadViewerContent(
         ? 'All Structure and Experiment sources are hidden.'
         : 'Waiting for model...',
     layers,
+    lengthUnit,
     visibleSources,
   }
 }

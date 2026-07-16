@@ -4,8 +4,8 @@ import { updateModelGroupSource, updateStructureGroupSource } from './structureG
 describe('Structure group source synchronization', () => {
   it('inserts a group property into the Structure used by the default Sample', () => {
     const source = `import { Sample, Structure } from '@caemble/core'
-const unused = new Structure({ geometry: () => null, varsSchema: {} })
-const active = new Structure({
+const unused = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
+const active = new Structure({ lengthUnit: 'mm',
   geometry: () => null,
   varsSchema: {},
 })
@@ -17,7 +17,7 @@ export default new Sample(active)
 
     expect(updated).toContain('geometryGroup: {\n    "body": ["assembly.frame", "assembly.cells"],\n  },')
     expect(updated.match(/geometryGroup/g)).toHaveLength(1)
-    expect(updated).toContain('const unused = new Structure({ geometry: () => null, varsSchema: {} })')
+    expect(updated).toContain("const unused = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })")
   })
 
   it('traces aliased imports and top-level Sample and options bindings', () => {
@@ -37,7 +37,7 @@ export default sample
 
   it('keeps an empty group property instead of removing it', () => {
     const source = `import { Sample, Structure } from '@caemble/core'
-export default new Sample(new Structure({ geometry: () => null, varsSchema: {} }))
+export default new Sample(new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} }))
 `
     const updated = updateStructureGroupSource(source, 'geometryGroup', {}).source
 
@@ -46,7 +46,7 @@ export default new Sample(new Structure({ geometry: () => null, varsSchema: {} }
 
   it('rejects duplicate target properties without changing source', () => {
     const source = `import { Sample, Structure } from '@caemble/core'
-const structure = new Structure({
+const structure = new Structure({ lengthUnit: 'mm',
   geometry: () => null,
   varsSchema: {},
   geometryGroup: {},
@@ -62,8 +62,8 @@ export default new Sample(structure)
 
   it('rejects dynamic Structure selection', () => {
     const source = `import { Sample, Structure } from '@caemble/core'
-const first = new Structure({ geometry: () => null, varsSchema: {} })
-const second = new Structure({ geometry: () => null, varsSchema: {} })
+const first = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
+const second = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 export default new Sample(Math.random() ? first : second)
 `
 
@@ -76,12 +76,12 @@ export default new Sample(Math.random() ? first : second)
 describe('Experiment group source synchronization', () => {
   it('updates only the Experiment used by the default Setup', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
-const unused = new Experiment({
+const unused = new Experiment({ lengthUnit: 'mm',
   solver: { name: 'unused', version: '1', parameters: () => ({}) },
   geometry: () => null,
   varsSchema: {},
 })
-const active = new Experiment({
+const active = new Experiment({ lengthUnit: 'mm',
   solver: { name: 'active', version: '1', parameters: () => ({}) },
   geometry: () => null,
   varsSchema: {},
@@ -119,7 +119,7 @@ export default setup
 
   it('requires the matching Setup and Experiment entry path', () => {
     const source = `import { Sample, Structure } from '@caemble/core'
-export default new Sample(new Structure({ geometry: () => null, varsSchema: {} }))
+export default new Sample(new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} }))
 `
 
     expect(() => updateModelGroupSource(source, 'experiment', 'geometryGroup', {})).toThrow(

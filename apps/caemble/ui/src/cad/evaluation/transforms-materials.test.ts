@@ -182,7 +182,10 @@ describe('CAD transforms-materials', () => {
   })
 
   it('shares one serializable snapshot for parts using the same Material instance', () => {
-    const shared = new Material('Core', 'Kittel_1988', { density: 2.7, color: '#2563eb' })
+    const shared = new Material('Core', 'Kittel_1988', {
+      density: { type: 'float', value: 2.7, unit: 'g/cm3' },
+      color: '#2563eb',
+    })
     const parts = evaluateCad(h(
       Fragment,
       null,
@@ -195,7 +198,7 @@ describe('CAD transforms-materials', () => {
     expect(parts[0].material).toEqual({
       symbol: 'Core',
       version: 'Kittel_1988',
-      variables: { density: 2.7, color: '#2563eb' },
+      variables: { density: { type: 'float', value: 2.7, unit: 'g/cm3' }, color: '#2563eb' },
     })
     expect(cloned[0].material).toBe(cloned[1].material)
   })

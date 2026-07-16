@@ -5,6 +5,7 @@ import GeometryTree from './GeometryTree'
 import { findDraftTarget, shouldClearGeometryTreeSelection, updateDraftSelection } from './groupDraft'
 
 const scene: CadScene = {
+  lengthUnit: 'mm',
   geometryGroups: [{
     id: '@geometry-group/body',
     name: 'body',

@@ -7,7 +7,7 @@ import {
 describe('Experiment tensor parameter source editing', () => {
   it('updates an inline tensor array without changing its descriptor schema', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
-const experiment = new Experiment({
+const experiment = new Experiment({ lengthUnit: 'mm',
   initialConditions: () => [{
     target: ['structure.geometry.sample'],
     label: 'Inline',
@@ -40,7 +40,7 @@ export default new Setup(experiment)
   it('updates a top-level const array and reports when the binding is shared', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
 const sharedData = [1, 2] as const
-const experiment = new Experiment({
+const experiment = new Experiment({ lengthUnit: 'mm',
   initialConditions: () => [{
     target: ['structure.geometry.sample'], label: 'Initial', methodId: 'initial',
     parameters: {
@@ -70,7 +70,7 @@ export default new Setup(experiment)
   it('preserves CRLF and UTF-8 Korean text while replacing a const array', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
 const profile = ['초기값', '경계값'] as const
-const experiment = new Experiment({
+const experiment = new Experiment({ lengthUnit: 'mm',
   recordedData: () => [{
     target: ['structure.geometry.sample'],
     label: '한국어 기록',
@@ -98,7 +98,7 @@ export default new Setup(experiment)
 
   it('marks computed and vars-backed tensor values read-only', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
-const experiment = new Experiment({
+const experiment = new Experiment({ lengthUnit: 'mm',
   initialConditions: () => [
     {
       target: ['structure.geometry.sample'], label: 'Computed', methodId: 'computed',

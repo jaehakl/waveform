@@ -4,8 +4,10 @@ import { createSolidPointTester } from '../../cad/geometry/solid'
 import {
   CadModelError,
   type ExperimentRule,
+  type FloatValue,
   type RecordedDataRule,
 } from '../../cad/model/core'
+import { convertUcumValue } from '../../cad/model/units'
 import type { Vec3 } from '../../cad/model/types'
 import type { SolverModule, SolverModuleInput } from '../types'
 
@@ -153,36 +155,62 @@ function planarSurface(part: CadScenePart, surface: CadSceneSurface) {
 }
 
 function voltage(rule: ExperimentRule) {
-  const value = rule.parameters.voltage
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new CadModelError(`${rule.methodId} parameters.voltage must be a finite number.`)
-  }
-  return value
+  return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`, 'V')
 }
 
 function assertRecordedRule(
   rule: RecordedDataRule,
   dimension: number,
   shape: readonly number[],
-  axes: readonly Readonly<{ name?: string; ticks?: readonly (number | string)[] }>[],
+  unit: string,
+  axes: readonly Readonly<{ name: string; unit: string }>[],
 ) {
   if (
     rule.result.dimension !== dimension
     || JSON.stringify(rule.result.shape) !== JSON.stringify(shape)
     || rule.result.dtype !== 'float64'
-    || JSON.stringify(rule.result.axes ?? []) !== JSON.stringify(axes)
+    || rule.result.unit === undefined
+    || (rule.result.axes?.length ?? 0) !== axes.length
   ) {
+    throw new CadModelError(
+      `${rule.methodId} has an unsupported RecordedData schema for dc-current-density@1.0.0.`,
+    )
+  }
+  try {
+    convertUcumValue(1, unit, rule.result.unit, `${rule.methodId} result unit`)
+    axes.forEach((axis, index) => {
+      const schemaAxis = rule.result.axes?.[index]
+      if (schemaAxis?.name !== axis.name || schemaAxis.unit === undefined) {
+        throw new Error('axis metadata does not match')
+      }
+      convertUcumValue(1, axis.unit, schemaAxis.unit, `${rule.methodId} result axis ${index} unit`)
+    })
+  } catch {
     throw new CadModelError(
       `${rule.methodId} has an unsupported RecordedData schema for dc-current-density@1.0.0.`,
     )
   }
 }
 
-function finitePositiveParameter(value: unknown, name: string) {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new CadModelError(`dc-current-density ${name} must be a finite positive number.`)
+function isFloatValue(value: unknown): value is FloatValue {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    && 'type' in value && value.type === 'float'
+    && 'value' in value && typeof value.value === 'number'
+}
+
+function floatParameter(value: unknown, name: string, unit: string | undefined) {
+  if (!isFloatValue(value) || !Number.isFinite(value.value)) {
+    throw new CadModelError(`${name} must be a finite float descriptor.`)
   }
-  return value
+  return convertUcumValue(value.value, value.unit, unit, name)
+}
+
+function finitePositiveParameter(value: unknown, name: string, unit?: string) {
+  const normalized = floatParameter(value, `dc-current-density ${name}`, unit)
+  if (normalized <= 0) {
+    throw new CadModelError(`dc-current-density ${name} must be a finite positive float descriptor.`)
+  }
+  return normalized
 }
 
 function gridShapeParameter(value: unknown) {
@@ -524,7 +552,7 @@ function crossSectionResult(
   frame: ReturnType<typeof createFrame>,
   spacings: readonly [number, number, number],
   crossSectionPosition: number,
-  lengthScaleToMeters: number,
+  sceneLengthToMeters: number,
   conductivity: number,
   sourceVoltage: number,
   referenceVoltage: number,
@@ -539,14 +567,14 @@ function crossSectionResult(
         const rightGlobal = globalIndex(0, j, k, shape)
         if (!occupancy[rightGlobal]) return 0
         const currentDensity = 2 * conductivity * (sourceVoltage - solution[activeIndex[rightGlobal]])
-          / (axialSpacing * lengthScaleToMeters)
+          / (axialSpacing * sceneLengthToMeters)
         return Object.is(currentDensity, -0) ? 0 : currentDensity
       }
       if (faceIndex === axialCount) {
         const leftGlobal = globalIndex(axialCount - 1, j, k, shape)
         if (!occupancy[leftGlobal]) return 0
         const currentDensity = 2 * conductivity * (solution[activeIndex[leftGlobal]] - referenceVoltage)
-          / (axialSpacing * lengthScaleToMeters)
+          / (axialSpacing * sceneLengthToMeters)
         return Object.is(currentDensity, -0) ? 0 : currentDensity
       }
       const leftGlobal = globalIndex(faceIndex - 1, j, k, shape)
@@ -555,40 +583,38 @@ function crossSectionResult(
       const left = activeIndex[leftGlobal]
       const right = activeIndex[rightGlobal]
       const currentDensity = conductivity * (solution[left] - solution[right])
-        / (axialSpacing * lengthScaleToMeters)
+        / (axialSpacing * sceneLengthToMeters)
       return Object.is(currentDensity, -0) ? 0 : currentDensity
     })
   })
   const totalCurrent = Math.abs(values.reduce((sum, row) => (
     sum + row.reduce((rowSum, value) => rowSum + value, 0)
-  ), 0) * uSpacing * vSpacing * lengthScaleToMeters ** 2)
+  ), 0) * uSpacing * vSpacing * sceneLengthToMeters ** 2)
   const uTicks = Array.from({ length: uCount }, (_value, j) => (
-    (frame.minimumU + (j + 0.5) * uSpacing) * lengthScaleToMeters
+    (frame.minimumU + (j + 0.5) * uSpacing) * sceneLengthToMeters
   ))
   const vTicks = Array.from({ length: vCount }, (_value, row) => {
     const k = vCount - row - 1
-    return (frame.minimumV + (k + 0.5) * vSpacing) * lengthScaleToMeters
+    return (frame.minimumV + (k + 0.5) * vSpacing) * sceneLengthToMeters
   })
   return { totalCurrent, uTicks, values, vTicks }
 }
 
 async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
   const { parameters } = input.experiment.solver
-  const lengthScaleToMeters = finitePositiveParameter(parameters.lengthScaleToMeters, 'lengthScaleToMeters')
   const relativeTolerance = finitePositiveParameter(parameters.relativeTolerance, 'relativeTolerance')
   if (relativeTolerance >= 1) {
     throw new CadModelError('dc-current-density relativeTolerance must be less than 1.')
   }
   const maxIterations = integerParameter(parameters.maxIterations, 'maxIterations')
   const gridShape = gridShapeParameter(parameters.gridShape)
-  const crossSectionPosition = parameters.crossSectionPosition
-  if (
-    typeof crossSectionPosition !== 'number'
-    || !Number.isFinite(crossSectionPosition)
-    || crossSectionPosition <= 0
-    || crossSectionPosition >= 1
-  ) {
-    throw new CadModelError('dc-current-density crossSectionPosition must be a finite number between 0 and 1.')
+  const crossSectionPosition = floatParameter(
+    parameters.crossSectionPosition,
+    'dc-current-density crossSectionPosition',
+    undefined,
+  )
+  if (crossSectionPosition <= 0 || crossSectionPosition >= 1) {
+    throw new CadModelError('dc-current-density crossSectionPosition must be between 0 and 1.')
   }
   const conductivityVariable = parameters.conductivityVariable
   if (typeof conductivityVariable !== 'string' || !conductivityVariable.trim()) {
@@ -608,11 +634,11 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
   const referenceRule = singleRule(input.experiment.rules.boundaryConditions, 'dc.reference-potential')
   const densityRule = singleRule(input.experiment.rules.recordedData, 'dc.current-density')
   const totalCurrentRule = singleRule(input.experiment.rules.recordedData, 'dc.total-current')
-  assertRecordedRule(densityRule, 2, [-1, -1], [
-    { name: 'cross-section v (m)' },
-    { name: 'cross-section u (m)' },
+  assertRecordedRule(densityRule, 2, [-1, -1], 'A/m2', [
+    { name: 'cross-section v', unit: 'm' },
+    { name: 'cross-section u', unit: 'm' },
   ])
-  assertRecordedRule(totalCurrentRule, 0, [], [])
+  assertRecordedRule(totalCurrentRule, 0, [], 'A', [])
 
   const densityGroup = singleTargetGroup(densityRule, 'structure', 'geometry')
   const totalCurrentGroup = singleTargetGroup(totalCurrentRule, 'structure', 'geometry')
@@ -639,11 +665,29 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
   }
 
   const conductivity = conductor.material?.variables[conductivityVariable]
-  if (typeof conductivity !== 'number' || !Number.isFinite(conductivity) || conductivity <= 0) {
+  let conductivitySi: number
+  try {
+    conductivitySi = floatParameter(
+      conductivity,
+      `Conductor Material ${conductivityVariable}`,
+      'S/m',
+    )
+  } catch {
     throw new CadModelError(
-      `Conductor Material ${conductivityVariable} must be a finite positive number in S/m.`,
+      `Conductor Material ${conductivityVariable} must be a finite positive float descriptor compatible with S/m.`,
     )
   }
+  if (conductivitySi <= 0) {
+    throw new CadModelError(
+      `Conductor Material ${conductivityVariable} must be a finite positive float descriptor compatible with S/m.`,
+    )
+  }
+  const sceneLengthToMeters = convertUcumValue(
+    1,
+    input.structure.scene.lengthUnit,
+    'm',
+    'DC Structure lengthUnit',
+  )
 
   const sourceSurface = planarSurface(source.part, source.surface)
   const referenceSurface = planarSurface(reference.part, reference.surface)
@@ -668,18 +712,26 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
     frame,
     [grid.axialSpacing, grid.uSpacing, grid.vSpacing],
     crossSectionPosition,
-    lengthScaleToMeters,
-    conductivity,
+    sceneLengthToMeters,
+    conductivitySi,
     sourceVoltage,
     referenceVoltage,
   )
 
+  const densityScale = convertUcumValue(1, 'A/m2', densityRule.result.unit, 'Current density result unit')
+  const totalCurrentScale = convertUcumValue(1, 'A', totalCurrentRule.result.unit, 'Total current result unit')
+  const vScale = convertUcumValue(1, 'm', densityRule.result.axes?.[0].unit, 'Current density v-axis unit')
+  const uScale = convertUcumValue(1, 'm', densityRule.result.axes?.[1].unit, 'Current density u-axis unit')
+
   return {
     [densityRule.label]: {
-      value: result.values,
-      axes: [{ ticks: result.vTicks }, { ticks: result.uTicks }],
+      value: result.values.map((row) => row.map((value) => value * densityScale)),
+      axes: [
+        { ticks: result.vTicks.map((tick) => tick * vScale) },
+        { ticks: result.uTicks.map((tick) => tick * uScale) },
+      ],
     },
-    [totalCurrentRule.label]: { value: result.totalCurrent },
+    [totalCurrentRule.label]: { value: result.totalCurrent * totalCurrentScale },
   }
 }
 
