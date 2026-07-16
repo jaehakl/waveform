@@ -128,7 +128,7 @@ Evaluation order is Sample vars resolution → global `vars` binding → lazy ge
 
 ## Experiment And Setup
 
-`Experiment` extends `Structure`, so it inherits `geometry`, `varsSchema`, `geometryGroup`, `surfaceGroup`, and `randomVars()`. Every Experiment requires a Solver name, version, and lazy JSON-compatible parameters factory. It also adds lazy initial-condition, boundary-condition, and recorded-data rule factories. `Sample` and `Setup` share the abstract `VariableObject` base: `sample.object === sample.structure`, and `setup.object === setup.experiment`. A plain `Sample` cannot wrap an Experiment.
+`Experiment` extends `Structure`, so it inherits `geometry`, `varsSchema`, `geometryGroup`, `surfaceGroup`, and `randomVars()`. Every Experiment requires a Solver name, version, and lazy JSON-compatible parameters factory. It also adds lazy initialization, boundary-condition, and recorded-data rule factories. `Sample` and `Setup` share the abstract `VariableObject` base: `sample.object === sample.structure`, and `setup.object === setup.experiment`. A plain `Sample` cannot wrap an Experiment.
 
 ```text
 Structure
@@ -159,8 +159,6 @@ const experiment = new Experiment({
     version: '1.0.0',
     parameters: () => ({
       conductivityVariable: 'electricalConductivity',
-      gridShape: [100, 41, 41],
-      crossSectionPosition: { type: 'float', value: 0.35 },
       relativeTolerance: { type: 'float', value: 1e-8 },
       maxIterations: 2000,
     }),
@@ -185,6 +183,23 @@ const experiment = new Experiment({
     sourceVoltage: { shape: [], default: 1 },
     referenceVoltage: { shape: [], default: 0 },
   },
+  initializations: () => [
+    {
+      target: ['structure.geometry.conductor'],
+      label: 'Voxel grid',
+      methodId: 'dc.voxel-grid',
+      parameters: {
+        gridShape: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [3],
+          dtype: 'int32',
+          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          value: [100, 41, 41],
+        },
+      },
+    },
+  ],
   boundaryConditions: () => [
     {
       target: ['structure.surface.sourceTerminal'],
@@ -208,7 +223,9 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Current density',
       methodId: 'dc.current-density',
-      parameters: {},
+      parameters: {
+        crossSectionPosition: { type: 'float', value: 0.35 },
+      },
       result: {
         type: 'tensor',
         dimension: 2,
@@ -225,7 +242,9 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Total current',
       methodId: 'dc.total-current',
-      parameters: {},
+      parameters: {
+        crossSectionPosition: { type: 'float', value: 0.35 },
+      },
       result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
     },
   ],
@@ -258,7 +277,7 @@ Experimental Parameters displays scalar values with their unit or `unitless`, an
 
 Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, safe integers, `FloatValue`, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, raw fractional numbers, class instances, and circular references are rejected.
 
-Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Each scene retains its own declared length unit; the Viewer aligns copied layers for display, while solver modules explicitly convert inputs to the units they require. Editing either source or pressing `Reroll` updates its preview only; simulation is always manual. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
+Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initializations → boundary conditions → recorded data. Each scene retains its own declared length unit; the Viewer aligns copied layers for display, while solver modules explicitly convert inputs to the units they require. Editing either source or pressing `Reroll` updates its preview only; simulation is always manual. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
 
 ## Solver Controller And DC Current Density
 
@@ -266,9 +285,9 @@ Experiment evaluation order is Setup vars resolution → global `vars` binding �
 
 The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It converts the Structure scene `lengthUnit` to `m`, terminal potentials to `V`, and Material conductivity to `S/m`; the removed `lengthScaleToMeters` parameter is no longer accepted. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
 
-The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. `gridShape: [100, 41, 41]` and dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` sample the axial face near the notch entrance at approximately `x = -15 mm`. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
+The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. The `dc.voxel-grid` initialization rule defines the editable `[s, u, v]` resolution and grid setup through an int32 `gridShape` tensor with value `[100, 41, 41]`. Each RecordedData rule declares the dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` at which its result is measured, selecting the axial face near the notch entrance at approximately `x = -15 mm`. Current density and total current positions must resolve to the same dimensionless value; compatible forms such as `0.35` and `35%` match. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
 
-This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema: an Experiment still declaring the old schema fails explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m` and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires a valid positive length conversion and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Missing or incompatible physical units, nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
+This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema and the former solver-level `gridShape`/`crossSectionPosition` placement: Experiments using either old contract fail explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m` and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine the initialization `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires a valid positive length conversion and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Missing or incompatible physical units, nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
 
 Source edits and `Reroll` immediately mark an existing result **Stale** and never trigger a run. A failed or cancelled replacement keeps the last successful result with its error and stale marker. The shared Worker has no queue or run history. If a document evaluation times out, the Worker is restarted, the last scenes/results remain visible, the timed-out document becomes Error, and only the successful peer is restored automatically; retry the timed-out document by editing it or pressing `Reroll`.
 

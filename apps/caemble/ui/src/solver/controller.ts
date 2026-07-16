@@ -98,7 +98,7 @@ function validateTargets(
   experimentScene: CadScene,
 ) {
   ;[
-    ...rules.initialConditions,
+    ...rules.initializations,
     ...rules.boundaryConditions,
     ...rules.recordedData,
   ].forEach((rule) => {

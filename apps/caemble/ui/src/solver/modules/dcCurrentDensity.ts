@@ -215,17 +215,44 @@ function finitePositiveParameter(value: unknown, name: string, unit?: string) {
 
 function gridShapeParameter(value: unknown) {
   if (
-    !Array.isArray(value)
-    || value.length !== 3
-    || value.some((size) => !Number.isSafeInteger(size) || (size as number) < 3)
+    typeof value !== 'object'
+    || value === null
+    || !('type' in value)
+    || value.type !== 'tensor'
+    || !('dimension' in value)
+    || value.dimension !== 1
+    || !('shape' in value)
+    || JSON.stringify(value.shape) !== '[3]'
+    || !('dtype' in value)
+    || value.dtype !== 'int32'
+    || !('axes' in value)
+    || JSON.stringify(value.axes) !== '[{"name":"grid axis","ticks":["s","u","v"]}]'
+    || !('value' in value)
+    || !Array.isArray(value.value)
+    || value.value.length !== 3
+    || value.value.some((size) => !Number.isSafeInteger(size) || (size as number) < 3)
   ) {
-    throw new CadModelError('dc-current-density gridShape must contain three safe integers greater than or equal to 3.')
+    throw new CadModelError(
+      'dc.voxel-grid parameters.gridShape must be an int32 [3] tensor with grid-axis ticks s/u/v and values greater than or equal to 3.',
+    )
   }
-  const shape = value as unknown as [number, number, number]
+  const shape = value.value as unknown as [number, number, number]
   if (shape[0] * shape[1] * shape[2] > maximumVoxelCount) {
-    throw new CadModelError(`dc-current-density gridShape may contain at most ${maximumVoxelCount} voxels.`)
+    throw new CadModelError(`dc.voxel-grid gridShape may contain at most ${maximumVoxelCount} voxels.`)
   }
   return shape
+}
+
+function crossSectionPosition(rule: RecordedDataRule) {
+  const position = floatParameter(
+    rule.parameters.crossSectionPosition,
+    `${rule.methodId} parameters.crossSectionPosition`,
+    undefined,
+  )
+  if (position <= 0 || position >= 1) {
+    throw new CadModelError(`${rule.methodId} crossSectionPosition must be between 0 and 1.`)
+  }
+  return position
 }
 
 function integerParameter(value: unknown, name: string) {
@@ -602,34 +629,34 @@ function crossSectionResult(
 
 async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
   const { parameters } = input.experiment.solver
+  if (
+    Object.prototype.hasOwnProperty.call(parameters, 'gridShape')
+    || Object.prototype.hasOwnProperty.call(parameters, 'crossSectionPosition')
+  ) {
+    throw new CadModelError(
+      'dc-current-density gridShape belongs to dc.voxel-grid and crossSectionPosition belongs to each RecordedData rule.',
+    )
+  }
   const relativeTolerance = finitePositiveParameter(parameters.relativeTolerance, 'relativeTolerance')
   if (relativeTolerance >= 1) {
     throw new CadModelError('dc-current-density relativeTolerance must be less than 1.')
   }
   const maxIterations = integerParameter(parameters.maxIterations, 'maxIterations')
-  const gridShape = gridShapeParameter(parameters.gridShape)
-  const crossSectionPosition = floatParameter(
-    parameters.crossSectionPosition,
-    'dc-current-density crossSectionPosition',
-    undefined,
-  )
-  if (crossSectionPosition <= 0 || crossSectionPosition >= 1) {
-    throw new CadModelError('dc-current-density crossSectionPosition must be between 0 and 1.')
-  }
   const conductivityVariable = parameters.conductivityVariable
   if (typeof conductivityVariable !== 'string' || !conductivityVariable.trim()) {
     throw new CadModelError('dc-current-density conductivityVariable must be a non-empty string.')
   }
   if (
-    input.experiment.rules.initialConditions.length !== 0
+    input.experiment.rules.initializations.length !== 1
     || input.experiment.rules.boundaryConditions.length !== 2
     || input.experiment.rules.recordedData.length !== 2
   ) {
     throw new CadModelError(
-      'dc-current-density@1.0.0 supports no initial conditions, two potential rules, and two recorded-data rules.',
+      'dc-current-density@1.0.0 requires one voxel-grid rule, two potential rules, and two recorded-data rules.',
     )
   }
 
+  const gridRule = singleRule(input.experiment.rules.initializations, 'dc.voxel-grid')
   const sourceRule = singleRule(input.experiment.rules.boundaryConditions, 'dc.source-potential')
   const referenceRule = singleRule(input.experiment.rules.boundaryConditions, 'dc.reference-potential')
   const densityRule = singleRule(input.experiment.rules.recordedData, 'dc.current-density')
@@ -640,10 +667,23 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
   ])
   assertRecordedRule(totalCurrentRule, 0, [], 'A', [])
 
+  const gridGroup = singleTargetGroup(gridRule, 'structure', 'geometry')
   const densityGroup = singleTargetGroup(densityRule, 'structure', 'geometry')
   const totalCurrentGroup = singleTargetGroup(totalCurrentRule, 'structure', 'geometry')
-  if (densityGroup !== totalCurrentGroup) {
-    throw new CadModelError('DC current density and total current rules must target the same conductor group.')
+  if (gridGroup !== densityGroup || densityGroup !== totalCurrentGroup) {
+    throw new CadModelError('DC voxel grid and both recorded-data rules must target the same conductor group.')
+  }
+  const gridShape = gridShapeParameter(gridRule.parameters.gridShape)
+  const densityCrossSectionPosition = crossSectionPosition(densityRule)
+  const totalCurrentCrossSectionPosition = crossSectionPosition(totalCurrentRule)
+  const positionDifference = Math.abs(densityCrossSectionPosition - totalCurrentCrossSectionPosition)
+  const positionTolerance = 1e-12 * Math.max(
+    1,
+    Math.abs(densityCrossSectionPosition),
+    Math.abs(totalCurrentCrossSectionPosition),
+  )
+  if (positionDifference > positionTolerance) {
+    throw new CadModelError('DC recorded-data rules must use the same crossSectionPosition.')
   }
   if (input.structure.scene.parts.length !== 1) {
     throw new CadModelError('dc-current-density@1.0.0 supports exactly one Structure Geometry part.')
@@ -711,7 +751,7 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
     gridShape,
     frame,
     [grid.axialSpacing, grid.uSpacing, grid.vSpacing],
-    crossSectionPosition,
+    densityCrossSectionPosition,
     sceneLengthToMeters,
     conductivitySi,
     sourceVoltage,

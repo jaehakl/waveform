@@ -257,7 +257,7 @@ export class Structure {
 }
 
 export class Experiment<
-  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends Structure {
@@ -268,12 +268,12 @@ export class Experiment<
     varsSchema: Record<string, VarsSchemaEntry>
     geometryGroup?: StructureGroupMap
     surfaceGroup?: StructureGroupMap
-    initialConditions?: () => readonly ExperimentRule<TInitialConditionParameters>[]
+    initializations?: () => readonly ExperimentRule<TInitializationParameters>[]
     boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
     recordedData?: () => readonly RecordedDataRule<TRecordedDataParameters>[]
   })
   readonly solver: ExperimentSolver
-  readonly initialConditions: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  readonly initializations: () => readonly ExperimentRule<TInitializationParameters>[]
   readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
   readonly recordedData: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 }
@@ -290,24 +290,24 @@ export class Sample extends VariableObject<Structure> {
 }
 
 export class Setup<
-  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends VariableObject<Experiment<
-    TInitialConditionParameters,
+    TInitializationParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >> {
   constructor(
     experiment: Experiment<
-      TInitialConditionParameters,
+      TInitializationParameters,
       TBoundaryConditionParameters,
       TRecordedDataParameters
     >,
     partialVars?: Record<string, Tensor>,
   )
   readonly experiment: Experiment<
-    TInitialConditionParameters,
+    TInitializationParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >

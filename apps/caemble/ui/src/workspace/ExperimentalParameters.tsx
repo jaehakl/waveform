@@ -22,7 +22,7 @@ type ExperimentalParametersProps = {
 }
 
 const categories = [
-  { id: 'initialConditions', label: 'Initial Conditions' },
+  { id: 'initializations', label: 'Initializations' },
   { id: 'boundaryConditions', label: 'Boundary Conditions' },
   { id: 'recordedData', label: 'Recorded Data' },
 ] as const

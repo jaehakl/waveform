@@ -17,8 +17,17 @@ function createDcPair(options: {
   conductivityUnit?: string | null
   conductorSize?: Vec3
   cutter?: Readonly<{ position: Vec3; size: Vec3 }>
+  densityCrossSectionPosition?: unknown
+  densityTarget?: string
   densityUnit?: string | null
+  gridDescriptorOverrides?: Readonly<Record<string, unknown>>
+  gridMethodId?: string
+  gridRuleCount?: number
+  gridShape?: readonly number[]
+  gridTarget?: string
   legacyDensitySchema?: boolean
+  omitDensityCrossSectionPosition?: boolean
+  omitTotalCrossSectionPosition?: boolean
   parameterOverrides?: Readonly<Record<string, unknown>>
   referenceSurfaceId?: string
   referenceVoltage?: number
@@ -27,7 +36,9 @@ function createDcPair(options: {
   sourceVoltage?: number
   sourceVoltageUnit?: string | null
   structureLengthUnit?: string
+  totalCrossSectionPosition?: unknown
   totalCurrentUnit?: string | null
+  totalTarget?: string
 } = {}) {
   const {
     axisUnit = 'm',
@@ -35,8 +46,17 @@ function createDcPair(options: {
     conductivityUnit = 'S/m',
     conductorSize = [100, 5, 5],
     cutter,
+    densityCrossSectionPosition = { type: 'float', value: 0.5 },
+    densityTarget = 'structure.geometry.conductor',
     densityUnit = 'A/m2',
+    gridDescriptorOverrides = {},
+    gridMethodId = 'dc.voxel-grid',
+    gridRuleCount = 1,
+    gridShape = [20, 11, 11],
+    gridTarget = 'structure.geometry.conductor',
     legacyDensitySchema = false,
+    omitDensityCrossSectionPosition = false,
+    omitTotalCrossSectionPosition = false,
     parameterOverrides = {},
     referenceSurfaceId = 'conductor/surface-2',
     referenceVoltage = 0,
@@ -45,7 +65,9 @@ function createDcPair(options: {
     sourceVoltage = 1,
     sourceVoltageUnit = 'mV',
     structureLengthUnit = 'mm',
+    totalCrossSectionPosition = { type: 'float', value: 0.5 },
     totalCurrentUnit = 'A',
+    totalTarget = 'structure.geometry.conductor',
   } = options
 
   function Conductor() {
@@ -84,8 +106,6 @@ function createDcPair(options: {
       version: '1.0.0',
       parameters: () => ({
         conductivityVariable: 'electricalConductivity',
-        gridShape: [20, 11, 11],
-        crossSectionPosition: { type: 'float', value: 0.5 },
         relativeTolerance: { type: 'float', value: 1e-10 },
         maxIterations: 1000,
         ...parameterOverrides,
@@ -93,6 +113,22 @@ function createDcPair(options: {
     },
     geometry: () => h(Probe, { id: 'probe' }),
     varsSchema: {},
+    initializations: () => Array.from({ length: gridRuleCount }, (_value, index) => ({
+      target: [gridTarget],
+      label: gridRuleCount === 1 ? 'Voxel grid' : `Voxel grid ${index + 1}`,
+      methodId: gridMethodId,
+      parameters: {
+        gridShape: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [3],
+          dtype: 'int32',
+          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          value: gridShape,
+          ...gridDescriptorOverrides,
+        },
+      },
+    })) as never,
     boundaryConditions: () => [
       {
         target: ['structure.surface.sourceTerminal'],
@@ -121,10 +157,12 @@ function createDcPair(options: {
     ],
     recordedData: () => [
       {
-        target: ['structure.geometry.conductor'],
+        target: [densityTarget],
         label: 'Current density',
         methodId: 'dc.current-density',
-        parameters: {},
+        parameters: omitDensityCrossSectionPosition ? {} : {
+          crossSectionPosition: densityCrossSectionPosition,
+        },
         result: legacyDensitySchema
           ? {
               type: 'tensor',
@@ -147,10 +185,12 @@ function createDcPair(options: {
             },
       },
       {
-        target: ['structure.geometry.conductor'],
+        target: [totalTarget],
         label: 'Total current',
         methodId: 'dc.total-current',
-        parameters: {},
+        parameters: omitTotalCrossSectionPosition ? {} : {
+          crossSectionPosition: totalCrossSectionPosition,
+        },
         result: {
           type: 'tensor',
           dimension: 0,
@@ -159,7 +199,7 @@ function createDcPair(options: {
           ...(totalCurrentUnit === null ? {} : { unit: totalCurrentUnit }),
         },
       },
-    ],
+    ] as never,
   })
   return { sample: new Sample(structure), setup: new Setup(experiment) }
 }
@@ -205,9 +245,7 @@ describe('dc-current-density@1.0.0', () => {
       sourceVoltage: 1000,
       sourceVoltageUnit: 'uV',
       totalCurrentUnit: 'mA',
-      parameterOverrides: {
-        crossSectionPosition: { type: 'float', value: 50, unit: '%' },
-      },
+      densityCrossSectionPosition: { type: 'float', value: 50, unit: '%' },
     }))
     const heatmap = result['Current density'].value as number[][]
     const vTicks = result['Current density'].axes?.[0].ticks as number[]
@@ -227,12 +265,13 @@ describe('dc-current-density@1.0.0', () => {
     const notched = await runPair(createDcPair({
       conductorSize: [100, 12, 10],
       cutter: { position: [0, 4.5, 2.5], size: [30, 5, 5] },
+      densityCrossSectionPosition: { type: 'float', value: 0.35 },
+      gridShape: [100, 41, 41],
       parameterOverrides: {
-        gridShape: [100, 41, 41],
-        crossSectionPosition: { type: 'float', value: 0.35 },
         relativeTolerance: { type: 'float', value: 1e-8 },
         maxIterations: 2000,
       },
+      totalCrossSectionPosition: { type: 'float', value: 0.35 },
     }))
     const heatmap = notched['Current density'].value as number[][]
     const values = heatmap.flat()
@@ -262,11 +301,12 @@ describe('dc-current-density@1.0.0', () => {
       const result = await runPair(createDcPair({
         conductorSize: [100, 12, 10],
         cutter: { position: [0, 4.5, 2.5], size: [30, 5, 5] },
+        densityCrossSectionPosition: { type: 'float', value: crossSectionPosition },
+        gridShape: [30, 17, 17],
         parameterOverrides: {
-          gridShape: [30, 17, 17],
-          crossSectionPosition: { type: 'float', value: crossSectionPosition },
           relativeTolerance: { type: 'float', value: 1e-9 },
         },
+        totalCrossSectionPosition: { type: 'float', value: crossSectionPosition },
       }))
       return result['Total current'].value as number
     }))
@@ -276,19 +316,25 @@ describe('dc-current-density@1.0.0', () => {
   }, 30_000)
 
   it('rejects invalid numerical parameters, scale, and Material conductivity', async () => {
-    const invalidCases = [
-      [{ gridShape: [2, 11, 11] }, 'gridShape'],
-      [{ gridShape: [101, 50, 50] }, 'at most 250000 voxels'],
+    const invalidSolverParameters = [
       [{ relativeTolerance: { type: 'float', value: 1 } }, 'relativeTolerance must be less than 1'],
       [{ relativeTolerance: { type: 'float', value: 0 } }, 'relativeTolerance must be a finite positive float descriptor'],
       [{ maxIterations: 0 }, 'maxIterations must be a positive safe integer'],
-      [{ crossSectionPosition: { type: 'float', value: 0 } }, 'crossSectionPosition'],
-      [{ crossSectionPosition: 0.5 }, 'raw numbers must be safe integers'],
     ] as const
 
-    for (const [parameterOverrides, message] of invalidCases) {
+    for (const [parameterOverrides, message] of invalidSolverParameters) {
       await expect(runPair(createDcPair({ parameterOverrides }))).rejects.toThrow(message)
     }
+    await expect(runPair(createDcPair({ gridShape: [2, 11, 11] }))).rejects.toThrow('gridShape')
+    await expect(runPair(createDcPair({ gridShape: [101, 50, 50] }))).rejects.toThrow(
+      'at most 250000 voxels',
+    )
+    await expect(runPair(createDcPair({
+      densityCrossSectionPosition: { type: 'float', value: 0 },
+    }))).rejects.toThrow('crossSectionPosition')
+    await expect(runPair(createDcPair({ densityCrossSectionPosition: 0.5 }))).rejects.toThrow(
+      'raw numbers must be safe integers',
+    )
     await expect(runPair(createDcPair({ conductivity: 0 }))).rejects.toThrow(
       'electricalConductivity must be a finite positive float descriptor',
     )
@@ -319,6 +365,60 @@ describe('dc-current-density@1.0.0', () => {
     await expect(runPair(createDcPair({ totalCurrentUnit: null }))).rejects.toThrow(
       'unsupported RecordedData schema',
     )
+  })
+
+  it('validates the voxel-grid initialization contract and rejects legacy solver placement', async () => {
+    await expect(runPair(createDcPair({ gridRuleCount: 0 }))).rejects.toThrow(
+      'requires one voxel-grid rule',
+    )
+    await expect(runPair(createDcPair({ gridRuleCount: 2 }))).rejects.toThrow(
+      'requires one voxel-grid rule',
+    )
+    await expect(runPair(createDcPair({ gridMethodId: 'dc.other-grid' }))).rejects.toThrow(
+      'requires exactly one dc.voxel-grid rule',
+    )
+    await expect(runPair(createDcPair({ gridTarget: 'structure.geometry.missing' }))).rejects.toThrow(
+      'references a missing structure geometry group',
+    )
+    await expect(runPair(createDcPair({
+      gridDescriptorOverrides: { dtype: 'int16' },
+    }))).rejects.toThrow('must be an int32 [3] tensor')
+    await expect(runPair(createDcPair({
+      gridDescriptorOverrides: { axes: [{ name: 'grid axis', ticks: ['x', 'y', 'z'] }] },
+    }))).rejects.toThrow('grid-axis ticks s/u/v')
+    await expect(runPair(createDcPair({
+      gridDescriptorOverrides: {
+        dimension: 2,
+        shape: [1, 3],
+        axes: [
+          { name: 'outer', ticks: ['grid'] },
+          { name: 'grid axis', ticks: ['s', 'u', 'v'] },
+        ],
+        value: [[20, 11, 11]],
+      },
+    }))).rejects.toThrow('must be an int32 [3] tensor')
+    await expect(runPair(createDcPair({
+      parameterOverrides: { gridShape: [20, 11, 11] },
+    }))).rejects.toThrow('gridShape belongs to dc.voxel-grid')
+    await expect(runPair(createDcPair({
+      parameterOverrides: { crossSectionPosition: { type: 'float', value: 0.5 } },
+    }))).rejects.toThrow('crossSectionPosition belongs to each RecordedData rule')
+  })
+
+  it('requires matching dimensionless cross-section positions on both recorded results', async () => {
+    await expect(runPair(createDcPair({
+      densityCrossSectionPosition: { type: 'float', value: 0.4 },
+      totalCrossSectionPosition: { type: 'float', value: 0.6 },
+    }))).rejects.toThrow('must use the same crossSectionPosition')
+    await expect(runPair(createDcPair({ omitDensityCrossSectionPosition: true }))).rejects.toThrow(
+      'dc.current-density parameters.crossSectionPosition must be a finite float descriptor',
+    )
+    await expect(runPair(createDcPair({ omitTotalCrossSectionPosition: true }))).rejects.toThrow(
+      'dc.total-current parameters.crossSectionPosition must be a finite float descriptor',
+    )
+    await expect(runPair(createDcPair({
+      densityCrossSectionPosition: { type: 'float', value: 0.5, unit: 'V' },
+    }))).rejects.toThrow('cannot convert V to 1')
   })
 
   it('rejects multiple parts, invalid terminals, and disconnected voxel domains', async () => {
@@ -358,7 +458,7 @@ describe('dc-current-density@1.0.0', () => {
 
     await expect(runPair(createDcPair({
       cutter: { position: [0, 0, 0], size: [10, 6, 6] },
-      parameterOverrides: { gridShape: [30, 9, 9] },
+      gridShape: [30, 9, 9],
     }))).rejects.toThrow('one connected domain')
   })
 
@@ -370,8 +470,8 @@ describe('dc-current-density@1.0.0', () => {
     await expect(runPair(createDcPair({
       conductorSize: [100, 12, 10],
       cutter: { position: [0, 4.5, 2.5], size: [30, 5, 5] },
+      gridShape: [30, 15, 15],
       parameterOverrides: {
-        gridShape: [30, 15, 15],
         relativeTolerance: { type: 'float', value: 1e-14 },
         maxIterations: 1,
       },
@@ -380,7 +480,7 @@ describe('dc-current-density@1.0.0', () => {
 
   it('yields during occupancy generation so AbortSignal cancellation is effective', async () => {
     const controller = new SolverController([dcCurrentDensitySolver])
-    const pair = createDcPair({ parameterOverrides: { gridShape: [80, 41, 41] } })
+    const pair = createDcPair({ gridShape: [80, 41, 41] })
     setTimeout(() => controller.cancel(), 0)
 
     await expect(controller.run(pair.sample, pair.setup)).rejects.toMatchObject({ name: 'AbortError' })

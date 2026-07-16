@@ -64,6 +64,8 @@ describe('CAD registry contracts', () => {
     expect(shellDeclaration).not.toContain('depth')
     expect(jsxDeclarations).toContain('shell: ShellAttributes')
     expect(coreDeclarations).toMatch(/GeometryAttributes[\s\S]*?id: string/)
+    expect(coreDeclarations).toContain('initializations?: () => readonly ExperimentRule<TInitializationParameters>[]')
+    expect(coreDeclarations).not.toContain('initialConditions')
     expect(cadElementCatalog.find((element) => element.tag === 'shell')).toMatchObject({
       category: 'operation',
       syntax: '<shell offsets={[-inner, outer]}>Geometry</shell>',

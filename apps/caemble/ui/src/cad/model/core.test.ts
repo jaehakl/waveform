@@ -162,6 +162,7 @@ describe('Experiment and Setup', () => {
     expect(setup.object).toBe(experiment)
     expect(setup.experiment).toBe(experiment)
     expect(setup.vars.initialValue).toBe(0.75)
+    expect(experiment.initializations()).toEqual([])
     expect(experiment.recordedData()).toEqual([])
     expect(Object.isFrozen(experiment)).toBe(true)
     expect(Object.isFrozen(sample)).toBe(true)
@@ -178,6 +179,16 @@ describe('Experiment and Setup', () => {
     expect(() => new Sample(experiment)).toThrow('Use Setup instead')
     expect(() => new Setup(structure as never)).toThrow('Setup requires an Experiment')
     expect(() => new DirectVariableObject(structure)).toThrow('abstract and cannot be instantiated directly')
+  })
+
+  it('rejects the removed initialConditions option with an explicit migration error', () => {
+    expect(() => new Experiment({
+      lengthUnit: 'mm',
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+      initialConditions: () => [],
+    } as never)).toThrow('Experiment initialConditions was renamed to initializations')
   })
 
   it('evaluates, copies, and freezes all method rows in order under Setup vars', () => {
@@ -200,8 +211,8 @@ describe('Experiment and Setup', () => {
       varsSchema: { initialValue: { shape: [], default: 0.5 } },
       geometryGroup: { domain: [] },
       surfaceGroup: { 'outer.boundary': [] },
-      initialConditions: () => {
-        order.push('initialConditions')
+      initializations: () => {
+        order.push('initializations')
         return [{
           target: [
             ' experiment.geometry.domain ' as 'experiment.geometry.domain',
@@ -253,14 +264,14 @@ describe('Experiment and Setup', () => {
       return evaluateExperimentRules(experiment)
     })
 
-    expect(order).toEqual(['geometry', 'initialConditions', 'boundaryConditions', 'recordedData'])
-    expect(rules.initialConditions[0]).toMatchObject({
+    expect(order).toEqual(['geometry', 'initializations', 'boundaryConditions', 'recordedData'])
+    expect(rules.initializations[0]).toMatchObject({
       target: ['experiment.geometry.domain', 'structure.geometry.sample', 'structure.geometry.sample'],
       label: 'Shared label',
       methodId: 'field.apply',
       parameters: { initialValue: { type: 'float', value: 0.75, unit: 'V' } },
     })
-    expect(rules.initialConditions[0].parameters.profile).toEqual({
+    expect(rules.initializations[0].parameters.profile).toEqual({
       type: 'tensor',
       dimension: 2,
       shape: [2, 2],
@@ -290,22 +301,22 @@ describe('Experiment and Setup', () => {
       result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
     })
     expect(rules.recordedData[0].parameters).toEqual({ interval: { type: 'int', value: 10 } })
-    expect(Object.isFrozen(rules.initialConditions)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0])).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].target)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.shape)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes?.[0])).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.axes?.[0].ticks)).toBe(true)
-    expect(Object.isFrozen(rules.initialConditions[0].parameters.profile.value)).toBe(true)
+    expect(Object.isFrozen(rules.initializations)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0])).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].target)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile.shape)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile.axes)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile.axes?.[0])).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile.axes?.[0].ticks)).toBe(true)
+    expect(Object.isFrozen(rules.initializations[0].parameters.profile.value)).toBe(true)
     expect(Object.isFrozen(rules.recordedData)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result.shape)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result.axes)).toBe(true)
     profile[0][0] = 9
-    expect(rules.initialConditions[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
+    expect(rules.initializations[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
   })
 
   it('accepts integer and explicit scalar parameters and rejects raw floats and unsupported forms', () => {
@@ -313,13 +324,13 @@ describe('Experiment and Setup', () => {
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
-      initialConditions: () => [{
+      initializations: () => [{
         target: ['structure.geometry.sample'],
         label: 'Scalar',
         methodId: 'scalar.apply',
         parameters: { value: parameter },
       }] as never,
-    })).initialConditions[0].parameters.value
+    })).initializations[0].parameters.value
 
     expect(evaluateParameter(true)).toBe(true)
     expect(evaluateParameter('text')).toBe('text')
@@ -490,8 +501,8 @@ describe('Experiment and Setup', () => {
       shape: [2, 2],
       dtype: 'float64',
       value: [[1, 2], [3]],
-    }, 'Experiment initialConditions[0].parameters.profile')).toThrow(
-      'Experiment initialConditions[0].parameters.profile.value has actual shape [2, ragged [2] | [1]]; expected shape [2,2]',
+    }, 'Experiment initializations[0].parameters.profile')).toThrow(
+      'Experiment initializations[0].parameters.profile.value has actual shape [2, ragged [2] | [1]]; expected shape [2,2]',
     )
     expect(() => normalizeExperimentTensorParameter({
       type: 'tensor', dimension: 2, shape: [2], dtype: 'float64', value: [1, 2],
@@ -512,7 +523,7 @@ describe('Experiment and Setup', () => {
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {},
-      initialConditions: () => [row] as never,
+      initializations: () => [row] as never,
     })
     const validRow = {
       target: ['structure.geometry.sample'] as const,
@@ -639,7 +650,7 @@ describe('Experiment and Setup', () => {
       geometry: () => null,
       varsSchema: {},
       geometryGroup: { domain: [] },
-      initialConditions: () => [{
+      initializations: () => [{
         target,
         label: 'Initial field',
         methodId: 'field.initialize',

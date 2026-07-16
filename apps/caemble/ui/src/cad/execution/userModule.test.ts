@@ -57,6 +57,8 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
     expect(defaultExperimentCode).not.toContain('lengthScaleToMeters')
     expect(defaultExperimentCode).toContain("conductivityVariable: 'electricalConductivity'")
+    expect(defaultExperimentCode).toContain('initializations: () => [')
+    expect(defaultExperimentCode).not.toContain('initialConditions')
     expect(defaultExperimentCode).toContain('boundaryConditions: () => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
@@ -85,8 +87,6 @@ describe('compiled user module execution', () => {
       version: '1.0.0',
       parameters: {
         conductivityVariable: 'electricalConductivity',
-        gridShape: [100, 41, 41],
-        crossSectionPosition: { type: 'float', value: 0.35 },
         relativeTolerance: { type: 'float', value: 1e-8 },
         maxIterations: 2000,
       },
@@ -98,7 +98,21 @@ describe('compiled user module execution', () => {
       sourceVoltage: 1,
       referenceVoltage: 0,
     })
-    expect(experimentRules?.initialConditions).toEqual([])
+    expect(experimentRules?.initializations).toEqual([{
+      target: ['structure.geometry.conductor'],
+      label: 'Voxel grid',
+      methodId: 'dc.voxel-grid',
+      parameters: {
+        gridShape: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [3],
+          dtype: 'int32',
+          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          value: [100, 41, 41],
+        },
+      },
+    }])
     expect(experimentRules?.boundaryConditions.map((rule) => rule.methodId)).toEqual([
       'dc.source-potential',
       'dc.reference-potential',
@@ -121,6 +135,10 @@ describe('compiled user module execution', () => {
     expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
       'Current density',
       'Total current',
+    ])
+    expect(experimentRules?.recordedData.map((rule) => rule.parameters)).toEqual([
+      { crossSectionPosition: { type: 'float', value: 0.35 } },
+      { crossSectionPosition: { type: 'float', value: 0.35 } },
     ])
     expect(experimentRules?.recordedData[1].result).toEqual({
       type: 'tensor',

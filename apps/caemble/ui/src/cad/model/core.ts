@@ -119,11 +119,11 @@ export type RecordedDataTensor = Readonly<{
 }>
 export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
 export type EvaluatedExperimentRules<
-  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > = Readonly<{
-  initialConditions: readonly ExperimentRule<TInitialConditionParameters>[]
+  initializations: readonly ExperimentRule<TInitializationParameters>[]
   boundaryConditions: readonly ExperimentRule<TBoundaryConditionParameters>[]
   recordedData: readonly RecordedDataRule<TRecordedDataParameters>[]
 }>
@@ -137,12 +137,12 @@ type StructureOptions = {
 }
 
 type ExperimentOptions<
-  TInitialConditionParameters extends ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters,
 > = StructureOptions & {
   solver: ExperimentSolver
-  initialConditions?: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  initializations?: () => readonly ExperimentRule<TInitializationParameters>[]
   boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
   recordedData?: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 }
@@ -577,21 +577,25 @@ function emptyRuleFactory<TRule>() {
 }
 
 export class Experiment<
-  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends Structure {
   readonly solver: ExperimentSolver
-  readonly initialConditions: () => readonly ExperimentRule<TInitialConditionParameters>[]
+  readonly initializations: () => readonly ExperimentRule<TInitializationParameters>[]
   readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
   readonly recordedData: () => readonly RecordedDataRule<TRecordedDataParameters>[]
 
   constructor(options: ExperimentOptions<
-    TInitialConditionParameters,
+    TInitializationParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >) {
     super(options)
+
+    if (Object.prototype.hasOwnProperty.call(options, 'initialConditions')) {
+      throw new CadModelError('Experiment initialConditions was renamed to initializations.')
+    }
 
     if (!isPlainObject(options.solver)) {
       throw new CadModelError('Experiment solver must be a plain object.')
@@ -605,8 +609,8 @@ export class Experiment<
     if (typeof options.solver.parameters !== 'function') {
       throw new CadModelError('Experiment solver parameters must be a function.')
     }
-    if (options.initialConditions !== undefined && typeof options.initialConditions !== 'function') {
-      throw new CadModelError('Experiment initialConditions must be a function.')
+    if (options.initializations !== undefined && typeof options.initializations !== 'function') {
+      throw new CadModelError('Experiment initializations must be a function.')
     }
     if (options.boundaryConditions !== undefined && typeof options.boundaryConditions !== 'function') {
       throw new CadModelError('Experiment boundaryConditions must be a function.')
@@ -620,7 +624,7 @@ export class Experiment<
       version: options.solver.version.trim(),
       parameters: options.solver.parameters,
     })
-    this.initialConditions = options.initialConditions ?? emptyRuleFactory
+    this.initializations = options.initializations ?? emptyRuleFactory
     this.boundaryConditions = options.boundaryConditions ?? emptyRuleFactory
     this.recordedData = options.recordedData ?? emptyRuleFactory
     Object.freeze(this)
@@ -950,7 +954,7 @@ function normalizeRecordedDataResult(value: unknown, path: string): RecordedData
 
 function normalizeExperimentTarget(
   rawTarget: unknown,
-  propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
+  propertyName: 'initializations' | 'boundaryConditions' | 'recordedData',
   ruleIndex: number,
   targetIndex: number,
   experiment: Pick<Structure, 'geometryGroup' | 'surfaceGroup'>,
@@ -992,7 +996,7 @@ function normalizeExperimentTarget(
 
 function normalizeExperimentRuleList<TParameters extends ExperimentParameters>(
   rawRules: unknown,
-  propertyName: 'initialConditions' | 'boundaryConditions' | 'recordedData',
+  propertyName: 'initializations' | 'boundaryConditions' | 'recordedData',
   experiment: Pick<Structure, 'geometryGroup' | 'surfaceGroup'>,
 ) {
   if (!Array.isArray(rawRules)) {
@@ -1052,26 +1056,26 @@ function normalizeExperimentRuleList<TParameters extends ExperimentParameters>(
 }
 
 export function evaluateExperimentRules<
-  TInitialConditionParameters extends ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters,
 >(
   experiment: Experiment<
-    TInitialConditionParameters,
+    TInitializationParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >,
 ): EvaluatedExperimentRules<
-  TInitialConditionParameters,
+  TInitializationParameters,
   TBoundaryConditionParameters,
   TRecordedDataParameters
 > {
   return Object.freeze({
-    initialConditions: normalizeExperimentRuleList<TInitialConditionParameters>(
-      experiment.initialConditions(),
-      'initialConditions',
+    initializations: normalizeExperimentRuleList<TInitializationParameters>(
+      experiment.initializations(),
+      'initializations',
       experiment,
-    ) as readonly ExperimentRule<TInitialConditionParameters>[],
+    ) as readonly ExperimentRule<TInitializationParameters>[],
     boundaryConditions: normalizeExperimentRuleList<TBoundaryConditionParameters>(
       experiment.boundaryConditions(),
       'boundaryConditions',
@@ -1122,11 +1126,11 @@ export class Sample extends VariableObject<Structure> {
 }
 
 export class Setup<
-  TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
 > extends VariableObject<Experiment<
-    TInitialConditionParameters,
+    TInitializationParameters,
     TBoundaryConditionParameters,
     TRecordedDataParameters
   >> {
@@ -1136,7 +1140,7 @@ export class Setup<
 
   constructor(
     experiment: Experiment<
-      TInitialConditionParameters,
+      TInitializationParameters,
       TBoundaryConditionParameters,
       TRecordedDataParameters
     >,

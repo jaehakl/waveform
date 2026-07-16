@@ -92,7 +92,7 @@ describe('CadViewer', () => {
 
   it('shows Results only when the Experiment exposes recorded rules', () => {
     const experimentRules = {
-      initialConditions: [],
+      initializations: [],
       boundaryConditions: [],
       recordedData: [{
         target: ['experiment.geometry.domain'] as const,

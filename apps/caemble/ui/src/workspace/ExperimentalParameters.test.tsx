@@ -4,7 +4,7 @@ import type { EvaluatedExperimentRules } from '../cad'
 import ExperimentalParameters from './ExperimentalParameters'
 
 const rules: EvaluatedExperimentRules = {
-  initialConditions: [{
+  initializations: [{
     target: ['structure.geometry.sample'],
     label: 'Initial profile',
     methodId: 'field.initialize',
@@ -50,7 +50,7 @@ const rules: EvaluatedExperimentRules = {
 const source = `import { Experiment, Setup } from '@caemble/core'
 const tensorValues = [[0.1, 0.2]] as const
 const experiment = new Experiment({ lengthUnit: 'mm',
-  initialConditions: () => [{
+  initializations: () => [{
     target: ['structure.geometry.sample'], label: 'Initial profile', methodId: 'field.initialize',
     parameters: {
       scalarOnly: 1,

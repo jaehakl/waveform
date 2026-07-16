@@ -140,7 +140,7 @@ function SyntaxHelp() {
                 static non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">name</code> and{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">version</code> strings plus a lazy{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">parameters</code> factory. It also adds
-                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initialConditions</code>,{' '}
+                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initializations</code>,{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code>, and{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays.{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
@@ -153,7 +153,7 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code>. They must form a plain
                 JSON-compatible object and are recursively copied and frozen. Safe integers remain raw; every float
                 leaf uses the unit-aware float descriptor, including nested arrays and objects. The editor then evaluates Experiment
-                geometry, initial conditions, boundary conditions, and recorded data in that order. Once both latest
+                geometry, initializations, boundary conditions, and recorded data in that order. Once both latest
                 document revisions are Ready, use <strong>Run Simulation</strong> in the Viewer toolbar. Editing or
                 rerolling previews only and never runs the Solver automatically.
               </p>
@@ -224,12 +224,14 @@ function SyntaxHelp() {
                 copper bar with an eccentric <code className="rounded bg-white px-1 py-0.5 text-xs">[30, 5, 5] mm</code>{' '}
                 corner notch, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
                 5.96e7 S/m</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>, uses{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>, and samples
-                the axial face near the notch entrance with{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>. A{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">dc.voxel-grid</code> initialization owns the
+                editable int32 <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>{' '}
+                tensor. Both RecordedData rules sample the same axial face near the notch entrance through{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
                   {'crossSectionPosition = { type: \'float\', value: 0.35 }'}
-                </code>. The solver derives geometry conversion from Structure{' '}
+                </code>. Compatible dimensionless forms such as 0.35 and 35% match; different result positions fail.
+                The solver derives geometry conversion from Structure{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">lengthUnit</code>; the former{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters</code> parameter is removed.
               </p>
@@ -248,8 +250,9 @@ function SyntaxHelp() {
                 and <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
               </p>
               <p className="mt-1">
-                The v1 2D heatmap schema intentionally breaks the former three-component vector schema. Resolution
-                affects notch details, so refine the grid and compare flux before treating a result as converged.
+                The v1 2D heatmap schema intentionally breaks the former three-component vector schema and the former
+                solver-level grid/section parameter placement. Resolution affects notch details, so refine the initialization
+                grid and compare flux before treating a result as converged.
                 Runs are limited to 250,000 voxels and one connected, homogeneous, isotropic Material part with two
                 planar opposing terminals. Terminal voltage is converted to V, conductivity to S/m, and scene
                 lengths to m; missing or dimensionally incompatible units, invalid inputs, or PCG nonconvergence fail without replacing the last

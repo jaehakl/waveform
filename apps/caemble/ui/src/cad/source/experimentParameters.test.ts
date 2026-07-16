@@ -8,7 +8,7 @@ describe('Experiment tensor parameter source editing', () => {
   it('updates an inline tensor array without changing its descriptor schema', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
 const experiment = new Experiment({ lengthUnit: 'mm',
-  initialConditions: () => [{
+  initializations: () => [{
     target: ['structure.geometry.sample'],
     label: 'Inline',
     methodId: 'field.inline',
@@ -27,8 +27,8 @@ const experiment = new Experiment({ lengthUnit: 'mm',
 export default new Setup(experiment)
 `
 
-    const info = inspectExperimentTensorSource(source, 'initialConditions', 0, 'profile')
-    const update = updateExperimentTensorSource(source, 'initialConditions', 0, 'profile', [[3, 4]])
+    const info = inspectExperimentTensorSource(source, 'initializations', 0, 'profile')
+    const update = updateExperimentTensorSource(source, 'initializations', 0, 'profile', [[3, 4]])
 
     expect(info).toEqual({ editable: true, shared: false })
     expect(update.source).toMatch(/value: \[\n\s+\[\n\s+3,\n\s+4\n\s+]\n\s+] as const/)
@@ -41,7 +41,7 @@ export default new Setup(experiment)
     const source = `import { Experiment, Setup } from '@caemble/core'
 const sharedData = [1, 2] as const
 const experiment = new Experiment({ lengthUnit: 'mm',
-  initialConditions: () => [{
+  initializations: () => [{
     target: ['structure.geometry.sample'], label: 'Initial', methodId: 'initial',
     parameters: {
       profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', axes: [{ name: 'x' }], value: sharedData },
@@ -57,8 +57,8 @@ const experiment = new Experiment({ lengthUnit: 'mm',
 export default new Setup(experiment)
 `
 
-    const info = inspectExperimentTensorSource(source, 'initialConditions', 0, 'profile')
-    const update = updateExperimentTensorSource(source, 'initialConditions', 0, 'profile', [7, 8])
+    const info = inspectExperimentTensorSource(source, 'initializations', 0, 'profile')
+    const update = updateExperimentTensorSource(source, 'initializations', 0, 'profile', [7, 8])
 
     expect(info).toEqual({ editable: true, bindingName: 'sharedData', shared: true })
     expect(update.shared).toBe(true)
@@ -99,7 +99,7 @@ export default new Setup(experiment)
   it('marks computed and vars-backed tensor values read-only', () => {
     const source = `import { Experiment, Setup } from '@caemble/core'
 const experiment = new Experiment({ lengthUnit: 'mm',
-  initialConditions: () => [
+  initializations: () => [
     {
       target: ['structure.geometry.sample'], label: 'Computed', methodId: 'computed',
       parameters: { profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'float64', value: makeData() } },
@@ -113,8 +113,8 @@ const experiment = new Experiment({ lengthUnit: 'mm',
 export default new Setup(experiment)
 `
 
-    const computed = inspectExperimentTensorSource(source, 'initialConditions', 0, 'profile')
-    const vars = inspectExperimentTensorSource(source, 'initialConditions', 1, 'profile')
+    const computed = inspectExperimentTensorSource(source, 'initializations', 0, 'profile')
+    const vars = inspectExperimentTensorSource(source, 'initializations', 1, 'profile')
 
     expect(computed.editable).toBe(false)
     expect(computed.reason).toContain('inline array or a top-level const array')
@@ -122,7 +122,7 @@ export default new Setup(experiment)
     expect(vars.reason).toContain('inline array or a top-level const array')
     expect(() => updateExperimentTensorSource(
       source,
-      'initialConditions',
+      'initializations',
       0,
       'profile',
       [1, 2],

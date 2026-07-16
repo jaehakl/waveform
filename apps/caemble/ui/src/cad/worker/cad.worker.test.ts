@@ -50,14 +50,29 @@ const experiment = new Experiment({
     version: '1.0.0',
     parameters: () => ({
       conductivityVariable: 'electricalConductivity',
-      gridShape: [20, 11, 11],
-      crossSectionPosition: { type: 'float', value: 0.5 },
       relativeTolerance: { type: 'float', value: 1e-10 },
       maxIterations: 1000,
     }),
   },
   geometry: () => h(Probe, { id: 'probe' }),
   varsSchema: {},
+  initializations: () => [
+    {
+      target: ['structure.geometry.conductor'],
+      label: 'Voxel grid',
+      methodId: 'dc.voxel-grid',
+      parameters: {
+        gridShape: {
+          type: 'tensor',
+          dimension: 1,
+          shape: [3],
+          dtype: 'int32',
+          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          value: [20, 11, 11],
+        },
+      },
+    },
+  ],
   boundaryConditions: () => [
     {
       target: ['structure.surface.sourceTerminal'],
@@ -77,7 +92,7 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Current density',
       methodId: 'dc.current-density',
-      parameters: {},
+      parameters: { crossSectionPosition: { type: 'float', value: 0.5 } },
       result: {
         type: 'tensor',
         dimension: 2,
@@ -94,7 +109,7 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Total current',
       methodId: 'dc.total-current',
-      parameters: {},
+      parameters: { crossSectionPosition: { type: 'float', value: 0.5 } },
       result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
     },
   ],

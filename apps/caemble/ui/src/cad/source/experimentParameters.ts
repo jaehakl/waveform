@@ -1,7 +1,7 @@
 import { parse } from '@babel/parser'
 import type { Expression, ObjectExpression, ObjectMethod, ObjectProperty, Statement } from '@babel/types'
 
-export type ExperimentRuleCategory = 'initialConditions' | 'boundaryConditions' | 'recordedData'
+export type ExperimentRuleCategory = 'initializations' | 'boundaryConditions' | 'recordedData'
 
 export type ExperimentTensorSourceInfo = Readonly<{
   editable: boolean
