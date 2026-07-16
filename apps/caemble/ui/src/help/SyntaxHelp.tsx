@@ -60,15 +60,17 @@ function SyntaxHelp() {
               <p className="mt-1">
                 A Material contains a symbol, an optional version, and a deeply read-only JSON-compatible variables
                 dictionary. Put an optional <code className="rounded bg-white px-1 py-0.5 text-xs">color</code> in
-                that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>; the UI
-                uses its default blue when color is omitted. Different instances may share a symbol and version.
+                that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>.
+                Geometry without a Material or color is shown as a neutral wireframe. Different instances may share
+                a symbol and version.
               </p>
               <p className="mt-1">
                 A Geometry inherits its parent materials array unless it supplies a replacement. Materialless
-                Geometry may group children; a primitive requires a Material and uses index zero. Geometry with
-                different Materials may be siblings. Union and intersect require one shared Material. Subtract
-                applies every cutter to each part of its first child independently, preserves those base Materials,
-                and does not include cutter Materials in the result.
+                Geometry may group children or produce unassigned primitive parts. Geometry with different Materials
+                may be siblings. Union and intersect accept one shared Material or fully unassigned operands, but do
+                not mix the two. Subtract applies every cutter to each part of its first child independently,
+                preserves those optional base Materials, and does not include cutter Materials in the result.
+                Material Grid samples colored parts and keeps unassigned parts visible as wireframe overlays.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Geometry Components</p>
@@ -231,9 +233,10 @@ function SyntaxHelp() {
               </p>
               <p className="mt-1">
                 Layers are returned from the most inward boundary to the most outward boundary. The enclosing
-                Geometry must provide exactly one Material per explicit offset in that same order; child Materials
-                do not select layer Materials. Only shell layers are returned, not the core below the innermost
-                boundary, so placing the original solid beside an inward shell can create overlap.
+                Geometry may omit Materials for unassigned layers. When Materials are supplied, it must provide
+                exactly one per explicit offset in that same order; child Materials do not select layer Materials.
+                Only shell layers are returned, not the core below the innermost boundary, so placing the original
+                solid beside an inward shell can create overlap.
               </p>
               <p className="mt-1">
                 Offsets follow the child mesh resolution and preserve its topology, with mitered sharp edges.

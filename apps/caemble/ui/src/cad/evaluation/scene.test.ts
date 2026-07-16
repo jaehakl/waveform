@@ -119,6 +119,30 @@ describe('CAD scene identity and evaluated tree', () => {
     expect(resolveCadSceneSelection(first, 'root.base')).toBeNull()
   })
 
+  it('labels materialless scene parts and selections as Unassigned', () => {
+    function Pair() {
+      return h(
+        Fragment,
+        null,
+        h('box', { size: [1, 1, 1] }),
+        h('box', { size: [1, 1, 1], pos: [2, 0, 0] }),
+      )
+    }
+
+    const scene = evaluateCadScene(h(Pair, { id: 'pair' }))
+    const nodes = flattenTree(scene.tree)
+
+    expect(scene.parts).toHaveLength(2)
+    expect(scene.parts.every((part) => part.material === undefined)).toBe(true)
+    expect(nodes.map((node) => node.label)).toEqual(expect.arrayContaining([
+      'Part 1 · Unassigned',
+      'Part 2 · Unassigned',
+    ]))
+    expect(resolveCadSceneSelection(scene, 'pair.$part-1')).toMatchObject({
+      label: 'pair.$part-1 · Unassigned',
+    })
+  })
+
   it('validates local IDs, sibling uniqueness, and the Geometry ownership boundary', () => {
     const material = new Material('Core', { color: '#2563eb' })
 

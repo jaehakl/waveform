@@ -1,15 +1,15 @@
 import { primitives } from '@jscad/modeling'
 import { describe, expect, it } from 'vitest'
 import type { CadScenePart, CadSceneSelection } from '../cad'
-import { createRenderParts } from './selection'
+import { createRenderParts, createWireframeGeometries } from './selection'
 
 const selectedColor = [249 / 255, 115 / 255, 22 / 255, 1]
 
-function createPart(id = 'assembly.core', color: string | null = '#2563eb'): CadScenePart {
+function createPart(id = 'assembly.core', color: string | null = '#2563eb', withMaterial = true): CadScenePart {
   return {
     id,
     geometry: primitives.cuboid({ size: [2, 2, 2] }),
-    material: { symbol: 'Core', variables: color === null ? {} : { color } },
+    ...(withMaterial ? { material: { symbol: 'Core', variables: color === null ? {} : { color } } } : {}),
     surfaces: [
       { id: `${id}/surface-1`, name: '-X', polygonIndices: [0] },
       { id: `${id}/surface-2`, name: 'Other', polygonIndices: [1, 2, 3, 4, 5] },
@@ -24,12 +24,84 @@ describe('viewer selection colors', () => {
 
     expect(renderPart.geometry).toBe(part.geometry)
     expect(renderPart.color).toEqual([37 / 255, 99 / 255, 235 / 255, 1])
+    expect(renderPart.wireframe).toBe(false)
   })
 
-  it('uses the UI fallback color when the Material has no color variable', () => {
-    const [renderPart] = createRenderParts([createPart('fallback', null)], null)
+  it('uses neutral wireframe rendering when Material or color is missing', () => {
+    const rendered = createRenderParts([
+      createPart('colorless', null),
+      createPart('materialless', null, false),
+    ], null)
 
-    expect(renderPart.color).toEqual([59 / 255, 130 / 255, 246 / 255, 1])
+    for (const renderPart of rendered) {
+      expect(renderPart.color).toEqual([71 / 255, 85 / 255, 105 / 255, 1])
+      expect(renderPart.wireframe).toBe(true)
+      const [wireframe] = createWireframeGeometries(renderPart)
+      expect(wireframe.positions).toHaveLength(24)
+      expect(wireframe.indices).toHaveLength(24)
+    }
+  })
+
+  it('keeps every unique polygon edge and prioritizes selected Surface edges', () => {
+    const transforms = (primitives.cuboid() as { transforms: unknown }).transforms
+    const part: CadScenePart = {
+      id: 'wireframe',
+      geometry: {
+        transforms,
+        polygons: [
+          { vertices: [[0, 0, 0], [1, 0, 0], [1, 1, 0]] },
+          { vertices: [[0, 0, 0], [1, 1, 0], [0, 1, 0]] },
+        ],
+      },
+      material: { symbol: 'Colorless', variables: {} },
+      surfaces: [
+        { id: 'wireframe/surface-1', name: 'First', polygonIndices: [0] },
+        { id: 'wireframe/surface-2', name: 'Second', polygonIndices: [1] },
+      ],
+    }
+    const [renderPart] = createRenderParts([part], {
+      id: 'wireframe/surface-1',
+      kind: 'surface',
+      label: 'First',
+      geometryIds: ['wireframe'],
+      surfaceIds: ['wireframe/surface-1'],
+    })
+    const [wireframe] = createWireframeGeometries(renderPart)
+
+    expect(wireframe.positions).toHaveLength(10)
+    expect(wireframe.colors.filter((color) => color.every((value, index) => value === selectedColor[index]))).toHaveLength(6)
+  })
+
+  it('keeps selected unassigned Geometry as orange lines without a mesh', () => {
+    const part = createPart('materialless', null, false)
+    const [renderPart] = createRenderParts([part], {
+      id: part.id,
+      kind: 'geometry',
+      label: part.id,
+      geometryIds: [part.id],
+    })
+    const geometries = createWireframeGeometries(renderPart)
+
+    expect(renderPart.wireframe).toBe(true)
+    expect(geometries).toHaveLength(1)
+    expect(geometries[0].colors.every((color) => (
+      color.every((value, index) => value === selectedColor[index])
+    ))).toBe(true)
+  })
+
+  it('splits large wireframes below the 16-bit vertex limit', () => {
+    const transforms = (primitives.cuboid() as { transforms: unknown }).transforms
+    const vertexCount = 32_768
+    const vertices = Array.from({ length: vertexCount }, (_, index) => {
+      const angle = index / vertexCount * Math.PI * 2
+      return [Math.cos(angle), Math.sin(angle), 0]
+    })
+    const part = createPart('large-wireframe', null, false)
+    part.geometry = { transforms, polygons: [{ vertices }] }
+    const geometries = createWireframeGeometries(createRenderParts([part], null)[0])
+
+    expect(geometries.map((geometry) => geometry.positions.length)).toEqual([65_534, 2])
+    expect(geometries.every((geometry) => geometry.indices[geometry.indices.length - 1] <= 65_534)).toBe(true)
   })
 
   it('highlights a whole Geometry or one Surface without mutating scene polygons', () => {

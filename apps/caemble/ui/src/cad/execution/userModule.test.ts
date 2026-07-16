@@ -132,7 +132,7 @@ describe('compiled user module execution', () => {
     expect(parts).toHaveLength(3)
     expect(parts.map((part) => part.id)).toEqual(['bundle.1', 'bundle.2', 'bundle.3'])
     expect(rerolled.parts.map((part) => part.id)).toEqual(parts.map((part) => part.id))
-    expect(parts.every((part) => part.material.symbol === 'Tapered Fiber')).toBe(true)
+    expect(parts.every((part) => part.material?.symbol === 'Tapered Fiber')).toBe(true)
     expect(geometryGroups[0]).toMatchObject({ name: 'bundle', geometryIds: parts.map((part) => part.id) })
     expect(surfaceGroups[0]).toMatchObject({ name: 'starts', surfaceIds: [
       'bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1',
@@ -175,7 +175,7 @@ describe('compiled user module execution', () => {
     })
     const { parts } = executeCompiledCode(compiled.code).scene
 
-    expect(parts.map((part) => part.material.symbol)).toEqual([
+    expect(parts.map((part) => part.material?.symbol)).toEqual([
       'Core', 'Layer 1',
       'Core', 'Layer 1', 'Layer 2',
       'Core', 'Layer 1', 'Layer 2', 'Layer 3',

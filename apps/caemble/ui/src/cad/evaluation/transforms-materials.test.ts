@@ -122,17 +122,19 @@ describe('CAD transforms-materials', () => {
     const parts = evaluateCad(h(Group, { id: 'group' }))
 
     expect(groupMaterials).toBeUndefined()
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
   })
 
-  it('requires an effective Material only when a primitive is created', () => {
+  it('allows a primitive to create an unassigned scene part', () => {
     function MateriallessBox() {
       return h('box', { size })
     }
 
-    expect(() => evaluateCad(h(MateriallessBox, { id: 'box' }))).toThrow(
-      '<box> requires an explicit or inherited Material',
-    )
+    const [part] = evaluateCad(h(MateriallessBox, { id: 'box' }))
+
+    expect(part.id).toBe('box')
+    expect(part).not.toHaveProperty('material')
+    expect(part.surfaces.length).toBeGreaterThan(0)
   })
 
   it('replaces the complete materials array and uses index zero', () => {
@@ -145,7 +147,7 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding, core] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
   })
 
   it('preserves different Material parts under positioned Geometry', () => {
@@ -158,7 +160,7 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.material.symbol)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
   })
 
   it('rejects empty material arrays and allows duplicate symbol/version instances', () => {
@@ -174,8 +176,8 @@ describe('CAD transforms-materials', () => {
     )
 
     const parts = evaluateCad(root)
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Core'])
-    expect(parts.map((part) => part.material.version)).toEqual(['measured', 'measured'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material?.version)).toEqual(['measured', 'measured'])
     expect(parts[0].material).not.toBe(parts[1].material)
   })
 

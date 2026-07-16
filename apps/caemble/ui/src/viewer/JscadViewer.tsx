@@ -1,13 +1,13 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadScenePart, CadSceneSelection } from '../cad'
-import { materialColor } from './materialColor'
+import { materialColor, unassignedGeometryColor } from './materialColor'
 import type {
   MaterialGridResult,
   MaterialGridWorkerRequest,
   MaterialGridWorkerResponse,
 } from './materialGrid'
-import { createRenderParts } from './selection'
+import { createRenderParts, createWireframeGeometries } from './selection'
 
 type RendererEntity = Record<string, unknown>
 type RendererOptions = Record<string, unknown> & {
@@ -309,6 +309,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
   const currentGridResult = gridSnapshot?.parts === parts && gridSnapshot.requestedSpacing === requestedSpacing
     ? gridSnapshot.result
     : null
+  const hasColoredGeometry = parts.some((part) => materialColor(part.material) !== undefined)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -462,25 +463,39 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
     if (shouldReportGeometryRender) onRenderStart()
 
     try {
-      const solidsEntities = viewerMode === 'geometry' || shouldFit
-        ? createRenderParts(parts, viewerMode === 'geometry' ? selection : null).flatMap((part) =>
-            renderer.entitiesFromSolids(
+      const renderParts = createRenderParts(parts, selection)
+      const wireframeEntities = renderParts
+        .filter((part) => part.wireframe)
+        .flatMap((part) => createWireframeGeometries(part).map((geometry) => ({
+          geometry,
+          visuals: {
+            drawCmd: 'drawLines',
+            show: true,
+            transparent: false,
+            useVertexColors: true,
+          },
+        })))
+      const meshEntities = viewerMode === 'geometry' || shouldFit
+        ? renderParts
+            .filter((part) => !part.wireframe)
+            .flatMap((part) => renderer.entitiesFromSolids(
               { color: part.color, smoothNormals: true },
               part.geometry,
-            ),
-          )
+            ))
         : []
+      const geometryEntities = [...meshEntities, ...wireframeEntities]
       const displayEntities = viewerMode === 'geometry'
-        ? solidsEntities
-        : currentGridResult
-          ? [Object.assign(pointEntityRef.current, {
+        ? geometryEntities
+        : [
+            ...(currentGridResult ? [Object.assign(pointEntityRef.current, {
               geometry: {
                 colors: currentGridResult.colors,
                 positions: currentGridResult.positions,
               },
               pointSize: 5 * (window.devicePixelRatio || 1),
-            })]
-          : []
+            })] : []),
+            ...wireframeEntities,
+          ]
 
       optionsRef.current.entities = [...referenceEntitiesRef.current, ...displayEntities]
 
@@ -488,7 +503,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
         const zoomed = renderer.controls.orbit.zoomToFit({
           camera: cameraRef.current,
           controls: controlsRef.current,
-          entities: solidsEntities,
+          entities: geometryEntities,
         })
         Object.assign(cameraRef.current, zoomed.camera)
         Object.assign(controlsRef.current, zoomed.controls)
@@ -619,7 +634,16 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
           </div>
         ) : null}
 
-        {viewerMode === 'material-grid' && gridStatus === 'ready' && currentGridResult?.visiblePointCount === 0 ? (
+        {viewerMode === 'material-grid' && gridStatus === 'ready' && !hasColoredGeometry ? (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+            No colored Material geometry is available for Grid points.
+          </div>
+        ) : null}
+
+        {viewerMode === 'material-grid'
+        && gridStatus === 'ready'
+        && hasColoredGeometry
+        && currentGridResult?.visiblePointCount === 0 ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
             No Grid points fall inside the geometry at this spacing.
           </div>
@@ -628,15 +652,31 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
         {parts.length > 0 ? (
           <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
-            {[...new Set(parts.map((part) => part.material))].map((material, index) => (
-              <div key={`${material.symbol}-${index}`} className="flex items-center gap-2 py-0.5 text-xs text-slate-700">
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
-                  style={{ backgroundColor: materialColor(material) }}
-                />
-                <span>{material.symbol}</span>
-              </div>
-            ))}
+            {[...new Set(parts.map((part) => part.material))].map((material, index) => {
+              const color = materialColor(material)
+              return (
+                <div
+                  key={`${material?.symbol ?? 'unassigned'}-${index}`}
+                  className="flex items-center gap-2 py-0.5 text-xs text-slate-700"
+                >
+                  {color ? (
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
+                      data-material-swatch="fill"
+                      style={{ backgroundColor: color }}
+                    />
+                  ) : (
+                    <span
+                      className="grid h-2.5 w-2.5 shrink-0 items-center"
+                      data-material-swatch="wireframe"
+                    >
+                      <span className="block border-t-2" style={{ borderColor: unassignedGeometryColor }} />
+                    </span>
+                  )}
+                  <span>{material?.symbol ?? 'Unassigned'}</span>
+                </div>
+              )
+            })}
           </div>
         ) : null}
 

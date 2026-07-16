@@ -154,8 +154,8 @@ describe('shell evaluation', () => {
       ),
     )
 
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Inner shell', 'Outer shell'])
-    expect(parts.map((part) => part.material.variables.color)).toEqual(['#0ea5e9', '#f97316'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Inner shell', 'Outer shell'])
+    expect(parts.map((part) => part.material?.variables.color)).toEqual(['#0ea5e9', '#f97316'])
     expect(parts.map((part) => part.id)).toEqual(['shell.$part-1', 'shell.$part-2'])
     expectBounds(parts[0].geometry, [[9, -3, -4], [13, 3, 4]])
     expectBounds(parts[1].geometry, [[8, -4, -5], [14, 4, 5]])
@@ -171,7 +171,7 @@ describe('shell evaluation', () => {
     )
 
     expect(parts).toHaveLength(2)
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Shared shell', 'Shared shell'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Shared shell', 'Shared shell'])
   })
 
   it('derives sharp box boundaries and smooth sphere boundaries', () => {
@@ -203,15 +203,17 @@ describe('shell evaluation', () => {
       ),
     )
 
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Duplicate shell', 'Duplicate shell'])
-    expect(parts.map((part) => part.material.variables.color)).toEqual(['#2563eb', '#dc2626'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Duplicate shell', 'Duplicate shell'])
+    expect(parts.map((part) => part.material?.variables.color)).toEqual(['#2563eb', '#dc2626'])
     expect(parts[0].material).not.toBe(parts[1].material)
   })
 
-  it('requires exactly one inherited Material for every offset', () => {
+  it('allows no Materials or requires exactly one inherited Material for every offset', () => {
     const shell = h('shell', { offsets: [-1, 1] }, h('box', { size: [4, 4, 4] }))
 
-    expect(() => evaluateCad(shell)).toThrow('requires exactly one inherited Material per offset')
+    const parts = evaluateCad(h(() => shell, { id: 'shell' }))
+    expect(parts).toHaveLength(2)
+    expect(parts.every((part) => part.material === undefined)).toBe(true)
     expect(() => evaluateCad(h(() => shell, { id: 'shell', materials: [innerMaterial] }))).toThrow(
       'requires exactly one inherited Material per offset',
     )
@@ -238,7 +240,7 @@ describe('shell evaluation', () => {
 
     expect(() => geometries.geom3.validate(combined.geometry)).not.toThrow()
     expect(measurements.measureVolume(combined.geometry)).toBeCloseTo(2744, 4)
-    expect(combined.material.symbol).toBe('Unified shell')
+    expect(combined.material?.symbol).toBe('Unified shell')
   })
 
   it('requires one direct child that evaluates to one valid solid', () => {

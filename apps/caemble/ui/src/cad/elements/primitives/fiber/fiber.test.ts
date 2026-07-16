@@ -126,7 +126,7 @@ describe('procedural fiber geometry', () => {
     expect(bounds[0][0]).toBeCloseTo(2.5)
     expect(bounds[1][0]).toBeCloseTo(3.5)
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Start cap', 'Side', 'End cap'])
-    expect(combined.material.symbol).toBe('Fiber')
+    expect(combined.material?.symbol).toBe('Fiber')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

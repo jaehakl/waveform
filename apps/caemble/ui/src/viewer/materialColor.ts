@@ -1,9 +1,9 @@
 import type { CadSceneMaterial } from '../cad'
 
-export const defaultMaterialColor = '#3b82f6'
+export const unassignedGeometryColor = '#475569'
 
-export function materialColor(material: CadSceneMaterial) {
-  return typeof material.variables.color === 'string'
+export function materialColor(material: CadSceneMaterial | undefined) {
+  return typeof material?.variables.color === 'string'
     ? material.variables.color
-    : defaultMaterialColor
+    : undefined
 }

@@ -4,7 +4,7 @@ import { getCadElementDefinition } from './registry'
 import { flattenValues, Fragment, isCadNode } from './jsx'
 import { applyTransforms, normalizeTransforms } from './transforms'
 import { applyCadSceneGroups, type CadSceneGroupOptions } from './groups'
-import type { CadScene, CadScenePart, CadSceneTreeNode, EvaluatedPart } from './types'
+import type { CadScene, CadSceneMaterial, CadScenePart, CadSceneTreeNode, EvaluatedPart } from './types'
 
 type EvaluationState = {
   nodes: Map<string, CadSceneTreeNode>
@@ -160,12 +160,11 @@ function evaluateNode(
       throw new CadModelError('CAD geometry must be created within a Geometry component with an explicit id.')
     }
     const materials = resolveMaterials(undefined, inheritedMaterials)
-    if (materials === undefined) throw new CadModelError(`<${type}> requires an explicit or inherited Material.`)
 
     const geometry = definition.createGeometry(props)
     parts = [{
       geometry,
-      material: materials[0],
+      ...(materials === undefined ? {} : { material: materials[0] }),
       surfaces: definition.createSurfaces(geometry, props),
       ownerNodeKey,
       resultNodeKey: nodeKey,
@@ -261,7 +260,7 @@ export function evaluateCadScene(
     return ordinal
   })
 
-  const sceneMaterials = new Map<Material, CadScenePart['material']>()
+  const sceneMaterials = new Map<Material, CadSceneMaterial>()
   const parts: CadScenePart[] = evaluatedParts.map((part, partIndex) => {
     if (!part.surfaces || !part.ownerNodeKey || !part.resultNodeKey) {
       throw new CadModelError('CAD evaluation produced geometry without surface metadata.')
@@ -297,26 +296,29 @@ export function evaluateCadScene(
     } else {
       resultNode.children.push({
         key: `${part.resultNodeKey}/${id}`,
-        label: `Part ${directPartOrdinal} · ${part.material.symbol}`,
+        label: `Part ${directPartOrdinal} · ${part.material?.symbol ?? 'Unassigned'}`,
         geometryId: id,
         children: surfaceNodes,
       })
     }
 
-    let material = sceneMaterials.get(part.material)
-    if (!material) {
-      material = Object.freeze({
-        symbol: part.material.symbol,
-        ...(part.material.version === undefined ? {} : { version: part.material.version }),
-        variables: part.material.variables,
-      })
-      sceneMaterials.set(part.material, material)
+    let material: CadSceneMaterial | undefined
+    if (part.material) {
+      material = sceneMaterials.get(part.material)
+      if (!material) {
+        material = Object.freeze({
+          symbol: part.material.symbol,
+          ...(part.material.version === undefined ? {} : { version: part.material.version }),
+          variables: part.material.variables,
+        })
+        sceneMaterials.set(part.material, material)
+      }
     }
 
     return {
       id,
       geometry: part.geometry,
-      material,
+      ...(material === undefined ? {} : { material }),
       surfaces,
     }
   })

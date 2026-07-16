@@ -114,7 +114,7 @@ describe('CAD array', () => {
       scale: [0.5, 2, 1],
       rotate: { axis: [0, 0, 1], angle: Math.PI / 2 },
     })
-    expect(parts.map((part) => part.material.symbol)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Core'])
 
     const centers = parts.map((part) => {
       const bounds = measurements.measureBoundingBox(part.geometry)

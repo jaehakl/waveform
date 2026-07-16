@@ -42,6 +42,27 @@ describe('CAD booleans', () => {
     ).toThrow('cannot combine Geometry with different Materials')
   })
 
+  it('allows fully materialless booleans and rejects mixed union or intersect inputs', () => {
+    const core = new Material('Core', { color: '#2563eb' })
+    const materiallessUnion = evaluateCad(h(
+      () => h('union', null, h(Box, { id: 'first' }), h(Box, { id: 'second', pos: [1, 0, 0] })),
+      { id: 'union' },
+    ))[0]
+    const materiallessIntersect = evaluateCad(h(
+      () => h('intersect', null, h(Box, { id: 'first' }), h(Box, { id: 'second', pos: [1, 0, 0] })),
+      { id: 'intersect' },
+    ))[0]
+
+    expect(materiallessUnion).not.toHaveProperty('material')
+    expect(materiallessIntersect).not.toHaveProperty('material')
+    for (const operation of ['union', 'intersect'] as const) {
+      expect(() => evaluateCad(h(
+        () => h(operation, null, h(Box, { id: 'plain' }), h(Box, { id: 'core', materials: [core] })),
+        { id: operation },
+      ))).toThrow('cannot combine Geometry with different Materials')
+    }
+  })
+
   it('subtracts every cutter from each base part while preserving Material and order', () => {
     const first = new Material('First', { color: '#2563eb' })
     const second = new Material('Second', { color: '#f59e0b' })
@@ -62,12 +83,28 @@ describe('CAD booleans', () => {
       ),
     )
 
-    expect(parts.map((part) => part.material.symbol)).toEqual(['First', 'Second'])
+    expect(parts.map((part) => part.material?.symbol)).toEqual(['First', 'Second'])
     parts.forEach((part) => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeCloseTo(32, 6)
       expect(measurements.measureBoundingBox(part.geometry)[0][1]).toBeCloseTo(0, 6)
     })
+  })
+
+  it('preserves an unassigned subtract base when the cutter has a Material', () => {
+    const cutter = new Material('Cutter', { color: '#64748b' })
+    const [part] = evaluateCad(h(
+      () => h(
+        'subtract',
+        null,
+        h(Box, { id: 'base', scale: [2, 2, 2] }),
+        h(Box, { id: 'cutter', materials: [cutter] }),
+      ),
+      { id: 'result' },
+    ))
+
+    expect(part).not.toHaveProperty('material')
+    expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
   })
 
   it('derives six outer box surfaces and one cylindrical cut surface', () => {

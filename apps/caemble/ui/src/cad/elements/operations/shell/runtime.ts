@@ -254,7 +254,10 @@ export const shellDefinition = {
     if (!Array.isArray(node.props.offsets) || node.props.offsets.length === 0) {
       throw new CadModelError('<shell> offsets must be a non-empty array.')
     }
-    if (context.inheritedMaterials?.length !== node.props.offsets.length) {
+    if (
+      context.inheritedMaterials !== undefined
+      && context.inheritedMaterials.length !== node.props.offsets.length
+    ) {
       throw new CadModelError('<shell> requires exactly one inherited Material per offset.')
     }
 
@@ -265,7 +268,7 @@ export const shellDefinition = {
 
     return createShellGeometries(parts[0].geometry, node.props.offsets).map((geometry, index) => ({
       geometry,
-      material: context.inheritedMaterials![index],
+      ...(context.inheritedMaterials === undefined ? {} : { material: context.inheritedMaterials[index] }),
     }))
   },
 } satisfies GeometryOperationDefinition<'shell'>

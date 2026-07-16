@@ -147,7 +147,8 @@ function buildTriangleTree(triangles: readonly PreparedTriangle[]): TriangleTree
 }
 
 function preparePart(part: CadScenePart): PreparedPart | null {
-  if (!geometries.geom3.isA(part.geometry)) return null
+  const color = materialColor(part.material)
+  if (color === undefined || !geometries.geom3.isA(part.geometry)) return null
 
   const triangles: PreparedTriangle[] = []
   for (const polygon of geometries.geom3.toPolygons(part.geometry)) {
@@ -166,7 +167,7 @@ function preparePart(part: CadScenePart): PreparedPart | null {
 
   return {
     bounds: measurements.measureBoundingBox(part.geometry) as Bounds,
-    color: colorFromHex(materialColor(part.material)),
+    color: colorFromHex(color),
     epsilon: Math.max(measurements.measureEpsilon(part.geometry), Number.EPSILON),
     triangleTree: buildTriangleTree(triangles),
   }

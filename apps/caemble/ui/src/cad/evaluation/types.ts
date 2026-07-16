@@ -12,7 +12,7 @@ export type CadNode = {
 
 export type EvaluatedPart = {
   geometry: unknown
-  material: Material
+  material?: Material
   surfaces?: EvaluatedSurface[]
   ownerNodeKey?: string
   resultNodeKey?: string
@@ -32,7 +32,7 @@ export type CadSceneSurface = {
 export type CadScenePart = {
   id: string
   geometry: unknown
-  material: CadSceneMaterial
+  material?: CadSceneMaterial
   surfaces: CadSceneSurface[]
 }
 

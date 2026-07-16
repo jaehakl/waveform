@@ -15,8 +15,8 @@ const cadSubtract = booleans.subtract as (...geometries: unknown[]) => CadGeom3
 const cadUnion = booleans.union as (...geometries: unknown[]) => CadGeom3
 
 function matchingMaterial(parts: EvaluatedPart[], operation: string) {
-  const material = parts[0]?.material
-  if (!material) throw new CadModelError(`<${operation}> did not receive any geometry.`)
+  if (parts.length === 0) throw new CadModelError(`<${operation}> did not receive any geometry.`)
+  const material = parts[0].material
   if (parts.some((part) => part.material !== material)) {
     throw new CadModelError(`<${operation}> cannot combine Geometry with different Materials.`)
   }
@@ -155,7 +155,10 @@ function createBooleanDefinition<Tag extends 'union' | 'subtract' | 'intersect'>
               booleanApplied = true
             })
             if (!booleanApplied) {
-              return { geometry: subtracted, material: part.material }
+              return {
+                geometry: subtracted,
+                ...(part.material === undefined ? {} : { material: part.material }),
+              }
             }
           }
           const snappedPolygons = geometries.geom3.toPolygons(subtracted).map((polygon) => {
@@ -196,7 +199,7 @@ function createBooleanDefinition<Tag extends 'union' | 'subtract' | 'intersect'>
           }).filter((polygon) => geometries.poly3.measureArea(polygon) > 0)
           return {
             geometry: geometries.geom3.create(finalPolygons),
-            material: part.material,
+            ...(part.material === undefined ? {} : { material: part.material }),
           }
         })
       }
@@ -204,14 +207,20 @@ function createBooleanDefinition<Tag extends 'union' | 'subtract' | 'intersect'>
       const allParts = childParts.flat()
       const material = matchingMaterial(allParts, manifest.tag)
       if (manifest.tag === 'union') {
-        return [{ geometry: cadUnion(...allParts.map((part) => part.geometry)), material }]
+        return [{
+          geometry: cadUnion(...allParts.map((part) => part.geometry)),
+          ...(material === undefined ? {} : { material }),
+        }]
       }
 
       const childGeometries = childParts.map((parts) => {
         matchingMaterial(parts, manifest.tag)
         return parts.length === 1 ? parts[0].geometry : cadUnion(...parts.map((part) => part.geometry))
       })
-      return [{ geometry: cadIntersect(...childGeometries), material }]
+      return [{
+        geometry: cadIntersect(...childGeometries),
+        ...(material === undefined ? {} : { material }),
+      }]
     },
   } satisfies GeometryOperationDefinition<Tag>
 }

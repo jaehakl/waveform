@@ -71,7 +71,7 @@ describe('JscadViewer modes', () => {
 })
 
 describe('JscadViewer Material legend', () => {
-  it('shows each shared Material once with its variable or fallback color', () => {
+  it('shows filled, colorless, and unassigned entries with the matching swatch style', () => {
     const core = { symbol: 'Core', version: 'Kittel_1988', variables: { color: '#2563eb' } }
     const cladding = { symbol: 'Cladding', variables: {} }
     const markup = renderToStaticMarkup(
@@ -84,14 +84,19 @@ describe('JscadViewer Material legend', () => {
           { id: 'assembly.core-1', geometry: {}, material: core, surfaces: [] },
           { id: 'assembly.core-2', geometry: {}, material: core, surfaces: [] },
           { id: 'assembly.cladding', geometry: {}, material: cladding, surfaces: [] },
+          { id: 'assembly.unassigned-1', geometry: {}, surfaces: [] },
+          { id: 'assembly.unassigned-2', geometry: {}, surfaces: [] },
         ]}
       />,
     )
 
     expect(markup.match(/Core/g)).toHaveLength(1)
     expect(markup.match(/Cladding/g)).toHaveLength(1)
+    expect(markup.match(/Unassigned/g)).toHaveLength(1)
     expect(markup).toContain('background-color:#2563eb')
-    expect(markup).toContain('background-color:#3b82f6')
+    expect(markup.match(/data-material-swatch="wireframe"/g)).toHaveLength(2)
+    expect(markup).toContain('border-color:#475569')
+    expect(markup).not.toContain('background-color:#3b82f6')
     expect(markup).not.toContain('Kittel_1988')
   })
 

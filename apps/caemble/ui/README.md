@@ -212,11 +212,13 @@ const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
 
 ## Materials And Geometry
 
-`Material` stores a non-empty `symbol`, an optional non-empty `version`, and a deeply read-only JSON-compatible `variables` dictionary. Supported forms are `Material(symbol)`, `Material(symbol, variables)`, `Material(symbol, version)`, and `Material(symbol, version, variables)`. A top-level `variables.color` uses `#RRGGBB`; when omitted, the UI uses `#3b82f6` without adding it to the dictionary.
+`Material` stores a non-empty `symbol`, an optional non-empty `version`, and a deeply read-only JSON-compatible `variables` dictionary. Supported forms are `Material(symbol)`, `Material(symbol, variables)`, `Material(symbol, version)`, and `Material(symbol, version, variables)`. A top-level `variables.color` uses `#RRGGBB`. Geometry without a Material or without `variables.color` is rendered as a neutral `#475569` wireframe instead of a filled mesh.
 
-A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]`.
+A Geometry inherits its parent's complete `materials` array when it omits the attribute; supplying `materials` replaces the inherited array. A primitive uses `materials[0]` when available and otherwise produces an unassigned scene part.
 
-Different Materials may appear as sibling scene parts, and different instances may share the same symbol and version. `union`, `subtract`, and `intersect` still require all combined operands to use the same Material instance.
+Different Materials may appear as sibling scene parts, and different instances may share the same symbol and version. `union` and `intersect` accept either one shared Material instance or fully unassigned operands; mixing assigned and unassigned operands is rejected. `subtract` preserves each base part's optional Material. `shell` accepts no Materials for unassigned layers, or exactly one Material per offset when Materials are provided.
+
+Material Grid samples only Geometry with a colored Material. Unassigned Geometry remains visible in that mode as a wireframe overlay and does not mask colored Grid points.
 
 Every user-defined Geometry invocation requires an explicit string `id`. Local IDs are case-sensitive and may contain Unicode letters, numbers, `_`, and `-`. They must be unique under their nearest Geometry parent; Fragment and intrinsic CAD tags do not create identity boundaries. Global IDs join local IDs with `.`, so `<Assembly id="assembly"><Cell id="core" /></Assembly>` produces `assembly.core`.
 
