@@ -488,13 +488,19 @@ export function useCadWorkspace(
   }
 
   useEffect(() => {
+    const evaluationTimeouts = evaluationTimeoutsRef.current
     startWorker()
     return () => {
-      Object.keys(evaluationTimeoutsRef.current).forEach((key) => clearEvaluationTimeout(key as CadDocumentType))
+      Object.keys(evaluationTimeouts).forEach((key) => {
+        const documentType = key as CadDocumentType
+        const active = evaluationTimeouts[documentType]
+        if (active) window.clearTimeout(active.timeout)
+        delete evaluationTimeouts[documentType]
+      })
       workerRef.current?.terminate()
       workerRef.current = null
     }
-  }, [clearEvaluationTimeout, startWorker])
+  }, [startWorker])
 
   const processActive = process.status === 'preparing' || process.status === 'running'
   const canRun = !processActive

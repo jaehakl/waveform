@@ -17,6 +17,10 @@ const experiment = new Experiment({
     parameters: () => ({
       lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
+      gridShape: [100, 41, 41],
+      crossSectionPosition: 0.35,
+      relativeTolerance: 1e-8,
+      maxIterations: 2000,
     }),
   },
   geometry: () => (
@@ -37,7 +41,7 @@ const experiment = new Experiment({
   ),
   varsSchema: {
     electrodeOffset: { shape: [], default: 50.5 },
-    electrodeSize: { shape: [3], default: [1, 7, 7] },
+    electrodeSize: { shape: [3], default: [1, 14, 12] },
     sourceVoltage: { shape: [], default: 0.001 },
     referenceVoltage: { shape: [], default: 0 },
   },
@@ -66,10 +70,13 @@ const experiment = new Experiment({
       parameters: {},
       result: {
         type: 'tensor',
-        dimension: 1,
-        shape: [3],
+        dimension: 2,
+        shape: [-1, -1],
         dtype: 'float64',
-        axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+        axes: [
+          { name: 'cross-section v (m)' },
+          { name: 'cross-section u (m)' },
+        ],
       },
     },
     {

@@ -15,7 +15,7 @@ export const caembleExamples: readonly CaembleExample[] = Object.freeze([
   {
     id: 'dc-conductor',
     title: 'DC Conductor',
-    description: 'A copper bar with named conductor and terminal groups for the default DC solver example.',
+    description: 'An eccentric notched copper bar for the default 3D DC current-density heatmap solver.',
     code: defaultCode,
   },
   {

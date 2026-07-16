@@ -75,13 +75,24 @@ A Structure file default-exports a `Sample`; an Experiment file default-exports 
 ```tsx
 import { Material, Sample, Structure, type Geometry, type Vec3 } from '@caemble/core'
 
-const Conductor: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
+const Conductor: Geometry<{
+  notchPosition: Vec3
+  notchSize: Vec3
+  size: Vec3
+}> = ({ notchPosition, notchSize, size }) => (
+  <subtract>
+    <box size={size} />
+    <box pos={notchPosition} size={notchSize} />
+  </subtract>
+)
 
 const structure = new Structure({
   geometry: () => (
     <Conductor
       id="conductor"
       size={vars.conductorSize as Vec3}
+      notchPosition={vars.notchPosition as Vec3}
+      notchSize={vars.notchSize as Vec3}
       materials={[new Material('Copper', 'reference', {
         electricalConductivity: vars.electricalConductivity,
         color: '#d97706',
@@ -89,7 +100,9 @@ const structure = new Structure({
     />
   ),
   varsSchema: {
-    conductorSize: { shape: [3], default: [100, 5, 5] },
+    conductorSize: { shape: [3], default: [100, 12, 10] },
+    notchSize: { shape: [3], default: [30, 5, 5] },
+    notchPosition: { shape: [3], default: [0, 4.5, 2.5] },
     electricalConductivity: { shape: [], default: 5.96e7 },
   },
   geometryGroup: { conductor: ['conductor'] },
@@ -139,6 +152,10 @@ const experiment = new Experiment({
     parameters: () => ({
       lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
+      gridShape: [100, 41, 41],
+      crossSectionPosition: 0.35,
+      relativeTolerance: 1e-8,
+      maxIterations: 2000,
     }),
   },
   geometry: () => (
@@ -146,13 +163,13 @@ const experiment = new Experiment({
       <Terminal
         id="source-electrode"
         pos={[-50.5, 0, 0]}
-        size={[1, 7, 7]}
+        size={[1, 14, 12]}
         materials={[new Material('Source Electrode', { color: '#ef4444' })]}
       />
       <Terminal
         id="reference-electrode"
         pos={[50.5, 0, 0]}
-        size={[1, 7, 7]}
+        size={[1, 14, 12]}
         materials={[new Material('Reference Electrode', { color: '#2563eb' })]}
       />
     </>
@@ -183,10 +200,13 @@ const experiment = new Experiment({
       parameters: {},
       result: {
         type: 'tensor',
-        dimension: 1,
-        shape: [3],
+        dimension: 2,
+        shape: [-1, -1],
         dtype: 'float64',
-        axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+        axes: [
+          { name: 'cross-section v (m)' },
+          { name: 'cross-section u (m)' },
+        ],
       },
     },
     {
@@ -224,9 +244,11 @@ Experiment evaluation order is Setup vars resolution → global `vars` binding �
 
 `src/solver` is UI-independent. `SolverController.run(sample, setup)` evaluates both vars contexts, geometry, Materials, groups, solver parameters, and Experiment rules before dispatching by an exact, case-sensitive `name@version`. It permits one active run, passes an `AbortSignal` to the selected module, publishes immutable process snapshots through `getProcess()` and `subscribe()`, and validates/finalizes `RecordedData`. Duplicate module registration and unsupported identities fail explicitly. A future backend or external solver implements the same `SolverModule.solve(input, signal)` contract and may use `fetch`; no Controller or UI contract changes are required.
 
-The default `dc-current-density@1.0.0` JavaScript module is a browser-side mock for one uniform prismatic conductor. It requires exactly one Structure part with one Material, two distinct planar terminal surfaces on that part, positive `lengthScaleToMeters`, positive conductivity from the configured Material variable, two potential rules, and the exact float64 current-density and total-current schemas. Multiple parts, curved or misaligned terminals, missing Material data, extra rules, or incompatible schemas are rejected.
+The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
 
-Geometry length is converted to meters before calculation. With terminal-center distance `L`, conductor volume `V`, conductivity `σ`, and source-minus-reference potential `ΔV`, the module computes `J = σΔV/L`, `A = V/L`, and `I = |J|A`. The default `[100, 5, 5] mm` copper bar uses `σ = 5.96e7 S/m`, `ΔV = 1 mV`, and `lengthScaleToMeters = 0.001`, producing `Current density = [596000, 0, 0] A/m²` and `Total current = 14.9 A`.
+The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. `gridShape: [100, 41, 41]` and `crossSectionPosition: 0.35` sample the axial face near the notch entrance at approximately `x = -15 mm`. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap in `A/m²`; its two result axes carry the actual SI-coordinate ticks in meters. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral through that same face in amperes.
+
+This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema: an Experiment still declaring the old schema fails explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m` and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires positive finite SI scale and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
 
 Source edits and `Reroll` immediately mark an existing result **Stale** and never trigger a run. A failed or cancelled replacement keeps the last successful result with its error and stale marker. The shared Worker has no queue or run history. If a document evaluation times out, the Worker is restarted, the last scenes/results remain visible, the timed-out document becomes Error, and only the successful peer is restored automatically; retry the timed-out document by editing it or pressing `Reroll`.
 

@@ -58,7 +58,8 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain('boundaryConditions: () => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
-    expect(defaultExperimentCode).toContain("{ name: 'component', ticks: ['x', 'y', 'z'] }")
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section v (m)' }")
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section u (m)' }")
     expect(defaultExperimentCode).toContain("result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }")
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment)')
@@ -83,12 +84,16 @@ describe('compiled user module execution', () => {
       parameters: {
         lengthScaleToMeters: 0.001,
         conductivityVariable: 'electricalConductivity',
+        gridShape: [100, 41, 41],
+        crossSectionPosition: 0.35,
+        relativeTolerance: 1e-8,
+        maxIterations: 2000,
       },
     })
     expect(experimentRules).toBeDefined()
     expect(variables).toMatchObject({
       electrodeOffset: 50.5,
-      electrodeSize: [1, 7, 7],
+      electrodeSize: [1, 14, 12],
       sourceVoltage: 0.001,
       referenceVoltage: 0,
     })
@@ -100,10 +105,13 @@ describe('compiled user module execution', () => {
     expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([0.001, 0])
     expect(experimentRules?.recordedData[0].result).toEqual({
       type: 'tensor',
-      dimension: 1,
-      shape: [3],
+      dimension: 2,
+      shape: [-1, -1],
       dtype: 'float64',
-      axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+      axes: [
+        { name: 'cross-section v (m)' },
+        { name: 'cross-section u (m)' },
+      ],
     })
     expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
       'Current density',
@@ -129,7 +137,9 @@ describe('compiled user module execution', () => {
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain('electricalConductivity: vars.electricalConductivity')
-    expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 5, 5] }')
+    expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 12, 10] }')
+    expect(defaultCode).toContain('notchSize: { shape: [3], default: [30, 5, 5] }')
+    expect(defaultCode).toContain('notchPosition: { shape: [3], default: [0, 4.5, 2.5] }')
     expect(defaultCode).toContain("geometryGroup: {\n    conductor: ['conductor']")
     expect(defaultCode).toContain("sourceTerminal: ['conductor/surface-1']")
 
@@ -153,6 +163,16 @@ describe('compiled user module execution', () => {
     })
     expect(geometryGroups[0]).toMatchObject({ name: 'conductor', geometryIds: ['conductor'] })
     expect(surfaceGroups.map((group) => group.name)).toEqual(['sourceTerminal', 'referenceTerminal'])
+    if (!geometries.geom3.isA(parts[0].geometry)) throw new Error('Expected the default conductor to be a geom3 solid.')
+    const polygons = geometries.geom3.toPolygons(parts[0].geometry)
+    const sourceSurface = parts[0].surfaces.find(({ id }) => id === 'conductor/surface-1')!
+    const referenceSurface = parts[0].surfaces.find(({ id }) => id === 'conductor/surface-2')!
+    const sourceX = sourceSurface.polygonIndices.flatMap((index) => polygons[index].vertices.map((vertex) => vertex[0]))
+    const referenceX = referenceSurface.polygonIndices.flatMap((index) => polygons[index].vertices.map((vertex) => vertex[0]))
+    expect(sourceX.every((x) => Math.abs(x + 50) < 1e-3)).toBe(true)
+    expect(referenceX.every((x) => Math.abs(x - 50) < 1e-3)).toBe(true)
+    expect(geometries.poly3.plane(polygons[sourceSurface.polygonIndices[0]])[0]).toBeCloseTo(-1, 8)
+    expect(geometries.poly3.plane(polygons[referenceSurface.polygonIndices[0]])[0]).toBeCloseTo(1, 8)
     parts.forEach((part) => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)

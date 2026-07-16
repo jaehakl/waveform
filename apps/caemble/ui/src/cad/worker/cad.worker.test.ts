@@ -47,6 +47,10 @@ const experiment = new Experiment({
     parameters: () => ({
       lengthScaleToMeters: 0.001,
       conductivityVariable: 'electricalConductivity',
+      gridShape: [20, 11, 11],
+      crossSectionPosition: 0.5,
+      relativeTolerance: 1e-10,
+      maxIterations: 1000,
     }),
   },
   geometry: () => h(Probe, { id: 'probe' }),
@@ -73,10 +77,13 @@ const experiment = new Experiment({
       parameters: {},
       result: {
         type: 'tensor',
-        dimension: 1,
-        shape: [3],
+        dimension: 2,
+        shape: [-1, -1],
         dtype: 'float64',
-        axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+        axes: [
+          { name: 'cross-section v (m)' },
+          { name: 'cross-section u (m)' },
+        ],
       },
     },
     {
@@ -153,12 +160,14 @@ describe('persistent CAD Worker', () => {
       experimentRevision: 2,
     })
     const success = await waitForResponse('solver-success', 'valid-run')
-    expect(success).toMatchObject({
-      recordedData: {
-        'Current density': { value: [596000, 0, 0] },
-        'Total current': { value: 14.9 },
-      },
-    })
+    if (success.type !== 'solver-success') throw new Error('Expected a solver-success response.')
+    const heatmap = success.recordedData['Current density'].value as number[][]
+    expect(heatmap).toHaveLength(11)
+    expect(heatmap.every((row) => row.length === 11)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(value - 596000) < 1e-6)).toBe(true)
+    expect(success.recordedData['Current density'].axes?.[0].ticks).toHaveLength(11)
+    expect(success.recordedData['Current density'].axes?.[1].ticks).toHaveLength(11)
+    expect(success.recordedData['Total current'].value).toBeCloseTo(14.9, 9)
 
     dispatch({
       type: 'run-solver',

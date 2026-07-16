@@ -189,24 +189,36 @@ function SyntaxHelp() {
 
               <p className="mt-3 font-semibold text-slate-800">Default DC Current Density Solver</p>
               <p className="mt-1">
-                The default Structure is a <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 5, 5] mm</code>{' '}
-                copper bar with <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
-                5.96e7 S/m</code>, one conductor group, and named -X/+X terminal surfaces. Its Experiment selects{' '}
+                The default Structure is a <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
+                copper bar with an eccentric <code className="rounded bg-white px-1 py-0.5 text-xs">[30, 5, 5] mm</code>{' '}
+                corner notch, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
+                5.96e7 S/m</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>, uses{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters = 0.001</code>, and applies
-                1 mV and 0 V to those terminals. The expected uniform outputs are{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">[596000, 0, 0] A/m²</code> and{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
+                <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>, and samples
+                the axial face near the notch entrance with{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">crossSectionPosition = 0.35</code>. Geometry
+                and result coordinates are converted to SI with{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters = 0.001</code>.
               </p>
               <p className="mt-1">
-                This browser JavaScript module is intentionally a mock. It computes{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">J = σΔV/L</code>,{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">A = volume/L</code>, and{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">I = |J|A</code> for one uniform prismatic
-                Structure part with one Material and two distinct, planar, aligned terminal surfaces. It rejects
-                multiple parts, missing or non-positive conductivity/scale, curved terminals, extra rules, and wrong
-                output schemas. Future browser or API-backed modules use the same UI-independent SolverModule contract;
-                an API module may perform fetch while honoring the supplied AbortSignal.
+                The Worker builds a cell-centered voxel finite-volume system for{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">∇·(σ∇V) = 0</code>, applies 1 mV/0 V
+                Dirichlet terminals and insulating conditions elsewhere, and solves it with Jacobi-preconditioned
+                conjugate gradient. The signed source-to-reference axial current density is returned as a float64{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">41×41</code> heatmap in A/m² with u/v ticks
+                in meters; exterior and notch cells are zero. Total current is the absolute signed flux integral in
+                amperes. A uniform <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 5, 5] mm</code>{' '}
+                verification bar converges to <code className="rounded bg-white px-1 py-0.5 text-xs">596000 A/m²</code>{' '}
+                and <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
+              </p>
+              <p className="mt-1">
+                The v1 2D heatmap schema intentionally breaks the former three-component vector schema. Resolution
+                affects notch details, so refine the grid and compare flux before treating a result as converged.
+                Runs are limited to 250,000 voxels and one connected, homogeneous, isotropic Material part with two
+                planar opposing terminals; invalid inputs or PCG nonconvergence fail without replacing the last
+                successful result. Occupancy and PCG yield periodically so Cancel is effective. Future browser or
+                API-backed modules use the same UI-independent SolverModule contract; an API module may perform fetch
+                while honoring the supplied AbortSignal.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

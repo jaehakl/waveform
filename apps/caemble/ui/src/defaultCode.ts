@@ -6,8 +6,15 @@ export const defaultCode = `import {
   type Vec3,
 } from '@caemble/core'
 
-const Conductor: Geometry<{ size: Vec3 }> = ({ size }) => (
-  <box size={size} />
+const Conductor: Geometry<{
+  notchPosition: Vec3
+  notchSize: Vec3
+  size: Vec3
+}> = ({ notchPosition, notchSize, size }) => (
+  <subtract>
+    <box size={size} />
+    <box pos={notchPosition} size={notchSize} />
+  </subtract>
 )
 
 const structure = new Structure({
@@ -15,6 +22,8 @@ const structure = new Structure({
     <Conductor
       id="conductor"
       size={vars.conductorSize as Vec3}
+      notchPosition={vars.notchPosition as Vec3}
+      notchSize={vars.notchSize as Vec3}
       materials={[
         new Material('Copper', 'reference', {
           electricalConductivity: vars.electricalConductivity,
@@ -24,7 +33,9 @@ const structure = new Structure({
     />
   ),
   varsSchema: {
-    conductorSize: { shape: [3], default: [100, 5, 5] },
+    conductorSize: { shape: [3], default: [100, 12, 10] },
+    notchSize: { shape: [3], default: [30, 5, 5] },
+    notchPosition: { shape: [3], default: [0, 4.5, 2.5] },
     electricalConductivity: { shape: [], default: 5.96e7 },
   },
   geometryGroup: {
