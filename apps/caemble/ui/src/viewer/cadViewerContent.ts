@@ -1,9 +1,10 @@
-import type { CadScene, Vars } from '../cad'
+import type { CadScene, EvaluatedExperimentRules, Vars } from '../cad'
 import type { JscadViewerLayer } from './sourceLayers'
 
 export type CadViewerDocument = Readonly<{
   scene: CadScene | null
   variables: Readonly<Vars> | null
+  experimentRules?: EvaluatedExperimentRules | null
 }>
 
 export function resolveCadViewerContent(

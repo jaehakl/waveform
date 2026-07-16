@@ -160,9 +160,19 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
                   {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\' }'}
-                </code>, which normalizes to an empty axes array. Result axes use the same optional metadata and are
-                shown read-only; this workspace does not accept solver result values and does not provide a Result
-                tab or result visualization.
+                </code>, which normalizes to an empty axes array. Result shapes, unlike parameter shapes, may use{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">-1</code> on multiple axes. A wildcard axis
+                may declare its name but must omit source ticks; its length and optional ticks are resolved from the
+                matching result payload, falling back to zero-based indices.
+              </p>
+              <p className="mt-1">
+                CadViewer recordedData is a dictionary keyed by the unique recorded rule label. Each entry contains{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">{'{ value, axes?: [{ ticks? }] }'}</code>;
+                dtype, dimension, shape, and axis names remain defined by Experiment Source. Results appears whenever
+                recorded rules exist, shows empty plot shells before values arrive, and renders 0D scalars, numeric
+                1D line charts, numeric 2D heatmaps, and bool/string tables. Higher-dimensional tensors use leading
+                axis selectors and visualize the final two axes. Result plots are read-only and their validation
+                errors do not change CAD compile or render status.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

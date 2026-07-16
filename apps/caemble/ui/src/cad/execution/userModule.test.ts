@@ -107,6 +107,28 @@ describe('compiled user module execution', () => {
       dtype: 'float64',
       axes: [],
     })
+    expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
+      'Domain average',
+      'Centerline profile',
+      'Layer field',
+    ])
+    expect(experimentRules?.recordedData[1].result).toEqual({
+      type: 'tensor',
+      dimension: 1,
+      shape: [3],
+      dtype: 'float32',
+      axes: [{ name: 'position', ticks: [0, 0.5, 1] }],
+    })
+    expect(experimentRules?.recordedData[2].result).toEqual({
+      type: 'tensor',
+      dimension: 2,
+      shape: [2, 3],
+      dtype: 'float32',
+      axes: [
+        { name: 'layer', ticks: ['lower', 'upper'] },
+        { name: 'position', ticks: [0, 0.5, 1] },
+      ],
+    })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(1)
     expect(scene.parts[0]).toMatchObject({

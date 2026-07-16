@@ -91,6 +91,30 @@ describe('JscadViewer modes', () => {
     expect(markup).toMatch(/<button[^>]*aria-label="Toggle structure"[^>]*aria-pressed="true"/)
     expect(markup).toMatch(/<button[^>]*aria-label="Toggle experiment"[^>]*aria-pressed="false"[^>]*disabled/)
   })
+
+  it('adds the conditional Results tab and hides geometry-only controls in Results mode', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerToolbar
+        availableSources={['structure', 'experiment']}
+        gridError={null}
+        gridResult={null}
+        gridStatus="idle"
+        hasResults
+        mode="results"
+        spacingDraft="1"
+        spacingError={null}
+        visibleSources={['structure', 'experiment']}
+        onApplySpacing={() => undefined}
+        onChangeSpacing={() => undefined}
+        onSelectMode={() => undefined}
+        onToggleSource={() => undefined}
+      />,
+    )
+
+    expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="viewer-results-tab"/)
+    expect(markup).not.toContain('aria-label="Viewer sources"')
+    expect(markup).not.toContain('id="material-grid-spacing"')
+  })
 })
 
 describe('JscadViewer source layers', () => {

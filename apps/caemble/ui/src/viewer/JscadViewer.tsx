@@ -1,7 +1,9 @@
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
-import type { CadDocumentType, CadScenePart } from '../cad'
+import type { CadDocumentType, CadScenePart, RecordedDataRule } from '../cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
+import RecordedDataResults from './RecordedDataResults'
+import type { CadViewerRecordedData } from './recordedData'
 import type {
   MaterialGridResult,
   MaterialGridWorkerRequest,
@@ -60,7 +62,7 @@ type PointGeometry = Readonly<{
   positions: Float32Array
 }>
 
-type ViewerMode = 'geometry' | 'material-grid'
+export type ViewerMode = 'geometry' | 'material-grid' | 'results'
 type MaterialGridStatus = 'idle' | 'calculating' | 'ready' | 'error'
 
 type MaterialGridSnapshot = Readonly<{
@@ -77,6 +79,8 @@ type JscadViewerProps = {
   onRenderError: (message: string) => void
   onRenderStart: () => void
   onToggleSource?: (documentType: CadDocumentType) => void
+  recordedData?: CadViewerRecordedData | null
+  recordedDataRules?: readonly RecordedDataRule[]
   selected: JscadViewerSelection | null
   visibleSources?: readonly CadDocumentType[]
 }
@@ -86,6 +90,7 @@ type ViewerToolbarProps = {
   gridError: string | null
   gridResult: MaterialGridResult | null
   gridStatus: MaterialGridStatus
+  hasResults?: boolean
   mode: ViewerMode
   onApplySpacing: () => void
   onChangeSpacing: (value: string) => void
@@ -161,6 +166,7 @@ export function ViewerToolbar({
   gridError,
   gridResult,
   gridStatus,
+  hasResults = false,
   mode,
   onApplySpacing,
   onChangeSpacing,
@@ -172,16 +178,24 @@ export function ViewerToolbar({
 }: ViewerToolbarProps) {
   const appliedSpacingChanged = gridResult && gridResult.effectiveSpacing !== gridResult.requestedSpacing
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const targetMode = event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'Home'
-      ? 'geometry'
-      : event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'End'
-        ? 'material-grid'
-        : null
+    const modes: ViewerMode[] = hasResults
+      ? ['geometry', 'material-grid', 'results']
+      : ['geometry', 'material-grid']
+    const currentIndex = modes.indexOf(mode)
+    const targetMode = event.key === 'Home'
+      ? modes[0]
+      : event.key === 'End'
+        ? modes[modes.length - 1]
+        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+          ? modes[(currentIndex - 1 + modes.length) % modes.length]
+          : event.key === 'ArrowRight' || event.key === 'ArrowDown'
+            ? modes[(currentIndex + 1) % modes.length]
+            : undefined
     if (!targetMode) return
 
     event.preventDefault()
     onSelectMode(targetMode)
-    document.getElementById(targetMode === 'geometry' ? 'viewer-geometry-tab' : 'viewer-material-grid-tab')?.focus()
+    document.getElementById(`viewer-${targetMode}-tab`)?.focus()
   }
 
   return (
@@ -221,9 +235,28 @@ export function ViewerToolbar({
         >
           Material Grid
         </button>
+        {hasResults ? (
+          <button
+            aria-controls="viewer-render-panel"
+            aria-selected={mode === 'results'}
+            className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+              mode === 'results'
+                ? 'border-slate-900 text-slate-950'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+            id="viewer-results-tab"
+            role="tab"
+            tabIndex={mode === 'results' ? 0 : -1}
+            type="button"
+            onClick={() => onSelectMode('results')}
+            onKeyDown={handleTabKeyDown}
+          >
+            Results
+          </button>
+        ) : null}
       </div>
 
-      {onToggleSource ? (
+      {onToggleSource && mode !== 'results' ? (
         <div aria-label="Viewer sources" className="flex items-center gap-1 border-l border-slate-200 pl-3">
           {(['structure', 'experiment'] as const).map((documentType) => {
             const available = availableSources.includes(documentType)
@@ -318,6 +351,8 @@ function JscadViewer({
   onRenderError,
   onRenderStart,
   onToggleSource,
+  recordedData,
+  recordedDataRules = [],
   selected,
   visibleSources,
 }: JscadViewerProps) {
@@ -364,6 +399,11 @@ function JscadViewer({
     ? gridSnapshot.result
     : null
   const hasColoredGeometry = parts.some((part) => materialColor(part.material) !== undefined)
+  const hasResults = recordedDataRules.length > 0
+
+  useEffect(() => {
+    if (!hasResults && viewerMode === 'results') setViewerMode('geometry')
+  }, [hasResults, viewerMode])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -509,6 +549,7 @@ function JscadViewer({
   }, [gridApplyVersion, onRenderEnd, onRenderStart, parts, requestedSpacing, viewerMode])
 
   useEffect(() => {
+    if (viewerMode === 'results') return
     if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
 
     const shouldFit = lastFittedPartsRef.current !== parts
@@ -619,6 +660,7 @@ function JscadViewer({
         gridError={gridError}
         gridResult={currentGridResult}
         gridStatus={gridStatus}
+        hasResults={hasResults}
         mode={viewerMode}
         spacingDraft={spacingDraft}
         spacingError={spacingError}
@@ -630,14 +672,14 @@ function JscadViewer({
       />
 
       <div
-        aria-labelledby={viewerMode === 'geometry' ? 'viewer-geometry-tab' : 'viewer-material-grid-tab'}
+        aria-labelledby={`viewer-${viewerMode}-tab`}
         className="relative min-h-0 flex-1 overflow-hidden"
         id="viewer-render-panel"
         role="tabpanel"
       >
         <canvas
           ref={canvasRef}
-          className="block h-full w-full cursor-grab active:cursor-grabbing"
+          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full cursor-grab active:cursor-grabbing`}
           data-viewer-canvas="true"
           onContextMenu={(event) => event.preventDefault()}
           onPointerDown={(event) => {
@@ -685,7 +727,11 @@ function JscadViewer({
           }}
         />
 
-        {parts.length === 0 ? (
+        {viewerMode === 'results' ? (
+          <RecordedDataResults recordedData={recordedData} rules={recordedDataRules} />
+        ) : null}
+
+        {viewerMode !== 'results' && parts.length === 0 ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
             {emptyMessage}
           </div>
@@ -706,7 +752,7 @@ function JscadViewer({
           </div>
         ) : null}
 
-        {parts.length > 0 ? (
+        {viewerMode !== 'results' && parts.length > 0 ? (
           <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
             {[...new Set(parts.map((part) => part.material))].map((material, index) => {
@@ -737,7 +783,7 @@ function JscadViewer({
           </div>
         ) : null}
 
-        {selection ? (
+        {viewerMode !== 'results' && selection ? (
           <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
             <div className="mt-0.5 truncate text-xs font-medium text-slate-800">

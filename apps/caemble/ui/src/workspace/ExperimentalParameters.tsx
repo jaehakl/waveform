@@ -30,7 +30,15 @@ function isTensorParameter(value: unknown): value is ExperimentTensorParameter {
   return typeof value === 'object' && value !== null && 'type' in value && value.type === 'tensor'
 }
 
-function TensorAxes({ axes, label }: { axes?: readonly ExperimentTensorAxis[]; label: string }) {
+function TensorAxes({
+  axes,
+  label,
+  shape,
+}: {
+  axes?: readonly ExperimentTensorAxis[]
+  label: string
+  shape?: readonly number[]
+}) {
   if (!axes) return null
 
   return (
@@ -44,7 +52,7 @@ function TensorAxes({ axes, label }: { axes?: readonly ExperimentTensorAxis[]; l
             <div className="grid gap-1 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]" key={`${axis.name}-${index}`}>
               <span className="font-medium text-slate-700">{axis.name ?? `axis ${index}`}</span>
               <code className="overflow-x-auto whitespace-nowrap text-slate-600">
-                {JSON.stringify(axis.ticks ?? [])}
+                {shape?.[index] === -1 ? 'dynamic ticks from result' : JSON.stringify(axis.ticks ?? [])}
               </code>
             </div>
           ))}
@@ -133,7 +141,7 @@ function TensorParameterEditor({
         </div>
       </div>
 
-      <TensorAxes axes={parameter.axes} label={`${ruleLabel} ${parameterKey} axes`} />
+      <TensorAxes axes={parameter.axes} label={`${ruleLabel} ${parameterKey} axes`} shape={parameter.shape} />
 
       <textarea
         aria-label={`${ruleLabel} ${parameterKey} tensor JSON`}
@@ -202,7 +210,11 @@ function RuleCard({
           <div className="mt-1 font-mono">
             {rule.result.dtype} · {rule.result.dimension}D · shape {JSON.stringify(rule.result.shape)}
           </div>
-          <TensorAxes axes={rule.result.axes} label={`${rule.label} result axes`} />
+          <TensorAxes
+            axes={rule.result.axes}
+            label={`${rule.label} result axes`}
+            shape={rule.result.shape}
+          />
         </div>
       ) : null}
 

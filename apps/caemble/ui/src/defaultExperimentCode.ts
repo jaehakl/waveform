@@ -118,6 +118,35 @@ const experiment = new Experiment<
       parameters: { interval: vars.recordInterval as number },
       result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
     },
+    {
+      target: ['experiment.geometry.domain'],
+      label: 'Centerline profile',
+      methodId: 'field.profile',
+      parameters: { interval: vars.recordInterval as number },
+      result: {
+        type: 'tensor',
+        dimension: 1,
+        shape: [3],
+        dtype: 'float32',
+        axes: [{ name: 'position', ticks: [0, 0.5, 1] }],
+      },
+    },
+    {
+      target: ['experiment.geometry.domain'],
+      label: 'Layer field',
+      methodId: 'field.snapshot',
+      parameters: { interval: vars.recordInterval as number },
+      result: {
+        type: 'tensor',
+        dimension: 2,
+        shape: [2, 3],
+        dtype: 'float32',
+        axes: [
+          { name: 'layer', ticks: ['lower', 'upper'] },
+          { name: 'position', ticks: [0, 0.5, 1] },
+        ],
+      },
+    },
   ],
 })
 

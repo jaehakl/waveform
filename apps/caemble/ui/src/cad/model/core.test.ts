@@ -491,6 +491,9 @@ describe('Experiment and Setup', () => {
     expect(() => normalizeExperimentTensorParameter({
       type: 'tensor', dimension: 1, shape: [0], dtype: 'float64', value: [],
     })).toThrow('must be a positive safe integer')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [-1], dtype: 'float64', value: [],
+    })).toThrow('must be a positive safe integer')
   })
 
   it('rejects invalid common row fields and duplicate labels within a category', () => {
@@ -548,7 +551,7 @@ describe('Experiment and Setup', () => {
     })).toThrow('recordedData must be a function')
   })
 
-  it('requires a fixed tensor result schema for recorded data and permits 0D results', () => {
+  it('requires a tensor result schema and permits 0D and dynamic recorded result shapes', () => {
     const createRecordedExperiment = (result: unknown, includeResult = true) => new Experiment({
       solver: createSolver(),
       geometry: () => null,
@@ -571,6 +574,35 @@ describe('Experiment and Setup', () => {
     expect(evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
     })).recordedData[0].result.axes).toEqual([])
+    const dynamicResult = evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor',
+      dimension: 2,
+      shape: [-1, -1],
+      dtype: 'float32',
+      axes: [{ name: 'row' }, {}],
+    })).recordedData[0].result
+    expect(dynamicResult).toEqual({
+      type: 'tensor',
+      dimension: 2,
+      shape: [-1, -1],
+      dtype: 'float32',
+      axes: [{ name: 'row' }, { name: 'axis 1' }],
+    })
+    expect(Object.isFrozen(dynamicResult.shape)).toBe(true)
+    expect(Object.isFrozen(dynamicResult.axes)).toBe(true)
+    expect(Object.isFrozen(dynamicResult.axes?.[0])).toBe(true)
+    expect(() => evaluateExperimentRules(createRecordedExperiment({
+      type: 'tensor',
+      dimension: 1,
+      shape: [-1],
+      dtype: 'float64',
+      axes: [{ name: 'time', ticks: [0] }],
+    }))).toThrow('ticks must be omitted when shape[0] is -1')
+    ;[0, -2].forEach((size) => {
+      expect(() => evaluateExperimentRules(createRecordedExperiment({
+        type: 'tensor', dimension: 1, shape: [size], dtype: 'float64',
+      }))).toThrow('must be -1 or a positive safe integer')
+    })
     expect(() => evaluateExperimentRules(createRecordedExperiment(undefined, false))).toThrow(
       'must contain a result tensor descriptor',
     )

@@ -72,4 +72,32 @@ describe('CadViewer', () => {
     expect(hidden.layers).toEqual([])
     expect(hidden.emptyMessage).toBe('All Structure and Experiment sources are hidden.')
   })
+
+  it('shows Results only when the Experiment exposes recorded rules', () => {
+    const experimentRules = {
+      initialConditions: [],
+      boundaryConditions: [],
+      recordedData: [{
+        target: ['experiment.geometry.domain'] as const,
+        label: 'Domain average',
+        methodId: 'field.average',
+        parameters: {},
+        result: { type: 'tensor' as const, dimension: 0, shape: [], dtype: 'float64' as const, axes: [] },
+      }],
+    }
+    const markup = renderToStaticMarkup(
+      <CadViewer
+        experiment={{ scene: experimentScene, variables: {}, experimentRules }}
+        recordedData={{ 'Domain average': { value: 0.5 } }}
+        selected={null}
+        structure={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('id="viewer-results-tab"')
+    expect(markup).toContain('>Results</button>')
+  })
 })

@@ -65,9 +65,10 @@ function App() {
     variables: structureDocument.variables,
   }), [structureDocument.scene, structureDocument.variables])
   const experimentViewerDocument = useMemo(() => ({
+    experimentRules: experimentDocument.experimentRules,
     scene: experimentDocument.scene,
     variables: experimentDocument.variables,
-  }), [experimentDocument.scene, experimentDocument.variables])
+  }), [experimentDocument.experimentRules, experimentDocument.scene, experimentDocument.variables])
   const activeDocument = activeDocumentType === 'structure' ? structureDocument : experimentDocument
   const viewerSelection = useMemo(() => activeDocument.selection ? {
     documentType: activeDocumentType,

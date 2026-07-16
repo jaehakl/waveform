@@ -619,7 +619,12 @@ function assertDescriptorKeys(value: Record<string, unknown>, expected: readonly
   }
 }
 
-function normalizeTensorAxes(value: unknown, shape: readonly number[], path: string) {
+function normalizeTensorAxes(
+  value: unknown,
+  shape: readonly number[],
+  path: string,
+  allowDynamicShape: boolean,
+) {
   if (value !== undefined && !Array.isArray(value)) {
     throw new CadModelError(`${path}.axes must be an array.`)
   }
@@ -641,6 +646,13 @@ function normalizeTensorAxes(value: unknown, shape: readonly number[], path: str
     const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
     if (typeof name !== 'string' || !name.trim()) {
       throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
+    }
+
+    if (allowDynamicShape && shape[axisIndex] === -1) {
+      if (Object.prototype.hasOwnProperty.call(rawAxis, 'ticks')) {
+        throw new CadModelError(`${axisPath}.ticks must be omitted when shape[${axisIndex}] is -1.`)
+      }
+      return Object.freeze({ name: name.trim() })
     }
 
     const rawTicks = rawAxis.ticks === undefined
@@ -667,6 +679,7 @@ function normalizeTensorSchema(
   value: Record<string, unknown>,
   path: string,
   minimumDimension: number,
+  allowDynamicShape = false,
 ) {
   if (!Number.isSafeInteger(value.dimension) || (value.dimension as number) < minimumDimension) {
     throw new CadModelError(`${path}.dimension must be a safe integer greater than or equal to ${minimumDimension}.`)
@@ -675,10 +688,15 @@ function normalizeTensorSchema(
     throw new CadModelError(`${path}.shape must be an array.`)
   }
   const shape = Array.from(value.shape, (size, index) => {
-    if (!Number.isSafeInteger(size) || size <= 0) {
-      throw new CadModelError(`${path}.shape[${index}] must be a positive safe integer.`)
+    if (!Number.isSafeInteger(size) || (size as number) <= 0) {
+      if (allowDynamicShape && size === -1) return -1
+      throw new CadModelError(
+        allowDynamicShape
+          ? `${path}.shape[${index}] must be -1 or a positive safe integer.`
+          : `${path}.shape[${index}] must be a positive safe integer.`,
+      )
     }
-    return size
+    return size as number
   })
   if (value.dimension !== shape.length) {
     throw new CadModelError(
@@ -689,7 +707,7 @@ function normalizeTensorSchema(
     throw new CadModelError(`${path}.dtype must be a supported tensor dtype.`)
   }
   return {
-    axes: normalizeTensorAxes(value.axes, shape, path),
+    axes: normalizeTensorAxes(value.axes, shape, path, allowDynamicShape),
     dimension: value.dimension as number,
     dtype: value.dtype as ExperimentTensorDType,
     shape: Object.freeze(shape),
@@ -720,7 +738,11 @@ function tensorShapeError(path: string, value: unknown, shape: readonly number[]
   )
 }
 
-function normalizeTensorElement(value: unknown, dtype: ExperimentTensorDType, path: string) {
+export function normalizeExperimentTensorElement(
+  value: unknown,
+  dtype: ExperimentTensorDType,
+  path: string,
+) {
   if (dtype === 'bool') {
     if (typeof value !== 'boolean') throw new CadModelError(`${path} must be a bool element.`)
     return value
@@ -761,7 +783,7 @@ function normalizeTensorValue(
 ): boolean | string | number | readonly unknown[] {
   if (depth === shape.length) {
     if (Array.isArray(value)) throw tensorShapeError(rootPath, rootValue, shape)
-    return normalizeTensorElement(value, dtype, path)
+    return normalizeExperimentTensorElement(value, dtype, path)
   }
   if (!Array.isArray(value) || value.length !== shape[depth] || ancestors.has(value)) {
     throw tensorShapeError(rootPath, rootValue, shape)
@@ -863,7 +885,7 @@ function normalizeRecordedDataResult(value: unknown, path: string): RecordedData
   assertDescriptorKeys(value, descriptorKeys, path)
   return Object.freeze({
     type: 'tensor' as const,
-    ...normalizeTensorSchema(value, path, 0),
+    ...normalizeTensorSchema(value, path, 0, true),
   })
 }
 

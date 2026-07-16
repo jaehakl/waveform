@@ -85,7 +85,7 @@ describe('StructureExperimentViewer', () => {
     expect(emptySourceMarkup).not.toContain('No modeling source')
   })
 
-  it('never exposes the excluded Result tab', () => {
+  it('keeps the right-side Results mode out of the left workspace tabs', () => {
     const markup = renderToStaticMarkup(
       <ViewerHarness activeDocumentType="experiment" experiment="experiment source" />,
     )

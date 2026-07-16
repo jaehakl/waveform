@@ -1,0 +1,114 @@
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it } from 'vitest'
+import type { RecordedDataRule } from '../cad'
+import RecordedDataResults from './RecordedDataResults'
+
+function rule(
+  label: string,
+  shape: readonly number[],
+  dtype: RecordedDataRule['result']['dtype'],
+): RecordedDataRule {
+  return {
+    target: ['experiment.geometry.domain'],
+    label,
+    methodId: `field.${label.toLowerCase().replace(/ /g, '-')}`,
+    parameters: {},
+    result: {
+      type: 'tensor',
+      dimension: shape.length,
+      shape,
+      dtype,
+      axes: shape.map((size, index) => ({
+        name: `axis ${index}`,
+        ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
+      })),
+    },
+  }
+}
+
+describe('RecordedDataResults', () => {
+  const rules = [
+    rule('Average', [], 'float64'),
+    rule('Profile', [3], 'float32'),
+    rule('Field', [2, 3], 'float32'),
+  ]
+
+  it('shows schema-driven scalar, chart, and heatmap shells without values', () => {
+    const markup = renderToStaticMarkup(<RecordedDataResults rules={rules} />)
+
+    expect(markup).toContain('aria-label="Recorded Data Results"')
+    expect(markup).toContain('data-result-visualization="scalar"')
+    expect(markup).toContain('data-result-visualization="line chart"')
+    expect(markup).toContain('data-result-visualization="heatmap"')
+    expect(markup.match(/No recorded data/g)).toHaveLength(3)
+    expect(markup).toContain('expected [2,3]')
+  })
+
+  it('shows valid scalar data and isolates unknown labels and shape errors', () => {
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        rules={rules}
+        recordedData={{
+          Average: { value: 0.5 },
+          Profile: { value: [1, 2] },
+          Unknown: { value: 1 },
+        }}
+      />,
+    )
+
+    expect(markup).toContain('Unknown recordedData labels: Unknown')
+    expect(markup).toContain('aria-label="Recorded scalar value"')
+    expect(markup).toContain('>0.5</div>')
+    expect(markup).toContain('actual shape [2]; expected shape [3]')
+    expect(markup).toContain('aria-label="Profile empty line chart"')
+  })
+
+  it('renders N-dimensional string slices with leading-axis selectors and a matrix table', () => {
+    const textRule = rule('Labels', [2, 2, 2], 'string')
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        rules={[textRule]}
+        recordedData={{
+          Labels: { value: [
+            [['a', 'b'], ['c', 'd']],
+            [['e', 'f'], ['g', 'h']],
+          ] },
+        }}
+      />,
+    )
+
+    expect(markup).toContain('aria-label="Select axis 0 slice"')
+    expect(markup).toContain('0: 0:0')
+    expect(markup).toContain('>a</td>')
+    expect(markup).toContain('>d</td>')
+    expect(markup).not.toContain('>e</td>')
+  })
+
+  it('lazy-loads Plotly for populated numeric line and heatmap plots', () => {
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        rules={rules.slice(1)}
+        recordedData={{
+          Profile: { value: [1, 2, 3] },
+          Field: { value: [[1, 2, 3], [4, 5, 6]] },
+        }}
+      />,
+    )
+
+    expect(markup).toContain('Loading line chart...')
+    expect(markup).toContain('Loading heatmap...')
+  })
+
+  it('renders a resolved empty wildcard tensor without attempting an invalid slice', () => {
+    const emptyRule = rule('Dynamic empty', [-1, -1, -1], 'float32')
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        rules={[emptyRule]}
+        recordedData={{ 'Dynamic empty': { value: [] } }}
+      />,
+    )
+
+    expect(markup).toContain('No recorded values')
+    expect(markup).toContain('Resolved empty tensor · actual [0,0,0]')
+  })
+})

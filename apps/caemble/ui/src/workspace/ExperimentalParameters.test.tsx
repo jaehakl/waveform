@@ -24,13 +24,24 @@ const rules: EvaluatedExperimentRules = {
     },
   }],
   boundaryConditions: [],
-  recordedData: [{
-    target: ['structure.geometry.sample'],
-    label: 'Domain average',
-    methodId: 'field.average',
-    parameters: { interval: 10 },
-    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [] },
-  }],
+  recordedData: [
+    {
+      target: ['structure.geometry.sample'],
+      label: 'Domain average',
+      methodId: 'field.average',
+      parameters: { interval: 10 },
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [] },
+    },
+    {
+      target: ['structure.geometry.sample'],
+      label: 'Dynamic profile',
+      methodId: 'field.profile',
+      parameters: { interval: 10 },
+      result: {
+        type: 'tensor', dimension: 1, shape: [-1], dtype: 'float32', axes: [{ name: 'time' }],
+      },
+    },
+  ],
 }
 
 const source = `import { Experiment, Setup } from '@caemble/core'
@@ -80,6 +91,8 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('float64 · 0D · shape []')
     expect(markup).toContain('aria-label="Domain average result axes"')
     expect(markup).toContain('[] (0D tensor)')
+    expect(markup).toContain('Dynamic profile')
+    expect(markup).toContain('dynamic ticks from result')
     expect(markup).toContain('1 scalar parameter hidden here')
     expect(markup).not.toContain('>scalarOnly<')
     expect(markup).not.toContain('Result value')
