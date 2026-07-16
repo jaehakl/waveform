@@ -5,6 +5,7 @@ import type {
   CadWorkerRequest,
   CadWorkerResponse,
   EvaluatedExperimentRules,
+  Vars,
 } from '../cad'
 import { resolveCadSceneDraftSelection, resolveCadSceneSelection } from '../cad/evaluation/selection'
 import type { StructureGroupMap } from '../cad/model/core'
@@ -42,15 +43,20 @@ export function useCadDocument(
   const [error, setError] = useState<RunError | null>(null)
   const [experimentRules, setExperimentRules] = useState<EvaluatedExperimentRules | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
+  const [variables, setVariables] = useState<Readonly<Vars> | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
-  const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(44)
   const activeTimeoutRef = useRef<number | null>(null)
   const activeWorkerRef = useRef<Worker | null>(null)
   const latestRequestIdRef = useRef('')
   const pendingRunRef = useRef<number | null>(null)
-  const workspaceRef = useRef<HTMLDivElement | null>(null)
+  const statusRef = useRef<AppStatus>('Ready')
+
+  const updateStatus = useCallback((nextStatus: AppStatus) => {
+    statusRef.current = nextStatus
+    setStatus(nextStatus)
+  }, [])
 
   const clearPendingRun = useCallback(() => {
     if (pendingRunRef.current === null) return
@@ -69,7 +75,7 @@ export function useCadDocument(
 
   const runModel = useCallback((source: string, requestId: string) => {
     clearActiveRun()
-    setStatus('Compiling')
+    updateStatus('Compiling')
     setError(null)
 
     const worker = new Worker(new URL('../cad/worker/cad.worker.ts', import.meta.url), {
@@ -83,7 +89,7 @@ export function useCadDocument(
       worker.terminate()
       activeWorkerRef.current = null
       activeTimeoutRef.current = null
-      setStatus('Error')
+      updateStatus('Error')
       setError({
         title: 'Timeout Error',
         message: 'Model generation timed out after 3 seconds.',
@@ -103,15 +109,16 @@ export function useCadDocument(
       activeWorkerRef.current = null
 
       if (response.type === 'success') {
-        setStatus('Rendering')
+        updateStatus('Ready')
         setError(null)
         setScene(response.scene)
+        setVariables(response.variables)
         setExperimentRules(response.experimentRules ?? null)
         setSelectedId((current) => resolveCadSceneSelection(response.scene, current) ? current : null)
         return
       }
 
-      setStatus('Error')
+      updateStatus('Error')
       setError({
         title: errorTitles[response.errorType],
         message: response.message,
@@ -129,7 +136,7 @@ export function useCadDocument(
 
       worker.terminate()
       activeWorkerRef.current = null
-      setStatus('Error')
+      updateStatus('Error')
       setError({ title: 'Runtime Error', message: event.message })
     }
 
@@ -139,7 +146,7 @@ export function useCadDocument(
       source,
       documentType,
     } satisfies CadWorkerRequest)
-  }, [clearActiveRun, documentType])
+  }, [clearActiveRun, documentType, updateStatus])
 
   const requestModelRun = useCallback((source: string) => {
     clearPendingRun()
@@ -180,15 +187,23 @@ export function useCadDocument(
     setExperimentRules(null)
     setScene(null)
     setSelectedId(null)
-    setStatus('Ready')
-  }, [clearActiveRun, clearPendingRun, source])
+    setVariables(null)
+    updateStatus('Ready')
+  }, [clearActiveRun, clearPendingRun, source, updateStatus])
 
-  const handleRenderStart = useCallback(() => setStatus('Rendering'), [])
-  const handleRenderEnd = useCallback(() => setStatus('Ready'), [])
+  const handleRenderStart = useCallback(() => {
+    if (statusRef.current !== 'Ready') return
+    updateStatus('Rendering')
+  }, [updateStatus])
+  const handleRenderEnd = useCallback(() => {
+    if (statusRef.current !== 'Rendering') return
+    updateStatus('Ready')
+  }, [updateStatus])
   const handleRenderError = useCallback((message: string) => {
-    setStatus('Error')
+    if (statusRef.current === 'Compiling' || statusRef.current === 'Error') return
+    updateStatus('Error')
     setError({ title: 'Rendering Error', message })
-  }, [])
+  }, [updateStatus])
 
   const runIsBusy = status === 'Compiling' || status === 'Rendering'
   const selection = useMemo(
@@ -215,7 +230,7 @@ export function useCadDocument(
       onSourceChange(update.source)
       setError(null)
     } catch (groupError) {
-      setStatus('Error')
+      updateStatus('Error')
       setError({
         title: 'Group Sync Error',
         message: groupError instanceof StructureGroupSyncError || groupError instanceof Error
@@ -223,7 +238,7 @@ export function useCadDocument(
           : `The ${documentType} group could not be synchronized with Code Space.`,
       })
     }
-  }, [documentType, onSourceChange, source])
+  }, [documentType, onSourceChange, source, updateStatus])
 
   return {
     documentType,
@@ -243,10 +258,8 @@ export function useCadDocument(
     selection,
     setDraftSelection,
     setSelectedId,
-    setWorkspaceLeftPercent,
     status,
-    workspaceLeftPercent,
-    workspaceRef,
+    variables,
   }
 }
 

@@ -15,12 +15,14 @@ import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 import type { CadScene } from '../evaluation/types'
 import type { EvaluatedExperimentRules } from '../model/core'
+import type { Vars } from '../model/types'
 import type { CadDocumentType } from '../worker/protocol'
 
 const coreModule = Object.freeze({ Experiment, Material, Sample, Setup, Structure, VariableObject })
 
 export type CadExecutionResult = Readonly<{
   scene: CadScene
+  variables: Readonly<Vars>
   experimentRules?: EvaluatedExperimentRules
 }>
 
@@ -63,7 +65,7 @@ export function executeCompiledCode(
         surfaceGroup: experiment.surfaceGroup,
       }, 'Experiment')
       const experimentRules = evaluateExperimentRules(experiment)
-      return Object.freeze({ scene, experimentRules })
+      return Object.freeze({ scene, variables: entry.vars, experimentRules })
     })
   }
 
@@ -76,6 +78,7 @@ export function executeCompiledCode(
       geometryGroup: entry.structure.geometryGroup,
       surfaceGroup: entry.structure.surfaceGroup,
     }),
+    variables: entry.vars,
   }))
 }
 

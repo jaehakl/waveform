@@ -1,13 +1,19 @@
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
-import type { CadScenePart, CadSceneSelection } from '../cad'
+import type { CadDocumentType, CadScenePart } from '../cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
 import type {
   MaterialGridResult,
   MaterialGridWorkerRequest,
   MaterialGridWorkerResponse,
 } from './materialGrid'
-import { createRenderParts, createWireframeGeometries } from './selection'
+import { createWireframeGeometries } from './selection'
+import {
+  createLayerRenderParts,
+  materialGridPartsFromLayers,
+  type JscadViewerLayer,
+  type JscadViewerSelection,
+} from './sourceLayers'
 
 type RendererEntity = Record<string, unknown>
 type RendererOptions = Record<string, unknown> & {
@@ -64,14 +70,19 @@ type MaterialGridSnapshot = Readonly<{
 }>
 
 type JscadViewerProps = {
+  availableSources?: readonly CadDocumentType[]
+  emptyMessage?: string
+  layers: readonly JscadViewerLayer[]
   onRenderEnd: () => void
   onRenderError: (message: string) => void
   onRenderStart: () => void
-  parts: CadScenePart[]
-  selection: CadSceneSelection | null
+  onToggleSource?: (documentType: CadDocumentType) => void
+  selected: JscadViewerSelection | null
+  visibleSources?: readonly CadDocumentType[]
 }
 
 type ViewerToolbarProps = {
+  availableSources?: readonly CadDocumentType[]
   gridError: string | null
   gridResult: MaterialGridResult | null
   gridStatus: MaterialGridStatus
@@ -79,8 +90,10 @@ type ViewerToolbarProps = {
   onApplySpacing: () => void
   onChangeSpacing: (value: string) => void
   onSelectMode: (mode: ViewerMode) => void
+  onToggleSource?: (documentType: CadDocumentType) => void
   spacingDraft: string
   spacingError: string | null
+  visibleSources?: readonly CadDocumentType[]
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
@@ -144,6 +157,7 @@ function drawPoints(regl: unknown, params: RendererEntity) {
 }
 
 export function ViewerToolbar({
+  availableSources = [],
   gridError,
   gridResult,
   gridStatus,
@@ -151,8 +165,10 @@ export function ViewerToolbar({
   onApplySpacing,
   onChangeSpacing,
   onSelectMode,
+  onToggleSource,
   spacingDraft,
   spacingError,
+  visibleSources = [],
 }: ViewerToolbarProps) {
   const appliedSpacingChanged = gridResult && gridResult.effectiveSpacing !== gridResult.requestedSpacing
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
@@ -206,6 +222,32 @@ export function ViewerToolbar({
           Material Grid
         </button>
       </div>
+
+      {onToggleSource ? (
+        <div aria-label="Viewer sources" className="flex items-center gap-1 border-l border-slate-200 pl-3">
+          {(['structure', 'experiment'] as const).map((documentType) => {
+            const available = availableSources.includes(documentType)
+            const visible = visibleSources.includes(documentType)
+            return (
+              <button
+                aria-label={`Toggle ${documentType}`}
+                aria-pressed={available && visible}
+                className={`rounded border px-2 py-1 text-[11px] font-medium transition-colors ${
+                  available && visible
+                    ? 'border-slate-400 bg-slate-100 text-slate-900'
+                    : 'border-slate-200 bg-white text-slate-400'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+                disabled={!available}
+                key={documentType}
+                type="button"
+                onClick={() => onToggleSource(documentType)}
+              >
+                {documentType === 'structure' ? 'Structure' : 'Experiment'}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
 
       {mode === 'material-grid' ? (
         <>
@@ -268,7 +310,19 @@ export function ViewerToolbar({
   )
 }
 
-function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selection }: JscadViewerProps) {
+function JscadViewer({
+  availableSources,
+  emptyMessage = 'Waiting for model...',
+  layers,
+  onRenderEnd,
+  onRenderError,
+  onRenderStart,
+  onToggleSource,
+  selected,
+  visibleSources,
+}: JscadViewerProps) {
+  const parts = useMemo(() => materialGridPartsFromLayers(layers), [layers])
+  const selection = selected?.selection ?? null
   const [gridError, setGridError] = useState<string | null>(null)
   const [gridApplyVersion, setGridApplyVersion] = useState(0)
   const [gridSnapshot, setGridSnapshot] = useState<MaterialGridSnapshot | null>(null)
@@ -463,7 +517,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
     if (shouldReportGeometryRender) onRenderStart()
 
     try {
-      const renderParts = createRenderParts(parts, selection)
+      const renderParts = createLayerRenderParts(layers, selected)
       const wireframeEntities = renderParts
         .filter((part) => part.wireframe)
         .flatMap((part) => createWireframeGeometries(part).map((geometry) => ({
@@ -531,7 +585,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
       const typedError = error as { message?: string }
       onRenderError(typedError.message ?? String(error))
     }
-  }, [currentGridResult, gridApplyVersion, onRenderEnd, onRenderError, onRenderStart, parts, selection, viewerMode])
+  }, [currentGridResult, gridApplyVersion, layers, onRenderEnd, onRenderError, onRenderStart, parts, selected, viewerMode])
 
   const renderWithControls = () => {
     if (!cameraRef.current || !controlsRef.current || !optionsRef.current || !renderRef.current) return
@@ -561,6 +615,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
   return (
     <div className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50">
       <ViewerToolbar
+        availableSources={availableSources}
         gridError={gridError}
         gridResult={currentGridResult}
         gridStatus={gridStatus}
@@ -570,6 +625,8 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
         onApplySpacing={applySpacing}
         onChangeSpacing={setSpacingDraft}
         onSelectMode={setViewerMode}
+        onToggleSource={onToggleSource}
+        visibleSources={visibleSources}
       />
 
       <div
@@ -630,7 +687,7 @@ function JscadViewer({ onRenderEnd, onRenderError, onRenderStart, parts, selecti
 
         {parts.length === 0 ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
-            Waiting for model...
+            {emptyMessage}
           </div>
         ) : null}
 

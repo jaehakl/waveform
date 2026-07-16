@@ -18,14 +18,30 @@ npm run build
 npm run lint
 ```
 
-The Viewer page injects Structure and Experiment source into the reusable `StructureExperimentViewer`. Its Structure Source, Structure Tree, Experiment Source, Experiment Tree, and Experimental Parameters tabs share one left panel while the 3D viewer remains visible. The fifth tab exists only when Experiment source is present. Missing sources hide their tabs, and a source without its matching change callback is read-only. Each active document auto-runs 500 ms after an edit. `Reroll` executes its unchanged source immediately, so seedless `randomVars()` can generate another model. On large screens, drag the vertical divider to resize the modeling panel and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; editable sources can save that selection into groups.
+The Viewer page keeps Structure and Experiment execution in `App`. Both documents compile in parallel after the existing 500 ms edit debounce, even when their source tab is not active, and each controller preserves its last successful scene, resolved variables, selection, and error state. `StructureExperimentViewer` renders only the left-side editors, trees, parameters, status, and `Reroll` controls. The independent `CadViewer` receives the two evaluated scenes, resolved variables, and active-document selection as external data.
+
+Both scenes are visible together by default. The existing Geometry/Material Grid toolbar includes Structure and Experiment toggles, and both sources can be hidden without deleting their scenes or selections. Geometry mode preserves each Material or unassigned wireframe representation. Material Grid samples Experiment before Structure, so Structure owns overlapping points. On large screens, `App` owns the draggable divider between the workspace and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; only the active document layer is highlighted when IDs overlap across sources.
 
 ```tsx
+const structureDocument = useCadDocument(structure, 'structure', true, setStructure)
+const experimentDocument = useCadDocument(experiment, 'experiment', true, setExperiment)
+
 <StructureExperimentViewer
+  activeDocumentType={activeDocumentType}
   structure={structure}
   experiment={experiment}
-  onStructureChange={setStructure}
-  onExperimentChange={setExperiment}
+  structureDocument={structureDocument}
+  experimentDocument={experimentDocument}
+  onActiveDocumentTypeChange={setActiveDocumentType}
+/>
+
+<CadViewer
+  structure={{ scene: structureDocument.scene, variables: structureDocument.variables }}
+  experiment={{ scene: experimentDocument.scene, variables: experimentDocument.variables }}
+  selected={activeSelection}
+  onRenderStart={handleRenderStart}
+  onRenderEnd={handleRenderEnd}
+  onRenderError={handleRenderError}
 />
 ```
 

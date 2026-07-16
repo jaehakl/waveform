@@ -1,20 +1,45 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import type { CadDocumentType } from '../cad'
 import { StructureExperimentViewer } from './StructureExperimentViewer'
+import { useCadDocument } from './useCadDocument'
 
 function tabLabels(markup: string) {
   const tabList = markup.match(/<div[^>]*aria-label="Structure and Experiment panels"[^>]*>.*?<\/div>/)?.[0] ?? ''
   return [...tabList.matchAll(/<button[^>]*role="tab"[^>]*>([^<]+)<\/button>/g)].map((match) => match[1])
 }
 
+function ViewerHarness({
+  activeDocumentType,
+  experiment,
+  structure,
+}: {
+  activeDocumentType: CadDocumentType | null
+  experiment?: string | null
+  structure?: string | null
+}) {
+  const structureDocument = useCadDocument(structure, 'structure', true, () => undefined)
+  const experimentDocument = useCadDocument(experiment, 'experiment', true, () => undefined)
+
+  return (
+    <StructureExperimentViewer
+      activeDocumentType={activeDocumentType}
+      experiment={experiment}
+      experimentDocument={experimentDocument}
+      structure={structure}
+      structureDocument={structureDocument}
+      onActiveDocumentTypeChange={() => undefined}
+    />
+  )
+}
+
 describe('StructureExperimentViewer', () => {
-  it('shows all five tabs when both controlled sources exist', () => {
+  it('renders all five tabs from externally owned document controllers', () => {
     const markup = renderToStaticMarkup(
-      <StructureExperimentViewer
+      <ViewerHarness
+        activeDocumentType="structure"
         experiment="experiment source"
         structure="structure source"
-        onExperimentChange={() => undefined}
-        onStructureChange={() => undefined}
       />,
     )
 
@@ -27,14 +52,15 @@ describe('StructureExperimentViewer', () => {
     ])
     expect(markup).toContain('id="structure-source-panel" role="tabpanel"')
     expect(markup).toContain('id="experiment-tree-panel" role="tabpanel"')
+    expect(markup).not.toContain('data-viewer-canvas="true"')
   })
 
   it('hides the missing document tabs and selects the first available source', () => {
     const structureMarkup = renderToStaticMarkup(
-      <StructureExperimentViewer structure="structure source" onStructureChange={() => undefined} />,
+      <ViewerHarness activeDocumentType="structure" structure="structure source" />,
     )
     const experimentMarkup = renderToStaticMarkup(
-      <StructureExperimentViewer experiment="experiment source" onExperimentChange={() => undefined} />,
+      <ViewerHarness activeDocumentType="experiment" experiment="experiment source" />,
     )
 
     expect(tabLabels(structureMarkup)).toEqual(['Structure Source', 'Structure Tree'])
@@ -48,9 +74,9 @@ describe('StructureExperimentViewer', () => {
   })
 
   it('renders an empty state only for nullish sources', () => {
-    const missingMarkup = renderToStaticMarkup(<StructureExperimentViewer />)
+    const missingMarkup = renderToStaticMarkup(<ViewerHarness activeDocumentType={null} />)
     const emptySourceMarkup = renderToStaticMarkup(
-      <StructureExperimentViewer structure="" onStructureChange={() => undefined} />,
+      <ViewerHarness activeDocumentType="structure" structure="" />,
     )
 
     expect(missingMarkup).toContain('No modeling source')
@@ -61,7 +87,7 @@ describe('StructureExperimentViewer', () => {
 
   it('never exposes the excluded Result tab', () => {
     const markup = renderToStaticMarkup(
-      <StructureExperimentViewer experiment="experiment source" onExperimentChange={() => undefined} />,
+      <ViewerHarness activeDocumentType="experiment" experiment="experiment source" />,
     )
 
     expect(tabLabels(markup)).not.toContain('Result')

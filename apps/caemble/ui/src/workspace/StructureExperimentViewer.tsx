@@ -1,16 +1,17 @@
-import { type CSSProperties, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CadDocumentType } from '../cad'
 import CadEditor from '../editor/CadEditor'
-import JscadViewer from '../viewer/JscadViewer'
 import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
-import { useCadDocument, type CadDocumentController } from './useCadDocument'
+import type { CadDocumentController } from './useCadDocument'
 
 export type StructureExperimentViewerProps = {
+  activeDocumentType: CadDocumentType | null
   structure?: string | null
   experiment?: string | null
-  onStructureChange?: (source: string) => void
-  onExperimentChange?: (source: string) => void
+  structureDocument: CadDocumentController
+  experimentDocument: CadDocumentController
+  onActiveDocumentTypeChange: (documentType: CadDocumentType) => void
 }
 
 const workspaceTabs = [
@@ -27,14 +28,6 @@ const workspaceTabs = [
 ] as const
 
 type WorkspaceTab = (typeof workspaceTabs)[number]['id']
-
-const defaultWorkspaceLeftPercent = 44
-
-function clampWorkspaceLeftPercent(percent: number, workspaceWidth: number) {
-  const minimum = Math.max(25, (360 / workspaceWidth) * 100)
-  const maximum = Math.min(75, ((workspaceWidth - 320) / workspaceWidth) * 100)
-  return Math.min(maximum, Math.max(minimum, percent))
-}
 
 function Status({ document }: { document: CadDocumentController }) {
   return (
@@ -54,10 +47,12 @@ function Status({ document }: { document: CadDocumentController }) {
 }
 
 export function StructureExperimentViewer({
+  activeDocumentType,
   experiment,
-  onExperimentChange,
-  onStructureChange,
+  experimentDocument,
+  onActiveDocumentTypeChange,
   structure,
+  structureDocument,
 }: StructureExperimentViewerProps) {
   const hasStructure = structure !== null && structure !== undefined
   const hasExperiment = experiment !== null && experiment !== undefined
@@ -65,54 +60,54 @@ export function StructureExperimentViewer({
     tab.documentType === 'structure' ? hasStructure : hasExperiment
   ))
   const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(() => (
-    hasStructure ? 'structure-source' : hasExperiment ? 'experiment-source' : null
+    activeDocumentType === 'experiment' && hasExperiment
+      ? 'experiment-source'
+      : hasStructure
+        ? 'structure-source'
+        : hasExperiment
+          ? 'experiment-source'
+          : null
   ))
   const selectedTab = activeTab && availableTabs.some((tab) => tab.id === activeTab)
     ? activeTab
     : availableTabs[0]?.id ?? null
-  const activeDocumentType: CadDocumentType | null = selectedTab?.startsWith('structure')
+  const selectedDocumentType: CadDocumentType | null = selectedTab?.startsWith('structure')
     ? 'structure'
     : selectedTab
       ? 'experiment'
       : null
-  const structureDocument = useCadDocument(
-    structure,
-    'structure',
-    activeDocumentType === 'structure',
-    onStructureChange,
-  )
-  const experimentDocument = useCadDocument(
-    experiment,
-    'experiment',
-    activeDocumentType === 'experiment',
-    onExperimentChange,
-  )
-  const activeDocument = activeDocumentType === 'structure'
+  const activeDocument = selectedDocumentType === 'structure'
     ? structureDocument
-    : activeDocumentType === 'experiment'
+    : selectedDocumentType === 'experiment'
       ? experimentDocument
       : null
 
   useEffect(() => {
     if (activeTab !== selectedTab) setActiveTab(selectedTab)
-  }, [activeTab, selectedTab])
+    if (selectedDocumentType && selectedDocumentType !== activeDocumentType) {
+      onActiveDocumentTypeChange(selectedDocumentType)
+    }
+  }, [activeDocumentType, activeTab, onActiveDocumentTypeChange, selectedDocumentType, selectedTab])
 
   if (!activeDocument) {
     return (
       <section
-        aria-label="Structure and Experiment viewer"
-        className="grid min-h-0 flex-1 place-items-center bg-slate-50 px-6 py-16 text-center"
+        aria-label="Structure and Experiment workspace"
+        className="grid h-full min-h-[360px] place-items-center bg-slate-50 px-6 py-16 text-center"
       >
         <div>
           <h2 className="text-base font-semibold text-slate-800">No modeling source</h2>
-          <p className="mt-2 text-sm text-slate-500">Provide a Structure or Experiment source to open the viewer.</p>
+          <p className="mt-2 text-sm text-slate-500">Provide a Structure or Experiment source to open the workspace.</p>
         </div>
       </section>
     )
   }
 
   return (
-    <section aria-label="Structure and Experiment viewer" className="flex min-h-0 flex-1 flex-col">
+    <section
+      aria-label="Structure and Experiment workspace"
+      className="flex h-full min-h-[360px] min-w-0 flex-col bg-white"
+    >
       <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3">
         <div
           aria-label="Structure and Experiment panels"
@@ -133,7 +128,10 @@ export function StructureExperimentViewer({
               role="tab"
               tabIndex={selectedTab === tab.id ? 0 : -1}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                onActiveDocumentTypeChange(tab.documentType)
+              }}
             >
               {tab.label}
             </button>
@@ -155,101 +153,48 @@ export function StructureExperimentViewer({
         </div>
       </div>
 
-      <div
-        className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(360px,var(--workspace-left-width))_5px_minmax(0,1fr)]"
-        ref={activeDocument.workspaceRef}
-        style={{ '--workspace-left-width': `${activeDocument.workspaceLeftPercent}%` } as CSSProperties}
-      >
-        <div className="min-h-[360px] border-b border-slate-200 lg:min-h-0 lg:border-b-0">
-          {availableTabs.map((tab) => {
-            const document = tab.documentType === 'structure' ? structureDocument : experimentDocument
-            const source = tab.documentType === 'structure' ? structure : experiment
+      <div className="min-h-0 flex-1">
+        {availableTabs.map((tab) => {
+          const document = tab.documentType === 'structure' ? structureDocument : experimentDocument
+          const source = tab.documentType === 'structure' ? structure : experiment
 
-            return (
-              <div
-                aria-labelledby={`${tab.id}-tab`}
-                className={selectedTab === tab.id ? 'h-full min-h-0' : 'hidden'}
-                hidden={selectedTab !== tab.id}
-                id={`${tab.id}-panel`}
-                key={tab.id}
-                role="tabpanel"
-              >
-                {tab.panel === 'source' ? (
-                  <CadEditor
-                    modelPath={`file:///${tab.documentType}.tsx`}
-                    readOnly={document.readOnly}
-                    value={source ?? ''}
-                    onChange={document.handleSourceChange}
-                  />
-                ) : tab.panel === 'tree' ? (
-                  <GeometryTree
-                    draftSelection={document.draftSelection}
-                    readOnly={document.readOnly}
-                    scene={document.scene}
-                    selectedId={document.selectedId}
-                    onDraftSelectionChange={document.setDraftSelection}
-                    onGroupsChange={document.handleGroupsChange}
-                    onSelect={document.setSelectedId}
-                  />
-                ) : (
-                  <ExperimentalParameters
-                    onSourceChange={experimentDocument.handleSourceChange}
-                    readOnly={experimentDocument.readOnly}
-                    rules={experimentDocument.experimentRules}
-                    source={experiment ?? ''}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        <div
-          aria-label="Resize modeling panels and Viewer"
-          aria-orientation="vertical"
-          aria-valuemax={75}
-          aria-valuemin={25}
-          aria-valuenow={Math.round(activeDocument.workspaceLeftPercent)}
-          className="group hidden cursor-col-resize touch-none items-stretch justify-center bg-slate-100 outline-none hover:bg-slate-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-500 lg:flex"
-          role="separator"
-          tabIndex={0}
-          onDoubleClick={() => activeDocument.setWorkspaceLeftPercent(defaultWorkspaceLeftPercent)}
-          onKeyDown={(event) => {
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-            const workspaceWidth = activeDocument.workspaceRef.current?.getBoundingClientRect().width
-            if (!workspaceWidth) return
-            event.preventDefault()
-            activeDocument.setWorkspaceLeftPercent((current) => clampWorkspaceLeftPercent(
-              current + (event.key === 'ArrowLeft' ? -2 : 2),
-              workspaceWidth,
-            ))
-          }}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId)
-          }}
-          onPointerMove={(event) => {
-            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-            const bounds = activeDocument.workspaceRef.current?.getBoundingClientRect()
-            if (!bounds) return
-            const percent = ((event.clientX - bounds.left) / bounds.width) * 100
-            activeDocument.setWorkspaceLeftPercent(clampWorkspaceLeftPercent(percent, bounds.width))
-          }}
-          onPointerUp={(event) => {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }}
-        >
-          <span className="w-px bg-slate-300 group-hover:bg-slate-400" />
-        </div>
-
-        <div className="min-h-[360px] min-w-0">
-          <JscadViewer
-            onRenderEnd={activeDocument.handleRenderEnd}
-            onRenderError={activeDocument.handleRenderError}
-            onRenderStart={activeDocument.handleRenderStart}
-            parts={activeDocument.scene?.parts ?? []}
-            selection={activeDocument.selection}
-          />
-        </div>
+          return (
+            <div
+              aria-labelledby={`${tab.id}-tab`}
+              className={selectedTab === tab.id ? 'h-full min-h-0' : 'hidden'}
+              hidden={selectedTab !== tab.id}
+              id={`${tab.id}-panel`}
+              key={tab.id}
+              role="tabpanel"
+            >
+              {tab.panel === 'source' ? (
+                <CadEditor
+                  modelPath={`file:///${tab.documentType}.tsx`}
+                  readOnly={document.readOnly}
+                  value={source ?? ''}
+                  onChange={document.handleSourceChange}
+                />
+              ) : tab.panel === 'tree' ? (
+                <GeometryTree
+                  draftSelection={document.draftSelection}
+                  readOnly={document.readOnly}
+                  scene={document.scene}
+                  selectedId={document.selectedId}
+                  onDraftSelectionChange={document.setDraftSelection}
+                  onGroupsChange={document.handleGroupsChange}
+                  onSelect={document.setSelectedId}
+                />
+              ) : (
+                <ExperimentalParameters
+                  onSourceChange={experimentDocument.handleSourceChange}
+                  readOnly={experimentDocument.readOnly}
+                  rules={experimentDocument.experimentRules}
+                  source={experiment ?? ''}
+                />
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <footer className="min-h-24 shrink-0 border-t border-slate-200 bg-slate-50 px-5 py-3">

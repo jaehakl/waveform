@@ -37,6 +37,7 @@ describe('compiled user module execution', () => {
     const execution = executeCompiledCode(validModule)
 
     expect(execution).toMatchObject({
+      variables: { width: 4, epsilon: 12 },
       scene: {
         parts: [{
           id: 'root',
@@ -78,10 +79,15 @@ describe('compiled user module execution', () => {
       'default export must be a Sample instance',
     )
     const execution = executeCompiledCode(compiled.code, 'experiment')
-    const { experimentRules, scene } = execution
+    const { experimentRules, scene, variables } = execution
 
     expect(execution).not.toHaveProperty('solver')
     expect(experimentRules).toBeDefined()
+    expect(variables).toMatchObject({
+      domainSize: expect.any(Array),
+      displayWeight: expect.any(Number),
+      timeStep: expect.any(Number),
+    })
     expect(experimentRules?.initialConditions[0].parameters.initialProfile).toMatchObject({
       type: 'tensor',
       dimension: 2,

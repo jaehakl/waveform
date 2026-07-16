@@ -16,6 +16,8 @@ describe('App workspace', () => {
     expect(markup).toMatch(/<a[^>]*aria-current="page"[^>]*href="#viewer"[^>]*>Viewer<\/a>/)
     expect(markup).toMatch(/<a[^>]*href="#help"[^>]*>Help<\/a>/)
     expect(markup).toContain('aria-label="Structure and Experiment viewer"')
+    expect(markup).toContain('aria-label="Structure and Experiment workspace"')
+    expect(markup).toContain('aria-label="3D CAD Viewer"')
     expect(markup).toContain('aria-label="Structure and Experiment panels"')
     expect(markup).toContain('>Structure Source</button>')
     expect(markup).toContain('>Structure Tree</button>')
@@ -26,6 +28,9 @@ describe('App workspace', () => {
     expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="structure-source-tab"/)
     expect(markup).toMatch(/aria-label="Resize modeling panels and Viewer"[^>]*aria-orientation="vertical"/)
     expect(markup).toContain('aria-valuenow="44"')
+    expect(markup).toMatch(/<button[^>]*aria-label="Toggle structure"[^>]*aria-pressed="true"/)
+    expect(markup).toMatch(/<button[^>]*aria-label="Toggle experiment"[^>]*aria-pressed="true"/)
+    expect(markup).toContain('data-viewer-canvas="true"')
     expect(markup).toContain('Waiting for model...')
   })
 
