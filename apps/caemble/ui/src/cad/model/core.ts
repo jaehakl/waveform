@@ -15,6 +15,11 @@ export type ExperimentSolver = Readonly<{
   version: string
   parameters: () => SolverParameters
 }>
+export type ResolvedExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: SolverParameters
+}>
 export type GeometryAttributes<P extends object = object> = Readonly<
   P & {
     id: string
@@ -88,6 +93,14 @@ export type ExperimentRule<TParameters extends ExperimentParameters = Experiment
 export type RecordedDataRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<
   ExperimentRule<TParameters> & { result: RecordedDataResult }
 >
+export type RecordedDataAxis = Readonly<{
+  ticks?: readonly (number | string)[]
+}>
+export type RecordedDataTensor = Readonly<{
+  value: boolean | string | number | readonly unknown[]
+  axes?: readonly RecordedDataAxis[]
+}>
+export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
 export type EvaluatedExperimentRules<
   TInitialConditionParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
@@ -576,7 +589,7 @@ export class Experiment<
   }
 }
 
-export function evaluateExperimentSolver(experiment: Experiment) {
+export function evaluateExperimentSolver(experiment: Experiment): ResolvedExperimentSolver {
   return Object.freeze({
     name: experiment.solver.name,
     version: experiment.solver.version,

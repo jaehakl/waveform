@@ -37,13 +37,19 @@ export type {
   GeometryAttributes,
   MaterialVariable,
   MaterialVariables,
+  RecordedData,
+  RecordedDataAxis,
   RecordedDataResult,
   RecordedDataRule,
+  RecordedDataTensor,
+  ResolvedExperimentSolver,
   SolverParameters,
   StructureGroupMap,
   VarsSchemaEntry,
 } from './model/core'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
+export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/recordedData'
+export type { ResolvedRecordedTensor } from './model/recordedData'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { ShellAttributes } from './elements/operations/shell/definition'
 export type { BoxAttributes } from './elements/primitives/box/definition'

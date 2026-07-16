@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { CadDocumentType } from '../cad'
 import { StructureExperimentViewer } from './StructureExperimentViewer'
-import { useCadDocument } from './useCadDocument'
+import { useCadWorkspace } from './useCadWorkspace'
 
 function tabLabels(markup: string) {
   const tabList = markup.match(/<div[^>]*aria-label="Structure and Experiment panels"[^>]*>.*?<\/div>/)?.[0] ?? ''
@@ -18,8 +18,12 @@ function ViewerHarness({
   experiment?: string | null
   structure?: string | null
 }) {
-  const structureDocument = useCadDocument(structure, 'structure', true, () => undefined)
-  const experimentDocument = useCadDocument(experiment, 'experiment', true, () => undefined)
+  const { experimentDocument, structureDocument } = useCadWorkspace(
+    structure,
+    experiment,
+    () => undefined,
+    () => undefined,
+  )
 
   return (
     <StructureExperimentViewer

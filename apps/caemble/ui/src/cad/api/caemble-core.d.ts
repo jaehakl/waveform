@@ -62,6 +62,14 @@ export type ExperimentRule<TParameters extends ExperimentParameters = Experiment
 export type RecordedDataRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<
   ExperimentRule<TParameters> & { result: RecordedDataResult }
 >
+export type RecordedDataAxis = Readonly<{
+  ticks?: readonly (number | string)[]
+}>
+export type RecordedDataTensor = Readonly<{
+  value: boolean | string | number | readonly unknown[]
+  axes?: readonly RecordedDataAxis[]
+}>
+export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
 
 export type BoxAttributes = Readonly<{
   size: Vec3
@@ -187,6 +195,11 @@ export type ExperimentSolver = Readonly<{
   name: string
   version: string
   parameters: () => SolverParameters
+}>
+export type ResolvedExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: SolverParameters
 }>
 
 export class CadModelError extends Error {

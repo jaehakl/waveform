@@ -3,6 +3,7 @@ import type { CadDocumentType, CadSceneSelection } from '../cad'
 import { resolveCadViewerContent, type CadViewerDocument } from './cadViewerContent'
 import JscadViewer from './JscadViewer'
 import type { CadViewerRecordedData } from './recordedData'
+import type { SolverProcess } from '../solver'
 
 export type { CadViewerDocument } from './cadViewerContent'
 export type {
@@ -21,10 +22,20 @@ export type CadViewerProps = {
   experiment: CadViewerDocument | null
   selected: CadViewerActiveSelection | null
   recordedData?: CadViewerRecordedData | null
+  simulation?: CadViewerSimulation | null
   onRenderEnd: (sources: readonly CadDocumentType[]) => void
   onRenderError: (message: string, sources: readonly CadDocumentType[]) => void
   onRenderStart: (sources: readonly CadDocumentType[]) => void
 }
+
+export type CadViewerSimulation = Readonly<{
+  canRun: boolean
+  cancel: () => void
+  process: SolverProcess
+  run: () => void
+  solver: Readonly<{ name: string; version: string }> | null
+  stale: boolean
+}>
 
 export function CadViewer({
   experiment,
@@ -32,6 +43,7 @@ export function CadViewer({
   onRenderError,
   onRenderStart,
   recordedData,
+  simulation,
   selected,
   structure,
 }: CadViewerProps) {
@@ -67,6 +79,7 @@ export function CadViewer({
         layers={content.layers}
         recordedData={recordedData}
         recordedDataRules={experiment?.experimentRules?.recordedData}
+        simulation={simulation}
         selected={visibleSelection}
         visibleSources={content.visibleSources}
         onRenderEnd={handleRenderEnd}

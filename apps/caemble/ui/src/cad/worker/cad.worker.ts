@@ -1,8 +1,19 @@
 import * as esbuild from 'esbuild-wasm'
 import wasmUrl from 'esbuild-wasm/esbuild.wasm?url'
-import { CadModelError } from '../model/core'
-import { executeCompiledCode } from '../execution/userModule'
-import type { CadWorkerErrorType, CadWorkerRequest, CadWorkerResponse } from './protocol'
+import {
+  evaluateDocumentEntry,
+  loadCompiledCode,
+  type CadDocumentEntry,
+} from '../execution/userModule'
+import { CadModelError, Sample, Setup } from '../model/core'
+import { SolverController } from '../../solver'
+import { solverModules } from '../../solver/modules'
+import type {
+  CadDocumentType,
+  CadWorkerErrorType,
+  CadWorkerRequest,
+  CadWorkerResponse,
+} from './protocol'
 
 const forbiddenPatterns = [
   { label: 'dynamic import', pattern: /\bimport\s*\(/ },
@@ -23,16 +34,30 @@ const forbiddenPatterns = [
   { label: 'importScripts', pattern: /\bimportScripts\b/ },
 ]
 
-let initialized = false
+let initialization: Promise<void> | null = null
+let activeSolverRequestId: string | null = null
+const latestRevisions: Record<CadDocumentType, number> = { structure: 0, experiment: 0 }
+const cachedEntries: Partial<Record<CadDocumentType, Readonly<{
+  revision: number
+  entry: CadDocumentEntry
+}>>> = {}
+const solverController = new SolverController(solverModules)
+
+solverController.subscribe((process) => {
+  if (!activeSolverRequestId) return
+  postResponse({
+    type: 'solver-process',
+    requestId: activeSolverRequestId,
+    process,
+  })
+})
 
 async function ensureEsbuildReady() {
-  if (initialized) return
-
-  await esbuild.initialize({
+  initialization ??= esbuild.initialize({
     wasmURL: wasmUrl,
     worker: false,
   })
-  initialized = true
+  await initialization
 }
 
 function assertSourceIsAllowed(source: string) {
@@ -60,47 +85,121 @@ async function compileUserCode(source: string) {
   return result.code
 }
 
-function postError(requestId: string, errorType: CadWorkerErrorType, error: unknown) {
-  const typedError = error as { message?: string; stack?: string }
-
-  const response: CadWorkerResponse = {
-    type: 'error',
-    requestId,
-    errorType,
-    message: typedError.message ?? String(error),
-    stack: typedError.stack,
-  }
+function postResponse(response: CadWorkerResponse) {
   self.postMessage(response)
 }
 
-self.onmessage = async (event: MessageEvent<CadWorkerRequest>) => {
-  const message = event.data
+function errorDetails(error: unknown) {
+  const typedError = error as { message?: string; stack?: string }
+  return {
+    message: typedError.message ?? String(error),
+    stack: typedError.stack,
+  }
+}
 
-  if (message.type !== 'run') return
+function postDocumentError(
+  request: Extract<CadWorkerRequest, { type: 'evaluate-document' }>,
+  errorType: CadWorkerErrorType,
+  error: unknown,
+) {
+  if (latestRevisions[request.documentType] !== request.revision) return
+  postResponse({
+    type: 'document-error',
+    requestId: request.requestId,
+    revision: request.revision,
+    documentType: request.documentType,
+    errorType,
+    ...errorDetails(error),
+  })
+}
 
+async function evaluateDocument(request: Extract<CadWorkerRequest, { type: 'evaluate-document' }>) {
   try {
     let jsCode = ''
-
     try {
-      jsCode = await compileUserCode(message.source)
+      jsCode = await compileUserCode(request.source)
     } catch (error) {
-      postError(message.requestId, error instanceof CadModelError ? 'model' : 'compile', error)
+      postDocumentError(request, error instanceof CadModelError ? 'model' : 'compile', error)
       return
     }
+    if (latestRevisions[request.documentType] !== request.revision) return
 
     try {
-      const execution = executeCompiledCode(jsCode, message.documentType)
-
-      const response: CadWorkerResponse = {
-        type: 'success',
-        requestId: message.requestId,
+      const entry = loadCompiledCode(jsCode, request.documentType)
+      const execution = evaluateDocumentEntry(entry, request.documentType)
+      if (latestRevisions[request.documentType] !== request.revision) return
+      cachedEntries[request.documentType] = Object.freeze({ revision: request.revision, entry })
+      postResponse({
+        type: 'document-success',
+        requestId: request.requestId,
+        revision: request.revision,
+        documentType: request.documentType,
         ...execution,
-      }
-      self.postMessage(response)
+      })
     } catch (error) {
-      postError(message.requestId, error instanceof CadModelError ? 'model' : 'runtime', error)
+      postDocumentError(request, error instanceof CadModelError ? 'model' : 'runtime', error)
     }
   } catch (error) {
-    postError(message.requestId, 'runtime', error)
+    postDocumentError(request, 'runtime', error)
+  }
+}
+
+async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver' }>) {
+  const structure = cachedEntries.structure
+  const experiment = cachedEntries.experiment
+  if (
+    !structure
+    || !experiment
+    || structure.revision !== request.structureRevision
+    || experiment.revision !== request.experimentRevision
+    || !(structure.entry instanceof Sample)
+    || !(experiment.entry instanceof Setup)
+  ) {
+    postResponse({
+      type: 'solver-error',
+      requestId: request.requestId,
+      message: 'Both current Structure and Experiment documents must be ready before running the solver.',
+    })
+    return
+  }
+  if (activeSolverRequestId) {
+    postResponse({
+      type: 'solver-error',
+      requestId: request.requestId,
+      message: 'A solver run is already active.',
+    })
+    return
+  }
+
+  activeSolverRequestId = request.requestId
+  try {
+    const recordedData = await solverController.run(structure.entry, experiment.entry)
+    postResponse({
+      type: 'solver-success',
+      requestId: request.requestId,
+      structureRevision: request.structureRevision,
+      experimentRevision: request.experimentRevision,
+      recordedData,
+    })
+  } catch {
+    // SolverController publishes the failed or cancelled process state.
+  } finally {
+    activeSolverRequestId = null
+  }
+}
+
+self.onmessage = (event: MessageEvent<CadWorkerRequest>) => {
+  const message = event.data
+  if (message.type === 'evaluate-document') {
+    latestRevisions[message.documentType] = Math.max(latestRevisions[message.documentType], message.revision)
+    void evaluateDocument(message)
+    return
+  }
+  if (message.type === 'run-solver') {
+    void runSolver(message)
+    return
+  }
+  if (message.type === 'cancel-solver' && message.requestId === activeSolverRequestId) {
+    solverController.cancel()
   }
 }

@@ -4,6 +4,7 @@ import type { CadDocumentType, CadScenePart, RecordedDataRule } from '../cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
 import RecordedDataResults from './RecordedDataResults'
 import type { CadViewerRecordedData } from './recordedData'
+import type { CadViewerSimulation } from './CadViewer'
 import type {
   MaterialGridResult,
   MaterialGridWorkerRequest,
@@ -82,6 +83,7 @@ type JscadViewerProps = {
   recordedData?: CadViewerRecordedData | null
   recordedDataRules?: readonly RecordedDataRule[]
   selected: JscadViewerSelection | null
+  simulation?: CadViewerSimulation | null
   visibleSources?: readonly CadDocumentType[]
 }
 
@@ -98,6 +100,7 @@ type ViewerToolbarProps = {
   onToggleSource?: (documentType: CadDocumentType) => void
   spacingDraft: string
   spacingError: string | null
+  simulation?: CadViewerSimulation | null
   visibleSources?: readonly CadDocumentType[]
 }
 
@@ -174,6 +177,7 @@ export function ViewerToolbar({
   onToggleSource,
   spacingDraft,
   spacingError,
+  simulation,
   visibleSources = [],
 }: ViewerToolbarProps) {
   const appliedSpacingChanged = gridResult && gridResult.effectiveSpacing !== gridResult.requestedSpacing
@@ -339,6 +343,63 @@ export function ViewerToolbar({
           ) : null}
         </>
       ) : null}
+
+      {simulation ? (
+        <div
+          aria-label="Simulation controls"
+          className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 border-l border-slate-200 pl-3 text-xs"
+        >
+          <span className="max-w-52 truncate font-mono text-[11px] text-slate-600" title={
+            simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'
+          }>
+            {simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'}
+          </span>
+          <span
+            aria-label={`Simulation status: ${simulation.process.status}`}
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              simulation.process.status === 'failed'
+                ? 'bg-rose-100 text-rose-700'
+                : simulation.process.status === 'succeeded'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : simulation.process.status === 'preparing' || simulation.process.status === 'running'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {simulation.process.status}
+          </span>
+          {simulation.stale ? (
+            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-700">
+              Stale
+            </span>
+          ) : null}
+          {simulation.process.status === 'preparing' || simulation.process.status === 'running' ? (
+            <button
+              aria-label="Cancel simulation"
+              className="rounded border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 shadow-sm hover:border-rose-400 hover:text-rose-900"
+              type="button"
+              onClick={simulation.cancel}
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              aria-label="Run simulation"
+              className="rounded border border-slate-300 bg-slate-900 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!simulation.canRun}
+              type="button"
+              onClick={simulation.run}
+            >
+              Run Simulation
+            </button>
+          )}
+          {simulation.process.error ? (
+            <div className="w-full text-right text-[10px] text-rose-600" role="alert">
+              {simulation.process.error}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -354,6 +415,7 @@ function JscadViewer({
   recordedData,
   recordedDataRules = [],
   selected,
+  simulation,
   visibleSources,
 }: JscadViewerProps) {
   const parts = useMemo(() => materialGridPartsFromLayers(layers), [layers])
@@ -664,6 +726,7 @@ function JscadViewer({
         mode={viewerMode}
         spacingDraft={spacingDraft}
         spacingError={spacingError}
+        simulation={simulation}
         onApplySpacing={applySpacing}
         onChangeSpacing={setSpacingDraft}
         onSelectMode={setViewerMode}

@@ -115,6 +115,132 @@ describe('JscadViewer modes', () => {
     expect(markup).not.toContain('aria-label="Viewer sources"')
     expect(markup).not.toContain('id="material-grid-spacing"')
   })
+
+  it('shows the exact solver identity and an enabled manual Run action', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerToolbar
+        gridError={null}
+        gridResult={null}
+        gridStatus="idle"
+        mode="geometry"
+        spacingDraft="1"
+        spacingError={null}
+        simulation={{
+          canRun: true,
+          cancel: () => undefined,
+          process: {
+            runId: null,
+            status: 'idle',
+            solver: null,
+            error: null,
+            startedAt: null,
+            finishedAt: null,
+          },
+          run: () => undefined,
+          solver: { name: 'dc-current-density', version: '1.0.0' },
+          stale: false,
+        }}
+        onApplySpacing={() => undefined}
+        onChangeSpacing={() => undefined}
+        onSelectMode={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('dc-current-density@1.0.0')
+    expect(markup).toContain('aria-label="Simulation status: idle"')
+    const runButton = markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]
+    expect(runButton).toBeDefined()
+    expect(runButton).not.toMatch(/\sdisabled(?:=|>)/)
+  })
+
+  it('replaces Run with Cancel while active and exposes failed stale state without discarding the toolbar', () => {
+    const runningMarkup = renderToStaticMarkup(
+      <ViewerToolbar
+        gridError={null}
+        gridResult={null}
+        gridStatus="idle"
+        mode="geometry"
+        spacingDraft="1"
+        spacingError={null}
+        simulation={{
+          canRun: false,
+          cancel: () => undefined,
+          process: {
+            runId: 'solver-1',
+            status: 'running',
+            solver: { name: 'dc-current-density', version: '1.0.0' },
+            error: null,
+            startedAt: 1,
+            finishedAt: null,
+          },
+          run: () => undefined,
+          solver: { name: 'dc-current-density', version: '1.0.0' },
+          stale: true,
+        }}
+        onApplySpacing={() => undefined}
+        onChangeSpacing={() => undefined}
+        onSelectMode={() => undefined}
+      />,
+    )
+    expect(runningMarkup).toContain('aria-label="Cancel simulation"')
+    expect(runningMarkup).not.toContain('aria-label="Run simulation"')
+    expect(runningMarkup).toContain('>Stale</span>')
+
+    const failedMarkup = renderToStaticMarkup(
+      <ViewerToolbar
+        gridError={null}
+        gridResult={null}
+        gridStatus="idle"
+        mode="geometry"
+        spacingDraft="1"
+        spacingError={null}
+        simulation={{
+          canRun: true,
+          cancel: () => undefined,
+          process: {
+            runId: 'solver-1',
+            status: 'failed',
+            solver: { name: 'dc-current-density', version: '1.0.0' },
+            error: 'Material conductivity is missing.',
+            startedAt: 1,
+            finishedAt: 2,
+          },
+          run: () => undefined,
+          solver: { name: 'dc-current-density', version: '1.0.0' },
+          stale: true,
+        }}
+        onApplySpacing={() => undefined}
+        onChangeSpacing={() => undefined}
+        onSelectMode={() => undefined}
+      />,
+    )
+    expect(failedMarkup).toContain('aria-label="Simulation status: failed"')
+    expect(failedMarkup).toContain('role="alert">Material conductivity is missing.</div>')
+    expect(failedMarkup).toContain('aria-label="Run simulation"')
+  })
+
+  it('keeps Geometry selected when recorded data becomes available', () => {
+    const markup = renderToStaticMarkup(
+      <JscadViewer
+        layers={[]}
+        recordedData={{ 'Total current': { value: 14.9 } }}
+        recordedDataRules={[{
+          target: ['structure.geometry.conductor'],
+          label: 'Total current',
+          methodId: 'dc.total-current',
+          parameters: {},
+          result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+        }]}
+        selected={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+
+    expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="viewer-geometry-tab"/)
+    expect(markup).toMatch(/<button[^>]*aria-selected="false"[^>]*id="viewer-results-tab"/)
+  })
 })
 
 describe('JscadViewer source layers', () => {

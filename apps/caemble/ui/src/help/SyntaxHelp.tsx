@@ -118,24 +118,34 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code>, and{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays.{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
-                vars just as Sample pairs a Structure with vars. The Experiment editor previews only Experiment
-                geometry; a later simulation may combine it with a Sample in the same coordinate system.
+                vars just as Sample pairs a Structure with vars. The editor previews Experiment geometry and the
+                manual simulation combines its latest successful Setup with the latest successful Sample in the same
+                coordinate system.
               </p>
               <p className="mt-1">
                 Solver parameters run first with Setup values available through global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code>. They must form a plain
                 JSON-compatible object and are recursively copied and frozen. The editor then evaluates Experiment
-                geometry, initial conditions, boundary conditions, and recorded data in that order. It validates
-                Solver configuration but does not load or run the Solver.
+                geometry, initial conditions, boundary conditions, and recorded data in that order. Once both latest
+                document revisions are Ready, use <strong>Run Simulation</strong> in the Viewer toolbar. Editing or
+                rerolling previews only and never runs the Solver automatically.
+              </p>
+              <p className="mt-1">
+                The toolbar reports <code className="rounded bg-white px-1 py-0.5 text-xs">idle → preparing → running
+                → succeeded | failed | cancelled</code> and shows Cancel only while a run is active. Source changes
+                mark the last result Stale. Failed or cancelled reruns preserve that last result and its Results tab;
+                successful runs do not switch tabs automatically. Solver name and version dispatch is exact and
+                case-sensitive, and only one run is active at a time.
               </p>
               <p className="mt-1">
                 Each rule has a non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">target</code> array,
                 whose entries use <code className="rounded bg-white px-1 py-0.5 text-xs">source.kind.group</code>, for
                 example <code className="rounded bg-white px-1 py-0.5 text-xs">['experiment.geometry.domain']</code> or{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.sampleBoundary']</code>.
-                Experiment targets must name one of its own groups; Structure targets reserve a group name for a
-                future Sample. Every rule also has a category-unique Experiment label, a reusable simulation method
-                ID, and a parameters object whose values are raw bool, string, finite int/float scalars, explicit
+                Experiment targets must name one of its own groups. Structure targets are deferred during preview,
+                then simulation preparation verifies the paired Structure group and every referenced member. Every
+                rule also has a category-unique Experiment label, a reusable simulation method ID, and a parameters
+                object whose values are raw bool, string, finite int/float scalars, explicit
                 scalar descriptors, or explicit tensor descriptors. Functions, null, raw arrays, arbitrary nested
                 objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
                 available through the global{' '}
@@ -171,8 +181,32 @@ function SyntaxHelp() {
                 dtype, dimension, shape, and axis names remain defined by Experiment Source. Results appears whenever
                 recorded rules exist, shows empty plot shells before values arrive, and renders 0D scalars, numeric
                 1D line charts, numeric 2D heatmaps, and bool/string tables. Higher-dimensional tensors use leading
-                axis selectors and visualize the final two axes. Result plots are read-only and their validation
-                errors do not change CAD compile or render status.
+                axis selectors and visualize the final two axes. A solver success must include every rule label and
+                no unknown labels; shape, dtype, and axes are validated before the recursively frozen result is
+                accepted. Result plots are read-only and their local validation errors do not change CAD compile or
+                render status.
+              </p>
+
+              <p className="mt-3 font-semibold text-slate-800">Default DC Current Density Solver</p>
+              <p className="mt-1">
+                The default Structure is a <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 5, 5] mm</code>{' '}
+                copper bar with <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
+                5.96e7 S/m</code>, one conductor group, and named -X/+X terminal surfaces. Its Experiment selects{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>, uses{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">lengthScaleToMeters = 0.001</code>, and applies
+                1 mV and 0 V to those terminals. The expected uniform outputs are{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">[596000, 0, 0] A/m²</code> and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
+              </p>
+              <p className="mt-1">
+                This browser JavaScript module is intentionally a mock. It computes{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">J = σΔV/L</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">A = volume/L</code>, and{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">I = |J|A</code> for one uniform prismatic
+                Structure part with one Material and two distinct, planar, aligned terminal surfaces. It rejects
+                multiple parts, missing or non-positive conductivity/scale, curved terminals, extra rules, and wrong
+                output schemas. Future browser or API-backed modules use the same UI-independent SolverModule contract;
+                an API module may perform fetch while honoring the supplied AbortSignal.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Transforms</p>

@@ -1,6 +1,6 @@
 # Caemble
 
-Browser-only Structure/Sample and Experiment/Setup modeling workspace. Write either model as TSX, resolve its vars, and render its material-aware CAD scene in the 3D viewer.
+Browser-only Structure/Sample and Experiment/Setup modeling workspace with manual, module-based simulation. Write either model as TSX, resolve its vars, render both material-aware CAD scenes, and run a matching JavaScript or API-backed solver module.
 
 ## Run
 
@@ -18,13 +18,17 @@ npm run build
 npm run lint
 ```
 
-The Viewer page keeps Structure and Experiment execution in `App`. Both documents compile in parallel after the existing 500 ms edit debounce, even when their source tab is not active, and each controller preserves its last successful scene, resolved variables, selection, and error state. `StructureExperimentViewer` renders only the left-side editors, trees, parameters, status, and `Reroll` controls. The independent `CadViewer` receives the two evaluated scenes, resolved variables, Experiment rules, active-document selection, and optional recorded tensor snapshots as external data.
+The Viewer page owns one `useCadWorkspace` and one persistent CAD Worker. The Worker caches the latest successfully compiled `Sample` and `Setup`, while each document controller preserves its last successful scene, resolved variables, selection, and error state across the existing 500 ms edit debounce. `StructureExperimentViewer` renders the left-side editors, trees, parameters, status, and `Reroll` controls. The independent `CadViewer` receives both evaluated scenes, Experiment rules, manual simulation state, and the last successful recorded tensors.
 
 Both scenes are visible together by default. Geometry and Material Grid include Structure and Experiment toggles, and both sources can be hidden without deleting their scenes or selections. Geometry mode preserves each Material or unassigned wireframe representation. Material Grid samples Experiment before Structure, so Structure owns overlapping points. Results appears when the evaluated Experiment declares at least one recorded-data rule, even before a value arrives. On large screens, `App` owns the draggable divider between the workspace and viewer. Ctrl/Cmd-click Geometry or Surface rows to build a multi-selection; only the active document layer is highlighted when IDs overlap across sources.
 
 ```tsx
-const structureDocument = useCadDocument(structure, 'structure', true, setStructure)
-const experimentDocument = useCadDocument(experiment, 'experiment', true, setExperiment)
+const { structureDocument, experimentDocument, simulation } = useCadWorkspace(
+  structure,
+  experiment,
+  setStructure,
+  setExperiment,
+)
 
 <StructureExperimentViewer
   activeDocumentType={activeDocumentType}
@@ -42,11 +46,14 @@ const experimentDocument = useCadDocument(experiment, 'experiment', true, setExp
     variables: experimentDocument.variables,
     experimentRules: experimentDocument.experimentRules,
   }}
-  recordedData={{
-    'Domain average': { value: 0.42 },
-    'Layer field': {
-      value: [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]],
-    },
+  recordedData={simulation.recordedData}
+  simulation={{
+    canRun: simulation.canRun,
+    cancel: simulation.cancel,
+    process: simulation.process,
+    run: simulation.run,
+    solver: experimentDocument.solver,
+    stale: simulation.stale,
   }}
   selected={activeSelection}
   onRenderStart={handleRenderStart}
@@ -66,41 +73,36 @@ UI code uses `src/cad/index.ts` as the CAD facade. Help imports the lightweight 
 A Structure file default-exports a `Sample`; an Experiment file default-exports a `Setup`. Geometry and Material subclasses are defined in the editor file, and the only available module import is `@caemble/core`.
 
 ```tsx
-import { Material, Sample, Structure, type Geometry } from '@caemble/core'
+import { Material, Sample, Structure, type Geometry, type Vec3 } from '@caemble/core'
 
-const Device: Geometry<{ materials: Material[] }> = () => (
-  <fiber
-    from={[0, 0, -40]}
-    to={[0, 0, 40]}
-    radius={(s) => 1.4 - s}
-    helix={{ turns: 8, radius: 5 }}
-    fourier={[
-      { amplitude: 0.7, phase: 0.2 },
-      { amplitude: 0.3, phase: 1.4 },
-    ]}
-  />
-)
+const Conductor: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
 
 const structure = new Structure({
   geometry: () => (
-    <Device
-      id="device"
-      materials={[new Material('Fiber', { density: vars.density, color: '#7c3aed' })]}
+    <Conductor
+      id="conductor"
+      size={vars.conductorSize as Vec3}
+      materials={[new Material('Copper', 'reference', {
+        electricalConductivity: vars.electricalConductivity,
+        color: '#d97706',
+      })]}
     />
   ),
   varsSchema: {
-    density: { shape: [], default: 1.18 },
+    conductorSize: { shape: [3], default: [100, 5, 5] },
+    electricalConductivity: { shape: [], default: 5.96e7 },
   },
-  geometryGroup: {
-    body: ['device'],
-  },
+  geometryGroup: { conductor: ['conductor'] },
   surfaceGroup: {
-    contacts: ['device/surface-1'],
+    sourceTerminal: ['conductor/surface-1'],
+    referenceTerminal: ['conductor/surface-2'],
   },
 })
 
 export default new Sample(structure)
 ```
+
+The Structure example menu keeps the former procedural model as **Fiber Bundle**; **DC Conductor** is the default first item.
 
 Evaluation order is Sample vars resolution → global `vars` binding → lazy geometry factory → Material construction → Geometry evaluation.
 
@@ -124,91 +126,83 @@ import {
   Experiment,
   Material,
   Setup,
-  type ExperimentTensorParameter,
   type Geometry,
   type Vec3,
 } from '@caemble/core'
 
-type InitialConditionParameters = {
-  initialValue: number
-  initialProfile: ExperimentTensorParameter
-}
-type BoundaryConditionParameters = { value: number }
-type RecordedDataParameters = { interval: number }
+const Terminal: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
 
-const Domain: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
-const initialProfileData = [
-  [0.1, 0.2, 0.3],
-  [0.4, 0.5, 0.6],
-] as const
-
-const experiment = new Experiment<
-  InitialConditionParameters,
-  BoundaryConditionParameters,
-  RecordedDataParameters
->({
+const experiment = new Experiment({
   solver: {
-    name: 'generic-field-solver',
+    name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      timeStep: vars.timeStep as number,
-      iterations: 100,
+      lengthScaleToMeters: 0.001,
+      conductivityVariable: 'electricalConductivity',
     }),
   },
   geometry: () => (
-    <Domain
-      id="domain"
-      size={vars.domainSize as Vec3}
-      materials={[new Material('Domain', { color: '#0ea5e9' })]}
-    />
+    <>
+      <Terminal
+        id="source-electrode"
+        pos={[-50.5, 0, 0]}
+        size={[1, 7, 7]}
+        materials={[new Material('Source Electrode', { color: '#ef4444' })]}
+      />
+      <Terminal
+        id="reference-electrode"
+        pos={[50.5, 0, 0]}
+        size={[1, 7, 7]}
+        materials={[new Material('Reference Electrode', { color: '#2563eb' })]}
+      />
+    </>
   ),
   varsSchema: {
-    domainSize: { shape: [3], default: [36, 24, 18] },
-    timeStep: { shape: [], default: 0.01 },
-    initialValue: { shape: [], default: 0.25 },
-    amplitude: { shape: [], default: 0.2 },
-    recordInterval: { shape: [], default: 10 },
+    sourceVoltage: { shape: [], default: 0.001 },
+    referenceVoltage: { shape: [], default: 0 },
   },
-  geometryGroup: { domain: ['domain'] },
-  surfaceGroup: { outerBoundary: ['domain/surface-1'] },
-  initialConditions: () => [{
-    target: ['experiment.geometry.domain', 'structure.geometry.sample'],
-    label: 'Initial field',
-    methodId: 'field.initialize',
-    parameters: {
-      initialValue: vars.initialValue as number,
-      initialProfile: {
+  boundaryConditions: () => [
+    {
+      target: ['structure.surface.sourceTerminal'],
+      label: 'Applied potential',
+      methodId: 'dc.source-potential',
+      parameters: { voltage: vars.sourceVoltage as number },
+    },
+    {
+      target: ['structure.surface.referenceTerminal'],
+      label: 'Reference potential',
+      methodId: 'dc.reference-potential',
+      parameters: { voltage: vars.referenceVoltage as number },
+    },
+  ],
+  recordedData: () => [
+    {
+      target: ['structure.geometry.conductor'],
+      label: 'Current density',
+      methodId: 'dc.current-density',
+      parameters: {},
+      result: {
         type: 'tensor',
-        dimension: 2,
-        shape: [2, 3],
-        dtype: 'float32',
-        axes: [
-          { name: 'layer', ticks: ['lower', 'upper'] },
-          { name: 'position', ticks: [0, 0.5, 1] },
-        ],
-        value: initialProfileData,
+        dimension: 1,
+        shape: [3],
+        dtype: 'float64',
+        axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
       },
     },
-  }],
-  boundaryConditions: () => [{
-    target: ['structure.surface.sampleBoundary'],
-    label: 'Sample boundary',
-    methodId: 'field.sample-boundary',
-    parameters: { value: vars.amplitude as number },
-  }],
-  recordedData: () => [{
-    target: ['experiment.geometry.domain'],
-    label: 'Domain average',
-    methodId: 'field.average',
-    parameters: { interval: vars.recordInterval as number },
-    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
-  }],
+    {
+      target: ['structure.geometry.conductor'],
+      label: 'Total current',
+      methodId: 'dc.total-current',
+      parameters: {},
+      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+    },
+  ],
 })
 
 export default new Setup(experiment)
 ```
 
-Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. `experiment.*` targets must reference groups declared by the Experiment. `structure.*` targets reserve names for a future Sample without coupling this Experiment to a particular Structure. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
+Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. Experiment preview validates `experiment.*` targets immediately and defers `structure.*` targets; simulation preparation then cross-validates every target against the paired, evaluated Sample, including missing group members and empty resolutions. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
 
 Raw scalar parameters may be booleans, strings, or finite numbers. Integer-valued raw numbers must be safe integers. Explicit scalar descriptors use `{ type: 'bool' | 'string' | 'int' | 'float', value }`. A tensor parameter uses `{ type: 'tensor', dimension, shape, dtype, axes?, value }`, requires `dimension >= 1`, and must have `dimension === shape.length`; every shape size is a positive safe integer. Supported element dtypes are `bool`, `string`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, and `float64`. `int64` and `uint64` remain limited to JavaScript safe integers. Tensor values are checked recursively against both shape and dtype, copied, and frozen.
 
@@ -216,15 +210,25 @@ Optional `axes` contains one `{ name?, ticks? }` object per dimension. When the 
 
 Every recorded-data rule additionally requires a tensor-only output schema in `result` and accepts the same optional axes metadata. A scalar recorded result is a 0D tensor: `{ type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }`, normalized with `axes: []`. Recorded result shapes may use `-1` on any number of axes, for example `{ dimension: 2, shape: [-1, 3], axes: [{ name: 'time' }, { name: 'position', ticks: [0, 0.5, 1] }] }`. Tensor parameters cannot use `-1`. A wildcard axis may declare a name but must omit source ticks; its actual size and ticks are resolved from the external result, with missing ticks defaulting to 0-based indices.
 
-`CadViewer.recordedData` is a JSON dictionary keyed by the unique recorded rule label. Each value uses `{ value, axes?: [{ ticks? }, ...] }`; dtype, dimension, shape, and axis names remain authoritative in the Experiment schema. Payload axes, when supplied, have exactly one ticks-only object per dimension. Fixed ticks must equal the schema, while wildcard ticks must match the resolved value length. Missing labels render an empty schema-driven plot; unknown labels and invalid shape, dtype, or ticks are reported without hiding valid cards.
+`RecordedData` and its `CadViewerRecordedData` compatibility alias are JSON dictionaries keyed by the unique recorded rule label. Each value uses `{ value, axes?: [{ ticks? }, ...] }`; dtype, dimension, shape, and axis names remain authoritative in the Experiment schema. Payload axes, when supplied, have exactly one ticks-only object per dimension. Fixed ticks must equal the schema, while wildcard ticks must match the resolved value length. A successful solver response must include every declared label and no unknown labels; value dtype/shape and axes are validated and the accepted result is recursively frozen. The standalone Results renderer remains tolerant of missing snapshots so it can show empty schema-driven plots before the first run.
 
 Results renders 0D scalars, numeric 1D Plotly line charts, numeric 2D Plotly heatmaps, and bool/string tables. For tensors above 2D, leading-axis selectors choose a slice and the final two axes form the heatmap or matrix. Results is read-only, loads Plotly only when a populated numeric plot is shown, and does not feed result errors into CAD compilation or rendering status.
 
-Experimental Parameters displays only tensor parameters. It shows normalized axis names and complete ticks plus recorded result schemas as read-only metadata, leaving scalar, shape, dtype, axes, and result schema edits to Experiment Source. Editable values use N-dimensional JSON. Prefer a top-level `const` array, as in `initialProfileData`, instead of writing large raw tensors inline. Inline arrays and top-level const arrays can be patched back into the complete controlled source without changing axes; computed expressions and `vars`-backed values remain visible but read-only. Editing a shared const affects every reference.
+Experimental Parameters displays only tensor parameters. It shows normalized axis names and complete ticks plus recorded result schemas as read-only metadata, leaving scalar, shape, dtype, axes, and result schema edits to Experiment Source. Editable values use N-dimensional JSON. Prefer a named top-level `const` array instead of writing large raw tensors inline. Inline arrays and top-level const arrays can be patched back into the complete controlled source without changing axes; computed expressions and `vars`-backed values remain visible but read-only. Editing a shared const affects every reference.
 
 Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, finite numbers, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, class instances, and circular references are rejected.
 
-Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Experiment geometry and a paired Sample are assumed to use the same coordinate system. The standalone editor previews and validates only Experiment geometry, Solver parameters, and rules; it does not load or run a solver. A cell is a solver-defined calculation unit associated with geometry, such as a mesh element, ray, rigid body, or particle. Solvers may later create or remove cells, deform geometry, and interpret vars as initial state.
+Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initial conditions → boundary conditions → recorded data. Experiment geometry and a paired Sample use the same coordinate system. Editing either source or pressing `Reroll` updates its preview only; simulation is always manual. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
+
+## Solver Controller And DC Current Density
+
+`src/solver` is UI-independent. `SolverController.run(sample, setup)` evaluates both vars contexts, geometry, Materials, groups, solver parameters, and Experiment rules before dispatching by an exact, case-sensitive `name@version`. It permits one active run, passes an `AbortSignal` to the selected module, publishes immutable process snapshots through `getProcess()` and `subscribe()`, and validates/finalizes `RecordedData`. Duplicate module registration and unsupported identities fail explicitly. A future backend or external solver implements the same `SolverModule.solve(input, signal)` contract and may use `fetch`; no Controller or UI contract changes are required.
+
+The default `dc-current-density@1.0.0` JavaScript module is a browser-side mock for one uniform prismatic conductor. It requires exactly one Structure part with one Material, two distinct planar terminal surfaces on that part, positive `lengthScaleToMeters`, positive conductivity from the configured Material variable, two potential rules, and the exact float64 current-density and total-current schemas. Multiple parts, curved or misaligned terminals, missing Material data, extra rules, or incompatible schemas are rejected.
+
+Geometry length is converted to meters before calculation. With terminal-center distance `L`, conductor volume `V`, conductivity `σ`, and source-minus-reference potential `ΔV`, the module computes `J = σΔV/L`, `A = V/L`, and `I = |J|A`. The default `[100, 5, 5] mm` copper bar uses `σ = 5.96e7 S/m`, `ΔV = 1 mV`, and `lengthScaleToMeters = 0.001`, producing `Current density = [596000, 0, 0] A/m²` and `Total current = 14.9 A`.
+
+Source edits and `Reroll` immediately mark an existing result **Stale** and never trigger a run. A failed or cancelled replacement keeps the last successful result with its error and stale marker. The shared Worker has no queue or run history. If a document evaluation times out, the Worker is restarted, the last scenes/results remain visible, the timed-out document becomes Error, and only the successful peer is restored automatically; retry the timed-out document by editing it or pressing `Reroll`.
 
 ## Vars
 
@@ -440,7 +444,7 @@ Caemble validates endpoint agreement, finite callback results, non-degenerate sa
 - Fiber curves are sampled approximations and self-intersections are not repaired.
 - Fiber cross-sections are circular and capped; open tubes, elliptical profiles, and exact zero-radius tips are not implemented.
 - Server persistence, multiple editor files, generated vars controls, STL/OBJ export, and legacy data conversion are not implemented.
-- Sample/Experiment composition, cell creation or removal, geometry deformation, and solver execution are not implemented.
+- General Sample/Experiment composition, mesh/cell creation or removal, geometry deformation, solver queues/history, and production solver backends are not implemented. The included DC solver is deliberately a single-prism browser mock.
 - Complex booleans and high-resolution fibers can be slow depending on browser performance.
 
 

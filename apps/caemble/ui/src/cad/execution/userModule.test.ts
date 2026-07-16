@@ -52,22 +52,16 @@ describe('compiled user module execution', () => {
   })
 
   it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
-    expect(defaultExperimentCode).toContain('InitialConditionParameters,')
-    expect(defaultExperimentCode).toContain('RecordedDataParameters')
-    expect(defaultExperimentCode).toContain("name: 'generic-field-solver'")
-    expect(defaultExperimentCode).toContain('timeStep: vars.timeStep as number')
-    expect(defaultExperimentCode).toContain('initialConditions: () => [')
+    expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
+    expect(defaultExperimentCode).toContain('lengthScaleToMeters: 0.001')
+    expect(defaultExperimentCode).toContain("conductivityVariable: 'electricalConductivity'")
+    expect(defaultExperimentCode).toContain('boundaryConditions: () => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
-    expect(defaultExperimentCode).toContain("methodId: 'field.average'")
-    expect(defaultExperimentCode).toContain('parameters: { interval: vars.recordInterval as number }')
-    expect(defaultExperimentCode).toContain('const initialProfileData = [')
-    expect(defaultExperimentCode).toContain("dtype: 'float32'")
-    expect(defaultExperimentCode).toContain("{ name: 'layer', ticks: ['lower', 'upper'] }")
-    expect(defaultExperimentCode).toContain("{ name: 'position', ticks: [0, 0.5, 1] }")
+    expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
+    expect(defaultExperimentCode).toContain("{ name: 'component', ticks: ['x', 'y', 'z'] }")
     expect(defaultExperimentCode).toContain("result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' }")
-    expect(defaultExperimentCode).toContain("'experiment.geometry.domain'")
-    expect(defaultExperimentCode).toContain("'structure.surface.sampleBoundary'")
-    expect(defaultExperimentCode).toContain('export default new Setup(experiment, experiment.randomVars())')
+    expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
+    expect(defaultExperimentCode).toContain('export default new Setup(experiment)')
 
     const compiled = await transform(defaultExperimentCode, {
       format: 'cjs',
@@ -81,77 +75,63 @@ describe('compiled user module execution', () => {
       'default export must be a Sample instance',
     )
     const execution = executeCompiledCode(compiled.code, 'experiment')
-    const { experimentRules, scene, variables } = execution
+    const { experimentRules, scene, solver, variables } = execution
 
-    expect(execution).not.toHaveProperty('solver')
+    expect(solver).toEqual({
+      name: 'dc-current-density',
+      version: '1.0.0',
+      parameters: {
+        lengthScaleToMeters: 0.001,
+        conductivityVariable: 'electricalConductivity',
+      },
+    })
     expect(experimentRules).toBeDefined()
     expect(variables).toMatchObject({
-      domainSize: expect.any(Array),
-      displayWeight: expect.any(Number),
-      timeStep: expect.any(Number),
+      electrodeOffset: 50.5,
+      electrodeSize: [1, 7, 7],
+      sourceVoltage: 0.001,
+      referenceVoltage: 0,
     })
-    expect(experimentRules?.initialConditions[0].parameters.initialProfile).toMatchObject({
-      type: 'tensor',
-      dimension: 2,
-      shape: [2, 3],
-      dtype: 'float32',
-      axes: [
-        { name: 'layer', ticks: ['lower', 'upper'] },
-        { name: 'position', ticks: [0, 0.5, 1] },
-      ],
-    })
+    expect(experimentRules?.initialConditions).toEqual([])
+    expect(experimentRules?.boundaryConditions.map((rule) => rule.methodId)).toEqual([
+      'dc.source-potential',
+      'dc.reference-potential',
+    ])
+    expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([0.001, 0])
     expect(experimentRules?.recordedData[0].result).toEqual({
+      type: 'tensor',
+      dimension: 1,
+      shape: [3],
+      dtype: 'float64',
+      axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+    })
+    expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
+      'Current density',
+      'Total current',
+    ])
+    expect(experimentRules?.recordedData[1].result).toEqual({
       type: 'tensor',
       dimension: 0,
       shape: [],
       dtype: 'float64',
       axes: [],
     })
-    expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
-      'Domain average',
-      'Centerline profile',
-      'Layer field',
-    ])
-    expect(experimentRules?.recordedData[1].result).toEqual({
-      type: 'tensor',
-      dimension: 1,
-      shape: [3],
-      dtype: 'float32',
-      axes: [{ name: 'position', ticks: [0, 0.5, 1] }],
-    })
-    expect(experimentRules?.recordedData[2].result).toEqual({
-      type: 'tensor',
-      dimension: 2,
-      shape: [2, 3],
-      dtype: 'float32',
-      axes: [
-        { name: 'layer', ticks: ['lower', 'upper'] },
-        { name: 'position', ticks: [0, 0.5, 1] },
-      ],
-    })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
-    expect(scene.parts).toHaveLength(1)
-    expect(scene.parts[0]).toMatchObject({
-      id: 'domain',
-      material: { symbol: 'Experiment Domain' },
+    expect(scene.parts).toHaveLength(2)
+    expect(scene.parts.map((part) => part.id)).toEqual(['source-electrode', 'reference-electrode'])
+    expect(scene.geometryGroups[0]).toMatchObject({
+      name: 'terminals',
+      geometryIds: ['source-electrode', 'reference-electrode'],
     })
-    expect(scene.geometryGroups[0]).toMatchObject({ name: 'domain', geometryIds: ['domain'] })
-    expect(scene.surfaceGroups[0]).toMatchObject({
-      name: 'outerBoundary',
-      surfaceIds: ['domain/surface-1'],
-    })
+    expect(scene.surfaceGroups).toEqual([])
   })
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
-    expect(defaultCode).toContain('<fiber')
-    expect(defaultCode).toContain('basePath={basePath}')
-    expect(defaultCode).toContain('radius={(s) =>')
-    expect(defaultCode).toContain('radius: (_u, theta) =>')
-    expect(defaultCode).toContain('fourier={fourier}')
-    expect(defaultCode).toContain('fourierModes')
-    expect(defaultCode).toContain('const randomVars = structure.randomVars()')
-    expect(defaultCode).toContain("geometryGroup: {\n    bundle: ['bundle']")
-    expect(defaultCode).toContain("surfaceGroup: {\n    starts: ['bundle.1/surface-1'")
+    expect(defaultCode).toContain("new Material('Copper', 'reference'")
+    expect(defaultCode).toContain('electricalConductivity: vars.electricalConductivity')
+    expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 5, 5] }')
+    expect(defaultCode).toContain("geometryGroup: {\n    conductor: ['conductor']")
+    expect(defaultCode).toContain("sourceTerminal: ['conductor/surface-1']")
 
     const compiled = await transform(defaultCode, {
       format: 'cjs',
@@ -162,16 +142,17 @@ describe('compiled user module execution', () => {
       target: 'es2020',
     })
     const { geometryGroups, parts, surfaceGroups } = executeCompiledCode(compiled.code).scene
-    const rerolled = executeCompiledCode(compiled.code).scene
-
-    expect(parts).toHaveLength(3)
-    expect(parts.map((part) => part.id)).toEqual(['bundle.1', 'bundle.2', 'bundle.3'])
-    expect(rerolled.parts.map((part) => part.id)).toEqual(parts.map((part) => part.id))
-    expect(parts.every((part) => part.material?.symbol === 'Tapered Fiber')).toBe(true)
-    expect(geometryGroups[0]).toMatchObject({ name: 'bundle', geometryIds: parts.map((part) => part.id) })
-    expect(surfaceGroups[0]).toMatchObject({ name: 'starts', surfaceIds: [
-      'bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1',
-    ] })
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatchObject({
+      id: 'conductor',
+      material: {
+        symbol: 'Copper',
+        version: 'reference',
+        variables: { electricalConductivity: 5.96e7, color: '#d97706' },
+      },
+    })
+    expect(geometryGroups[0]).toMatchObject({ name: 'conductor', geometryIds: ['conductor'] })
+    expect(surfaceGroups.map((group) => group.name)).toEqual(['sourceTerminal', 'referenceTerminal'])
     parts.forEach((part) => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)

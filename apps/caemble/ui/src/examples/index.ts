@@ -1,4 +1,5 @@
 import { defaultCode } from '../defaultCode'
+import { fiberBundleCode } from './fiberBundle'
 import { shellCutawaysCode } from './shellCutaways'
 import { curvedEdgeCylinderArrayCode } from './curvedEdgeCylinderArray'
 import { curvedSurfaceSphereHcpArrayCode } from './curvedSurfaceSphereHcpArray'
@@ -12,10 +13,16 @@ export type CaembleExample = Readonly<{
 
 export const caembleExamples: readonly CaembleExample[] = Object.freeze([
   {
+    id: 'dc-conductor',
+    title: 'DC Conductor',
+    description: 'A copper bar with named conductor and terminal groups for the default DC solver example.',
+    code: defaultCode,
+  },
+  {
     id: 'fiber-bundle',
     title: 'Fiber Bundle',
     description: 'Fourier modes and a curved path produce three tapered polymer fibers.',
-    code: defaultCode,
+    code: fiberBundleCode,
   },
   {
     id: 'shell-cutaways',

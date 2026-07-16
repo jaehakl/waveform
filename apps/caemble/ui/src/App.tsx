@@ -7,7 +7,7 @@ import SyntaxHelp from './help/SyntaxHelp'
 import { appViewFromHash, viewHashes, type AppView } from './navigation'
 import CadViewer from './viewer/CadViewer'
 import { StructureExperimentViewer } from './workspace/StructureExperimentViewer'
-import { useCadDocument } from './workspace/useCadDocument'
+import { useCadWorkspace } from './workspace/useCadWorkspace'
 
 const defaultWorkspaceLeftPercent = 44
 
@@ -36,8 +36,12 @@ function App() {
   const [activeDocumentType, setActiveDocumentType] = useState<CadDocumentType>('structure')
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const workspaceRef = useRef<HTMLDivElement | null>(null)
-  const structureDocument = useCadDocument(structure, 'structure', true, setStructure)
-  const experimentDocument = useCadDocument(experiment, 'experiment', true, setExperiment)
+  const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
+    structure,
+    experiment,
+    setStructure,
+    setExperiment,
+  )
   const {
     handleRenderEnd: handleStructureRenderEnd,
     handleRenderError: handleStructureRenderError,
@@ -193,7 +197,16 @@ function App() {
 
             <CadViewer
               experiment={experimentViewerDocument}
+              recordedData={simulation.recordedData}
               selected={viewerSelection}
+              simulation={{
+                canRun: simulation.canRun,
+                cancel: simulation.cancel,
+                process: simulation.process,
+                run: simulation.run,
+                solver: experimentDocument.solver,
+                stale: simulation.stale,
+              }}
               structure={structureViewerDocument}
               onRenderEnd={handleRenderEnd}
               onRenderError={handleRenderError}

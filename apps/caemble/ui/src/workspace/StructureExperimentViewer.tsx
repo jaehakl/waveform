@@ -3,7 +3,7 @@ import type { CadDocumentType } from '../cad'
 import CadEditor from '../editor/CadEditor'
 import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
-import type { CadDocumentController } from './useCadDocument'
+import type { CadDocumentController } from './useCadWorkspace'
 
 export type StructureExperimentViewerProps = {
   activeDocumentType: CadDocumentType | null

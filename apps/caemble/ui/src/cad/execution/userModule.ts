@@ -14,7 +14,7 @@ import {
 import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 import type { CadScene } from '../evaluation/types'
-import type { EvaluatedExperimentRules } from '../model/core'
+import type { EvaluatedExperimentRules, ResolvedExperimentSolver } from '../model/core'
 import type { Vars } from '../model/types'
 import type { CadDocumentType } from '../worker/protocol'
 
@@ -24,7 +24,10 @@ export type CadExecutionResult = Readonly<{
   scene: CadScene
   variables: Readonly<Vars>
   experimentRules?: EvaluatedExperimentRules
+  solver?: ResolvedExperimentSolver
 }>
+
+export type CadDocumentEntry = Sample | Setup
 
 export function requireCaembleModule(specifier: string) {
   if (specifier !== '@caemble/core') {
@@ -34,10 +37,10 @@ export function requireCaembleModule(specifier: string) {
   return coreModule
 }
 
-export function executeCompiledCode(
+export function loadCompiledCode(
   jsCode: string,
   documentType: CadDocumentType = 'structure',
-): CadExecutionResult {
+): CadDocumentEntry {
   const exports: Record<string, unknown> = {}
   const module = { exports }
   const runner = new Function(
@@ -56,16 +59,34 @@ export function executeCompiledCode(
     if (!(entry instanceof Setup)) {
       throw new CadModelError('The default export must be a Setup instance in the Experiment editor.')
     }
+    return entry
+  }
+
+  if (!(entry instanceof Sample)) {
+    throw new CadModelError('The default export must be a Sample instance in the Structure editor.')
+  }
+
+  return entry
+}
+
+export function evaluateDocumentEntry(
+  entry: CadDocumentEntry,
+  documentType: CadDocumentType = 'structure',
+): CadExecutionResult {
+  if (documentType === 'experiment') {
+    if (!(entry instanceof Setup)) {
+      throw new CadModelError('The default export must be a Setup instance in the Experiment editor.')
+    }
 
     return evaluateWithVars(entry.vars, () => {
       const experiment = entry.experiment
-      evaluateExperimentSolver(experiment)
+      const solver = evaluateExperimentSolver(experiment)
       const scene = evaluateCadScene(experiment.geometry(), {
         geometryGroup: experiment.geometryGroup,
         surfaceGroup: experiment.surfaceGroup,
       }, 'Experiment')
       const experimentRules = evaluateExperimentRules(experiment)
-      return Object.freeze({ scene, variables: entry.vars, experimentRules })
+      return Object.freeze({ scene, variables: entry.vars, experimentRules, solver })
     })
   }
 
@@ -80,6 +101,13 @@ export function executeCompiledCode(
     }),
     variables: entry.vars,
   }))
+}
+
+export function executeCompiledCode(
+  jsCode: string,
+  documentType: CadDocumentType = 'structure',
+): CadExecutionResult {
+  return evaluateDocumentEntry(loadCompiledCode(jsCode, documentType), documentType)
 }
 
 
