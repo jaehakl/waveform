@@ -3,7 +3,10 @@ import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadDocumentType, CadScenePart, RecordedDataRule, UcumUnit } from '../cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
 import RecordedDataResults from './RecordedDataResults'
-import type { CadViewerRecordedData } from './recordedData'
+import type {
+  CadViewerRecordedData,
+  RecordedDataDisplayUnits,
+} from './recordedData'
 import type { CadViewerSimulation } from './CadViewer'
 import type {
   MaterialGridResult,
@@ -425,6 +428,22 @@ function JscadViewer({
 }: JscadViewerProps) {
   const displayLayers = useMemo(() => scaleViewerLayers(layers, lengthUnit), [layers, lengthUnit])
   const parts = useMemo(() => materialGridPartsFromLayers(displayLayers), [displayLayers])
+  const recordedDataSchemaSignature = useMemo(() => JSON.stringify(recordedDataRules.map((rule) => ({
+    label: rule.label,
+    result: {
+      axes: rule.result.axes?.map((axis) => ({
+        name: axis.name,
+        quantityKind: axis.quantityKind,
+        ticks: axis.ticks,
+        unit: axis.unit,
+      })),
+      dimension: rule.result.dimension,
+      dtype: rule.result.dtype,
+      quantityKind: rule.result.quantityKind,
+      shape: rule.result.shape,
+      unit: rule.result.unit,
+    },
+  }))), [recordedDataRules])
   const selection = selected?.selection ?? null
   const [gridError, setGridError] = useState<string | null>(null)
   const [gridApplyVersion, setGridApplyVersion] = useState(0)
@@ -433,6 +452,7 @@ function JscadViewer({
   const [requestedSpacing, setRequestedSpacing] = useState(1)
   const [spacingDraft, setSpacingDraft] = useState('1')
   const [spacingError, setSpacingError] = useState<string | null>(null)
+  const [recordedDisplayUnits, setRecordedDisplayUnits] = useState<RecordedDataDisplayUnits>({})
   const [viewerMode, setViewerMode] = useState<ViewerMode>('geometry')
   const activeGridRenderRef = useRef<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -450,6 +470,7 @@ function JscadViewer({
     pointSize: 5,
     visuals: { drawCmd: 'drawPoints', show: true },
   })
+  const recordedDataSchemaSignatureRef = useRef(recordedDataSchemaSignature)
   const referenceEntitiesRef = useRef<RendererEntity[]>([
     {
       size: [120, 120],
@@ -472,6 +493,12 @@ function JscadViewer({
   useEffect(() => {
     if (!hasResults && viewerMode === 'results') setViewerMode('geometry')
   }, [hasResults, viewerMode])
+
+  useEffect(() => {
+    if (recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature) return
+    recordedDataSchemaSignatureRef.current = recordedDataSchemaSignature
+    setRecordedDisplayUnits({})
+  }, [recordedDataSchemaSignature])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -798,7 +825,22 @@ function JscadViewer({
         />
 
         {viewerMode === 'results' ? (
-          <RecordedDataResults recordedData={recordedData} rules={recordedDataRules} />
+          <RecordedDataResults
+            displayUnits={recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature
+              ? recordedDisplayUnits
+              : {}}
+            recordedData={recordedData}
+            rules={recordedDataRules}
+            onDisplayUnitChange={(label, target, unit) => setRecordedDisplayUnits((current) => {
+              const entry = current[label] ?? {}
+              return {
+                ...current,
+                [label]: target === 'result'
+                  ? { ...entry, result: unit }
+                  : { ...entry, axes: { ...entry.axes, [target]: unit } },
+              }
+            })}
+          />
         ) : null}
 
         {viewerMode !== 'results' && parts.length === 0 ? (

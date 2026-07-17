@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ExperimentTensorAxis, RecordedDataRule } from '../cad'
 import {
+  convertRecordedNumericTicks,
+  convertRecordedNumericValue,
   normalizeCadViewerRecordedTensor,
+  recordedDisplayUnitOptions,
   resolveCadViewerRecordedData,
 } from './recordedData'
 
@@ -33,6 +36,33 @@ function createRule(
 }
 
 describe('CadViewer recordedData normalization', () => {
+  it('converts display values and numeric ticks without mutating normalized source data', () => {
+    const source = Object.freeze([Object.freeze([1, 2])])
+    const converted = convertRecordedNumericValue(source, 'A', 'mA') as readonly (readonly number[])[]
+    const temperatures = convertRecordedNumericValue([0, 100], 'Cel', 'K') as readonly number[]
+
+    expect(converted).toEqual([[1_000, 2_000]])
+    expect(converted).not.toBe(source)
+    expect(converted[0]).not.toBe(source[0])
+    expect(source).toEqual([[1, 2]])
+    expect(Object.isFrozen(converted)).toBe(true)
+    expect(Object.isFrozen(converted[0])).toBe(true)
+    expect(temperatures[0]).toBeCloseTo(273.15)
+    expect(temperatures[1]).toBeCloseTo(373.15)
+    expect(convertRecordedNumericTicks([0, 0.5, 1], 'm', 'mm')).toEqual([0, 500, 1_000])
+  })
+
+  it('lists the source unit first and removes incompatible Quantity Kind alternatives', () => {
+    const currentUnits = recordedDisplayUnitOptions('ElectricCurrent', 'A')
+    const angularUnits = recordedDisplayUnitOptions('AngularAcceleration', '{#}.s-2')
+
+    expect(currentUnits[0]).toBe('A')
+    expect(currentUnits).toContain('mA')
+    expect(new Set(currentUnits).size).toBe(currentUnits.length)
+    expect(angularUnits[0]).toBe('{#}.s-2')
+    expect(angularUnits).not.toContain('rad.s-2')
+  })
+
   it('normalizes fixed tensors against the Experiment schema and freezes copies', () => {
     const source = [[1, 2, 3], [4, 5, 6]]
     const rule = createRule('Layer field', [2, 3], 'float32', [

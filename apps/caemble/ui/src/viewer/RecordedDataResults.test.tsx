@@ -53,6 +53,9 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('data-result-visualization="heatmap"')
     expect(markup.match(/No recorded data/g)).toHaveLength(3)
     expect(markup).toContain('expected [2,3]')
+    expect(markup).toMatch(/<select[^>]*aria-label="Average result display unit"[^>]*>\s*<option[^>]*value="A"/)
+    expect(markup).toContain('<option value="mA">mA</option>')
+    expect(markup).not.toContain('aria-label="Profile axis 0 axis display unit"')
   })
 
   it('shows valid scalar data and isolates unknown labels and shape errors', () => {
@@ -73,6 +76,54 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('<span class="text-base text-slate-500">A</span>')
     expect(markup).toContain('actual shape [2]; expected shape [3]')
     expect(markup).toContain('aria-label="Profile empty line chart"')
+  })
+
+  it('applies independent result and numeric-axis display units to card values and ticks', () => {
+    const numericAxisRule: RecordedDataRule = {
+      target: ['experiment.geometry.domain'],
+      label: 'Numeric profile',
+      methodId: 'field.numeric-profile',
+      parameters: {},
+      result: {
+        type: 'tensor',
+        dimension: 1,
+        shape: [3],
+        dtype: 'float32',
+        unit: 'A',
+        quantityKind: 'ElectricCurrent',
+        axes: [{ name: 'position', ticks: [0, 0.5, 1], unit: 'm', quantityKind: 'Length' }],
+      },
+    }
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        displayUnits={{ 'Numeric profile': { result: 'mA', axes: { 0: 'mm' } } }}
+        recordedData={{ 'Numeric profile': { value: [1, 2, 3] } }}
+        rules={[numericAxisRule]}
+      />,
+    )
+
+    expect(markup).toContain('float32 · 1D · mA')
+    expect(markup).toContain('aria-label="Numeric profile result display unit"')
+    expect(markup).toContain('aria-label="Numeric profile position axis display unit"')
+    expect(markup).toContain('[0,500,1000]')
+    expect(markup).toContain('Loading line chart...')
+  })
+
+  it('converts scalar display values while keeping unitless results and nonnumeric axes read-only', () => {
+    const textRule = rule('Labels', [2], 'string', undefined, 'm')
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        displayUnits={{ Average: { result: 'mA' }, Labels: { axes: { 0: 'mm' } } }}
+        recordedData={{ Average: { value: 0.5 }, Labels: { value: ['left', 'right'] } }}
+        rules={[rules[0], textRule]}
+      />,
+    )
+
+    expect(markup).toContain('<span>500</span>')
+    expect(markup).toContain('<span class="text-base text-slate-500">mA</span>')
+    expect(markup).not.toContain('aria-label="Labels result display unit"')
+    expect(markup).not.toContain('aria-label="Labels axis 0 axis display unit"')
+    expect(markup).toContain('[&quot;0:0&quot;,&quot;0:1&quot;]')
   })
 
   it('renders N-dimensional string slices with leading-axis selectors and a matrix table', () => {
