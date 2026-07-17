@@ -143,7 +143,7 @@ export function StructureExperimentViewer({
             aria-label={`Reroll ${activeDocument.documentType}`}
             className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={activeDocument.runIsBusy}
-            title={`Re-run the current ${activeDocument.documentType} code`}
+            title={`Re-evaluate and randomize the current ${activeDocument.documentType}`}
             type="button"
             onClick={activeDocument.handleReroll}
           >

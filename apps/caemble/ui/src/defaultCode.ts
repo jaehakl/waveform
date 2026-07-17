@@ -39,10 +39,10 @@ const structure = new Structure({
     />
   ),
   varsSchema: {
-    conductorSize: { shape: [3], default: [100, 12, 10] },
-    notchSize: { shape: [3], default: [30, 5, 5] },
-    notchPosition: { shape: [3], default: [0, 4.5, 2.5] },
-    electricalConductivity: { shape: [], default: 5.96e7 },
+    conductorSize: { min: [100, 12, 10], max: [100, 12, 10] },
+    notchSize: { min: [20, 4, 5], max: [40, 6, 7] },
+    notchPosition: { min: [-10, 4, 2.5], max: [10, 5, 3.5] },
+    electricalConductivity: { min: 5.96e7, max: 5.96e7 },
   },
   geometryGroup: {
     conductor: ['conductor'],

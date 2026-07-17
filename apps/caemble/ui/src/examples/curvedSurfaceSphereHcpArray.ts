@@ -103,51 +103,35 @@ const structure = new Structure({
   ),
   varsSchema: {
     baseRadius: {
-      shape: arrayShape,
-      default: cellTensor(3.125),
-      min: 3.05,
-      max: 3.2,
+      min: cellTensor(3.05),
+      max: cellTensor(3.2),
     },
     azimuthalMode2Amplitude: {
-      shape: arrayShape,
-      default: cellTensor(0.08),
-      min: 0.05,
-      max: 0.12,
+      min: cellTensor(0.05),
+      max: cellTensor(0.12),
     },
     azimuthalMode2Phase: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: 0,
-      max: tau,
+      min: cellTensor(0),
+      max: cellTensor(tau),
     },
     azimuthalMode3Amplitude: {
-      shape: arrayShape,
-      default: cellTensor(0.04),
-      min: 0.02,
-      max: 0.06,
+      min: cellTensor(0.02),
+      max: cellTensor(0.06),
     },
     azimuthalMode3Phase: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: 0,
-      max: tau,
+      min: cellTensor(0),
+      max: cellTensor(tau),
     },
     polarMode2Amplitude: {
-      shape: arrayShape,
-      default: cellTensor(0.015),
-      min: 0.01,
-      max: 0.025,
+      min: cellTensor(0.01),
+      max: cellTensor(0.025),
     },
     polarMode2Phase: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: 0,
-      max: tau,
+      min: cellTensor(0),
+      max: cellTensor(tau),
     },
   },
 })
 
-const randomVars = structure.randomVars()
-
-export default new Sample(structure, randomVars)
+export default new Sample(structure)
 `

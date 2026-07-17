@@ -4,10 +4,8 @@ export type Vec3 = readonly [number, number, number]
 export type Rotation = Readonly<{ axis: Vec3; angle: number }>
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type VarsSchemaEntry = Readonly<{
-  shape: readonly number[]
-  default: Tensor
-  min?: Tensor
-  max?: Tensor
+  min: Tensor
+  max: Tensor
 }>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
 export type ExperimentTensorDType =
@@ -271,7 +269,7 @@ export class Structure {
   })
   readonly geometry: () => unknown
   readonly lengthUnit: UcumUnit
-  readonly varsSchema: Readonly<Record<string, unknown>>
+  readonly varsSchema: Readonly<Record<string, VarsSchemaEntry>>
   readonly geometryGroup: StructureGroupMap
   readonly surfaceGroup: StructureGroupMap
   randomVars(seed?: number): Vars

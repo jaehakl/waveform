@@ -38,10 +38,10 @@ const experiment = new Experiment({
     </>
   ),
   varsSchema: {
-    electrodeOffset: { shape: [], default: 50.5 },
-    electrodeSize: { shape: [3], default: [1, 14, 12] },
-    sourceVoltage: { shape: [], default: 1 },
-    referenceVoltage: { shape: [], default: 0 },
+    electrodeOffset: { min: 50.5, max: 50.5 },
+    electrodeSize: { min: [1, 14, 12], max: [1, 14, 12] },
+    sourceVoltage: { min: 1, max: 1 },
+    referenceVoltage: { min: 0, max: 0 },
   },
   geometryGroup: {
     terminals: ['source-electrode', 'reference-electrode'],

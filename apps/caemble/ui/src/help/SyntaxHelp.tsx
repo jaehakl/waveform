@@ -10,7 +10,8 @@ function SyntaxHelp() {
             A Structure file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>,
             while an Experiment file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Setup</code>.
             Both resolve vars before lazily creating Materials and evaluating root Geometry in the Worker. Each
-            editor auto-runs changed code, and Reroll immediately executes its current source again. Experiment
+            editor auto-runs changed code, and every initial load, source edit, or Reroll creates newly randomized
+            ranged vars. Experiment
             tensor values are available in the Experimental Parameters tab while the 3D Viewer remains visible.
           </p>
         </div>
@@ -51,8 +52,9 @@ function SyntaxHelp() {
           <div className="rounded border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
               <p className="font-semibold text-slate-800">Vars</p>
               <p className="mt-1">
-                Every schema item declares a fixed shape and default. Optional min and max values may be scalars or
-                tensors with the same shape. Use <code className="rounded bg-white px-1 py-0.5 text-xs">vars.key</code>
+                Every schema item declares required min and max values. Tensor shape is inferred from either tensor
+                bound, while a scalar opposite bound broadcasts to that shape; two scalar bounds define a scalar var.
+                Equal bounds fix an element. Use <code className="rounded bg-white px-1 py-0.5 text-xs">vars.key</code>
                 inside the lazy geometry factory and Geometry functions. Vars remain unitless intermediate values;
                 declare units where those values enter a scene, Material, solver, rule, or result schema.
               </p>
@@ -231,9 +233,9 @@ function SyntaxHelp() {
 
               <p className="mt-3 font-semibold text-slate-800">Default DC Current Density Solver</p>
               <p className="mt-1">
-                The default Structure is a <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
-                copper bar with an eccentric <code className="rounded bg-white px-1 py-0.5 text-xs">[30, 5, 5] mm</code>{' '}
-                corner notch, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
+                The default Structure is a fixed <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
+                copper bar with a randomized corner-notch size from <code className="rounded bg-white px-1 py-0.5 text-xs">[20, 4, 5]</code>{' '}
+                through <code className="rounded bg-white px-1 py-0.5 text-xs">[40, 6, 7]</code>, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
                 5.96e7 S/m</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>. A{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc.voxel-grid</code> initialization owns the

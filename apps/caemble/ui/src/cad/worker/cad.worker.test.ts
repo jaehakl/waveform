@@ -30,7 +30,7 @@ const structure = new Structure({
       electricalConductivity: { type: 'float', value: 5.96e7, errorRate: 0, unit: 'S/m' },
     })],
   }),
-  varsSchema: {},
+  varsSchema: { realization: { min: 90, max: 110 } },
   geometryGroup: { conductor: ['conductor'] },
   surfaceGroup: {
     sourceTerminal: ['conductor/surface-1'],
@@ -55,7 +55,7 @@ const experiment = new Experiment({
     }),
   },
   geometry: () => h(Probe, { id: 'probe' }),
-  varsSchema: {},
+  varsSchema: { realization: { min: 1, max: 2 } },
   initializations: () => [
     {
       target: ['structure.geometry.conductor'],
@@ -210,5 +210,58 @@ describe('persistent CAD Worker', () => {
     expect(responses.some((response) => (
       response.type === 'solver-success' && response.requestId === 'cancelled-run'
     ))).toBe(false)
+  })
+
+  it('creates new Structure and Experiment vars for every document evaluation', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.25)
+    try {
+      dispatch({
+        type: 'evaluate-document',
+        requestId: 'structure-3',
+        revision: 3,
+        source: structureSource,
+        documentType: 'structure',
+      })
+      dispatch({
+        type: 'evaluate-document',
+        requestId: 'experiment-3',
+        revision: 3,
+        source: experimentSource,
+        documentType: 'experiment',
+      })
+      const firstStructure = await waitForResponse('document-success', 'structure-3')
+      const firstExperiment = await waitForResponse('document-success', 'experiment-3')
+
+      random.mockReturnValue(0.75)
+      dispatch({
+        type: 'evaluate-document',
+        requestId: 'structure-4',
+        revision: 4,
+        source: structureSource,
+        documentType: 'structure',
+      })
+      dispatch({
+        type: 'evaluate-document',
+        requestId: 'experiment-4',
+        revision: 4,
+        source: experimentSource,
+        documentType: 'experiment',
+      })
+      const secondStructure = await waitForResponse('document-success', 'structure-4')
+      const secondExperiment = await waitForResponse('document-success', 'experiment-4')
+
+      if (
+        firstStructure.type !== 'document-success'
+        || firstExperiment.type !== 'document-success'
+        || secondStructure.type !== 'document-success'
+        || secondExperiment.type !== 'document-success'
+      ) throw new Error('Expected document-success responses.')
+      expect(firstStructure.variables.realization).toBe(95)
+      expect(secondStructure.variables.realization).toBe(105)
+      expect(firstExperiment.variables.realization).toBe(1.25)
+      expect(secondExperiment.variables.realization).toBe(1.75)
+    } finally {
+      random.mockRestore()
+    }
   })
 })

@@ -28,21 +28,19 @@ function createStructure() {
   return new Structure({ lengthUnit: 'mm',
     geometry: () => null,
     varsSchema: {
-      width: { shape: [], default: 20, min: 10, max: 30 },
+      width: { min: 10, max: 30 },
       offset: {
-        shape: [2],
-        default: [0, 1],
         min: -2,
         max: [2, 3],
       },
-      fixed: { shape: [2, 2], default: [[1, 2], [3, 4]] },
+      fixed: { min: [[1, 2], [3, 4]], max: [[1, 2], [3, 4]] },
     },
   })
 }
 
 describe('Structure and Sample vars', () => {
-  it('fills defaults and applies validated partial vars', () => {
-    const sample = new Sample(createStructure(), { width: 25 })
+  it('randomizes omitted vars and applies validated partial vars', () => {
+    const sample = new Sample(createStructure(), { width: 25, offset: [0, 1] })
 
     expect(sample.vars).toEqual({
       width: 25,
@@ -63,26 +61,39 @@ describe('Structure and Sample vars', () => {
     expect(() => new Sample(structure, { width: 31 })).toThrow('less than or equal to 30')
   })
 
-  it('validates schema defaults and scalar or tensor bounds', () => {
+  it('infers shapes and rejects invalid or legacy bounds', () => {
     expect(
       () =>
         new Structure({ lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
-            invalid: { shape: [2], default: [0, 3], min: [0, 0], max: [2, 2] },
+            invalid: { min: [0, 3], max: [2, 2] },
           },
         }),
-    ).toThrow('less than or equal to 2')
+    ).toThrow('min greater than max')
 
     expect(
       () =>
         new Structure({ lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
-            invalid: { shape: [], default: 1, min: 0 },
+            invalid: { min: 0 } as never,
           },
         }),
     ).toThrow('must define both min and max')
+
+    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
+      legacy: { shape: [], default: 1, min: 0, max: 2 } as never,
+    } })).toThrow('shape is not supported')
+    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
+      ragged: { min: [[0], [1, 2]], max: 3 },
+    } })).toThrow('must be a rectangular tensor')
+    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
+      mismatch: { min: [0, 0], max: [[1, 1]] },
+    } })).toThrow('must have shape [2]')
+    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
+      nonFinite: { min: Number.NaN, max: 1 },
+    } })).toThrow('must contain only finite numbers')
   })
 
   it('generates deterministic seeded vars within scalar-broadcast and tensor bounds', () => {
@@ -97,6 +108,30 @@ describe('Structure and Sample vars', () => {
     expect((first.offset as readonly number[])[0]).toBeLessThanOrEqual(2)
     expect((first.offset as readonly number[])[1]).toBeLessThanOrEqual(3)
     expect(first.fixed).toEqual([[1, 2], [3, 4]])
+  })
+
+  it('creates a new unseeded realization per instance and lets partial vars win', () => {
+    const random = vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.2)
+      .mockReturnValueOnce(0.3)
+      .mockReturnValueOnce(0.4)
+      .mockReturnValueOnce(0.5)
+      .mockReturnValueOnce(0.6)
+      .mockReturnValueOnce(0.7)
+      .mockReturnValueOnce(0.8)
+
+    try {
+      const structure = createStructure()
+      const first = new Sample(structure)
+      const second = new Sample(structure, { width: 27 })
+
+      expect(first.vars.width).toBe(12)
+      expect(second.vars.width).toBe(27)
+      expect(first.vars.offset).not.toEqual(second.vars.offset)
+    } finally {
+      random.mockRestore()
+    }
   })
 
   it('normalizes, deduplicates, and deeply freezes Structure groups', () => {
@@ -149,7 +184,7 @@ describe('Experiment and Setup', () => {
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {
-        initialValue: { shape: [], default: 0.25, min: 0, max: 1 },
+        initialValue: { min: 0, max: 1 },
       },
       geometryGroup: { domain: [] },
       surfaceGroup: { 'outer.boundary': [] },
@@ -209,7 +244,7 @@ describe('Experiment and Setup', () => {
         order.push('geometry')
         return null
       },
-      varsSchema: { initialValue: { shape: [], default: 0.5 } },
+      varsSchema: { initialValue: { min: 0.5, max: 0.75 } },
       geometryGroup: { domain: [] },
       surfaceGroup: { 'outer.boundary': [] },
       initializations: () => {
@@ -705,7 +740,7 @@ describe('Experiment and Setup', () => {
         order.push('geometry')
         return null
       },
-      varsSchema: { timeStep: { shape: [], default: 0.01 } },
+      varsSchema: { timeStep: { min: 0.01, max: 0.02 } },
     })
     const setup = new Setup(experiment, { timeStep: 0.02 })
     const solver = evaluateWithVars(setup.vars, () => {
@@ -890,8 +925,9 @@ describe('Material and global vars', () => {
         },
         nested: { baseline: { type: 'float', value: 1.5 } },
       })
-      const firstSample = new Sample(createStructure())
-      const secondSample = new Sample(createStructure())
+      const materialStructure = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
+      const firstSample = new Sample(materialStructure)
+      const secondSample = new Sample(materialStructure)
       const experiment = new Experiment({
         lengthUnit: 'mm',
         solver: createSolver(),

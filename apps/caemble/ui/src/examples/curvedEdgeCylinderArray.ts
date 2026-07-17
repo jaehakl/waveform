@@ -89,57 +89,39 @@ const structure = new Structure({
   ),
   varsSchema: {
     height: {
-      shape: arrayShape,
-      default: cellTensor(10),
-      min: 8,
-      max: 12,
+      min: cellTensor(8),
+      max: cellTensor(12),
     },
     baseRadius: {
-      shape: arrayShape,
-      default: cellTensor(4.6),
-      min: 4.2,
-      max: 5,
+      min: cellTensor(4.2),
+      max: cellTensor(5),
     },
     mode2Amplitude: {
-      shape: arrayShape,
-      default: cellTensor(0.5),
-      min: 0.2,
-      max: 0.8,
+      min: cellTensor(0.2),
+      max: cellTensor(0.8),
     },
     mode2Phase: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: 0,
-      max: tau,
+      min: cellTensor(0),
+      max: cellTensor(tau),
     },
     mode3Amplitude: {
-      shape: arrayShape,
-      default: cellTensor(0.25),
-      min: 0.1,
-      max: 0.45,
+      min: cellTensor(0.1),
+      max: cellTensor(0.45),
     },
     mode3Phase: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: 0,
-      max: tau,
+      min: cellTensor(0),
+      max: cellTensor(tau),
     },
     verticalSlope: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: -0.02,
-      max: 0.02,
+      min: cellTensor(-0.02),
+      max: cellTensor(0.02),
     },
     verticalCurvature: {
-      shape: arrayShape,
-      default: cellTensor(0),
-      min: -0.005,
-      max: 0.005,
+      min: cellTensor(-0.005),
+      max: cellTensor(0.005),
     },
   },
 })
 
-const randomVars = structure.randomVars()
-
-export default new Sample(structure, randomVars)
+export default new Sample(structure)
 `

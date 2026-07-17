@@ -52,11 +52,12 @@ export type GeometryAttributes<P extends object = object> = Readonly<
 export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
 export type VarsSchemaEntry = {
-  shape: readonly number[]
-  default: Tensor
-  min?: Tensor
-  max?: Tensor
+  min: Tensor
+  max: Tensor
 }
+
+type NormalizedVarsSchemaEntry = Readonly<VarsSchemaEntry & { shape: readonly number[] }>
+type NormalizedVarsSchema = Readonly<Record<string, NormalizedVarsSchemaEntry>>
 
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
@@ -254,20 +255,23 @@ function freezeTensor(value: Tensor): Tensor {
   return Object.freeze(value)
 }
 
-function validateShape(shape: unknown, key: string): readonly number[] {
-  if (!Array.isArray(shape)) {
-    throw new CadModelError(`varsSchema.${key}.shape must be an array of positive integers.`)
+function inferTensorShape(value: unknown, path: string): readonly number[] {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new CadModelError(`${path} must contain only finite numbers.`)
+    return Object.freeze([])
+  }
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new CadModelError(`${path} must be a finite number or a non-empty rectangular tensor.`)
   }
 
-  const normalized = shape.map((size) => {
-    if (!Number.isInteger(size) || size <= 0) {
-      throw new CadModelError(`varsSchema.${key}.shape must contain only positive integers.`)
+  const childShape = inferTensorShape(value[0], `${path}[0]`)
+  value.slice(1).forEach((item, index) => {
+    const itemShape = inferTensorShape(item, `${path}[${index + 1}]`)
+    if (itemShape.length !== childShape.length || itemShape.some((size, axis) => size !== childShape[axis])) {
+      throw new CadModelError(`${path} must be a rectangular tensor.`)
     }
-
-    return size
   })
-
-  return Object.freeze(normalized)
+  return Object.freeze([value.length, ...childShape])
 }
 
 function validateTensor(value: unknown, shape: readonly number[], path: string): asserts value is Tensor {
@@ -306,25 +310,25 @@ function boundAt(bound: Tensor, index: number): Tensor {
 
 function validateRange(
   value: Tensor,
-  min: Tensor | undefined,
-  max: Tensor | undefined,
+  min: Tensor,
+  max: Tensor,
   shape: readonly number[],
   path: string,
 ) {
   if (shape.length === 0) {
     const scalar = value as number
-    const minimum = min as number | undefined
-    const maximum = max as number | undefined
+    const minimum = min as number
+    const maximum = max as number
 
-    if (minimum !== undefined && maximum !== undefined && minimum > maximum) {
+    if (minimum > maximum) {
       throw new CadModelError(`${path} has min greater than max.`)
     }
 
-    if (minimum !== undefined && scalar < minimum) {
+    if (scalar < minimum) {
       throw new CadModelError(`${path} must be greater than or equal to ${minimum}.`)
     }
 
-    if (maximum !== undefined && scalar > maximum) {
+    if (scalar > maximum) {
       throw new CadModelError(`${path} must be less than or equal to ${maximum}.`)
     }
 
@@ -334,11 +338,22 @@ function validateRange(
   ;(value as readonly Tensor[]).forEach((item, index) => {
     validateRange(
       item,
-      min === undefined ? undefined : boundAt(min, index),
-      max === undefined ? undefined : boundAt(max, index),
+      boundAt(min, index),
+      boundAt(max, index),
       shape.slice(1),
       `${path}[${index}]`,
     )
+  })
+}
+
+function validateBounds(min: Tensor, max: Tensor, shape: readonly number[], path: string) {
+  if (shape.length === 0) {
+    if ((min as number) > (max as number)) throw new CadModelError(`${path} has min greater than max.`)
+    return
+  }
+
+  Array.from({ length: shape[0] }, (_, index) => {
+    validateBounds(boundAt(min, index), boundAt(max, index), shape.slice(1), `${path}[${index}]`)
   })
 }
 
@@ -347,7 +362,8 @@ function normalizeVarsSchema(rawSchema: unknown, objectName: string) {
     throw new CadModelError(`${objectName} varsSchema must be an object.`)
   }
 
-  const normalized: Record<string, VarsSchemaEntry> = {}
+  const schema: Record<string, VarsSchemaEntry> = {}
+  const normalized: Record<string, NormalizedVarsSchemaEntry> = {}
 
   Object.entries(rawSchema).forEach(([key, rawEntry]) => {
     if (!key.trim()) {
@@ -358,36 +374,35 @@ function normalizeVarsSchema(rawSchema: unknown, objectName: string) {
       throw new CadModelError(`varsSchema.${key} must be an object.`)
     }
 
-    const shape = validateShape(rawEntry.shape, key)
-    validateTensor(rawEntry.default, shape, `varsSchema.${key}.default`)
-
-    const hasMin = rawEntry.min !== undefined
-    const hasMax = rawEntry.max !== undefined
-
-    if (hasMin !== hasMax) {
-      throw new CadModelError(`varsSchema.${key} must define both min and max or neither.`)
+    const unsupportedKey = Object.keys(rawEntry).find((entryKey) => entryKey !== 'min' && entryKey !== 'max')
+    if (unsupportedKey) {
+      throw new CadModelError(`varsSchema.${key}.${unsupportedKey} is not supported; define only min and max.`)
+    }
+    if (rawEntry.min === undefined || rawEntry.max === undefined) {
+      throw new CadModelError(`varsSchema.${key} must define both min and max.`)
     }
 
-    if (hasMin) {
-      validateBound(rawEntry.min, shape, `varsSchema.${key}.min`)
-      validateBound(rawEntry.max, shape, `varsSchema.${key}.max`)
+    const minShape = inferTensorShape(rawEntry.min, `varsSchema.${key}.min`)
+    const maxShape = inferTensorShape(rawEntry.max, `varsSchema.${key}.max`)
+    const shape = minShape.length === 0 ? maxShape : minShape
+    if (minShape.length > 0 && maxShape.length > 0) {
+      validateTensor(rawEntry.max, minShape, `varsSchema.${key}.max`)
     }
+    validateBound(rawEntry.min, shape, `varsSchema.${key}.min`)
+    validateBound(rawEntry.max, shape, `varsSchema.${key}.max`)
 
-    const defaultValue = freezeTensor(cloneTensor(rawEntry.default))
-    const min = hasMin ? freezeTensor(cloneTensor(rawEntry.min as Tensor)) : undefined
-    const max = hasMax ? freezeTensor(cloneTensor(rawEntry.max as Tensor)) : undefined
+    const min = freezeTensor(cloneTensor(rawEntry.min as Tensor))
+    const max = freezeTensor(cloneTensor(rawEntry.max as Tensor))
+    validateBounds(min, max, shape, `varsSchema.${key}`)
 
-    validateRange(defaultValue, min, max, shape, `varsSchema.${key}.default`)
-
-    normalized[key] = Object.freeze({
-      shape,
-      default: defaultValue,
-      ...(min === undefined ? {} : { min }),
-      ...(max === undefined ? {} : { max }),
-    })
+    schema[key] = Object.freeze({ min, max })
+    normalized[key] = Object.freeze({ shape, min, max })
   })
 
-  return Object.freeze(normalized)
+  return Object.freeze({
+    schema: Object.freeze(schema),
+    normalized: Object.freeze(normalized),
+  })
 }
 
 function normalizeStructureGroup(
@@ -436,7 +451,7 @@ function normalizeStructureGroup(
 }
 
 function normalizeVars(
-  schema: Readonly<Record<string, VarsSchemaEntry>>,
+  schema: NormalizedVarsSchema,
   rawVars: unknown,
   variableObjectName: string,
 ) {
@@ -455,7 +470,7 @@ function normalizeVars(
 
   schemaKeys.forEach((key) => {
     const entry = schema[key]
-    const rawValue = rawVars[key] === undefined ? entry.default : rawVars[key]
+    const rawValue = rawVars[key]
 
     validateTensor(rawValue, entry.shape, `vars.${key}`)
 
@@ -494,6 +509,7 @@ function randomTensor(
   if (shape.length === 0) {
     const minimum = min as number
     const maximum = max as number
+    if (minimum === maximum) return minimum
     return minimum + random() * (maximum - minimum)
   }
 
@@ -501,6 +517,8 @@ function randomTensor(
     randomTensor(shape.slice(1), boundAt(min, index), boundAt(max, index), random),
   )
 }
+
+const normalizedVarsSchemas = new WeakMap<object, NormalizedVarsSchema>()
 
 export class Material {
   readonly symbol: string
@@ -613,9 +631,11 @@ export class Structure {
     const lengthUnit = normalizeUcumUnit(options.lengthUnit, `${objectName} lengthUnit`)
     assertUcumUnitComparable(lengthUnit, 'm', `${objectName} lengthUnit`)
 
+    const varsSchema = normalizeVarsSchema(options.varsSchema, objectName)
     this.geometry = options.geometry
     this.lengthUnit = lengthUnit
-    this.varsSchema = normalizeVarsSchema(options.varsSchema, objectName)
+    this.varsSchema = varsSchema.schema
+    normalizedVarsSchemas.set(this, varsSchema.normalized)
     this.geometryGroup = normalizeStructureGroup(options.geometryGroup, 'geometryGroup', objectName)
     this.surfaceGroup = normalizeStructureGroup(options.surfaceGroup, 'surfaceGroup', objectName)
     if (new.target === Structure) Object.freeze(this)
@@ -624,15 +644,13 @@ export class Structure {
   randomVars(seed?: number) {
     const random = createRandom(seed)
     const generated: Vars = {}
+    const schema = normalizedVarsSchemas.get(this)!
 
-    Object.entries(this.varsSchema).forEach(([key, entry]) => {
-      generated[key] =
-        entry.min === undefined || entry.max === undefined
-          ? cloneTensor(entry.default)
-          : randomTensor(entry.shape, entry.min, entry.max, random)
+    Object.entries(schema).forEach(([key, entry]) => {
+      generated[key] = randomTensor(entry.shape, entry.min, entry.max, random)
     })
 
-    return normalizeVars(this.varsSchema, generated, this.constructor.name || 'Structure')
+    return normalizeVars(schema, generated, this.constructor.name || 'Structure')
   }
 }
 
@@ -1171,7 +1189,14 @@ export abstract class VariableObject<TObject extends Structure> {
     }
 
     this.object = object
-    this.vars = normalizeVars(object.varsSchema, partialVars, variableObjectName)
+    if (!isRecord(partialVars)) throw new CadModelError(`${variableObjectName} vars must be an object.`)
+    const extraKey = Object.keys(partialVars).find((key) => !(key in object.varsSchema))
+    if (extraKey) throw new CadModelError(`Unknown ${variableObjectName} var: ${extraKey}.`)
+    const generated = { ...object.randomVars() }
+    Object.entries(partialVars).forEach(([key, value]) => {
+      if (value !== undefined) generated[key] = value as Tensor
+    })
+    this.vars = normalizeVars(normalizedVarsSchemas.get(object)!, generated, variableObjectName)
     materialRandomSeeds.set(this.vars, Math.floor(Math.random() * 0x1_0000_0000))
   }
 }

@@ -10,7 +10,7 @@ describe('App workspace', () => {
     const button = markup.match(/<button[^>]*aria-label="Reroll structure"[^>]*>/)?.[0]
 
     expect(button).toBeDefined()
-    expect(button).toContain('title="Re-run the current structure code"')
+    expect(button).toContain('title="Re-evaluate and randomize the current structure"')
     expect(button).not.toMatch(/\sdisabled(?:=|\s|>)/)
     expect(markup).toContain('aria-label="Main navigation"')
     expect(markup).toMatch(/<a[^>]*aria-current="page"[^>]*href="#viewer"[^>]*>Viewer<\/a>/)

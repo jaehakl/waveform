@@ -31,8 +31,8 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       })],
     }),
     varsSchema: {
-      length: { shape: [], default: 10 },
-      materialValue: { shape: [], default: 3 },
+      length: { min: 10, max: 12 },
+      materialValue: { min: 3, max: 4 },
     },
     geometryGroup: { conductor: ['conductor'] },
   })
@@ -44,7 +44,7 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       parameters: () => ({ scale: { type: 'float', value: vars.scale as number } }),
     },
     geometry: () => h(Probe, { id: 'probe' }),
-    varsSchema: { scale: { shape: [], default: 2 } },
+    varsSchema: { scale: { min: 2, max: 5 } },
     recordedData: () => [{
       target: ['structure.geometry.conductor'],
       label: 'Value',

@@ -119,18 +119,14 @@ const structure = new Structure({
   },
   varsSchema: {
     bend: {
-      shape: [3],
-      default: [8, 4, 0],
       min: [-12, -8, -4],
       max: [12, 8, 4],
     },
-    bundleRadius: { shape: [], default: 5, min: 3, max: 7 },
-    fiberRadius: { shape: [], default: 1.2, min: 0.8, max: 1.6 },
-    turns: { shape: [], default: 8, min: 5, max: 11 },
-    density: { shape: [], default: 1.18 },
+    bundleRadius: { min: 3, max: 7 },
+    fiberRadius: { min: 0.8, max: 1.6 },
+    turns: { min: 5, max: 11 },
+    density: { min: 1.18, max: 1.18 },
     fourierModes: {
-      shape: [3, 2],
-      default: [[0.8, 0.3], [0.35, 1.7], [0.16, 3.1]],
       min: [[0, 0], [0, 0], [0, 0]],
       max: [[1.2, Math.PI * 2], [0.6, Math.PI * 2], [0.3, Math.PI * 2]],
     },
@@ -143,10 +139,5 @@ const structure = new Structure({
   },
 })
 
-// The Fourier amplitudes and phases are ordinary Sample vars. Reroll resamples only those coefficients.
-const randomVars = structure.randomVars()
-
-export default new Sample(structure, {
-  fourierModes: randomVars.fourierModes,
-})
+export default new Sample(structure)
 `

@@ -106,10 +106,10 @@ const structure = new Structure({
     />
   ),
   varsSchema: {
-    conductorSize: { shape: [3], default: [100, 12, 10] },
-    notchSize: { shape: [3], default: [30, 5, 5] },
-    notchPosition: { shape: [3], default: [0, 4.5, 2.5] },
-    electricalConductivity: { shape: [], default: 5.96e7 },
+    conductorSize: { min: [100, 12, 10], max: [100, 12, 10] },
+    notchSize: { min: [20, 4, 5], max: [40, 6, 7] },
+    notchPosition: { min: [-10, 4, 2.5], max: [10, 5, 3.5] },
+    electricalConductivity: { min: 5.96e7, max: 5.96e7 },
   },
   geometryGroup: { conductor: ['conductor'] },
   surfaceGroup: {
@@ -181,8 +181,8 @@ const experiment = new Experiment({
     </>
   ),
   varsSchema: {
-    sourceVoltage: { shape: [], default: 1 },
-    referenceVoltage: { shape: [], default: 0 },
+    sourceVoltage: { min: 1, max: 1 },
+    referenceVoltage: { min: 0, max: 0 },
   },
   initializations: () => [
     {
@@ -288,7 +288,7 @@ Experiment evaluation order is Setup vars resolution → global `vars` binding �
 
 The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It converts the Structure scene `lengthUnit` to `m`, terminal potentials to `V`, and Material conductivity to `S/m`; the removed `lengthScaleToMeters` parameter is no longer accepted. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
 
-The default Structure is a `[100, 12, 10] mm` copper bar with an eccentric `[30, 5, 5] mm` corner notch centered at `[0, 4.5, 2.5] mm`. Its nominal conductivity is `5.96e7 S/m` with `errorRate: 0.001`, so every new Sample uses one conductivity uniformly realized within `±0.1%`. The `dc.voxel-grid` initialization rule defines the editable `[s, u, v]` resolution and grid setup through an int32 `gridShape` tensor with value `[100, 41, 41]`. Each RecordedData rule declares the dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` at which its result is measured, selecting the axial face near the notch entrance at approximately `x = -15 mm`. Current density and total current positions must resolve to the same dimensionless value; compatible forms such as `0.35` and `35%` match. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
+The default Structure is a fixed `[100, 12, 10] mm` copper bar whose corner-notch size is randomized from `[20, 4, 5]` through `[40, 6, 7]` and whose center is randomized from `[-10, 4, 2.5]` through `[10, 5, 3.5]`. Its nominal conductivity is fixed at `5.96e7 S/m` with `errorRate: 0.001`, so every new Sample uses one conductivity uniformly realized within `±0.1%`. The `dc.voxel-grid` initialization rule defines the editable `[s, u, v]` resolution and grid setup through an int32 `gridShape` tensor with value `[100, 41, 41]`. Each RecordedData rule declares the dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` at which its result is measured. Current density and total current positions must resolve to the same dimensionless value; compatible forms such as `0.35` and `35%` match. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
 
 This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema and the former solver-level `gridShape`/`crossSectionPosition` placement: Experiments using either old contract fail explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m`, `errorRate: 0`, and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine the initialization `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires a valid positive length conversion and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Missing or incompatible physical units, nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
 
@@ -296,14 +296,13 @@ Source edits and `Reroll` immediately mark an existing result **Stale** and neve
 
 ## Vars
 
-`vars` is a flat, read-only dictionary of finite numeric tensors. A scalar uses `shape: []`; arrays use fixed shapes such as `[3]` or `[3, 2]`.
+`vars` is a flat, read-only dictionary of finite numeric tensors. Every schema item requires `min` and `max`; no `shape` or `default` is declared.
 
-- Every schema item requires `shape` and `default`.
-- `min` and `max` are both omitted or both supplied.
-- Bounds may be scalars broadcast to every element or tensors matching the declared shape.
-- `new Sample(structure, partialVars)` fills omitted entries from defaults and rejects unknown names, invalid shapes, non-finite values, and range violations.
-- `new Setup(experiment, partialVars)` applies the same rules to Experiment vars.
-- `structure.randomVars(seed?)` samples each ranged element independently and uses defaults for entries without a range.
+- Two scalar bounds define a scalar var. If either bound is a tensor, its rectangular shape is inferred and an opposite scalar bound broadcasts to every element.
+- Two tensor bounds must have identical shapes. Equal min/max leaves are fixed values.
+- `new Sample(structure, partialVars)` and `new Setup(experiment, partialVars)` independently sample every omitted entry on construction, then apply and validate explicit partial values.
+- Initial document evaluation, source edits, and `Reroll` each construct a new Sample or Setup and therefore produce a new realization.
+- `structure.randomVars(seed?)` samples each non-fixed element independently and deterministically when a seed is supplied.
 
 Fourier fiber coefficients are ordinary vars rather than hidden random values. A `[K, 2]` tensor can be converted to amplitude/phase modes inside a Geometry:
 

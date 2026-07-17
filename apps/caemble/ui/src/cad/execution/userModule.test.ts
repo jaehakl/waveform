@@ -20,8 +20,8 @@ const structure = new Structure({
     materials: [new Material('Core', { epsilon: vars.epsilon, color: '#2563eb' })],
   }),
   varsSchema: {
-    width: { shape: [], default: 4 },
-    epsilon: { shape: [], default: 12 },
+    width: { min: 4, max: 4 },
+    epsilon: { min: 12, max: 12 },
   },
   geometryGroup: { body: ['root', 'missing'] },
   surfaceGroup: { face: ['root/surface-1'] },
@@ -162,9 +162,9 @@ describe('compiled user module execution', () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain("unit: 'S/m'")
     expect(defaultCode).toContain('errorRate: 0.001')
-    expect(defaultCode).toContain('conductorSize: { shape: [3], default: [100, 12, 10] }')
-    expect(defaultCode).toContain('notchSize: { shape: [3], default: [30, 5, 5] }')
-    expect(defaultCode).toContain('notchPosition: { shape: [3], default: [0, 4.5, 2.5] }')
+    expect(defaultCode).toContain('conductorSize: { min: [100, 12, 10], max: [100, 12, 10] }')
+    expect(defaultCode).toContain('notchSize: { min: [20, 4, 5], max: [40, 6, 7] }')
+    expect(defaultCode).toContain('notchPosition: { min: [-10, 4, 2.5], max: [10, 5, 3.5] }')
     expect(defaultCode).toContain("geometryGroup: {\n    conductor: ['conductor']")
     expect(defaultCode).toContain("sourceTerminal: ['conductor/surface-1']")
 
@@ -209,6 +209,34 @@ describe('compiled user module execution', () => {
       expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
       expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
     })
+  })
+
+  it('keeps the default notch valid at both randomization extremes', async () => {
+    const compiled = await transform(defaultCode, {
+      format: 'cjs',
+      jsxFactory: 'h',
+      jsxFragment: 'Fragment',
+      loader: 'tsx',
+      platform: 'browser',
+      target: 'es2020',
+    })
+    const random = vi.spyOn(Math, 'random')
+
+    try {
+      for (const value of [0, 1]) {
+        random.mockReturnValue(value)
+        const { scene, variables } = executeCompiledCode(compiled.code)
+        const part = scene.parts[0]
+
+        expect(variables.notchSize).toEqual(value === 0 ? [20, 4, 5] : [40, 6, 7])
+        expect(variables.notchPosition).toEqual(value === 0 ? [-10, 4, 2.5] : [10, 5, 3.5])
+        expect(scene.surfaceGroups.map((group) => group.name)).toEqual(['sourceTerminal', 'referenceTerminal'])
+        expect(() => geometries.geom3.validate(part.geometry)).not.toThrow()
+        expect(measurements.measureVolume(part.geometry)).toBeGreaterThan(0)
+      }
+    } finally {
+      random.mockRestore()
+    }
   })
 
   it('keeps example IDs unique and compiles every registered example', async () => {
