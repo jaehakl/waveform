@@ -5,7 +5,7 @@ import type {
   ResolvedExperimentSolver,
 } from '../model/core'
 import type { Vars } from '../model/types'
-import type { SolverProcess } from '../../solver'
+import type { SolverProcess, SolverValidationResult } from '../../solver'
 
 export type CadDocumentType = 'structure' | 'experiment'
 
@@ -40,6 +40,13 @@ export type CadWorkerResponse =
       variables: Readonly<Vars>
       experimentRules?: EvaluatedExperimentRules
       solver?: ResolvedExperimentSolver
+    }>
+  | Readonly<{
+      type: 'solver-preflight'
+      requestId: string
+      structureRevision?: number
+      experimentRevision: number
+      result: SolverValidationResult
     }>
   | Readonly<{
       type: 'document-error'

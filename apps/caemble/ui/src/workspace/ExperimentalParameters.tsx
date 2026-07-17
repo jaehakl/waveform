@@ -34,7 +34,7 @@ function isTensorParameter(value: unknown): value is ExperimentTensorParameter {
 function parameterSummary(value: ExperimentParameter) {
   if (typeof value !== 'object' || value === null) return `${String(value)} · ${typeof value === 'number' ? 'integer' : typeof value}`
   if (value.type === 'tensor') return ''
-  if (value.type === 'float') return `${value.value} · ${value.unit ?? 'unitless'}`
+  if (value.type === 'float') return `${value.value} · ${value.quantityKind} · ${value.unit}`
   return `${String(value.value)} · ${value.type}`
 }
 
@@ -59,7 +59,9 @@ function TensorAxes({
           {axes.map((axis, index) => (
             <div className="grid gap-1 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]" key={`${axis.name}-${index}`}>
               <span className="font-medium text-slate-700">
-                {axis.name ?? `axis ${index}`} · {axis.unit ?? 'unitless'}
+                {axis.name ?? `axis ${index}`} · {axis.quantityKind
+                  ? `${axis.quantityKind} · ${axis.unit}`
+                  : 'unitless'}
               </span>
               <code className="overflow-x-auto whitespace-nowrap text-slate-600">
                 {shape?.[index] === -1 ? 'dynamic ticks from result' : JSON.stringify(axis.ticks ?? [])}
@@ -106,7 +108,8 @@ function TensorParameterEditor({
         <div>
           <div className="font-mono text-xs font-semibold text-slate-800">{parameterKey}</div>
           <div className="mt-1 text-xs text-slate-500">
-            {parameter.dtype} · {parameter.dimension}D · shape {JSON.stringify(parameter.shape)} · {parameter.unit ?? 'unitless'}
+            {parameter.dtype} · {parameter.dimension}D · shape {JSON.stringify(parameter.shape)} ·{' '}
+            {parameter.quantityKind ? `${parameter.quantityKind} · ${parameter.unit}` : 'unitless'}
           </div>
         </div>
         <div className="flex gap-2">
@@ -218,7 +221,8 @@ function RuleCard({
         <div className="mt-3 rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
           <div className="font-semibold">Recorded result schema (source-only)</div>
           <div className="mt-1 font-mono">
-            {rule.result.dtype} · {rule.result.dimension}D · shape {JSON.stringify(rule.result.shape)} · {rule.result.unit ?? 'unitless'}
+            {rule.result.dtype} · {rule.result.dimension}D · shape {JSON.stringify(rule.result.shape)} ·{' '}
+            {rule.result.quantityKind ? `${rule.result.quantityKind} · ${rule.result.unit}` : 'unitless'}
           </div>
           <TensorAxes
             axes={rule.result.axes}
@@ -287,8 +291,8 @@ export default function ExperimentalParameters({
   return (
     <div className="h-full overflow-auto bg-slate-50 px-4 py-4">
       <div className="mb-4 rounded border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
-        Only tensor values are editable here. Scalar values, units, tensor dtype, dimension, shape, axes, and recorded
-        result schemas are source-only. Omitted float units are shown as unitless.
+        Only tensor values are editable here. Scalar values, Quantity Kinds, units, tensor dtype, dimension, shape,
+        axes, and recorded result schemas are source-only.
       </div>
 
       <div className="space-y-5">

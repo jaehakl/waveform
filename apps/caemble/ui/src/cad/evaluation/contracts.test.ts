@@ -4,6 +4,7 @@ import jsxDeclarations from '../api/cad-jsx.d.ts?raw'
 import monacoSetupSource from '../../editor/monacoSetup.ts?raw'
 import { cadElementCatalog } from '../catalog'
 import * as cadFacade from '../index'
+import { QuantityKind } from '../../quantitykind'
 import { cadElementDefinitions, createCadElementRegistry } from './registry'
 import type { CadElementDefinition } from './types'
 
@@ -70,6 +71,17 @@ describe('CAD registry contracts', () => {
       category: 'operation',
       syntax: '<shell offsets={[-inner, outer]}>Geometry</shell>',
     })
+  })
+
+  it('keeps the Monaco QuantityKindName union synchronized with the generated facade', () => {
+    const declaration = coreDeclarations.match(
+      /export type QuantityKindName =([\s\S]*?)export type QuantityMetadata/,
+    )?.[1]
+    const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])]
+      .map((match) => match[1])
+
+    expect(declarationNames).toHaveLength(1_219)
+    expect(declarationNames.sort()).toEqual(Object.keys(QuantityKind).sort())
   })
 
   it('exposes model and evaluation APIs through the CAD facade', () => {

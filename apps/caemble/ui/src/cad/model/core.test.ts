@@ -18,7 +18,27 @@ import {
   type ExperimentTensorDType,
   type ExperimentTensorParameter,
   type FloatValue,
+  type QuantityKindName,
 } from './core'
+
+function assertQuantityMetadataTypes() {
+  const quantityKind: QuantityKindName = 'Length'
+  const floatTensor: ExperimentTensorParameter = {
+    type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1],
+    unit: 'm', quantityKind,
+  }
+  const integerTensor: ExperimentTensorParameter = {
+    type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', value: [1],
+  }
+  // @ts-expect-error unknown Quantity Kind names must be rejected
+  const unknownQuantityKind: QuantityKindName = 'NotAQuantityKind'
+  // @ts-expect-error float descriptors require Quantity Kind metadata
+  const missingQuantityKind: FloatValue = { type: 'float', value: 1, unit: 'm' }
+  // @ts-expect-error non-float tensors must not declare Quantity Kind metadata
+  const integerWithMetadata: ExperimentTensorParameter = { type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', value: [1], unit: 'm', quantityKind: 'Length' }
+  void [floatTensor, integerTensor, unknownQuantityKind, missingQuantityKind, integerWithMetadata]
+}
+void assertQuantityMetadataTypes
 
 function createSolver(parameters: () => Record<string, never> = () => ({})) {
   return { name: 'test-solver', version: '1.0.0', parameters }
@@ -258,12 +278,19 @@ describe('Experiment and Setup', () => {
           label: ' Shared label ',
           methodId: ' field.apply ',
           parameters: {
-            initialValue: { type: 'float', value: vars.initialValue as number, unit: 'V' },
+            initialValue: {
+              type: 'float',
+              value: vars.initialValue as number,
+              unit: 'V',
+              quantityKind: 'Voltage',
+            },
             profile: {
               type: 'tensor',
               dimension: 2,
               shape: [2, 2],
               dtype: 'float32',
+              unit: 'V',
+              quantityKind: 'Voltage',
               value: profile,
             },
           },
@@ -290,7 +317,14 @@ describe('Experiment and Setup', () => {
           label: ' Recorded field ',
           methodId: ' field.record ',
           parameters: { interval: { type: 'int', value: 10 } },
-          result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+          result: {
+            type: 'tensor',
+            dimension: 0,
+            shape: [],
+            dtype: 'float64',
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio',
+          },
         }]
       },
     })
@@ -305,13 +339,17 @@ describe('Experiment and Setup', () => {
       target: ['experiment.geometry.domain', 'structure.geometry.sample', 'structure.geometry.sample'],
       label: 'Shared label',
       methodId: 'field.apply',
-      parameters: { initialValue: { type: 'float', value: 0.75, unit: 'V' } },
+      parameters: {
+        initialValue: { type: 'float', value: 0.75, unit: 'V', quantityKind: 'Voltage' },
+      },
     })
     expect(rules.initializations[0].parameters.profile).toEqual({
       type: 'tensor',
       dimension: 2,
       shape: [2, 2],
       dtype: 'float32',
+      unit: 'V',
+      quantityKind: 'Voltage',
       axes: [
         { name: 'axis 0', ticks: [0, 1] },
         { name: 'axis 1', ticks: [0, 1] },
@@ -334,7 +372,14 @@ describe('Experiment and Setup', () => {
       ],
       label: 'Recorded field',
       methodId: 'field.record',
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+      result: {
+        type: 'tensor',
+        dimension: 0,
+        shape: [],
+        dtype: 'float64',
+        unit: '{fraction}',
+        quantityKind: 'DimensionlessRatio',
+      },
     })
     expect(rules.recordedData[0].parameters).toEqual({ interval: { type: 'int', value: 10 } })
     expect(Object.isFrozen(rules.initializations)).toBe(true)
@@ -374,9 +419,13 @@ describe('Experiment and Setup', () => {
     expect(evaluateParameter({ type: 'bool', value: false })).toEqual({ type: 'bool', value: false })
     expect(evaluateParameter({ type: 'string', value: 'value' })).toEqual({ type: 'string', value: 'value' })
     expect(evaluateParameter({ type: 'int', value: 4 })).toEqual({ type: 'int', value: 4 })
-    expect(evaluateParameter({ type: 'float', value: 4 })).toEqual({ type: 'float', value: 4 })
-    expect(evaluateParameter({ type: 'float', value: 1, unit: 'mV' })).toEqual({
-      type: 'float', value: 1, unit: 'mV',
+    expect(evaluateParameter({
+      type: 'float', value: 4, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    })).toEqual({
+      type: 'float', value: 4, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    })
+    expect(evaluateParameter({ type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' })).toEqual({
+      type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage',
     })
 
     ;[
@@ -392,8 +441,12 @@ describe('Experiment and Setup', () => {
       { type: 'bool', value: 1 },
       { type: 'string', value: false },
       { type: 'int', value: 1.5 },
-      { type: 'float', value: Number.NEGATIVE_INFINITY },
-      { type: 'float', value: 1, unit: 'not-a-unit' },
+      { type: 'float', value: Number.NEGATIVE_INFINITY, unit: '{fraction}', quantityKind: 'DimensionlessRatio' },
+      { type: 'float', value: 1 },
+      { type: 'float', value: 1, unit: 'not-a-unit', quantityKind: 'Voltage' },
+      { type: 'float', value: 1, unit: 'mV', quantityKind: 'NotAQuantityKind' },
+      { type: 'float', value: 1, unit: 'm', quantityKind: 'Voltage' },
+      { type: 'float', value: 1, unit: '1', quantityKind: 'APIGravity' },
     ].forEach((parameter) => {
       expect(() => evaluateParameter(parameter)).toThrow(CadModelError)
     })
@@ -422,6 +475,9 @@ describe('Experiment and Setup', () => {
         dimension: 1,
         shape: [(value as unknown[]).length],
         dtype,
+        ...(dtype.startsWith('float')
+          ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' }
+          : {}),
         value,
       })
       expect(normalized.value).toEqual(value)
@@ -448,6 +504,9 @@ describe('Experiment and Setup', () => {
         dimension: 1,
         shape: [1],
         dtype,
+        ...(dtype.startsWith('float')
+          ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' }
+          : {}),
         value,
       }), dtype).toThrow(CadModelError)
     })
@@ -456,7 +515,7 @@ describe('Experiment and Setup', () => {
   it('normalizes optional tensor axes with 0-based defaults and deeply freezes them', () => {
     const sourceAxes = [
       { name: ' layer ', ticks: ['lower', 'upper'] },
-      { ticks: [0, 0.5, 1], unit: 's' },
+      { ticks: [0, 0.5, 1], unit: 's', quantityKind: 'Time' },
     ]
     const explicit = normalizeExperimentTensorParameter({
       type: 'tensor',
@@ -464,6 +523,7 @@ describe('Experiment and Setup', () => {
       shape: [2, 3],
       dtype: 'float32',
       unit: 'V',
+      quantityKind: 'Voltage',
       axes: sourceAxes,
       value: [[1, 2, 3], [4, 5, 6]],
     })
@@ -472,12 +532,14 @@ describe('Experiment and Setup', () => {
       dimension: 1,
       shape: [3],
       dtype: 'float32',
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
       value: [1, 2, 3],
     })
 
     expect(explicit.axes).toEqual([
       { name: 'layer', ticks: ['lower', 'upper'] },
-      { name: 'axis 1', ticks: [0, 0.5, 1], unit: 's' },
+      { name: 'axis 1', ticks: [0, 0.5, 1], unit: 's', quantityKind: 'Time' },
     ])
     expect(explicit.unit).toBe('V')
     expect(defaults.axes).toEqual([{ name: 'axis 0', ticks: [0, 1, 2] }])
@@ -488,8 +550,18 @@ describe('Experiment and Setup', () => {
     sourceAxes[0].ticks[0] = 'changed'
     expect(explicit.axes?.[0]).toEqual({ name: 'layer', ticks: ['lower', 'upper'] })
     expect(() => normalizeExperimentTensorParameter({
-      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', unit: 'm', value: [1],
-    })).toThrow('unit is allowed only for float tensor dtypes')
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', unit: 'm', quantityKind: 'Length', value: [1],
+    })).toThrow('allowed only for float tensor dtypes')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'float32', unit: 'V', value: [1],
+    })).toThrow('must specify both unit and quantityKind')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', quantityKind: 'Length', value: [1],
+    })).toThrow('allowed only for float tensor dtypes')
+    expect(() => normalizeExperimentTensorParameter({
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'float32',
+      unit: 'V', quantityKind: 'Voltage', axes: [{ unit: 's' }], value: [1],
+    })).toThrow('must specify both unit and quantityKind or neither')
   })
 
   it('rejects malformed tensor axes and reports actual and expected lengths', () => {
@@ -498,6 +570,8 @@ describe('Experiment and Setup', () => {
       dimension: 2,
       shape: [2, 2],
       dtype: 'float64',
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
       value: [[1, 2], [3, 4]],
     }
 
@@ -536,21 +610,27 @@ describe('Experiment and Setup', () => {
       dimension: 2,
       shape: [2, 2],
       dtype: 'float64',
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
       value: [[1, 2], [3]],
     }, 'Experiment initializations[0].parameters.profile')).toThrow(
       'Experiment initializations[0].parameters.profile.value has actual shape [2, ragged [2] | [1]]; expected shape [2,2]',
     )
     expect(() => normalizeExperimentTensorParameter({
-      type: 'tensor', dimension: 2, shape: [2], dtype: 'float64', value: [1, 2],
+      type: 'tensor', dimension: 2, shape: [2], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: [1, 2],
     })).toThrow('shape [2] has dimension 1')
     expect(() => normalizeExperimentTensorParameter({
-      type: 'tensor', dimension: 0, shape: [], dtype: 'float64', value: 1,
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: 1,
     })).toThrow('dimension must be a safe integer greater than or equal to 1')
     expect(() => normalizeExperimentTensorParameter({
-      type: 'tensor', dimension: 1, shape: [0], dtype: 'float64', value: [],
+      type: 'tensor', dimension: 1, shape: [0], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: [],
     })).toThrow('must be a positive safe integer')
     expect(() => normalizeExperimentTensorParameter({
-      type: 'tensor', dimension: 1, shape: [-1], dtype: 'float64', value: [],
+      type: 'tensor', dimension: 1, shape: [-1], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: [],
     })).toThrow('must be a positive safe integer')
   })
 
@@ -591,12 +671,26 @@ describe('Experiment and Setup', () => {
         {
           ...validRow,
           label: 'Recorded field',
-          result: { type: 'tensor' as const, dimension: 0, shape: [], dtype: 'float64' as const },
+          result: {
+            type: 'tensor' as const,
+            dimension: 0,
+            shape: [],
+            dtype: 'float64' as const,
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio' as const,
+          },
         },
         {
           ...validRow,
           label: ' Recorded field ',
-          result: { type: 'tensor' as const, dimension: 0, shape: [], dtype: 'float64' as const },
+          result: {
+            type: 'tensor' as const,
+            dimension: 0,
+            shape: [],
+            dtype: 'float64' as const,
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio' as const,
+          },
         },
       ],
     })
@@ -625,12 +719,15 @@ describe('Experiment and Setup', () => {
 
     const rules = evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     }))
     expect(rules.recordedData[0].result).toEqual({
       type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     })
     expect(evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     })).recordedData[0].result.axes).toEqual([])
     const dynamicResult = evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor',
@@ -638,7 +735,8 @@ describe('Experiment and Setup', () => {
       shape: [-1, -1],
       dtype: 'float32',
       unit: 'V',
-      axes: [{ name: 'row', unit: 's' }, {}],
+      quantityKind: 'Voltage',
+      axes: [{ name: 'row', unit: 's', quantityKind: 'Time' }, {}],
     })).recordedData[0].result
     expect(dynamicResult).toEqual({
       type: 'tensor',
@@ -646,7 +744,8 @@ describe('Experiment and Setup', () => {
       shape: [-1, -1],
       dtype: 'float32',
       unit: 'V',
-      axes: [{ name: 'row', unit: 's' }, { name: 'axis 1' }],
+      quantityKind: 'Voltage',
+      axes: [{ name: 'row', unit: 's', quantityKind: 'Time' }, { name: 'axis 1' }],
     })
     expect(Object.isFrozen(dynamicResult.shape)).toBe(true)
     expect(Object.isFrozen(dynamicResult.axes)).toBe(true)
@@ -656,11 +755,14 @@ describe('Experiment and Setup', () => {
       dimension: 1,
       shape: [-1],
       dtype: 'float64',
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
       axes: [{ name: 'time', ticks: [0] }],
     }))).toThrow('ticks must be omitted when shape[0] is -1')
     ;[0, -2].forEach((size) => {
       expect(() => evaluateExperimentRules(createRecordedExperiment({
         type: 'tensor', dimension: 1, shape: [size], dtype: 'float64',
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       }))).toThrow('must be -1 or a positive safe integer')
     })
     expect(() => evaluateExperimentRules(createRecordedExperiment(undefined, false))).toThrow(
@@ -668,13 +770,15 @@ describe('Experiment and Setup', () => {
     )
     expect(() => evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 0, shape: [1], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     }))).toThrow('shape [1] has dimension 1')
     expect(() => evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 1, shape: [1], dtype: 'unknown',
     }))).toThrow('dtype must be a supported tensor dtype')
     expect(() => evaluateExperimentRules(createRecordedExperiment({
-      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32', unit: 'm',
-    }))).toThrow('unit is allowed only for float tensor dtypes')
+      type: 'tensor', dimension: 1, shape: [1], dtype: 'int32',
+      unit: 'm', quantityKind: 'Length',
+    }))).toThrow('allowed only for float tensor dtypes')
     expect(() => evaluateExperimentRules(createRecordedExperiment({
       type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1],
     }))).toThrow('must contain exactly type, dimension, shape, dtype')
@@ -721,7 +825,12 @@ describe('Experiment and Setup', () => {
     const order: string[] = []
     const source = {
       nested: {
-        values: [true, null, 2, { type: 'float' as const, value: 0.5 }],
+        values: [true, null, 2, {
+          type: 'float' as const,
+          value: 0.5,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio' as const,
+        }],
       },
     }
     const experiment = new Experiment({ lengthUnit: 'mm',
@@ -731,7 +840,12 @@ describe('Experiment and Setup', () => {
         parameters: () => {
           order.push('solver')
           return {
-            timeStep: { type: 'float', value: vars.timeStep as number, unit: 's' },
+            timeStep: {
+              type: 'float',
+              value: vars.timeStep as number,
+              unit: 's',
+              quantityKind: 'Time',
+            },
             source,
           }
         },
@@ -755,7 +869,10 @@ describe('Experiment and Setup', () => {
     expect(solver).toEqual({
       name: 'generic-field-solver',
       version: '1.0.0',
-      parameters: { timeStep: { type: 'float', value: 0.02, unit: 's' }, source },
+      parameters: {
+        timeStep: { type: 'float', value: 0.02, unit: 's', quantityKind: 'Time' },
+        source,
+      },
     })
     expect(Object.isFrozen(solver)).toBe(true)
     expect(Object.isFrozen(solver.parameters)).toBe(true)
@@ -821,10 +938,16 @@ describe('Material and global vars', () => {
   it('supports every Material constructor overload', () => {
     expect(new Material('Al')).toMatchObject({ symbol: 'Al', variables: {} })
     expect(new Material('Al', {
-      density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' },
+      density: {
+        type: 'float', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+      },
     })).toMatchObject({
       symbol: 'Al',
-      variables: { density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' } },
+      variables: {
+        density: {
+          type: 'float', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+        },
+      },
     })
     expect(new Material('Al', 'Kittel_1988')).toMatchObject({
       symbol: 'Al',
@@ -832,18 +955,24 @@ describe('Material and global vars', () => {
       variables: {},
     })
     expect(new Material('Al', 'Kittel_1988', {
-      density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' },
+      density: {
+        type: 'float', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+      },
     })).toMatchObject({
       symbol: 'Al',
       version: 'Kittel_1988',
-      variables: { density: { type: 'float', value: 2.7, errorRate: 0, unit: 'g/cm3' } },
+      variables: {
+        density: {
+          type: 'float', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+        },
+      },
     })
     expect(new Material('Al').variables).not.toHaveProperty('color')
   })
 
   it('normalizes required top-level Material float error rates and preserves other values', () => {
     const material = new Material('Measured', {
-      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V' },
+      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'Voltage' },
       field: {
         type: 'tensor',
         dimension: 2,
@@ -851,33 +980,48 @@ describe('Material and global vars', () => {
         dtype: 'float32',
         axes: [{ name: 'row' }, { name: 'column', ticks: ['a', 'b'] }],
         unit: 'V',
+        quantityKind: 'Voltage',
         value: [[1.5, -2]],
         errorRate: 0.1,
       },
-      nested: { baseline: { type: 'float', value: 1.5 } },
+      nested: {
+        baseline: {
+          type: 'float', value: 1.5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
       integerTensor: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int32', value: [1, 2] },
     })
 
     expect(material.variables).toMatchObject({
-      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V' },
+      scalar: { type: 'float', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'Voltage' },
       field: {
         type: 'tensor',
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
         unit: 'V',
+        quantityKind: 'Voltage',
         value: [[1.5, -2]],
         errorRate: 0.1,
       },
-      nested: { baseline: { type: 'float', value: 1.5 } },
+      nested: {
+        baseline: {
+          type: 'float', value: 1.5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
       integerTensor: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int32', value: [1, 2] },
     })
     expect(Object.isFrozen(material.variables)).toBe(true)
     expect(Object.isFrozen(material.variables.field)).toBe(true)
     expect(Object.isFrozen((material.variables.field as { value: readonly unknown[] }).value)).toBe(true)
     expect(new Material('Boundary', {
-      exact: { type: 'float', value: 1, errorRate: 0 },
-      upper: { type: 'float', value: 1, errorRate: 1 - Number.EPSILON },
+      exact: {
+        type: 'float', value: 1, errorRate: 0, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
+      upper: {
+        type: 'float', value: 1, errorRate: 1 - Number.EPSILON,
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
     }).variables).toMatchObject({
       exact: { errorRate: 0 },
       upper: { errorRate: 1 - Number.EPSILON },
@@ -885,13 +1029,16 @@ describe('Material and global vars', () => {
 
     expect(() => new Material('Missing', {
       scalar: { type: 'float', value: 1 },
-    })).toThrow('must contain exactly type, value, errorRate')
+    })).toThrow('must contain exactly type, value, errorRate, unit, quantityKind')
     expect(() => new Material('Missing tensor', {
       field: { type: 'tensor', dimension: 1, shape: [1], dtype: 'float64', value: [1] },
-    })).toThrow('must contain exactly type, dimension, shape, dtype, value, errorRate')
+    })).toThrow('must contain exactly type, dimension, shape, dtype, value, errorRate, unit, quantityKind')
     ;[-0.001, 1, Number.NaN, Number.POSITIVE_INFINITY, '0.1'].forEach((errorRate) => {
       expect(() => new Material('Invalid', {
-        scalar: { type: 'float', value: 1, errorRate } as never,
+        scalar: {
+          type: 'float', value: 1, errorRate,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        } as never,
       })).toThrow('errorRate must be a finite number in [0, 1)')
       expect(() => new Material('Invalid tensor', {
         field: {
@@ -901,6 +1048,8 @@ describe('Material and global vars', () => {
           dtype: 'float64',
           value: [1],
           errorRate,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         } as never,
       })).toThrow('errorRate must be a finite number in [0, 1)')
     })
@@ -913,8 +1062,11 @@ describe('Material and global vars', () => {
       .mockReturnValue(0.25)
     try {
       const material = new Material('Variable', {
-        scalar: { type: 'float', value: 100, errorRate: 0.1, unit: 'V' },
-        fixed: { type: 'float', value: 25, errorRate: 0 },
+        scalar: { type: 'float', value: 100, errorRate: 0.1, unit: 'V', quantityKind: 'Voltage' },
+        fixed: {
+          type: 'float', value: 25, errorRate: 0,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
         field: {
           type: 'tensor',
           dimension: 2,
@@ -922,8 +1074,14 @@ describe('Material and global vars', () => {
           dtype: 'float64',
           value: [[10, 20]],
           errorRate: 0.2,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
-        nested: { baseline: { type: 'float', value: 1.5 } },
+        nested: {
+          baseline: {
+            type: 'float', value: 1.5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          },
+        },
       })
       const materialStructure = new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
       const firstSample = new Sample(materialStructure)
@@ -942,15 +1100,23 @@ describe('Material and global vars', () => {
       const setupFirst = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
       const setupReplay = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
 
-      expect(direct.scalar).toEqual({ type: 'float', value: 100, unit: 'V' })
+      expect(direct.scalar).toEqual({
+        type: 'float', value: 100, unit: 'V', quantityKind: 'Voltage',
+      })
       expect(first).toEqual(replay)
       expect(setupFirst).toEqual(setupReplay)
       expect(second).not.toEqual(first)
       expect(first.scalar).not.toHaveProperty('errorRate')
       expect(first.field).not.toHaveProperty('errorRate')
       expect(material.variables.scalar).toMatchObject({ value: 100, errorRate: 0.1 })
-      expect(first.fixed).toEqual({ type: 'float', value: 25 })
-      expect(first.nested).toEqual({ baseline: { type: 'float', value: 1.5 } })
+      expect(first.fixed).toEqual({
+        type: 'float', value: 25, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      })
+      expect(first.nested).toEqual({
+        baseline: {
+          type: 'float', value: 1.5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      })
       expect(Object.isFrozen(first)).toBe(true)
       expect(Object.isFrozen(first.field)).toBe(true)
 
@@ -981,6 +1147,8 @@ describe('Material and global vars', () => {
           dtype: 'float16',
           value: [65504],
           errorRate: 0.5,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
       })
 
@@ -1032,8 +1200,17 @@ describe('Material and global vars', () => {
     expect(() => new Material('Core', { values: [1, Number.POSITIVE_INFINITY] })).toThrow('finite number')
     expect(() => new Material('Core', { density: 1.5 })).toThrow('float descriptor')
     expect(() => new Material('Core', {
-      density: { type: 'float', value: 1.5, errorRate: 0, unit: 'invalid-unit' },
+      density: {
+        type: 'float', value: 1.5, errorRate: 0,
+        unit: 'invalid-unit', quantityKind: 'MassDensity',
+      },
     })).toThrow('valid case-sensitive UCUM code')
+    expect(() => new Material('Core', {
+      conductivity: {
+        type: 'float', value: 1.5, errorRate: 0,
+        unit: 'S/m', quantityKind: 'ElectricConductivity',
+      },
+    })).toThrow('S/m is not applicable to Quantity Kind ElectricConductivity')
     expect(() => new Material('Core', { color: 'blue' })).toThrow('#RRGGBB')
     expect(() => new Material('Core', null as never)).toThrow('plain object')
     expect(() => new Material('Core', 'measured', null as never)).toThrow('plain object')

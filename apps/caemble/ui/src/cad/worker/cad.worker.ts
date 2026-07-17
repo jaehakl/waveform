@@ -3,6 +3,7 @@ import wasmUrl from 'esbuild-wasm/esbuild.wasm?url'
 import {
   evaluateDocumentEntry,
   loadCompiledCode,
+  type CadExecutionResult,
   type CadDocumentEntry,
 } from '../execution/userModule'
 import { CadModelError, Sample, Setup } from '../model/core'
@@ -40,6 +41,7 @@ const latestRevisions: Record<CadDocumentType, number> = { structure: 0, experim
 const cachedEntries: Partial<Record<CadDocumentType, Readonly<{
   revision: number
   entry: CadDocumentEntry
+  execution: CadExecutionResult
 }>>> = {}
 const solverController = new SolverController(solverModules)
 
@@ -89,6 +91,27 @@ function postResponse(response: CadWorkerResponse) {
   self.postMessage(response)
 }
 
+function postSolverPreflight() {
+  const experiment = cachedEntries.experiment
+  if (!experiment?.execution.experimentRules || !experiment.execution.solver) return
+  const structure = cachedEntries.structure
+  const result = solverController.preflight({
+    ...(structure ? { structure: { scene: structure.execution.scene } } : {}),
+    experiment: {
+      scene: experiment.execution.scene,
+      rules: experiment.execution.experimentRules,
+      solver: experiment.execution.solver,
+    },
+  })
+  postResponse({
+    type: 'solver-preflight',
+    requestId: `preflight-${structure?.revision ?? 'none'}-${experiment.revision}`,
+    ...(structure ? { structureRevision: structure.revision } : {}),
+    experimentRevision: experiment.revision,
+    result,
+  })
+}
+
 function errorDetails(error: unknown) {
   const typedError = error as { message?: string; stack?: string }
   return {
@@ -128,7 +151,7 @@ async function evaluateDocument(request: Extract<CadWorkerRequest, { type: 'eval
       const entry = loadCompiledCode(jsCode, request.documentType)
       const execution = evaluateDocumentEntry(entry, request.documentType)
       if (latestRevisions[request.documentType] !== request.revision) return
-      cachedEntries[request.documentType] = Object.freeze({ revision: request.revision, entry })
+      cachedEntries[request.documentType] = Object.freeze({ revision: request.revision, entry, execution })
       postResponse({
         type: 'document-success',
         requestId: request.requestId,
@@ -136,6 +159,7 @@ async function evaluateDocument(request: Extract<CadWorkerRequest, { type: 'eval
         documentType: request.documentType,
         ...execution,
       })
+      postSolverPreflight()
     } catch (error) {
       postDocumentError(request, error instanceof CadModelError ? 'model' : 'runtime', error)
     }

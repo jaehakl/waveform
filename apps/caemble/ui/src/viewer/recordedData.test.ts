@@ -19,7 +19,16 @@ function createRule(
     label,
     methodId: 'field.record',
     parameters: {},
-    result: { type: 'tensor', dimension: shape.length, shape, dtype, axes },
+    result: {
+      type: 'tensor',
+      dimension: shape.length,
+      shape,
+      dtype,
+      axes,
+      ...(dtype.startsWith('float')
+        ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' }
+        : {}),
+    } as RecordedDataRule['result'],
   }
 }
 

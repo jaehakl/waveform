@@ -1,5 +1,4 @@
 import { evaluateCadScene } from '../cad/evaluation/evaluator'
-import type { CadScene, CadSceneGroup } from '../cad/evaluation/types'
 import {
   CadModelError,
   evaluateExperimentRules,
@@ -7,17 +6,19 @@ import {
   evaluateWithVars,
   Sample,
   Setup,
-  type EvaluatedExperimentRules,
   type RecordedData,
 } from '../cad/model/core'
 import { normalizeRecordedData } from '../cad/model/recordedData'
+import { SolverRegistry } from './registry'
 import type {
   SolverModule,
   SolverModuleInput,
+  SolverPreflightInput,
   SolverProcess,
   SolverProcessListener,
   SolverProcessStatus,
 } from './types'
+import { assertValidSolverContract } from './validation'
 
 const idleProcess: SolverProcess = Object.freeze({
   runId: null,
@@ -61,51 +62,6 @@ function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
-function groupForTarget(scene: CadScene, kind: string, groupName: string): CadSceneGroup | undefined {
-  const groups = kind === 'geometry' ? scene.geometryGroups : scene.surfaceGroups
-  return groups.find((group) => group.name === groupName)
-}
-
-function validateTarget(
-  target: string,
-  structureScene: CadScene,
-  experimentScene: CadScene,
-) {
-  const firstSeparator = target.indexOf('.')
-  const secondSeparator = target.indexOf('.', firstSeparator + 1)
-  const source = target.slice(0, firstSeparator)
-  const kind = target.slice(firstSeparator + 1, secondSeparator)
-  const groupName = target.slice(secondSeparator + 1)
-  const scene = source === 'structure' ? structureScene : experimentScene
-  const group = groupForTarget(scene, kind, groupName)
-  if (!group) {
-    throw new CadModelError(`Simulation target ${target} references a missing ${source} ${kind} group.`)
-  }
-  if (group.missingMemberIds.length > 0) {
-    throw new CadModelError(
-      `Simulation target ${target} contains missing members: ${group.missingMemberIds.join(', ')}.`,
-    )
-  }
-  const resolvedIds = kind === 'geometry' ? group.geometryIds : group.surfaceIds
-  if (resolvedIds.length === 0) {
-    throw new CadModelError(`Simulation target ${target} does not resolve to any ${kind}.`)
-  }
-}
-
-function validateTargets(
-  rules: EvaluatedExperimentRules,
-  structureScene: CadScene,
-  experimentScene: CadScene,
-) {
-  ;[
-    ...rules.initializations,
-    ...rules.boundaryConditions,
-    ...rules.recordedData,
-  ].forEach((rule) => {
-    rule.target.forEach((target) => validateTarget(target, structureScene, experimentScene))
-  })
-}
-
 function prepareSolverInput(sample: Sample, setup: Setup): SolverModuleInput {
   if (!(sample instanceof Sample)) throw new CadModelError('SolverController requires a Sample instance.')
   if (!(setup instanceof Setup)) throw new CadModelError('SolverController requires a Setup instance.')
@@ -125,7 +81,6 @@ function prepareSolverInput(sample: Sample, setup: Setup): SolverModuleInput {
     return Object.freeze({ rules, scene, solver })
   })
 
-  validateTargets(experimentEvaluation.rules, structureScene, experimentEvaluation.scene)
   return Object.freeze({
     structure: Object.freeze({
       model: sample.structure,
@@ -143,24 +98,18 @@ function prepareSolverInput(sample: Sample, setup: Setup): SolverModuleInput {
 }
 
 export class SolverController {
-  private readonly modules = new Map<string, Map<string, SolverModule>>()
+  private readonly registry: SolverRegistry
   private readonly listeners = new Set<SolverProcessListener>()
   private process: SolverProcess = idleProcess
   private active: Readonly<{ runId: string; abortController: AbortController }> | null = null
   private sequence = 0
 
   constructor(modules: readonly SolverModule[]) {
-    modules.forEach((module) => {
-      if (!module.name.trim() || !module.version.trim()) {
-        throw new CadModelError('Solver module name and version must be non-empty strings.')
-      }
-      const versions = this.modules.get(module.name) ?? new Map<string, SolverModule>()
-      if (versions.has(module.version)) {
-        throw new CadModelError(`Solver module ${module.name}@${module.version} is registered more than once.`)
-      }
-      versions.set(module.version, module)
-      this.modules.set(module.name, versions)
-    })
+    this.registry = new SolverRegistry(modules)
+  }
+
+  preflight(input: SolverPreflightInput) {
+    return this.registry.preflight(input)
   }
 
   getProcess() {
@@ -193,12 +142,13 @@ export class SolverController {
     try {
       const input = prepareSolverInput(sample, setup)
       throwIfAborted(abortController.signal)
-      const module = this.modules.get(input.experiment.solver.name)?.get(input.experiment.solver.version)
+      const module = this.registry.get(input.experiment.solver.name, input.experiment.solver.version)
       if (!module) {
         throw new CadModelError(
           `No solver module is registered for ${input.experiment.solver.name}@${input.experiment.solver.version}.`,
         )
       }
+      assertValidSolverContract(module.spec, input)
 
       this.updateProcess('running', { runId, solver, startedAt })
       const rawResult = await withAbort(

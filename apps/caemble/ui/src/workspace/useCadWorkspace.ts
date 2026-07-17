@@ -16,7 +16,12 @@ import {
   updateModelGroupSource,
   type StructureGroupProperty,
 } from '../cad/source/structureGroups'
-import type { SolverProcess } from '../solver'
+import type {
+  SolverProcess,
+  SolverSpec,
+  SolverValidationIssue,
+  SolverValidationResult,
+} from '../solver'
 import type { DraftSelection } from './groupDraft'
 
 export type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
@@ -285,7 +290,30 @@ function useDocumentState({
   }
 }
 
-export type CadDocumentController = ReturnType<typeof useDocumentState>['controller']
+type BaseCadDocumentController = ReturnType<typeof useDocumentState>['controller']
+
+export type CadDocumentController = BaseCadDocumentController & Readonly<{
+  preflightIssues: readonly SolverValidationIssue[]
+  solverSpec: SolverSpec | null
+}>
+
+function applyPreflight(
+  controller: BaseCadDocumentController,
+  issues: readonly SolverValidationIssue[],
+  solverSpec: SolverSpec | null,
+): CadDocumentController {
+  const specError = issues.length === 0 ? null : {
+    title: 'Solver Spec Error',
+    message: issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n'),
+  }
+  return {
+    ...controller,
+    error: controller.error ?? specError,
+    preflightIssues: issues,
+    solverSpec,
+    status: controller.status === 'Ready' && specError ? 'Error' : controller.status,
+  }
+}
 
 export type SimulationController = Readonly<{
   canRun: boolean
@@ -321,6 +349,11 @@ export function useCadWorkspace(
   const [process, setProcess] = useState<SolverProcess>(idleSolverProcess)
   const [recordedData, setRecordedData] = useState<RecordedData | null>(null)
   const [stale, setStale] = useState(false)
+  const [preflight, setPreflight] = useState<Readonly<{
+    structureRevision?: number
+    experimentRevision: number
+    result: SolverValidationResult
+  }> | null>(null)
 
   const clearEvaluationTimeout = useCallback((documentType: CadDocumentType, requestId?: string) => {
     const active = evaluationTimeoutsRef.current[documentType]
@@ -368,18 +401,23 @@ export function useCadWorkspace(
     if (recordedDataRef.current) setStale(true)
   }, [])
 
+  const invalidateWorkspace = useCallback(() => {
+    invalidateResults()
+    setPreflight(null)
+  }, [invalidateResults])
+
   const structureState = useDocumentState({
     source: structure,
     documentType: 'structure',
     onSourceChange: onStructureChange,
-    onInvalidate: invalidateResults,
+    onInvalidate: invalidateWorkspace,
     requestEvaluation,
   })
   const experimentState = useDocumentState({
     source: experiment,
     documentType: 'experiment',
     onSourceChange: onExperimentChange,
-    onInvalidate: invalidateResults,
+    onInvalidate: invalidateWorkspace,
     requestEvaluation,
   })
   documentHandlersRef.current.structure = structureState.handlers
@@ -414,6 +452,7 @@ export function useCadWorkspace(
     Object.keys(evaluationTimeoutsRef.current).forEach((key) => clearEvaluationTimeout(key as CadDocumentType))
     workerRef.current?.terminate()
     workerRef.current = null
+    setPreflight(null)
     documentHandlersRef.current[documentType]?.handleWorkerFailure(
       `Model generation timed out after 3 seconds for revision ${revision}.`,
     )
@@ -433,6 +472,7 @@ export function useCadWorkspace(
     Object.keys(evaluationTimeoutsRef.current).forEach((key) => clearEvaluationTimeout(key as CadDocumentType))
     workerRef.current?.terminate()
     workerRef.current = null
+    setPreflight(null)
     documentHandlersRef.current.structure?.handleWorkerFailure(message)
     documentHandlersRef.current.experiment?.handleWorkerFailure(message)
     cancelProcessForWorkerReset('Solver run was cancelled because the shared CAD Worker failed.')
@@ -444,6 +484,18 @@ export function useCadWorkspace(
       const handlers = documentHandlersRef.current[response.documentType]
       if (response.type === 'document-success') handlers?.handleSuccess(response)
       else handlers?.handleError(response)
+      return
+    }
+    if (response.type === 'solver-preflight') {
+      const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
+      const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
+      const experimentMatches = experimentSnapshot?.revision === response.experimentRevision
+        && experimentSnapshot.successfulRevision === response.experimentRevision
+      const structureMatches = response.structureRevision === undefined
+        ? structureSnapshot?.successfulRevision !== structureSnapshot?.revision
+        : structureSnapshot?.revision === response.structureRevision
+          && structureSnapshot.successfulRevision === response.structureRevision
+      if (experimentMatches && structureMatches) setPreflight(Object.freeze(response))
       return
     }
     if (response.requestId !== activeSolverRequestIdRef.current) return
@@ -502,13 +554,23 @@ export function useCadWorkspace(
     }
   }, [startWorker])
 
+  const structureIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'structure') ?? []
+  const experimentIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'experiment') ?? []
+  const structureDocument = applyPreflight(structureState.controller, structureIssues, null)
+  const experimentDocument = applyPreflight(
+    experimentState.controller,
+    experimentIssues,
+    preflight?.result.spec ?? null,
+  )
+  const preflightValid = preflight?.result.complete === true && preflight.result.issues.length === 0
   const processActive = process.status === 'preparing' || process.status === 'running'
   const canRun = !processActive
-    && structureState.controller.status === 'Ready'
-    && experimentState.controller.status === 'Ready'
+    && structureDocument.status === 'Ready'
+    && experimentDocument.status === 'Ready'
     && structureState.controller.successfulRevision === structureState.controller.revision
     && experimentState.controller.successfulRevision === experimentState.controller.revision
     && experimentState.controller.solver !== null
+    && preflightValid
 
   const run = useCallback(() => {
     const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
@@ -559,8 +621,8 @@ export function useCadWorkspace(
   }
 
   return {
-    experimentDocument: experimentState.controller,
+    experimentDocument,
     simulation,
-    structureDocument: structureState.controller,
+    structureDocument,
   }
 }

@@ -3,6 +3,7 @@ import type { CadDocumentType } from '../cad'
 import CadEditor from '../editor/CadEditor'
 import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
+import SolverSpecSheet from './SolverSpecSheet'
 import type { CadDocumentController } from './useCadWorkspace'
 
 export type StructureExperimentViewerProps = {
@@ -25,6 +26,7 @@ const workspaceTabs = [
     panel: 'parameters',
     label: 'Experimental Parameters',
   },
+  { id: 'solver-spec', documentType: 'experiment', panel: 'spec', label: 'Solver Spec' },
 ] as const
 
 type WorkspaceTab = (typeof workspaceTabs)[number]['id']
@@ -184,12 +186,17 @@ export function StructureExperimentViewer({
                   onGroupsChange={document.handleGroupsChange}
                   onSelect={document.setSelectedId}
                 />
-              ) : (
+              ) : tab.panel === 'parameters' ? (
                 <ExperimentalParameters
                   onSourceChange={experimentDocument.handleSourceChange}
                   readOnly={experimentDocument.readOnly}
                   rules={experimentDocument.experimentRules}
                   source={experiment ?? ''}
+                />
+              ) : (
+                <SolverSpecSheet
+                  solver={experimentDocument.solver}
+                  spec={experimentDocument.solverSpec}
                 />
               )}
             </div>

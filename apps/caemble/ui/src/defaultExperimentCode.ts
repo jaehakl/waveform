@@ -16,8 +16,12 @@ const experiment = new Experiment({
     name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      conductivityVariable: 'electricalConductivity',
-      relativeTolerance: { type: 'float', value: 1e-8 },
+      relativeTolerance: {
+        type: 'float',
+        value: 1e-8,
+        unit: '{fraction}',
+        quantityKind: 'DimensionlessRatio',
+      },
       maxIterations: 2000,
     }),
   },
@@ -69,7 +73,12 @@ const experiment = new Experiment({
       label: 'Applied potential',
       methodId: 'dc.source-potential',
       parameters: {
-        voltage: { type: 'float', value: vars.sourceVoltage as number, unit: 'mV' },
+        voltage: {
+          type: 'float',
+          value: vars.sourceVoltage as number,
+          unit: 'mV',
+          quantityKind: 'Voltage',
+        },
       },
     },
     {
@@ -77,7 +86,12 @@ const experiment = new Experiment({
       label: 'Reference potential',
       methodId: 'dc.reference-potential',
       parameters: {
-        voltage: { type: 'float', value: vars.referenceVoltage as number, unit: 'mV' },
+        voltage: {
+          type: 'float',
+          value: vars.referenceVoltage as number,
+          unit: 'mV',
+          quantityKind: 'Voltage',
+        },
       },
     },
   ],
@@ -87,17 +101,23 @@ const experiment = new Experiment({
       label: 'Current density',
       methodId: 'dc.current-density',
       parameters: {
-        crossSectionPosition: { type: 'float', value: 0.35 },
+        crossSectionPosition: {
+          type: 'float',
+          value: 0.35,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
+        },
       },
       result: {
         type: 'tensor',
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
-        unit: 'A/m2',
+        unit: 'A.m-2',
+        quantityKind: 'ElectricCurrentDensity',
         axes: [
-          { name: 'cross-section v', unit: 'm' },
-          { name: 'cross-section u', unit: 'm' },
+          { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
+          { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
         ],
       },
     },
@@ -106,9 +126,21 @@ const experiment = new Experiment({
       label: 'Total current',
       methodId: 'dc.total-current',
       parameters: {
-        crossSectionPosition: { type: 'float', value: 0.35 },
+        crossSectionPosition: {
+          type: 'float',
+          value: 0.35,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
+        },
       },
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
+      result: {
+        type: 'tensor',
+        dimension: 0,
+        shape: [],
+        dtype: 'float64',
+        unit: 'A',
+        quantityKind: 'ElectricCurrent',
+      },
     },
   ],
 })

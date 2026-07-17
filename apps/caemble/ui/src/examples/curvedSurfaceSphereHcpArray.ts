@@ -94,7 +94,13 @@ const structure = new Structure({
         polarMode2Phase={0}
         materials={[
           new Material('HCP Particle', {
-            density: { type: 'float', value: 1.05, errorRate: 0, unit: 'g/cm3' },
+            density: {
+              type: 'float',
+              value: 1.05,
+              errorRate: 0,
+              unit: 'g.cm-3',
+              quantityKind: 'MassDensity',
+            },
             color: '#7c3aed',
           }),
         ]}

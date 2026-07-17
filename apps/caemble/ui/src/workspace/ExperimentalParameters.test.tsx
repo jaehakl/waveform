@@ -10,17 +10,20 @@ const rules: EvaluatedExperimentRules = {
     methodId: 'field.initialize',
     parameters: {
       scalarOnly: 1,
-      ratio: { type: 'float', value: 0.25 },
-      voltage: { type: 'float', value: 1, unit: 'mV' },
+      ratio: {
+        type: 'float', value: 0.25, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
+      voltage: { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
       profile: {
         type: 'tensor',
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
         unit: 'V',
+        quantityKind: 'Voltage',
         axes: [
           { name: 'batch', ticks: ['sample'] },
-          { name: 'position', ticks: [0, 0.5], unit: 'm' },
+          { name: 'position', ticks: [0, 0.5], unit: 'm', quantityKind: 'Length' },
         ],
         value: [[0.1, 0.2]],
       },
@@ -33,7 +36,10 @@ const rules: EvaluatedExperimentRules = {
       label: 'Domain average',
       methodId: 'field.average',
       parameters: { interval: 10 },
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [] },
+      result: {
+        type: 'tensor', dimension: 0, shape: [], dtype: 'float64', axes: [],
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
     },
     {
       target: ['structure.geometry.sample'],
@@ -42,6 +48,7 @@ const rules: EvaluatedExperimentRules = {
       parameters: { interval: 10 },
       result: {
         type: 'tensor', dimension: 1, shape: [-1], dtype: 'float32', axes: [{ name: 'time' }],
+        unit: 'V', quantityKind: 'Voltage',
       },
     },
   ],
@@ -57,7 +64,11 @@ const experiment = new Experiment({ lengthUnit: 'mm',
       profile: {
         type: 'tensor', dimension: 2, shape: [1, 2], dtype: 'float32',
         unit: 'V',
-        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 0.5], unit: 'm' }],
+        quantityKind: 'Voltage',
+        axes: [
+          { name: 'batch', ticks: ['sample'] },
+          { name: 'position', ticks: [0, 0.5], unit: 'm', quantityKind: 'Length' },
+        ],
         value: tensorValues,
       },
     },
@@ -65,7 +76,10 @@ const experiment = new Experiment({ lengthUnit: 'mm',
   recordedData: () => [{
     target: ['structure.geometry.sample'], label: 'Domain average', methodId: 'field.average',
     parameters: { interval: 10 },
-    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+    result: {
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    },
   }],
 })
 export default new Setup(experiment)
@@ -85,12 +99,12 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('Initial profile')
     expect(markup).toContain('field.initialize')
     expect(markup).toContain('profile')
-    expect(markup).toContain('float32 · 2D · shape [1,2] · V')
+    expect(markup).toContain('float32 · 2D · shape [1,2] · Voltage · V')
     expect(markup).toContain('aria-label="Initial profile profile axes"')
     expect(markup).toContain('batch')
     expect(markup).toContain('sample')
     expect(markup).toContain('position')
-    expect(markup).toContain('position · m')
+    expect(markup).toContain('position · Length · m')
     expect(markup).toContain('[0,0.5]')
     expect(markup).toContain('Recorded result schema (source-only)')
     expect(markup).toContain('float64 · 0D · shape []')
@@ -102,9 +116,9 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('>scalarOnly</code>')
     expect(markup).toContain('1 · integer')
     expect(markup).toContain('>ratio</code>')
-    expect(markup).toContain('0.25 · unitless')
+    expect(markup).toContain('0.25 · DimensionlessRatio · {fraction}')
     expect(markup).toContain('>voltage</code>')
-    expect(markup).toContain('1 · mV')
+    expect(markup).toContain('1 · Voltage · mV')
     expect(markup).not.toContain('Result value')
     expect(markup.match(/<textarea/g)).toHaveLength(1)
   })

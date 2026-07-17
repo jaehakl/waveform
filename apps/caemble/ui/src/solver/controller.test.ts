@@ -12,6 +12,7 @@ import {
   type RecordedData,
 } from '../cad/model/core'
 import { SolverController } from './controller'
+import type { SolverSpec } from './spec'
 import type { SolverModule } from './types'
 
 function createPair(name = 'test-solver', version = '1.0.0') {
@@ -26,7 +27,10 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     geometry: () => h(Conductor, {
       id: 'conductor',
       materials: [new Material('Test', {
-        value: { type: 'float', value: vars.materialValue as number, errorRate: 0.1 },
+        value: {
+          type: 'float', value: vars.materialValue as number, errorRate: 0.1,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
         color: '#2563eb',
       })],
     }),
@@ -41,7 +45,12 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     solver: {
       name,
       version,
-      parameters: () => ({ scale: { type: 'float', value: vars.scale as number } }),
+      parameters: () => ({
+        scale: {
+          type: 'float', value: vars.scale as number,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      }),
     },
     geometry: () => h(Probe, { id: 'probe' }),
     varsSchema: { scale: { min: 2, max: 5 } },
@@ -50,7 +59,10 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       label: 'Value',
       methodId: 'test.value',
       parameters: {},
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+      result: {
+        type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
     }],
   })
   return {
@@ -60,9 +72,48 @@ function createPair(name = 'test-solver', version = '1.0.0') {
 }
 
 function valueModule(solve?: SolverModule['solve']): SolverModule {
-  return {
+  const spec = Object.freeze({
     name: 'test-solver',
     version: '1.0.0',
+    description: 'Test solver contract.',
+    parameters: {
+      scale: {
+        description: 'Result scale.',
+        value: { type: 'float', quantityKind: 'DimensionlessRatio', referenceUnit: '{fraction}' },
+      },
+    },
+    materials: [],
+    methods: {
+      initializations: [],
+      boundaryConditions: [],
+      recordedData: [{
+        methodId: 'test.value',
+        description: 'Records one scalar value.',
+        minimumOccurrences: 1,
+        maximumOccurrences: 1,
+        target: {
+          source: 'structure',
+          kind: 'geometry',
+          minimumTargets: 1,
+          maximumTargets: 1,
+          minimumResolved: 1,
+          maximumResolved: 1,
+        },
+        parameters: {},
+        result: {
+          type: 'tensor',
+          dimension: 0,
+          shape: [],
+          dtype: 'float64',
+          quantityKind: 'DimensionlessRatio',
+          referenceUnit: '{fraction}',
+          axes: [],
+        },
+      }],
+    },
+  } as const satisfies SolverSpec)
+  return {
+    spec,
     solve: solve ?? (async (input) => ({
       Value: { value: (input.structure.vars.materialValue as number) * (input.experiment.vars.scale as number) },
     })),
@@ -90,7 +141,11 @@ describe('SolverController', () => {
       expect(appliedMaterialValue.value).toBeGreaterThanOrEqual(3.6)
       expect(appliedMaterialValue.value).toBeLessThanOrEqual(4.4)
       expect(appliedMaterialValue).not.toHaveProperty('errorRate')
-      expect(input.experiment.solver.parameters).toEqual({ scale: { type: 'float', value: 5 } })
+      expect(input.experiment.solver.parameters).toEqual({
+        scale: {
+          type: 'float', value: 5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      })
       return { Value: { value: 20 } }
     })])
     controller.subscribe((process) => states.push(process.status))
@@ -146,7 +201,16 @@ describe('SolverController', () => {
       return h('box', { size: [1, 1, 1] })
     }
     const experiment = new Experiment({ lengthUnit: 'mm',
-      solver: { name: 'test-solver', version: '1.0.0', parameters: () => ({}) },
+      solver: {
+        name: 'test-solver',
+        version: '1.0.0',
+        parameters: () => ({
+          scale: {
+            type: 'float', value: 1,
+            unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          },
+        }),
+      },
       geometry: () => h(Probe, { id: 'probe' }),
       varsSchema: {},
       recordedData: () => [{
@@ -154,13 +218,16 @@ describe('SolverController', () => {
         label: 'Value',
         methodId: 'test.value',
         parameters: {},
-        result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+        result: {
+          type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
       }],
     })
     const controller = new SolverController([valueModule()])
 
     await expect(controller.run(sample, new Setup(experiment))).rejects.toThrow(
-      'structure.geometry.missing references a missing structure geometry group',
+      'references missing structure.geometry.missing',
     )
   })
 })

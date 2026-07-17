@@ -1,15 +1,15 @@
 import { geometries, measurements } from '@jscad/modeling'
-import type { CadScene, CadScenePart, CadSceneSurface } from '../../cad/evaluation/types'
-import { createSolidPointTester } from '../../cad/geometry/solid'
+import type { CadScene, CadScenePart, CadSceneSurface } from '../../../cad/evaluation/types'
+import { createSolidPointTester } from '../../../cad/geometry/solid'
 import {
   CadModelError,
   type ExperimentRule,
   type FloatValue,
   type RecordedDataRule,
-} from '../../cad/model/core'
-import { convertUcumValue } from '../../cad/model/units'
-import type { Vec3 } from '../../cad/model/types'
-import type { SolverModule, SolverModuleInput } from '../types'
+} from '../../../cad/model/core'
+import { convertUcumValue } from '../../../cad/model/units'
+import type { Vec3 } from '../../../cad/model/types'
+import type { SolverModuleInput } from '../../types'
 
 const maximumVoxelCount = 250_000
 const neighborOffsets = [
@@ -67,22 +67,12 @@ function normalize(vector: Vec3, message: string): Vec3 {
   return scale(vector, 1 / length)
 }
 
-function singleRule<T extends ExperimentRule>(rules: readonly T[], methodId: string): T {
-  const matches = rules.filter((rule) => rule.methodId === methodId)
-  if (matches.length !== 1) {
-    throw new CadModelError(`DC current density solver requires exactly one ${methodId} rule.`)
-  }
-  return matches[0]
+function ruleFor<T extends ExperimentRule>(rules: readonly T[], methodId: string): T {
+  return rules.find((rule) => rule.methodId === methodId)!
 }
 
 function singleTargetGroup(rule: ExperimentRule, source: 'structure', kind: 'geometry' | 'surface') {
-  if (rule.target.length !== 1) {
-    throw new CadModelError(`${rule.methodId} must target exactly one ${source} ${kind} group.`)
-  }
   const prefix = `${source}.${kind}.`
-  if (!rule.target[0].startsWith(prefix)) {
-    throw new CadModelError(`${rule.methodId} must target one ${source} ${kind} group.`)
-  }
   return rule.target[0].slice(prefix.length)
 }
 
@@ -158,40 +148,6 @@ function voltage(rule: ExperimentRule) {
   return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`, 'V')
 }
 
-function assertRecordedRule(
-  rule: RecordedDataRule,
-  dimension: number,
-  shape: readonly number[],
-  unit: string,
-  axes: readonly Readonly<{ name: string; unit: string }>[],
-) {
-  if (
-    rule.result.dimension !== dimension
-    || JSON.stringify(rule.result.shape) !== JSON.stringify(shape)
-    || rule.result.dtype !== 'float64'
-    || rule.result.unit === undefined
-    || (rule.result.axes?.length ?? 0) !== axes.length
-  ) {
-    throw new CadModelError(
-      `${rule.methodId} has an unsupported RecordedData schema for dc-current-density@1.0.0.`,
-    )
-  }
-  try {
-    convertUcumValue(1, unit, rule.result.unit, `${rule.methodId} result unit`)
-    axes.forEach((axis, index) => {
-      const schemaAxis = rule.result.axes?.[index]
-      if (schemaAxis?.name !== axis.name || schemaAxis.unit === undefined) {
-        throw new Error('axis metadata does not match')
-      }
-      convertUcumValue(1, axis.unit, schemaAxis.unit, `${rule.methodId} result axis ${index} unit`)
-    })
-  } catch {
-    throw new CadModelError(
-      `${rule.methodId} has an unsupported RecordedData schema for dc-current-density@1.0.0.`,
-    )
-  }
-}
-
 function isFloatValue(value: unknown): value is FloatValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     && 'type' in value && value.type === 'float'
@@ -205,38 +161,8 @@ function floatParameter(value: unknown, name: string, unit: string | undefined) 
   return convertUcumValue(value.value, value.unit, unit, name)
 }
 
-function finitePositiveParameter(value: unknown, name: string, unit?: string) {
-  const normalized = floatParameter(value, `dc-current-density ${name}`, unit)
-  if (normalized <= 0) {
-    throw new CadModelError(`dc-current-density ${name} must be a finite positive float descriptor.`)
-  }
-  return normalized
-}
-
 function gridShapeParameter(value: unknown) {
-  if (
-    typeof value !== 'object'
-    || value === null
-    || !('type' in value)
-    || value.type !== 'tensor'
-    || !('dimension' in value)
-    || value.dimension !== 1
-    || !('shape' in value)
-    || JSON.stringify(value.shape) !== '[3]'
-    || !('dtype' in value)
-    || value.dtype !== 'int32'
-    || !('axes' in value)
-    || JSON.stringify(value.axes) !== '[{"name":"grid axis","ticks":["s","u","v"]}]'
-    || !('value' in value)
-    || !Array.isArray(value.value)
-    || value.value.length !== 3
-    || value.value.some((size) => !Number.isSafeInteger(size) || (size as number) < 3)
-  ) {
-    throw new CadModelError(
-      'dc.voxel-grid parameters.gridShape must be an int32 [3] tensor with grid-axis ticks s/u/v and values greater than or equal to 3.',
-    )
-  }
-  const shape = value.value as unknown as [number, number, number]
+  const shape = (value as { value: [number, number, number] }).value
   if (shape[0] * shape[1] * shape[2] > maximumVoxelCount) {
     throw new CadModelError(`dc.voxel-grid gridShape may contain at most ${maximumVoxelCount} voxels.`)
   }
@@ -244,22 +170,11 @@ function gridShapeParameter(value: unknown) {
 }
 
 function crossSectionPosition(rule: RecordedDataRule) {
-  const position = floatParameter(
+  return floatParameter(
     rule.parameters.crossSectionPosition,
     `${rule.methodId} parameters.crossSectionPosition`,
     undefined,
   )
-  if (position <= 0 || position >= 1) {
-    throw new CadModelError(`${rule.methodId} crossSectionPosition must be between 0 and 1.`)
-  }
-  return position
-}
-
-function integerParameter(value: unknown, name: string) {
-  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
-    throw new CadModelError(`dc-current-density ${name} must be a positive safe integer.`)
-  }
-  return value as number
 }
 
 function localPoint(origin: Vec3, axis: Vec3, uAxis: Vec3, vAxis: Vec3, s: number, u: number, v: number) {
@@ -627,45 +542,15 @@ function crossSectionResult(
   return { totalCurrent, uTicks, values, vTicks }
 }
 
-async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
+export async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
   const { parameters } = input.experiment.solver
-  if (
-    Object.prototype.hasOwnProperty.call(parameters, 'gridShape')
-    || Object.prototype.hasOwnProperty.call(parameters, 'crossSectionPosition')
-  ) {
-    throw new CadModelError(
-      'dc-current-density gridShape belongs to dc.voxel-grid and crossSectionPosition belongs to each RecordedData rule.',
-    )
-  }
-  const relativeTolerance = finitePositiveParameter(parameters.relativeTolerance, 'relativeTolerance')
-  if (relativeTolerance >= 1) {
-    throw new CadModelError('dc-current-density relativeTolerance must be less than 1.')
-  }
-  const maxIterations = integerParameter(parameters.maxIterations, 'maxIterations')
-  const conductivityVariable = parameters.conductivityVariable
-  if (typeof conductivityVariable !== 'string' || !conductivityVariable.trim()) {
-    throw new CadModelError('dc-current-density conductivityVariable must be a non-empty string.')
-  }
-  if (
-    input.experiment.rules.initializations.length !== 1
-    || input.experiment.rules.boundaryConditions.length !== 2
-    || input.experiment.rules.recordedData.length !== 2
-  ) {
-    throw new CadModelError(
-      'dc-current-density@1.0.0 requires one voxel-grid rule, two potential rules, and two recorded-data rules.',
-    )
-  }
-
-  const gridRule = singleRule(input.experiment.rules.initializations, 'dc.voxel-grid')
-  const sourceRule = singleRule(input.experiment.rules.boundaryConditions, 'dc.source-potential')
-  const referenceRule = singleRule(input.experiment.rules.boundaryConditions, 'dc.reference-potential')
-  const densityRule = singleRule(input.experiment.rules.recordedData, 'dc.current-density')
-  const totalCurrentRule = singleRule(input.experiment.rules.recordedData, 'dc.total-current')
-  assertRecordedRule(densityRule, 2, [-1, -1], 'A/m2', [
-    { name: 'cross-section v', unit: 'm' },
-    { name: 'cross-section u', unit: 'm' },
-  ])
-  assertRecordedRule(totalCurrentRule, 0, [], 'A', [])
+  const relativeTolerance = floatParameter(parameters.relativeTolerance, 'dc-current-density relativeTolerance', undefined)
+  const maxIterations = parameters.maxIterations as number
+  const gridRule = ruleFor(input.experiment.rules.initializations, 'dc.voxel-grid')
+  const sourceRule = ruleFor(input.experiment.rules.boundaryConditions, 'dc.source-potential')
+  const referenceRule = ruleFor(input.experiment.rules.boundaryConditions, 'dc.reference-potential')
+  const densityRule = ruleFor(input.experiment.rules.recordedData, 'dc.current-density')
+  const totalCurrentRule = ruleFor(input.experiment.rules.recordedData, 'dc.total-current')
 
   const gridGroup = singleTargetGroup(gridRule, 'structure', 'geometry')
   const densityGroup = singleTargetGroup(densityRule, 'structure', 'geometry')
@@ -704,24 +589,11 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
     throw new CadModelError('DC source and reference potentials must target different terminal surfaces.')
   }
 
-  const conductivity = conductor.material?.variables[conductivityVariable]
-  let conductivitySi: number
-  try {
-    conductivitySi = floatParameter(
-      conductivity,
-      `Conductor Material ${conductivityVariable}`,
-      'S/m',
-    )
-  } catch {
-    throw new CadModelError(
-      `Conductor Material ${conductivityVariable} must be a finite positive float descriptor compatible with S/m.`,
-    )
-  }
-  if (conductivitySi <= 0) {
-    throw new CadModelError(
-      `Conductor Material ${conductivityVariable} must be a finite positive float descriptor compatible with S/m.`,
-    )
-  }
+  const conductivitySi = floatParameter(
+    conductor.material!.variables.electricalConductivity,
+    'Conductor Material electricalConductivity',
+    'S/m',
+  )
   const sceneLengthToMeters = convertUcumValue(
     1,
     input.structure.scene.lengthUnit,
@@ -775,8 +647,3 @@ async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSign
   }
 }
 
-export const dcCurrentDensitySolver = Object.freeze({
-  name: 'dc-current-density',
-  version: '1.0.0',
-  solve: solveDcCurrentDensity,
-}) satisfies SolverModule

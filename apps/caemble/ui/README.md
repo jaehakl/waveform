@@ -159,8 +159,10 @@ const experiment = new Experiment({
     name: 'dc-current-density',
     version: '1.0.0',
     parameters: () => ({
-      conductivityVariable: 'electricalConductivity',
-      relativeTolerance: { type: 'float', value: 1e-8 },
+      relativeTolerance: {
+        type: 'float', value: 1e-8,
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
       maxIterations: 2000,
     }),
   },
@@ -207,7 +209,10 @@ const experiment = new Experiment({
       label: 'Applied potential',
       methodId: 'dc.source-potential',
       parameters: {
-        voltage: { type: 'float', value: vars.sourceVoltage as number, unit: 'mV' },
+        voltage: {
+          type: 'float', value: vars.sourceVoltage as number,
+          unit: 'mV', quantityKind: 'Voltage',
+        },
       },
     },
     {
@@ -215,7 +220,10 @@ const experiment = new Experiment({
       label: 'Reference potential',
       methodId: 'dc.reference-potential',
       parameters: {
-        voltage: { type: 'float', value: vars.referenceVoltage as number, unit: 'mV' },
+        voltage: {
+          type: 'float', value: vars.referenceVoltage as number,
+          unit: 'mV', quantityKind: 'Voltage',
+        },
       },
     },
   ],
@@ -225,17 +233,21 @@ const experiment = new Experiment({
       label: 'Current density',
       methodId: 'dc.current-density',
       parameters: {
-        crossSectionPosition: { type: 'float', value: 0.35 },
+        crossSectionPosition: {
+          type: 'float', value: 0.35,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
       },
       result: {
         type: 'tensor',
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
-        unit: 'A/m2',
+        unit: 'A.m-2',
+        quantityKind: 'ElectricCurrentDensity',
         axes: [
-          { name: 'cross-section v', unit: 'm' },
-          { name: 'cross-section u', unit: 'm' },
+          { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
+          { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
         ],
       },
     },
@@ -244,9 +256,15 @@ const experiment = new Experiment({
       label: 'Total current',
       methodId: 'dc.total-current',
       parameters: {
-        crossSectionPosition: { type: 'float', value: 0.35 },
+        crossSectionPosition: {
+          type: 'float', value: 0.35,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
       },
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
+      result: {
+        type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+        unit: 'A', quantityKind: 'ElectricCurrent',
+      },
     },
   ],
 })
@@ -256,15 +274,15 @@ export default new Setup(experiment)
 
 ### UCUM units
 
-Physical units use case-sensitive [UCUM](https://ucum.org/docs/formal-grammar) codes. UCUM does not publish one authoritative regular expression for its full grammar, so Caemble validates codes and conversions with the browser-compatible [@fhir-toolkit/ucum](https://github.com/robertoAraneda/fhir-toolkit/tree/main/packages/ucum) parser. Source strings are preserved exactly: empty strings, surrounding whitespace, invalid codes, wrong case, and incompatible conversions raise `CadModelError`. Common declarations include `A/m2`, `S/m`, `mV`, `mm`, `1`, and `%`.
+Physical units use case-sensitive [UCUM](https://ucum.org/docs/formal-grammar) codes. UCUM does not publish one authoritative regular expression for its full grammar, so Caemble validates codes and conversions with the browser-compatible [@fhir-toolkit/ucum](https://github.com/robertoAraneda/fhir-toolkit/tree/main/packages/ucum) parser. Source strings are preserved exactly: empty strings, surrounding whitespace, invalid codes, wrong case, and incompatible conversions raise `CadModelError`. Quantity-bearing model values use exact QUDT applicable spellings such as `A.m-2`, `S.m-1`, `mV`, `mm`, and `{fraction}`.
 
-`FloatValue` is `{ type: 'float', value: number, unit?: UcumUnit }`. Omitted `unit` means dimensionless and converts like UCUM `1`; an explicit `unit: '1'` is equivalent, while `%` is a compatible scaled unit (`35 % = 0.35`). Raw numbers in Material variables, solver parameters, and rule scalar parameters are reserved for safe integers. Fractions, tolerances, ratios, and physical values—including physical zero—use `FloatValue`. Nested arrays and plain objects remain supported, and their float leaves keep this deterministic descriptor form.
+`FloatValue` is `{ type: 'float', value: number, unit: UcumUnit, quantityKind: QuantityKindName }`. Raw numbers in Material variables, solver parameters, and rule scalar parameters are reserved for safe integers. Fractions, tolerances, ratios, and physical values—including physical zero—use `FloatValue`; dimensionless ratios explicitly use `{fraction}` and `DimensionlessRatio`. Nested arrays and plain objects remain supported, and their float leaves keep this deterministic descriptor form.
 
-A top-level Material scalar float instead uses `{ type: 'float', value, errorRate, unit? }`. `errorRate` is a unitless ratio in `[0, 1)`, so `0.001` means `0.1%`; even a deterministic value must state `errorRate: 0`. A top-level Material tensor with `dtype: 'float16' | 'float32' | 'float64'` requires the same field. Each Sample and Setup realizes a scalar with one uniform multiplier in `[1 - errorRate, 1 + errorRate]` and realizes every float tensor element independently. The Material retains its nominal descriptor, while evaluated scene and solver variables contain the realized value without `errorRate`. Nested float descriptors, non-float tensors, and other JSON metadata are not randomized.
+A top-level Material scalar float additionally requires `errorRate`, while retaining required `unit` and `quantityKind`. `errorRate` is a unitless ratio in `[0, 1)`, so `0.001` means `0.1%`; even a deterministic value must state `errorRate: 0`. A top-level Material tensor with `dtype: 'float16' | 'float32' | 'float64'` requires the same field. Each Sample and Setup realizes a scalar with one uniform multiplier in `[1 - errorRate, 1 + errorRate]` and realizes every float tensor element independently. The Material retains its nominal descriptor, while evaluated scene and solver variables contain the realized value without `errorRate`. Nested float descriptors, non-float tensors, and other JSON metadata are not randomized.
 
-`varsSchema` and its resolved `vars` payload deliberately remain unitless intermediate data. Units are fixed where values enter a Material, solver parameter, rule parameter, float tensor/result schema, or tensor axis. Float tensors and recorded results accept `unit?`; non-float tensor dtypes reject a result/value unit. Axes independently accept `unit?`. Omission is valid for dimensionless float values, but a solver rejects omission when its contract requires a physical dimension.
+`varsSchema` and its resolved `vars` payload deliberately remain unitless intermediate data. Every float entering a Material, solver parameter, rule parameter, tensor/result schema, or unit-bearing axis declares both `unit` and `quantityKind`. Float tensor dtypes require both fields; non-float dtypes reject them. An axis is either unitless or declares both fields together.
 
-Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. Experiment preview validates `experiment.*` targets immediately and defers `structure.*` targets; simulation preparation then cross-validates every target against the paired, evaluated Sample, including missing group members and empty resolutions. Labels are case-sensitive and unique within each of the three rule lists; method IDs may be reused.
+Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. Experiment-local contracts are checked as soon as that document evaluates; when the paired Structure is ready, common solver-spec preflight resolves Structure targets and Material roles before Run. Labels are case-sensitive and unique within each of the three rule lists.
 
 Raw scalar parameters may be booleans, strings, or safe integers. Explicit scalar descriptors use `{ type: 'bool' | 'string' | 'int', value }` or `{ type: 'float', value, unit? }`. A tensor parameter uses `{ type: 'tensor', dimension, shape, dtype, axes?, unit?, value }`, requires `dimension >= 1`, and must have `dimension === shape.length`; every shape size is a positive safe integer. Supported element dtypes are `bool`, `string`, `int8`, `int16`, `int32`, `int64`, `uint8`, `uint16`, `uint32`, `uint64`, `float16`, `float32`, and `float64`. `int64` and `uint64` remain limited to JavaScript safe integers. Tensor values are checked recursively against both shape and dtype, copied, and frozen.
 
@@ -280,15 +298,15 @@ Experimental Parameters displays scalar values with their unit or `unitless`, an
 
 Solver `name` and `version` are trimmed, non-empty, case-sensitive strings. Its `parameters` factory runs with Setup `vars` before Experiment geometry and must return a plain JSON-compatible object. Parameters are recursively copied and frozen; strings, safe integers, `FloatValue`, booleans, null, arrays, and plain objects are supported. Functions, `undefined`, non-finite numbers, raw fractional numbers, class instances, and circular references are rejected.
 
-Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initializations → boundary conditions → recorded data. Each scene retains its own declared length unit; the Viewer aligns copied layers for display, while solver modules explicitly convert inputs to the units they require. A Sample or Setup keeps one private Material realization across preview and Solver preparation. Editing either source or pressing `Reroll` creates a new instance and new realization, updates its preview only, and never runs the simulation automatically. Once both latest revisions are ready, use **Run Simulation** in the Viewer toolbar. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
+Experiment evaluation order is Setup vars resolution → global `vars` binding → Solver parameters → Experiment geometry and groups → initializations → boundary conditions → recorded data. Each scene retains its own declared length unit; the Viewer aligns copied layers for display, while solver modules explicitly convert inputs to the units they require. A Sample or Setup keeps one private Material realization across preview and Solver preparation. Editing either source or pressing `Reroll` creates a new instance and new realization, updates its preview only, and never runs the simulation automatically. Once both latest revisions are ready and common spec preflight succeeds, use **Run Simulation** in the Viewer toolbar. Spec errors retain successful previews, appear in the relevant document footer, and disable Run. The **Solver Spec** tab renders the selected solver's complete external contract. The toolbar reports `idle → preparing → running → succeeded | failed | cancelled`, exposes **Cancel** while active, and keeps the Results tab where the user left it.
 
 ## Solver Controller And DC Current Density
 
-`src/solver` is UI-independent. `SolverController.run(sample, setup)` evaluates both vars contexts, geometry, Materials, groups, solver parameters, and Experiment rules before dispatching by an exact, case-sensitive `name@version`. It permits one active run, passes an `AbortSignal` to the selected module, publishes immutable process snapshots through `getProcess()` and `subscribe()`, and validates/finalizes `RecordedData`. Duplicate module registration and unsupported identities fail explicitly. A future backend or external solver implements the same `SolverModule.solve(input, signal)` contract and may use `fetch`; no Controller or UI contract changes are required.
+`src/solver` is UI-independent. Every folder-based module exposes `{ spec, solve }`; `spec` is a serializable `SolverSpec` and is the single source for Worker preflight, controller defense-in-depth, and the generic Solver Spec UI. `SolverController.run(sample, setup)` evaluates both vars contexts, geometry, Materials, groups, solver parameters, and Experiment rules before dispatching by an exact, case-sensitive `name@version`. It permits one active run, passes an `AbortSignal` to the selected module, publishes immutable process snapshots, and validates/finalizes `RecordedData`. Required declared parameter keys are validated, while undeclared Solver, method, and Material parameter keys are preserved for cross-version compatibility. See [`src/solver/README.md`](src/solver/README.md) for the module template and checklist.
 
-The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. It converts the Structure scene `lengthUnit` to `m`, terminal potentials to `V`, and Material conductivity to `S/m`; the removed `lengthScaleToMeters` parameter is no longer accepted. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
+The default `dc-current-density@1.0.0` JavaScript module performs a browser-side 3D voxel finite-volume solve of `∇·(σ∇V) = 0`. Its spec requires the fixed Material key `electricalConductivity`; the former `conductivityVariable` key is ignored if retained as compatibility metadata. It converts the Structure scene `lengthUnit` to `m`, terminal potentials to `V`, and Material conductivity to its SI working form. It creates a cell-centered `[s, u, v]` grid, applies the source/reference potentials as Dirichlet conditions, treats every other exterior and notch face as insulating, and solves the symmetric system with Jacobi-preconditioned conjugate gradient. Occupancy construction and PCG periodically yield to the Worker event loop and check the supplied `AbortSignal`, so **Cancel** interrupts real work rather than only changing UI state.
 
-The default Structure is a fixed `[100, 12, 10] mm` copper bar whose corner-notch size is randomized from `[20, 4, 5]` through `[40, 6, 7]` and whose center is randomized from `[-10, 4, 2.5]` through `[10, 5, 3.5]`. Its nominal conductivity is fixed at `5.96e7 S/m` with `errorRate: 0.001`, so every new Sample uses one conductivity uniformly realized within `±0.1%`. The `dc.voxel-grid` initialization rule defines the editable `[s, u, v]` resolution and grid setup through an int32 `gridShape` tensor with value `[100, 41, 41]`. Each RecordedData rule declares the dimensionless `crossSectionPosition: { type: 'float', value: 0.35 }` at which its result is measured. Current density and total current positions must resolve to the same dimensionless value; compatible forms such as `0.35` and `35%` match. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as UCUM `A/m2`; its two result axes use `m`. Compatible alternative output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A`.
+The default Structure is a fixed `[100, 12, 10] mm` copper bar whose corner-notch size is randomized from `[20, 4, 5]` through `[40, 6, 7]` and whose center is randomized from `[-10, 4, 2.5]` through `[10, 5, 3.5]`. Its nominal conductivity is fixed at `5.96e7 S.m-1 / ElectricConductivity` with `errorRate: 0.001`, so every new Sample uses one conductivity uniformly realized within `±0.1%`. The `dc.voxel-grid` initialization rule defines the editable `[s, u, v]` resolution and grid setup through an int32 `gridShape` tensor with value `[100, 41, 41]`. Each RecordedData rule declares its position as `{fraction} / DimensionlessRatio`. Current density and total current positions must resolve to the same value. For the default X-aligned terminals, the solver constructs a right-handed frame with `u = Y` and `v = Z`. The signed axial `Current density` result is a float64 `41×41` heatmap declared as `A.m-2 / ElectricCurrentDensity`; its two result axes use `m / Length`. Compatible applicable output units are converted before publishing. Cells outside the conductor or inside the notch are zero. `Total current` is the absolute value of the signed flux integral and defaults to `A / ElectricCurrent`.
 
 This v1 heatmap contract intentionally replaces the former `[Jx, Jy, Jz]` vector schema and the former solver-level `gridShape`/`crossSectionPosition` placement: Experiments using either old contract fail explicitly. A uniform `[100, 5, 5] mm` verification bar at `σ = 5.96e7 S/m`, `errorRate: 0`, and `ΔV = 1 mV` converges to `596000 A/m²` and `14.9 A`. The notched result is resolution-dependent; refine the initialization `gridShape` and compare flux/current before treating it as converged. A run is limited to 250,000 voxels and requires a valid positive length conversion and conductivity, `0 < relativeTolerance < 1`, positive `maxIterations`, two distinct planar opposing terminals, and one connected homogeneous isotropic Material part. Missing or incompatible physical units, nonconvergence, disconnected voxel domains, multiple parts, invalid terminals, extra rules, and incompatible schemas fail without publishing a new result.
 
@@ -587,3 +605,55 @@ Structure + Experiment + Measurement 통합 화면
 - 적절한 Material 의 활용 방법은,
 (1) 잘 모를 땐 문헌값에 충분한 오차범위를 설정하고 시뮬레이션을 한다.
 (2) calibration, 물질 순도를 높이거나 적어도 공정 균일성을 높여가면서 parameter 를 수정하고 오차범위를 줄여나간다.
+
+
+Material
+- id
+- user_id nullable
+- standard_inchi nullable (Standard InChI)
+- description
+
+MaterialName (IUPAC name)
+- id
+- user_id nullable
+- material_id
+- name
+- normalized_name
+
+  UNIQUE:
+  - public: normalized_name
+  - private: user_id + normalized_name
+
+  Public 이름
+    전체 시스템에서 유일
+
+  Private 이름
+    해당 사용자 안에서 유일
+
+  Public과 Private 이름이 같을 때
+    해당 사용자의 Private 이름을 우선
+
+QuantityKind (QUDT 기반)
+- id
+- name
+- unit (UCUM)
+- description
+
+MaterialData
+- id
+- user_id nullable
+- material_id
+- quantity_kind_id
+- value
+- description
+
+사용자 private Material Name을 먼저 조회하고, 존재하지 않을 경우 public Material Name을 조회한다. 조회된 Material UUID를 기준으로 solver에 필요한 MaterialData를 구성한다.
+
+
+## Solver API
+- solver id
+- 요구하는 QuantityKind
+- solver parameters 및 default 값들
+- initialization method id
+- boundaryConditions method id
+- recordedData method id

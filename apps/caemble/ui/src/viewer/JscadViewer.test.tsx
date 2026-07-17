@@ -233,7 +233,10 @@ describe('JscadViewer modes', () => {
           label: 'Total current',
           methodId: 'dc.total-current',
           parameters: {},
-          result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+          result: {
+            type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+            unit: 'A', quantityKind: 'ElectricCurrent',
+          },
         }]}
         selected={null}
         onRenderEnd={() => undefined}

@@ -18,6 +18,8 @@ const experiment = new Experiment({ lengthUnit: 'mm',
         dimension: 2,
         shape: [1, 2],
         dtype: 'float32',
+        unit: '{fraction}',
+        quantityKind: 'DimensionlessRatio',
         axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 1] }],
         value: [[1, 2]] as const,
       },
@@ -81,7 +83,10 @@ const experiment = new Experiment({ lengthUnit: 'mm',
         axes: [{ name: '이름', ticks: ['첫째', '둘째'] }], value: profile,
       },
     },
-    result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64' },
+    result: {
+      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    },
   }],
 })
 export default new Setup(experiment)
@@ -102,11 +107,17 @@ const experiment = new Experiment({ lengthUnit: 'mm',
   initializations: () => [
     {
       target: ['structure.geometry.sample'], label: 'Computed', methodId: 'computed',
-      parameters: { profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'float64', value: makeData() } },
+      parameters: { profile: {
+        type: 'tensor', dimension: 1, shape: [2], dtype: 'float64',
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: makeData(),
+      } },
     },
     {
       target: ['structure.geometry.sample'], label: 'Vars', methodId: 'vars',
-      parameters: { profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'float64', value: vars.profile } },
+      parameters: { profile: {
+        type: 'tensor', dimension: 1, shape: [2], dtype: 'float64',
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: vars.profile,
+      } },
     },
   ],
 })

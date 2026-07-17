@@ -80,7 +80,13 @@ const structure = new Structure({
         verticalCurvature={0}
         materials={[
           new Material('Curved Polymer', {
-            density: { type: 'float', value: 1.12, errorRate: 0, unit: 'g/cm3' },
+            density: {
+              type: 'float',
+              value: 1.12,
+              errorRate: 0,
+              unit: 'g.cm-3',
+              quantityKind: 'MassDensity',
+            },
             color: '#0f766e',
           }),
         ]}

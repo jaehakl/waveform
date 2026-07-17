@@ -7,6 +7,7 @@ import type {
   Structure,
 } from '../cad/model/core'
 import type { Vars } from '../cad/model/types'
+import type { SolverSpec } from './spec'
 
 export type SolverModuleInput = Readonly<{
   structure: Readonly<{
@@ -17,6 +18,17 @@ export type SolverModuleInput = Readonly<{
   experiment: Readonly<{
     model: Experiment
     vars: Readonly<Vars>
+    scene: CadScene
+    rules: EvaluatedExperimentRules
+    solver: ResolvedExperimentSolver
+  }>
+}>
+
+export type SolverPreflightInput = Readonly<{
+  structure?: Readonly<{
+    scene: CadScene
+  }>
+  experiment: Readonly<{
     scene: CadScene
     rules: EvaluatedExperimentRules
     solver: ResolvedExperimentSolver
@@ -35,8 +47,7 @@ export type SolverProcess = Readonly<{
 }>
 
 export type SolverModule = Readonly<{
-  name: string
-  version: string
+  spec: SolverSpec
   solve: (input: SolverModuleInput, signal: AbortSignal) => Promise<RecordedData>
 }>
 

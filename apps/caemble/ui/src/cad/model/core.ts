@@ -5,20 +5,27 @@ import {
   normalizeUcumUnit,
   type UcumUnit,
 } from './units'
+import {
+  normalizeQuantityMetadata,
+  type QuantityKindName,
+} from '../../quantitykind/runtime'
 
 export type { Rotation, Tensor, Vars, Vec3 } from './types'
 export { CadModelError } from './errors'
 export type { UcumUnit } from './units'
+export type { QuantityKindName, QuantityMetadata } from '../../quantitykind/runtime'
 export type FloatValue = Readonly<{
   type: 'float'
   value: number
-  unit?: UcumUnit
+  unit: UcumUnit
+  quantityKind: QuantityKindName
 }>
 export type MaterialFloatValue = Readonly<{
   type: 'float'
   value: number
   errorRate: number
-  unit?: UcumUnit
+  unit: UcumUnit
+  quantityKind: QuantityKindName
 }>
 export type MaterialVariable =
   | string
@@ -75,6 +82,8 @@ export type ExperimentTensorDType =
   | 'float16'
   | 'float32'
   | 'float64'
+export type ExperimentFloatTensorDType = Extract<ExperimentTensorDType, `float${number}`>
+export type ExperimentNonFloatTensorDType = Exclude<ExperimentTensorDType, ExperimentFloatTensorDType>
 export type ExperimentScalarParameter =
   | boolean
   | string
@@ -83,27 +92,41 @@ export type ExperimentScalarParameter =
   | Readonly<{ type: 'string'; value: string }>
   | Readonly<{ type: 'int'; value: number }>
   | FloatValue
-export type ExperimentTensorAxis = Readonly<{
+type ExperimentTensorAxisBase = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
-  unit?: UcumUnit
 }>
-export type ExperimentTensorParameter = Readonly<{
+export type ExperimentTensorAxis = ExperimentTensorAxisBase & Readonly<
+  | { unit: UcumUnit; quantityKind: QuantityKindName }
+  | { unit?: never; quantityKind?: never }
+>
+type ExperimentTensorParameterBase = Readonly<{
   type: 'tensor'
   dimension: number
   shape: readonly number[]
-  dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
-  unit?: UcumUnit
   value: boolean | string | number | readonly unknown[]
 }>
+export type ExperimentTensorParameter = ExperimentTensorParameterBase & Readonly<
+  | {
+    dtype: ExperimentFloatTensorDType
+    unit: UcumUnit
+    quantityKind: QuantityKindName
+  }
+  | {
+    dtype: ExperimentNonFloatTensorDType
+    unit?: never
+    quantityKind?: never
+  }
+>
 export type MaterialFloatTensorValue = Readonly<{
   type: 'tensor'
   dimension: number
   shape: readonly number[]
-  dtype: 'float16' | 'float32' | 'float64'
+  dtype: ExperimentFloatTensorDType
   axes?: readonly ExperimentTensorAxis[]
-  unit?: UcumUnit
+  unit: UcumUnit
+  quantityKind: QuantityKindName
   value: number | readonly unknown[]
   errorRate: number
 }>
@@ -115,14 +138,24 @@ export type ResolvedMaterialVariables = Readonly<
 >
 export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
 export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
-export type RecordedDataResult = Readonly<{
+type RecordedDataResultBase = Readonly<{
   type: 'tensor'
   dimension: number
   shape: readonly number[]
-  dtype: ExperimentTensorDType
   axes?: readonly ExperimentTensorAxis[]
-  unit?: UcumUnit
 }>
+export type RecordedDataResult = RecordedDataResultBase & Readonly<
+  | {
+    dtype: ExperimentFloatTensorDType
+    unit: UcumUnit
+    quantityKind: QuantityKindName
+  }
+  | {
+    dtype: ExperimentNonFloatTensorDType
+    unit?: never
+    quantityKind?: never
+  }
+>
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
   label: string
@@ -178,18 +211,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeFloatValue(value: Record<string, unknown>, path: string): FloatValue {
-  const descriptorKeys = ['type', 'value']
-  if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
-  assertDescriptorKeys(value, descriptorKeys, path)
+  assertDescriptorKeys(value, ['type', 'value', 'unit', 'quantityKind'], path)
   if (value.type !== 'float') throw new CadModelError(`${path}.type must be float.`)
   if (typeof value.value !== 'number' || !Number.isFinite(value.value)) {
     throw new CadModelError(`${path}.value must be a finite number.`)
   }
-  const unit = value.unit === undefined ? undefined : normalizeUcumUnit(value.unit, `${path}.unit`)
+  const metadata = normalizeQuantityMetadata(value, path)
   return Object.freeze({
     type: 'float' as const,
     value: value.value,
-    ...(unit === undefined ? {} : { unit }),
+    ...metadata,
   })
 }
 
@@ -559,9 +590,11 @@ export class Material {
       const path = `Material ${symbol} variables.${key}`
       if (isPlainObject(value) && value.type === 'float') {
         const parameter = value as Record<string, unknown>
-        const descriptorKeys = ['type', 'value', 'errorRate']
-        if (Object.prototype.hasOwnProperty.call(parameter, 'unit')) descriptorKeys.push('unit')
-        assertDescriptorKeys(parameter, descriptorKeys, path)
+        assertDescriptorKeys(
+          parameter,
+          ['type', 'value', 'errorRate', 'unit', 'quantityKind'],
+          path,
+        )
         if (typeof parameter.value !== 'number' || !Number.isFinite(parameter.value)) {
           throw new CadModelError(`${path}.value must be a finite number.`)
         }
@@ -569,12 +602,12 @@ export class Material {
           || parameter.errorRate < 0 || parameter.errorRate >= 1) {
           throw new CadModelError(`${path}.errorRate must be a finite number in [0, 1).`)
         }
-        const unit = parameter.unit === undefined ? undefined : normalizeUcumUnit(parameter.unit, `${path}.unit`)
+        const metadata = normalizeQuantityMetadata(parameter, path)
         normalizedVariables[key] = Object.freeze({
           type: 'float' as const,
           value: parameter.value,
           errorRate: parameter.errorRate,
-          ...(unit === undefined ? {} : { unit }),
+          ...metadata,
         })
       } else if (
         isPlainObject(value)
@@ -582,9 +615,17 @@ export class Material {
         && typeof value.dtype === 'string'
         && isExperimentFloatDType(value.dtype as ExperimentTensorDType)
       ) {
-        const descriptorKeys = ['type', 'dimension', 'shape', 'dtype', 'value', 'errorRate']
+        const descriptorKeys = [
+          'type',
+          'dimension',
+          'shape',
+          'dtype',
+          'value',
+          'errorRate',
+          'unit',
+          'quantityKind',
+        ]
         if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
-        if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
         assertDescriptorKeys(value, descriptorKeys, path)
         if (typeof value.errorRate !== 'number' || !Number.isFinite(value.errorRate)
           || value.errorRate < 0 || value.errorRate >= 1) {
@@ -598,7 +639,7 @@ export class Material {
           value: normalizeTensorValue(value.value, schema.shape, schema.dtype, `${path}.value`) as
             MaterialFloatTensorValue['value'],
           errorRate: value.errorRate,
-        })
+        }) as MaterialFloatTensorValue
       } else {
         normalizedVariables[key] = normalizeJsonValue(value, path)
       }
@@ -783,20 +824,26 @@ function normalizeTensorAxes(
     if (!isPlainObject(rawAxis)) {
       throw new CadModelError(`${axisPath} must be a plain object.`)
     }
-    const axisKeys = ['name', 'ticks', 'unit'].filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
+    const axisKeys = ['name', 'ticks', 'unit', 'quantityKind']
+      .filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
     assertDescriptorKeys(rawAxis, axisKeys, axisPath)
 
     const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
     if (typeof name !== 'string' || !name.trim()) {
       throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
     }
-    const unit = rawAxis.unit === undefined ? undefined : normalizeUcumUnit(rawAxis.unit, `${axisPath}.unit`)
+    const hasUnit = Object.prototype.hasOwnProperty.call(rawAxis, 'unit')
+    const hasQuantityKind = Object.prototype.hasOwnProperty.call(rawAxis, 'quantityKind')
+    if (hasUnit !== hasQuantityKind) {
+      throw new CadModelError(`${axisPath} must specify both unit and quantityKind or neither.`)
+    }
+    const metadata = hasUnit ? normalizeQuantityMetadata(rawAxis, axisPath) : undefined
 
     if (allowDynamicShape && shape[axisIndex] === -1) {
       if (Object.prototype.hasOwnProperty.call(rawAxis, 'ticks')) {
         throw new CadModelError(`${axisPath}.ticks must be omitted when shape[${axisIndex}] is -1.`)
       }
-      return Object.freeze({ name: name.trim(), ...(unit === undefined ? {} : { unit }) })
+      return Object.freeze({ name: name.trim(), ...metadata })
     }
 
     const rawTicks = rawAxis.ticks === undefined
@@ -815,7 +862,7 @@ function normalizeTensorAxes(
       throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
     }))
 
-    return Object.freeze({ name: name.trim(), ticks, ...(unit === undefined ? {} : { unit }) })
+    return Object.freeze({ name: name.trim(), ticks, ...metadata })
   }))
 }
 
@@ -851,16 +898,24 @@ function normalizeTensorSchema(
     throw new CadModelError(`${path}.dtype must be a supported tensor dtype.`)
   }
   const dtype = value.dtype as ExperimentTensorDType
-  if (value.unit !== undefined && !isExperimentFloatDType(dtype)) {
-    throw new CadModelError(`${path}.unit is allowed only for float tensor dtypes.`)
+  const hasUnit = Object.prototype.hasOwnProperty.call(value, 'unit')
+  const hasQuantityKind = Object.prototype.hasOwnProperty.call(value, 'quantityKind')
+  if (isExperimentFloatDType(dtype)) {
+    if (!hasUnit || !hasQuantityKind) {
+      throw new CadModelError(`${path} must specify both unit and quantityKind for a float tensor dtype.`)
+    }
+  } else if (hasUnit || hasQuantityKind) {
+    throw new CadModelError(`${path}.unit and ${path}.quantityKind are allowed only for float tensor dtypes.`)
   }
-  const unit = value.unit === undefined ? undefined : normalizeUcumUnit(value.unit, `${path}.unit`)
+  const metadata = isExperimentFloatDType(dtype)
+    ? normalizeQuantityMetadata(value, path)
+    : undefined
   return {
     axes: normalizeTensorAxes(value.axes, shape, path, allowDynamicShape),
     dimension: value.dimension as number,
     dtype,
     shape: Object.freeze(shape),
-    ...(unit === undefined ? {} : { unit }),
+    ...metadata,
   }
 }
 
@@ -964,13 +1019,14 @@ export function normalizeExperimentTensorParameter(
   const descriptorKeys = ['type', 'dimension', 'shape', 'dtype', 'value']
   if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
   if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
+  if (Object.prototype.hasOwnProperty.call(value, 'quantityKind')) descriptorKeys.push('quantityKind')
   assertDescriptorKeys(value, descriptorKeys, path)
   const schema = normalizeTensorSchema(value, path, 1)
   return Object.freeze({
     type: 'tensor' as const,
     ...schema,
     value: normalizeTensorValue(value.value, schema.shape, schema.dtype, `${path}.value`),
-  })
+  }) as ExperimentTensorParameter
 }
 
 function normalizeScalarDescriptor(value: Record<string, unknown>, path: string): ExperimentScalarParameter {
@@ -1029,11 +1085,12 @@ function normalizeRecordedDataResult(value: unknown, path: string): RecordedData
   const descriptorKeys = ['type', 'dimension', 'shape', 'dtype']
   if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
   if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
+  if (Object.prototype.hasOwnProperty.call(value, 'quantityKind')) descriptorKeys.push('quantityKind')
   assertDescriptorKeys(value, descriptorKeys, path)
   return Object.freeze({
     type: 'tensor' as const,
     ...normalizeTensorSchema(value, path, 0, true),
-  })
+  }) as RecordedDataResult
 }
 
 function normalizeExperimentTarget(
@@ -1291,7 +1348,8 @@ export function resolveMaterialVariables(material: Material): ResolvedMaterialVa
       resolved[key] = Object.freeze({
         type: 'float' as const,
         value: sampledValue,
-        ...(parameter.unit === undefined ? {} : { unit: parameter.unit }),
+        unit: parameter.unit,
+        quantityKind: parameter.quantityKind,
       })
       return
     }
@@ -1307,7 +1365,8 @@ export function resolveMaterialVariables(material: Material): ResolvedMaterialVa
         shape: parameter.shape,
         dtype: parameter.dtype,
         ...(parameter.axes === undefined ? {} : { axes: parameter.axes }),
-        ...(parameter.unit === undefined ? {} : { unit: parameter.unit }),
+        unit: parameter.unit,
+        quantityKind: parameter.quantityKind,
         value: sampleMaterialTensorValue(
           parameter.value,
           parameter.dtype,

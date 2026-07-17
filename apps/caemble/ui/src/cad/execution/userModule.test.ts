@@ -56,15 +56,19 @@ describe('compiled user module execution', () => {
   it('evaluates a default Setup and validates Experiment rules under Setup vars', async () => {
     expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
     expect(defaultExperimentCode).not.toContain('lengthScaleToMeters')
-    expect(defaultExperimentCode).toContain("conductivityVariable: 'electricalConductivity'")
+    expect(defaultExperimentCode).not.toContain('conductivityVariable')
     expect(defaultExperimentCode).toContain('initializations: () => [')
     expect(defaultExperimentCode).not.toContain('initialConditions')
     expect(defaultExperimentCode).toContain('boundaryConditions: () => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
-    expect(defaultExperimentCode).toContain("{ name: 'cross-section v', unit: 'm' }")
-    expect(defaultExperimentCode).toContain("{ name: 'cross-section u', unit: 'm' }")
-    expect(defaultExperimentCode).toContain("dtype: 'float64', unit: 'A' }")
+    expect(defaultExperimentCode).toContain(
+      "{ name: 'cross-section v', unit: 'm', quantityKind: 'Length' }",
+    )
+    expect(defaultExperimentCode).toContain(
+      "{ name: 'cross-section u', unit: 'm', quantityKind: 'Length' }",
+    )
+    expect(defaultExperimentCode).toContain("quantityKind: 'ElectricCurrent'")
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment)')
 
@@ -86,8 +90,9 @@ describe('compiled user module execution', () => {
       name: 'dc-current-density',
       version: '1.0.0',
       parameters: {
-        conductivityVariable: 'electricalConductivity',
-        relativeTolerance: { type: 'float', value: 1e-8 },
+        relativeTolerance: {
+          type: 'float', value: 1e-8, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
         maxIterations: 2000,
       },
     })
@@ -118,18 +123,19 @@ describe('compiled user module execution', () => {
       'dc.reference-potential',
     ])
     expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([
-      { type: 'float', value: 1, unit: 'mV' },
-      { type: 'float', value: 0, unit: 'mV' },
+      { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+      { type: 'float', value: 0, unit: 'mV', quantityKind: 'Voltage' },
     ])
     expect(experimentRules?.recordedData[0].result).toEqual({
       type: 'tensor',
       dimension: 2,
       shape: [-1, -1],
       dtype: 'float64',
-      unit: 'A/m2',
+      unit: 'A.m-2',
+      quantityKind: 'ElectricCurrentDensity',
       axes: [
-        { name: 'cross-section v', unit: 'm' },
-        { name: 'cross-section u', unit: 'm' },
+        { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
+        { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
       ],
     })
     expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
@@ -137,8 +143,16 @@ describe('compiled user module execution', () => {
       'Total current',
     ])
     expect(experimentRules?.recordedData.map((rule) => rule.parameters)).toEqual([
-      { crossSectionPosition: { type: 'float', value: 0.35 } },
-      { crossSectionPosition: { type: 'float', value: 0.35 } },
+      {
+        crossSectionPosition: {
+          type: 'float', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
+      {
+        crossSectionPosition: {
+          type: 'float', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
     ])
     expect(experimentRules?.recordedData[1].result).toEqual({
       type: 'tensor',
@@ -146,6 +160,7 @@ describe('compiled user module execution', () => {
       shape: [],
       dtype: 'float64',
       unit: 'A',
+      quantityKind: 'ElectricCurrent',
       axes: [],
     })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
@@ -160,7 +175,8 @@ describe('compiled user module execution', () => {
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
-    expect(defaultCode).toContain("unit: 'S/m'")
+    expect(defaultCode).toContain("unit: 'S.m-1'")
+    expect(defaultCode).toContain("quantityKind: 'ElectricConductivity'")
     expect(defaultCode).toContain('errorRate: 0.001')
     expect(defaultCode).toContain('conductorSize: { min: [100, 12, 10], max: [100, 12, 10] }')
     expect(defaultCode).toContain('notchSize: { min: [20, 4, 5], max: [40, 6, 7] }')
@@ -184,7 +200,12 @@ describe('compiled user module execution', () => {
         symbol: 'Copper',
         version: 'reference',
         variables: {
-          electricalConductivity: { type: 'float', value: expect.any(Number), unit: 'S/m' },
+          electricalConductivity: {
+            type: 'float',
+            value: expect.any(Number),
+            unit: 'S.m-1',
+            quantityKind: 'ElectricConductivity',
+          },
           color: '#d97706',
         },
       },

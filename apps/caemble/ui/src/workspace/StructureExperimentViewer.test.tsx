@@ -38,7 +38,7 @@ function ViewerHarness({
 }
 
 describe('StructureExperimentViewer', () => {
-  it('renders all five tabs from externally owned document controllers', () => {
+  it('renders all six tabs from externally owned document controllers', () => {
     const markup = renderToStaticMarkup(
       <ViewerHarness
         activeDocumentType="structure"
@@ -53,6 +53,7 @@ describe('StructureExperimentViewer', () => {
       'Experiment Source',
       'Experiment Tree',
       'Experimental Parameters',
+      'Solver Spec',
     ])
     expect(markup).toContain('id="structure-source-panel" role="tabpanel"')
     expect(markup).toContain('id="experiment-tree-panel" role="tabpanel"')
@@ -73,6 +74,7 @@ describe('StructureExperimentViewer', () => {
       'Experiment Source',
       'Experiment Tree',
       'Experimental Parameters',
+      'Solver Spec',
     ])
     expect(experimentMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="experiment-source-tab"/)
   })

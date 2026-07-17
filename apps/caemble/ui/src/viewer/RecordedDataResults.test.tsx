@@ -10,6 +10,13 @@ function rule(
   unit?: string,
   axisUnit?: string,
 ): RecordedDataRule {
+  const quantityMetadata = dtype.startsWith('float')
+    ? unit === 'A'
+      ? { unit, quantityKind: 'ElectricCurrent' as const }
+      : unit === 'A.m-2'
+        ? { unit, quantityKind: 'ElectricCurrentDensity' as const }
+        : { unit: '{fraction}', quantityKind: 'DimensionlessRatio' as const }
+    : {}
   return {
     target: ['experiment.geometry.domain'],
     label,
@@ -20,21 +27,21 @@ function rule(
       dimension: shape.length,
       shape,
       dtype,
-      ...(unit ? { unit } : {}),
+      ...quantityMetadata,
       axes: shape.map((size, index) => ({
         name: `axis ${index}`,
-        ...(axisUnit ? { unit: axisUnit } : {}),
+        ...(axisUnit ? { unit: axisUnit, quantityKind: 'Length' as const } : {}),
         ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
       })),
-    },
+    } as RecordedDataRule['result'],
   }
 }
 
 describe('RecordedDataResults', () => {
   const rules = [
     rule('Average', [], 'float64', 'A'),
-    rule('Profile', [3], 'float32', 'A/m2', 'm'),
-    rule('Field', [2, 3], 'float32', 'A/m2', 'm'),
+    rule('Profile', [3], 'float32', 'A.m-2', 'm'),
+    rule('Field', [2, 3], 'float32', 'A.m-2', 'm'),
   ]
 
   it('shows schema-driven scalar, chart, and heatmap shells without values', () => {

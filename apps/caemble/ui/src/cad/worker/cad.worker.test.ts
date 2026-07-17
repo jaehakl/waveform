@@ -27,7 +27,10 @@ const structure = new Structure({
   geometry: () => h(Conductor, {
     id: 'conductor',
     materials: [new Material('Copper', {
-      electricalConductivity: { type: 'float', value: 5.96e7, errorRate: 0, unit: 'S/m' },
+      electricalConductivity: {
+        type: 'float', value: 5.96e7, errorRate: 0,
+        unit: 'S.m-1', quantityKind: 'ElectricConductivity',
+      },
     })],
   }),
   varsSchema: { realization: { min: 90, max: 110 } },
@@ -50,7 +53,10 @@ const experiment = new Experiment({
     version: '1.0.0',
     parameters: () => ({
       conductivityVariable: 'electricalConductivity',
-      relativeTolerance: { type: 'float', value: 1e-10 },
+      relativeTolerance: {
+        type: 'float', value: 1e-10,
+        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      },
       maxIterations: 1000,
     }),
   },
@@ -78,13 +84,17 @@ const experiment = new Experiment({
       target: ['structure.surface.sourceTerminal'],
       label: 'Source',
       methodId: 'dc.source-potential',
-      parameters: { voltage: { type: 'float', value: 1, unit: 'mV' } },
+      parameters: {
+        voltage: { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+      },
     },
     {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference',
       methodId: 'dc.reference-potential',
-      parameters: { voltage: { type: 'float', value: 0, unit: 'mV' } },
+      parameters: {
+        voltage: { type: 'float', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+      },
     },
   ],
   recordedData: () => [
@@ -92,16 +102,22 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Current density',
       methodId: 'dc.current-density',
-      parameters: { crossSectionPosition: { type: 'float', value: 0.5 } },
+      parameters: {
+        crossSectionPosition: {
+          type: 'float', value: 0.5,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
       result: {
         type: 'tensor',
         dimension: 2,
         shape: [-1, -1],
         dtype: 'float64',
-        unit: 'A/m2',
+        unit: 'A.m-2',
+        quantityKind: 'ElectricCurrentDensity',
         axes: [
-          { name: 'cross-section v', unit: 'm' },
-          { name: 'cross-section u', unit: 'm' },
+          { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
+          { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
         ],
       },
     },
@@ -109,8 +125,16 @@ const experiment = new Experiment({
       target: ['structure.geometry.conductor'],
       label: 'Total current',
       methodId: 'dc.total-current',
-      parameters: { crossSectionPosition: { type: 'float', value: 0.5 } },
-      result: { type: 'tensor', dimension: 0, shape: [], dtype: 'float64', unit: 'A' },
+      parameters: {
+        crossSectionPosition: {
+          type: 'float', value: 0.5,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+      },
+      result: {
+        type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+        unit: 'A', quantityKind: 'ElectricCurrent',
+      },
     },
   ],
 })
@@ -139,6 +163,18 @@ describe('persistent CAD Worker', () => {
   it('caches only the latest revisions, combines both instances, rejects stale runs, and cancels', async () => {
     dispatch({
       type: 'evaluate-document',
+      requestId: 'experiment-2',
+      revision: 2,
+      source: experimentSource,
+      documentType: 'experiment',
+    })
+    const experimentSuccess = await waitForResponse('document-success', 'experiment-2')
+    const partialPreflight = await waitForResponse('solver-preflight', 'preflight-none-2')
+    if (partialPreflight.type !== 'solver-preflight') throw new Error('Expected a solver-preflight response.')
+    expect(partialPreflight.result).toMatchObject({ complete: false, issues: [] })
+
+    dispatch({
+      type: 'evaluate-document',
       requestId: 'structure-1',
       revision: 1,
       source: `/* slow */${structureSource}`,
@@ -151,19 +187,14 @@ describe('persistent CAD Worker', () => {
       source: structureSource,
       documentType: 'structure',
     })
-    dispatch({
-      type: 'evaluate-document',
-      requestId: 'experiment-2',
-      revision: 2,
-      source: experimentSource,
-      documentType: 'experiment',
-    })
-
     const structureSuccess = await waitForResponse('document-success', 'structure-2')
-    const experimentSuccess = await waitForResponse('document-success', 'experiment-2')
+    const fullPreflight = await waitForResponse('solver-preflight', 'preflight-2-2')
     if (structureSuccess.type !== 'document-success' || experimentSuccess.type !== 'document-success') {
       throw new Error('Expected document-success responses.')
     }
+    if (fullPreflight.type !== 'solver-preflight') throw new Error('Expected a solver-preflight response.')
+    expect(fullPreflight.result).toMatchObject({ complete: true, issues: [] })
+    expect(fullPreflight.result.spec).toMatchObject({ name: 'dc-current-density', version: '1.0.0' })
     expect(structureSuccess.scene.lengthUnit).toBe('mm')
     expect(experimentSuccess.scene.lengthUnit).toBe('mm')
     expect(esbuild.initialize).toHaveBeenCalledTimes(1)
