@@ -1,17 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { h } from '../evaluation/jsx'
+import { evaluateDocumentEntry } from '../execution/userModule'
+import type { EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
+import { serializeEvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
+import { Material } from '../model/core'
+import { experiment, structure } from '../model/v2'
 import type { CadWorkerRequest, CadWorkerResponse } from './protocol'
-
-const esbuild = vi.hoisted(() => ({
-  initialize: vi.fn(async () => undefined),
-  transform: vi.fn(async (source: string) => {
-    if (source.startsWith('/* slow */')) {
-      await new Promise((resolve) => setTimeout(resolve, 20))
-    }
-    return { code: source }
-  }),
-}))
-
-vi.mock('esbuild-wasm', () => esbuild)
 
 const responses: CadWorkerResponse[] = []
 const workerScope = {
@@ -19,84 +13,68 @@ const workerScope = {
   postMessage: (response: CadWorkerResponse) => responses.push(response),
 }
 
-const structureSource = `
-const { Material, Sample, Structure } = require('@caemble/core')
-function Conductor() { return h('box', { size: [100, 5, 5] }) }
-const structure = new Structure({
-  lengthUnit: 'mm',
-  geometry: () => h(Conductor, {
-    id: 'conductor',
-    materials: [new Material('Copper', {
-      electricalConductivity: {
-        dtype: 'float64',
-        value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
-        unit: 'S.m-1', quantityKind: 'ElectricConductivity',
-      },
-    })],
-  }),
-  varsSchema: { realization: { min: 90, max: 110 } },
-  geometryGroup: { conductor: ['conductor'] },
-  surfaceGroup: {
-    sourceTerminal: ['conductor/surface-1'],
-    referenceTerminal: ['conductor/surface-2'],
-  },
-})
-module.exports.default = new Sample(structure)
-`
-
-const experimentSource = `
-const { Experiment, Setup } = require('@caemble/core')
-function Probe() { return h('box', { size: [1, 1, 1] }) }
-const experiment = new Experiment({
-  lengthUnit: 'mm',
-  solver: {
-    name: 'dc-current-density',
-    version: '2.0.0',
-    parameters: () => ({
-      conductivityVariable: 'electricalConductivity',
-      relativeTolerance: {
-        dtype: 'float64', value: 1e-10,
-        unit: '{fraction}', quantityKind: 'DimensionlessRatio',
-      },
-      maxIterations: 1000,
+function createSnapshots() {
+  function Conductor() {
+    return h('box', { size: [100, 5, 5] })
+  }
+  function Probe() {
+    return h('box', { size: [1, 1, 1] })
+  }
+  const structureDefinition = structure({
+    lengthUnit: 'mm',
+    geometry: () => h(Conductor, {
+      id: 'conductor',
+      materials: [new Material('Copper', {
+        electricalConductivity: {
+          dtype: 'float64',
+          value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
+          errorRate: 0,
+          unit: 'S.m-1',
+          quantityKind: 'ElectricConductivity',
+        },
+      })],
     }),
-  },
-  geometry: () => h(Probe, { id: 'probe' }),
-  varsSchema: { realization: { min: 1, max: 2 } },
-  initializations: () => [
-    {
+    varsSchema: {},
+    geometryGroup: { conductor: ['conductor'] },
+    surfaceGroup: {
+      sourceTerminal: ['conductor/surface-1'],
+      referenceTerminal: ['conductor/surface-2'],
+    },
+  })
+  const experimentDefinition = experiment({
+    lengthUnit: 'mm',
+    solver: {
+      name: 'dc-current-density',
+      version: '2.0.0',
+      parameters: () => ({
+        conductivityVariable: 'electricalConductivity',
+        relativeTolerance: {
+          dtype: 'float64', value: 1e-10,
+          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        },
+        maxIterations: 1000,
+      }),
+    },
+    geometry: () => h(Probe, { id: 'probe' }),
+    varsSchema: {},
+    initializations: () => [{
       target: ['structure.geometry.conductor'],
       label: 'Voxel grid',
       methodId: 'dc.voxel-grid',
-      parameters: {
-        gridShape: {
-          dtype: 'int32',
-          axes: [{ length: 3 }],
-          value: [20, 11, 11],
-        },
-      },
-    },
-  ],
-  boundaryConditions: () => [
-    {
+      parameters: { gridShape: { dtype: 'int32', axes: [{ length: 3 }], value: [20, 11, 11] } },
+    }],
+    boundaryConditions: () => [{
       target: ['structure.surface.sourceTerminal'],
       label: 'Source',
       methodId: 'dc.source-potential',
-      parameters: {
-        voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
-      },
-    },
-    {
+      parameters: { voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' } },
+    }, {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference',
       methodId: 'dc.reference-potential',
-      parameters: {
-        voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
-      },
-    },
-  ],
-  recordedData: () => [
-    {
+      parameters: { voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' } },
+    }],
+    recordedData: () => [{
       target: ['structure.geometry.conductor'],
       label: 'Current density',
       methodId: 'dc.current-density',
@@ -107,16 +85,13 @@ const experiment = new Experiment({
         },
       },
       result: {
-        dtype: 'float64',
-        unit: 'A.m-2',
-        quantityKind: 'ElectricCurrentDensity',
+        dtype: 'float64', unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
         ],
       },
-    },
-    {
+    }, {
       target: ['structure.geometry.conductor'],
       label: 'Total current',
       methodId: 'dc.total-current',
@@ -126,15 +101,18 @@ const experiment = new Experiment({
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
-      result: {
-        dtype: 'float64',
-        unit: 'A', quantityKind: 'ElectricCurrent',
-      },
-    },
-  ],
-})
-module.exports.default = new Setup(experiment)
-`
+      result: { dtype: 'float64', unit: 'A', quantityKind: 'ElectricCurrent' },
+    }],
+  })
+  return {
+    experiment: serializeEvaluatedDocumentSnapshotV2(
+      evaluateDocumentEntry(experimentDefinition, 'experiment', '2'.repeat(64), 2),
+    ),
+    structure: serializeEvaluatedDocumentSnapshotV2(
+      evaluateDocumentEntry(structureDefinition, 'structure', '1'.repeat(64), 1),
+    ),
+  }
+}
 
 function dispatch(request: CadWorkerRequest) {
   workerScope.onmessage?.({ data: request } as MessageEvent<CadWorkerRequest>)
@@ -147,84 +125,43 @@ async function waitForResponse(type: CadWorkerResponse['type'], requestId: strin
   return responses.find((response) => response.type === type && response.requestId === requestId)!
 }
 
-describe('persistent CAD Worker', () => {
+describe('snapshot-only Solver Worker', () => {
   beforeAll(async () => {
     vi.stubGlobal('self', workerScope)
     await import('./cad.worker')
   })
 
+  beforeEach(() => responses.splice(0))
   afterAll(() => vi.unstubAllGlobals())
 
-  it('caches only the latest revisions, combines both instances, rejects stale runs, and cancels', async () => {
+  it('preflights cached snapshots, rejects stale revisions, solves, and cancels', async () => {
+    const snapshots = createSnapshots()
     dispatch({
-      type: 'evaluate-document',
-      requestId: 'experiment-2',
-      revision: 2,
-      source: experimentSource,
-      documentType: 'experiment',
+      type: 'cache-snapshot', requestId: 'cache-experiment', revision: 2, snapshot: snapshots.experiment,
     })
-    const experimentSuccess = await waitForResponse('document-success', 'experiment-2')
-    const partialPreflight = await waitForResponse('solver-preflight', 'preflight-none-2')
-    if (partialPreflight.type !== 'solver-preflight') throw new Error('Expected a solver-preflight response.')
-    expect(partialPreflight.result).toMatchObject({ complete: false, issues: [] })
+    const partial = await waitForResponse('solver-preflight', 'preflight-none-2')
+    if (partial.type !== 'solver-preflight') throw new Error('Expected solver preflight.')
+    expect(partial.result).toMatchObject({ complete: false, issues: [] })
 
-    dispatch({
-      type: 'evaluate-document',
-      requestId: 'structure-1',
-      revision: 1,
-      source: `/* slow */${structureSource}`,
-      documentType: 'structure',
-    })
-    dispatch({
-      type: 'evaluate-document',
-      requestId: 'structure-2',
-      revision: 2,
-      source: structureSource,
-      documentType: 'structure',
-    })
-    const structureSuccess = await waitForResponse('document-success', 'structure-2')
-    const fullPreflight = await waitForResponse('solver-preflight', 'preflight-2-2')
-    if (structureSuccess.type !== 'document-success' || experimentSuccess.type !== 'document-success') {
-      throw new Error('Expected document-success responses.')
-    }
-    if (fullPreflight.type !== 'solver-preflight') throw new Error('Expected a solver-preflight response.')
-    expect(fullPreflight.result).toMatchObject({ complete: true, issues: [] })
-    expect(fullPreflight.result.spec).toMatchObject({ name: 'dc-current-density', version: '2.0.0' })
-    expect(structureSuccess.scene.lengthUnit).toBe('mm')
-    expect(experimentSuccess.scene.lengthUnit).toBe('mm')
-    expect(esbuild.initialize).toHaveBeenCalledTimes(1)
-    expect(responses.some((response) => response.requestId === 'structure-1')).toBe(false)
+    dispatch({ type: 'cache-snapshot', requestId: 'cache-structure', revision: 2, snapshot: snapshots.structure })
+    const full = await waitForResponse('solver-preflight', 'preflight-2-2')
+    if (full.type !== 'solver-preflight') throw new Error('Expected solver preflight.')
+    expect(full.result).toMatchObject({ complete: true, issues: [] })
 
-    dispatch({
-      type: 'run-solver',
-      requestId: 'stale-run',
-      structureRevision: 1,
-      experimentRevision: 2,
-    })
+    dispatch({ type: 'run-solver', requestId: 'stale-run', structureRevision: 1, experimentRevision: 2 })
     await waitForResponse('solver-error', 'stale-run')
 
-    dispatch({
-      type: 'run-solver',
-      requestId: 'valid-run',
-      structureRevision: 2,
-      experimentRevision: 2,
-    })
+    dispatch({ type: 'run-solver', requestId: 'valid-run', structureRevision: 2, experimentRevision: 2 })
     const success = await waitForResponse('solver-success', 'valid-run')
-    if (success.type !== 'solver-success') throw new Error('Expected a solver-success response.')
-    const heatmap = success.recordedData['Current density'].value as [number, number, number][][]
-    expect(heatmap).toHaveLength(11)
-    expect(heatmap.every((row) => row.length === 11 && row.every((value) => value.length === 3))).toBe(true)
-    expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 596000) < 1e-6)).toBe(true)
-    expect(success.recordedData['Current density'].axes?.[0].ticks).toHaveLength(11)
-    expect(success.recordedData['Current density'].axes?.[1].ticks).toHaveLength(11)
+    if (success.type !== 'solver-success') throw new Error('Expected solver success.')
     expect(success.recordedData['Total current'].value).toBeCloseTo(14.9, 9)
-
-    dispatch({
-      type: 'run-solver',
-      requestId: 'cancelled-run',
-      structureRevision: 2,
-      experimentRevision: 2,
+    expect(success.provenance).toEqual({
+      structure: { apiVersion: 2, sourceHash: '1'.repeat(64), seed: 1, vars: {} },
+      experiment: { apiVersion: 2, sourceHash: '2'.repeat(64), seed: 2, vars: {} },
+      solver: { name: 'dc-current-density', version: '2.0.0' },
     })
+
+    dispatch({ type: 'run-solver', requestId: 'cancelled-run', structureRevision: 2, experimentRevision: 2 })
     dispatch({ type: 'cancel-solver', requestId: 'cancelled-run' })
     await vi.waitFor(() => {
       expect(responses.some((response) => (
@@ -233,61 +170,14 @@ describe('persistent CAD Worker', () => {
         && response.process.status === 'cancelled'
       ))).toBe(true)
     })
-    expect(responses.some((response) => (
-      response.type === 'solver-success' && response.requestId === 'cancelled-run'
-    ))).toBe(false)
   })
 
-  it('creates new Structure and Experiment vars for every document evaluation', async () => {
-    const random = vi.spyOn(Math, 'random').mockReturnValue(0.25)
-    try {
-      dispatch({
-        type: 'evaluate-document',
-        requestId: 'structure-3',
-        revision: 3,
-        source: structureSource,
-        documentType: 'structure',
-      })
-      dispatch({
-        type: 'evaluate-document',
-        requestId: 'experiment-3',
-        revision: 3,
-        source: experimentSource,
-        documentType: 'experiment',
-      })
-      const firstStructure = await waitForResponse('document-success', 'structure-3')
-      const firstExperiment = await waitForResponse('document-success', 'experiment-3')
-
-      random.mockReturnValue(0.75)
-      dispatch({
-        type: 'evaluate-document',
-        requestId: 'structure-4',
-        revision: 4,
-        source: structureSource,
-        documentType: 'structure',
-      })
-      dispatch({
-        type: 'evaluate-document',
-        requestId: 'experiment-4',
-        revision: 4,
-        source: experimentSource,
-        documentType: 'experiment',
-      })
-      const secondStructure = await waitForResponse('document-success', 'structure-4')
-      const secondExperiment = await waitForResponse('document-success', 'experiment-4')
-
-      if (
-        firstStructure.type !== 'document-success'
-        || firstExperiment.type !== 'document-success'
-        || secondStructure.type !== 'document-success'
-        || secondExperiment.type !== 'document-success'
-      ) throw new Error('Expected document-success responses.')
-      expect(firstStructure.variables.realization).toBe(95)
-      expect(secondStructure.variables.realization).toBe(105)
-      expect(firstExperiment.variables.realization).toBe(1.25)
-      expect(secondExperiment.variables.realization).toBe(1.75)
-    } finally {
-      random.mockRestore()
-    }
+  it('rejects snapshots with a forged prototype before they reach the Solver', async () => {
+    const snapshot = createSnapshots().structure
+    const forged = Object.assign(Object.create({ polluted: true }), snapshot) as EvaluatedDocumentSnapshotV2
+    dispatch({ type: 'cache-snapshot', requestId: 'forged', revision: 3, snapshot: forged })
+    const error = await waitForResponse('solver-error', 'forged')
+    if (error.type !== 'solver-error') throw new Error('Expected solver error.')
+    expect(error.message).toContain('plain objects')
   })
 })

@@ -102,15 +102,18 @@ describe('CAD registry contracts', () => {
     expect(quantityKindFacade).not.toHaveProperty('IDENTITY_CARTESIAN_BASIS')
     expect(cadFacade).toMatchObject({
       CadModelError: expect.any(Function),
+      experiment: expect.any(Function),
       Mat: expect.any(Function),
       Material: expect.any(Function),
-      Sample: expect.any(Function),
-      Structure: expect.any(Function),
+      structure: expect.any(Function),
       evaluateCad: expect.any(Function),
       evaluateCadScene: expect.any(Function),
       applyCadSceneGroups: expect.any(Function),
       resolveCadSceneSelection: expect.any(Function),
       h: expect.any(Function),
     })
+    expect(cadFacade).not.toHaveProperty('Sample')
+    expect(cadFacade).not.toHaveProperty('Setup')
+    expect(cadFacade).not.toHaveProperty('vars')
   })
 })

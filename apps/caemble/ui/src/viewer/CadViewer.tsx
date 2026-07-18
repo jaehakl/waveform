@@ -3,7 +3,7 @@ import type { CadDocumentType, CadSceneSelection } from '../cad'
 import { resolveCadViewerContent, type CadViewerDocument } from './cadViewerContent'
 import JscadViewer from './JscadViewer'
 import type { CadViewerRecordedData } from './recordedData'
-import type { SolverProcess } from '../solver'
+import type { SolverCompatibility, SolverProcess } from '../solver'
 
 export type { CadViewerDocument } from './cadViewerContent'
 export type {
@@ -31,6 +31,7 @@ export type CadViewerProps = {
 export type CadViewerSimulation = Readonly<{
   canRun: boolean
   cancel: () => void
+  compatibility: SolverCompatibility
   process: SolverProcess
   run: () => void
   solver: Readonly<{ name: string; version: string }> | null

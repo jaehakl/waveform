@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   CadDocumentType,
+  CadDiagnosticV2,
+  CadEvaluationResponseV2,
+  CadSourceDocumentV2,
   CadScene,
   CadWorkerRequest,
   CadWorkerResponse,
@@ -9,6 +12,20 @@ import type {
   ResolvedExperimentSolver,
   Vars,
 } from '../cad'
+import { CadCompilationError, compileCadDocument } from '../cad/compiler/monacoCompiler'
+import { evaluateInIsolatedRunner } from '../cad/runner/client'
+import type { EvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
+import { deserializeCadScene } from '../cad/execution/mesh'
+import {
+  cadEntrySource,
+  rerollCadSourceDocument,
+  updateCadEntrySource,
+} from '../cad/source/document'
+import {
+  applyCadSourcePatchV2,
+  createCadSourcePatchV2,
+  type CadSourceTextEditV2,
+} from '../cad/source/sourcePatch'
 import { resolveCadSceneDraftSelection, resolveCadSceneSelection } from '../cad/evaluation/selection'
 import type { StructureGroupMap } from '../cad/model/core'
 import {
@@ -17,14 +34,17 @@ import {
   type StructureGroupProperty,
 } from '../cad/source/structureGroups'
 import type {
+  SolverCompatibility,
   SolverProcess,
+  SolverRunProvenanceV2,
   SolverSpec,
   SolverValidationIssue,
   SolverValidationResult,
 } from '../solver'
 import type { DraftSelection } from './groupDraft'
 
-export type AppStatus = 'Ready' | 'Compiling' | 'Rendering' | 'Error'
+export type AppStatus = 'Dirty' | 'Checking' | 'Compiling' | 'Evaluating' | 'Ready' | 'Rendering' | 'Error'
+export type EvaluationTimeoutMs = 3000 | 10000 | 30000
 
 export type RunError = {
   title: string
@@ -34,6 +54,8 @@ export type RunError = {
 
 const errorTitles = {
   compile: 'Compile Error',
+  type: 'Type Error',
+  policy: 'Source Policy Error',
   model: 'Model Error',
   runtime: 'Runtime Error',
 }
@@ -53,35 +75,46 @@ function createRequestId(prefix: string) {
 
 type DocumentWorkerHandlers = Readonly<{
   handleStart: (requestId: string, revision: number) => void
-  handleSuccess: (response: Extract<CadWorkerResponse, { type: 'document-success' }>) => void
-  handleError: (response: Extract<CadWorkerResponse, { type: 'document-error' }>) => void
+  handlePhase: (requestId: string, revision: number, phase: AppStatus) => void
+  handleSuccess: (response: Extract<CadEvaluationResponseV2, { type: 'document-success' }>) => void
+  handleError: (response: Extract<CadEvaluationResponseV2, { type: 'document-error' }>) => void
   handleWorkerFailure: (message: string) => void
   getSnapshot: () => Readonly<{
-    source: string | null | undefined
+    document: CadSourceDocumentV2 | null | undefined
+    evaluatedSnapshot: EvaluatedDocumentSnapshotV2 | null
     revision: number
     successfulRevision: number
   }>
 }>
 
 type DocumentStateOptions = Readonly<{
-  source: string | null | undefined
+  document: CadSourceDocumentV2 | null | undefined
   documentType: CadDocumentType
-  onSourceChange: ((source: string) => void) | undefined
+  externalVars?: Readonly<Vars>
+  onDocumentChange: ((document: CadSourceDocumentV2) => void) | undefined
   onInvalidate: () => void
-  requestEvaluation: (documentType: CadDocumentType, source: string, revision: number) => void
+  requestEvaluation: (
+    document: CadSourceDocumentV2,
+    revision: number,
+    externalVars?: Readonly<Vars>,
+  ) => void
 }>
 
 function useDocumentState({
+  document,
   documentType,
+  externalVars,
   onInvalidate,
-  onSourceChange,
+  onDocumentChange,
   requestEvaluation,
-  source,
 }: DocumentStateOptions) {
+  const source = document ? cadEntrySource(document) : null
   const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
+  const [diagnostics, setDiagnostics] = useState<readonly CadDiagnosticV2[]>([])
   const [error, setError] = useState<RunError | null>(null)
   const [experimentRules, setExperimentRules] = useState<EvaluatedExperimentRules | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
+  const [evaluatedSnapshot, setEvaluatedSnapshot] = useState<EvaluatedDocumentSnapshotV2 | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [solver, setSolver] = useState<ResolvedExperimentSolver | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
@@ -91,11 +124,11 @@ function useDocumentState({
   const latestRequestIdRef = useRef('')
   const pendingRunRef = useRef<number | null>(null)
   const revisionRef = useRef(0)
-  const sourceRef = useRef(source)
+  const documentRef = useRef(document)
   const statusRef = useRef<AppStatus>('Ready')
   const successfulRevisionRef = useRef(-1)
 
-  sourceRef.current = source
+  documentRef.current = document
 
   const updateStatus = useCallback((nextStatus: AppStatus) => {
     statusRef.current = nextStatus
@@ -125,11 +158,13 @@ function useDocumentState({
     const next = nextRevision()
     onInvalidate()
 
-    if (source === null || source === undefined) {
+    if (!document) {
       latestRequestIdRef.current = ''
       setDraftSelection(null)
+      setDiagnostics([])
       setError(null)
       setExperimentRules(null)
+      setEvaluatedSnapshot(null)
       setScene(null)
       setSelectedId(null)
       setSolver(null)
@@ -139,19 +174,20 @@ function useDocumentState({
       return
     }
 
+    updateStatus('Dirty')
     pendingRunRef.current = window.setTimeout(() => {
       pendingRunRef.current = null
-      requestEvaluation(documentType, source, next)
+      requestEvaluation(document, next, externalVars)
     }, 500)
 
     return clearPendingRun
   }, [
     clearPendingRun,
-    documentType,
+    document,
+    externalVars,
     nextRevision,
     onInvalidate,
     requestEvaluation,
-    source,
     updateStatus,
     updateSuccessfulRevision,
   ])
@@ -172,7 +208,10 @@ function useDocumentState({
     setError({ title: 'Rendering Error', message })
   }, [updateStatus])
 
-  const runIsBusy = status === 'Compiling' || status === 'Rendering'
+  const runIsBusy = status === 'Checking'
+    || status === 'Compiling'
+    || status === 'Evaluating'
+    || status === 'Rendering'
   const selection = useMemo(
     () => draftSelection
       ? resolveCadSceneDraftSelection(scene, draftSelection)
@@ -181,23 +220,52 @@ function useDocumentState({
   )
 
   const handleReroll = useCallback(() => {
-    if (runIsBusy || source === null || source === undefined) return
+    if (runIsBusy || !document || !onDocumentChange) return
     clearPendingRun()
-    const next = nextRevision()
-    onInvalidate()
-    requestEvaluation(documentType, source, next)
-  }, [clearPendingRun, documentType, nextRevision, onInvalidate, requestEvaluation, runIsBusy, source])
+    onDocumentChange(rerollCadSourceDocument(document))
+  }, [clearPendingRun, document, onDocumentChange, runIsBusy])
 
   const handleSourceChange = useCallback((nextSource: string) => {
-    onSourceChange?.(nextSource)
-  }, [onSourceChange])
+    if (!document || !onDocumentChange) return
+    onDocumentChange(updateCadEntrySource(document, nextSource))
+  }, [document, onDocumentChange])
+
+  const handleSourcePatch = useCallback((
+    edits: readonly CadSourceTextEditV2[],
+    expectedSource: string,
+  ) => {
+    const baseDocument = documentRef.current
+    if (!baseDocument || !onDocumentChange) return
+    if (cadEntrySource(baseDocument) !== expectedSource) {
+      updateStatus('Error')
+      setError({
+        title: 'Source Patch Error',
+        message: 'The CAD Source changed before this visual edit could be saved.',
+      })
+      return
+    }
+    void createCadSourcePatchV2(baseDocument, baseDocument.entryFile, edits)
+      .then((patch) => {
+        const currentDocument = documentRef.current
+        if (!currentDocument) throw new Error('The CAD Source document is no longer available.')
+        return applyCadSourcePatchV2(currentDocument, patch)
+      })
+      .then(onDocumentChange)
+      .catch((patchError: unknown) => {
+        updateStatus('Error')
+        setError({
+          title: 'Source Patch Error',
+          message: patchError instanceof Error ? patchError.message : String(patchError),
+        })
+      })
+  }, [onDocumentChange, updateStatus])
 
   const handleGroupsChange = useCallback((property: StructureGroupProperty, groups: StructureGroupMap) => {
-    if (source === null || source === undefined || !onSourceChange) return
+    if (!document || !onDocumentChange) return
 
     try {
-      const update = updateModelGroupSource(source, documentType, property, groups)
-      onSourceChange(update.source)
+      const update = updateModelGroupSource(source ?? '', documentType, property, groups)
+      handleSourcePatch(update.edits, source ?? '')
       setError(null)
     } catch (groupError) {
       updateStatus('Error')
@@ -208,14 +276,19 @@ function useDocumentState({
           : `The ${documentType} group could not be synchronized with Code Space.`,
       })
     }
-  }, [documentType, onSourceChange, source, updateStatus])
+  }, [document, documentType, handleSourcePatch, onDocumentChange, source, updateStatus])
 
   const handlers: DocumentWorkerHandlers = {
     handleStart(requestId, requestRevision) {
       if (requestRevision !== revisionRef.current) return
       latestRequestIdRef.current = requestId
-      updateStatus('Compiling')
+      updateStatus('Checking')
+      setDiagnostics([])
       setError(null)
+    },
+    handlePhase(requestId, requestRevision, phase) {
+      if (requestRevision !== revisionRef.current || requestId !== latestRequestIdRef.current) return
+      updateStatus(phase)
     },
     handleSuccess(response) {
       if (
@@ -224,13 +297,16 @@ function useDocumentState({
         || response.requestId !== latestRequestIdRef.current
       ) return
       updateStatus('Ready')
+      setDiagnostics([])
       setError(null)
-      setScene(response.scene)
-      setVariables(response.variables)
-      setExperimentRules(response.experimentRules ?? null)
-      setSolver(response.solver ?? null)
+      const runtimeScene = deserializeCadScene(response.snapshot.scene)
+      setScene(runtimeScene)
+      setEvaluatedSnapshot(response.snapshot)
+      setVariables(response.snapshot.variables)
+      setExperimentRules(response.snapshot.experimentRules ?? null)
+      setSolver(response.snapshot.solver ?? null)
       updateSuccessfulRevision(response.revision)
-      setSelectedId((current) => resolveCadSceneSelection(response.scene, current) ? current : null)
+      setSelectedId((current) => resolveCadSceneSelection(runtimeScene, current) ? current : null)
     },
     handleError(response) {
       if (
@@ -240,6 +316,7 @@ function useDocumentState({
       ) return
       updateStatus('Error')
       updateSuccessfulRevision(-1)
+      setDiagnostics(response.diagnostics ?? [])
       setError({
         title: errorTitles[response.errorType],
         message: response.message,
@@ -250,11 +327,13 @@ function useDocumentState({
       latestRequestIdRef.current = ''
       updateStatus('Error')
       updateSuccessfulRevision(-1)
+      setDiagnostics([])
       setError({ title: 'Runtime Error', message })
     },
     getSnapshot() {
       return {
-        source: sourceRef.current,
+        document: documentRef.current,
+        evaluatedSnapshot,
         revision: revisionRef.current,
         successfulRevision: successfulRevisionRef.current,
       }
@@ -264,6 +343,7 @@ function useDocumentState({
   return {
     controller: {
       documentType,
+      diagnostics,
       draftSelection,
       error,
       experimentRules,
@@ -273,10 +353,14 @@ function useDocumentState({
       handleRenderStart,
       handleReroll,
       handleSourceChange,
-      readOnly: !onSourceChange,
+      handleSourcePatch,
+      readOnly: !onDocumentChange,
+      sourceReadOnly: !onDocumentChange,
+      structuredReadOnly: !onDocumentChange || successfulRevision !== revision,
       revision,
       runIsBusy,
       scene,
+      sceneHash: evaluatedSnapshot?.scene.sceneHash ?? null,
       selectedId,
       selection,
       setDraftSelection,
@@ -293,79 +377,95 @@ function useDocumentState({
 type BaseCadDocumentController = ReturnType<typeof useDocumentState>['controller']
 
 export type CadDocumentController = BaseCadDocumentController & Readonly<{
+  evaluationTimeoutMs: EvaluationTimeoutMs
   preflightIssues: readonly SolverValidationIssue[]
+  setEvaluationTimeoutMs: (timeout: EvaluationTimeoutMs) => void
   solverSpec: SolverSpec | null
 }>
 
-function applyPreflight(
+export function attachPreflightMetadata(
   controller: BaseCadDocumentController,
   issues: readonly SolverValidationIssue[],
   solverSpec: SolverSpec | null,
+  evaluationTimeoutMs: EvaluationTimeoutMs,
+  setEvaluationTimeoutMs: (timeout: EvaluationTimeoutMs) => void,
 ): CadDocumentController {
-  const specError = issues.length === 0 ? null : {
-    title: 'Solver Spec Error',
-    message: issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n'),
-  }
   return {
     ...controller,
-    error: controller.error ?? specError,
+    evaluationTimeoutMs,
     preflightIssues: issues,
+    setEvaluationTimeoutMs,
     solverSpec,
-    status: controller.status === 'Ready' && specError ? 'Error' : controller.status,
   }
 }
 
 export type SimulationController = Readonly<{
   canRun: boolean
   cancel: () => void
+  compatibility: SolverCompatibility
   process: SolverProcess
+  provenance: SolverRunProvenanceV2 | null
   recordedData: RecordedData | null
   run: () => void
   stale: boolean
 }>
 
 export function useCadWorkspace(
-  structure: string | null | undefined,
-  experiment: string | null | undefined,
-  onStructureChange: ((source: string) => void) | undefined,
-  onExperimentChange: ((source: string) => void) | undefined,
+  structure: CadSourceDocumentV2 | null | undefined,
+  experiment: CadSourceDocumentV2 | null | undefined,
+  onStructureChange: ((document: CadSourceDocumentV2) => void) | undefined,
+  onExperimentChange: ((document: CadSourceDocumentV2) => void) | undefined,
+  structureVars?: Readonly<Vars>,
+  experimentVars?: Readonly<Vars>,
 ) {
   const workerRef = useRef<Worker | null>(null)
   const documentHandlersRef = useRef<Partial<Record<CadDocumentType, DocumentWorkerHandlers>>>({})
   const workerMessageRef = useRef<(response: CadWorkerResponse) => void>(() => undefined)
   const workerFailureRef = useRef<(message: string) => void>(() => undefined)
-  const evaluationTimeoutsRef = useRef<Partial<Record<CadDocumentType, Readonly<{
+  const evaluationJobsRef = useRef<Partial<Record<CadDocumentType, {
+    cancel: () => void
     requestId: string
-    timeout: number
-  }>>>>({})
-  const timeoutHandlerRef = useRef<(
-    documentType: CadDocumentType,
-    requestId: string,
-    revision: number,
-  ) => void>(() => undefined)
+    timeout: number | null
+  }>>>({})
   const activeSolverRequestIdRef = useRef<string | null>(null)
   const solverStartedAtRef = useRef<number | null>(null)
   const recordedDataRef = useRef<RecordedData | null>(null)
   const [process, setProcess] = useState<SolverProcess>(idleSolverProcess)
+  const [provenance, setProvenance] = useState<SolverRunProvenanceV2 | null>(null)
   const [recordedData, setRecordedData] = useState<RecordedData | null>(null)
   const [stale, setStale] = useState(false)
+  const [evaluationTimeoutMs, setEvaluationTimeoutMs] = useState<EvaluationTimeoutMs>(3000)
+  const evaluationTimeoutMsRef = useRef<EvaluationTimeoutMs>(evaluationTimeoutMs)
   const [preflight, setPreflight] = useState<Readonly<{
     structureRevision?: number
     experimentRevision: number
     result: SolverValidationResult
   }> | null>(null)
 
-  const clearEvaluationTimeout = useCallback((documentType: CadDocumentType, requestId?: string) => {
-    const active = evaluationTimeoutsRef.current[documentType]
+  const clearEvaluationJob = useCallback((documentType: CadDocumentType, requestId?: string) => {
+    const active = evaluationJobsRef.current[documentType]
     if (!active || (requestId && active.requestId !== requestId)) return
-    window.clearTimeout(active.timeout)
-    delete evaluationTimeoutsRef.current[documentType]
+    if (active.timeout !== null) window.clearTimeout(active.timeout)
+    active.cancel()
+    delete evaluationJobsRef.current[documentType]
+  }, [])
+
+  const finishEvaluationJob = useCallback((documentType: CadDocumentType, requestId: string) => {
+    const active = evaluationJobsRef.current[documentType]
+    if (!active || active.requestId !== requestId) return false
+    if (active.timeout !== null) window.clearTimeout(active.timeout)
+    delete evaluationJobsRef.current[documentType]
+    return true
   }, [])
 
   const startWorker = useCallback(() => {
     const worker = new Worker(new URL('../cad/worker/cad.worker.ts', import.meta.url), { type: 'module' })
-    worker.onmessage = (event: MessageEvent<CadWorkerResponse>) => workerMessageRef.current(event.data)
-    worker.onerror = (event) => workerFailureRef.current(event.message || 'The shared CAD Worker failed.')
+    worker.onmessage = (event: MessageEvent<CadWorkerResponse>) => {
+      if (workerRef.current === worker) workerMessageRef.current(event.data)
+    }
+    worker.onerror = (event) => {
+      if (workerRef.current === worker) workerFailureRef.current(event.message || 'The Solver Worker failed.')
+    }
     workerRef.current = worker
     return worker
   }, [])
@@ -376,26 +476,82 @@ export function useCadWorkspace(
   }, [startWorker])
 
   const requestEvaluation = useCallback((
-    documentType: CadDocumentType,
-    source: string,
+    document: CadSourceDocumentV2,
     revision: number,
+    externalVars?: Readonly<Vars>,
   ) => {
-    clearEvaluationTimeout(documentType)
+    const documentType = document.kind
+    clearEvaluationJob(documentType)
     const requestId = createRequestId(documentType)
     documentHandlersRef.current[documentType]?.handleStart(requestId, revision)
-    postRequest({
-      type: 'evaluate-document',
+    const job: { cancel: () => void; requestId: string; timeout: number | null } = {
+      cancel: () => undefined,
       requestId,
-      revision,
-      source,
-      documentType,
+      timeout: null,
+    }
+    evaluationJobsRef.current[documentType] = job
+    documentHandlersRef.current[documentType]?.handlePhase(requestId, revision, 'Compiling')
+
+    void compileCadDocument(document).then((compiledProject) => {
+      if (evaluationJobsRef.current[documentType]?.requestId !== requestId) return
+      documentHandlersRef.current[documentType]?.handlePhase(requestId, revision, 'Evaluating')
+      job.cancel = evaluateInIsolatedRunner({
+        type: 'evaluate-document',
+        requestId,
+        revision,
+        document: {
+          apiVersion: document.apiVersion,
+          kind: document.kind,
+          realizationSeed: document.realizationSeed,
+        },
+        compiledProject,
+        ...(externalVars ? { vars: externalVars } : {}),
+      }, {
+        onFailure(message) {
+          if (!finishEvaluationJob(documentType, requestId)) return
+          documentHandlersRef.current[documentType]?.handleWorkerFailure(message)
+        },
+        onStart() {
+          if (evaluationJobsRef.current[documentType]?.requestId !== requestId) return
+          job.timeout = window.setTimeout(() => {
+            if (evaluationJobsRef.current[documentType]?.requestId !== requestId) return
+            clearEvaluationJob(documentType, requestId)
+            documentHandlersRef.current[documentType]?.handleWorkerFailure(
+              `Model evaluation timed out after ${evaluationTimeoutMsRef.current / 1000} seconds for revision ${revision}.`,
+            )
+          }, evaluationTimeoutMsRef.current)
+        },
+        onResponse(response) {
+          if (!finishEvaluationJob(documentType, requestId)) return
+          const handlers = documentHandlersRef.current[documentType]
+          if (response.type === 'document-success') {
+            handlers?.handleSuccess(response)
+            postRequest({
+              type: 'cache-snapshot',
+              requestId: `cache-${requestId}`,
+              revision,
+              snapshot: response.snapshot,
+            })
+          } else {
+            handlers?.handleError(response)
+          }
+        },
+      })
+    }).catch((error: unknown) => {
+      if (!finishEvaluationJob(documentType, requestId)) return
+      const compilationError = error instanceof CadCompilationError ? error : null
+      documentHandlersRef.current[documentType]?.handleError({
+        type: 'document-error',
+        requestId,
+        revision,
+        documentType,
+        errorType: compilationError?.errorType ?? 'compile',
+        message: error instanceof Error ? error.message : String(error),
+        ...(compilationError?.diagnostics.length ? { diagnostics: compilationError.diagnostics } : {}),
+        ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
+      })
     })
-    const timeout = window.setTimeout(
-      () => timeoutHandlerRef.current(documentType, requestId, revision),
-      3000,
-    )
-    evaluationTimeoutsRef.current[documentType] = Object.freeze({ requestId, timeout })
-  }, [clearEvaluationTimeout, postRequest])
+  }, [clearEvaluationJob, finishEvaluationJob, postRequest])
 
   const invalidateResults = useCallback(() => {
     if (recordedDataRef.current) setStale(true)
@@ -407,21 +563,24 @@ export function useCadWorkspace(
   }, [invalidateResults])
 
   const structureState = useDocumentState({
-    source: structure,
+    document: structure,
     documentType: 'structure',
-    onSourceChange: onStructureChange,
+    externalVars: structureVars,
+    onDocumentChange: onStructureChange,
     onInvalidate: invalidateWorkspace,
     requestEvaluation,
   })
   const experimentState = useDocumentState({
-    source: experiment,
+    document: experiment,
     documentType: 'experiment',
-    onSourceChange: onExperimentChange,
+    externalVars: experimentVars,
+    onDocumentChange: onExperimentChange,
     onInvalidate: invalidateWorkspace,
     requestEvaluation,
   })
   documentHandlersRef.current.structure = structureState.handlers
   documentHandlersRef.current.experiment = experimentState.handlers
+  evaluationTimeoutMsRef.current = evaluationTimeoutMs
 
   const cancelProcessForWorkerReset = useCallback((message: string) => {
     if (!activeSolverRequestIdRef.current) return
@@ -443,49 +602,25 @@ export function useCadWorkspace(
     if (recordedDataRef.current) setStale(true)
   }, [experimentState.controller.solver])
 
-  timeoutHandlerRef.current = (documentType, requestId, revision) => {
-    const active = evaluationTimeoutsRef.current[documentType]
-    if (!active || active.requestId !== requestId) return
-    clearEvaluationTimeout(documentType, requestId)
-    const peerType: CadDocumentType = documentType === 'structure' ? 'experiment' : 'structure'
-    const peer = documentHandlersRef.current[peerType]?.getSnapshot()
-    Object.keys(evaluationTimeoutsRef.current).forEach((key) => clearEvaluationTimeout(key as CadDocumentType))
-    workerRef.current?.terminate()
-    workerRef.current = null
-    setPreflight(null)
-    documentHandlersRef.current[documentType]?.handleWorkerFailure(
-      `Model generation timed out after 3 seconds for revision ${revision}.`,
-    )
-    cancelProcessForWorkerReset('Solver run was cancelled because the shared CAD Worker restarted.')
-    startWorker()
-    if (
-      peer
-      && peer.source !== null
-      && peer.source !== undefined
-      && peer.successfulRevision === peer.revision
-    ) {
-      requestEvaluation(peerType, peer.source, peer.revision)
-    }
-  }
-
   workerFailureRef.current = (message) => {
-    Object.keys(evaluationTimeoutsRef.current).forEach((key) => clearEvaluationTimeout(key as CadDocumentType))
     workerRef.current?.terminate()
     workerRef.current = null
     setPreflight(null)
-    documentHandlersRef.current.structure?.handleWorkerFailure(message)
-    documentHandlersRef.current.experiment?.handleWorkerFailure(message)
-    cancelProcessForWorkerReset('Solver run was cancelled because the shared CAD Worker failed.')
+    cancelProcessForWorkerReset(`Solver run was cancelled because the Solver Worker failed: ${message}`)
+    const replacement = startWorker()
+    ;(['structure', 'experiment'] as const).forEach((documentType) => {
+      const current = documentHandlersRef.current[documentType]?.getSnapshot()
+      if (!current?.evaluatedSnapshot || current.successfulRevision !== current.revision) return
+      replacement.postMessage({
+        type: 'cache-snapshot',
+        requestId: `restore-${documentType}-${current.revision}`,
+        revision: current.revision,
+        snapshot: current.evaluatedSnapshot,
+      } satisfies CadWorkerRequest)
+    })
   }
 
   workerMessageRef.current = (response) => {
-    if (response.type === 'document-success' || response.type === 'document-error') {
-      clearEvaluationTimeout(response.documentType, response.requestId)
-      const handlers = documentHandlersRef.current[response.documentType]
-      if (response.type === 'document-success') handlers?.handleSuccess(response)
-      else handlers?.handleError(response)
-      return
-    }
     if (response.type === 'solver-preflight') {
       const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
       const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
@@ -510,6 +645,7 @@ export function useCadWorkspace(
     if (response.type === 'solver-success') {
       recordedDataRef.current = response.recordedData
       setRecordedData(response.recordedData)
+      setProvenance(response.provenance)
       const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
       const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
       setStale(
@@ -540,39 +676,56 @@ export function useCadWorkspace(
   }
 
   useEffect(() => {
-    const evaluationTimeouts = evaluationTimeoutsRef.current
+    const evaluationJobs = evaluationJobsRef.current
     startWorker()
     return () => {
-      Object.keys(evaluationTimeouts).forEach((key) => {
-        const documentType = key as CadDocumentType
-        const active = evaluationTimeouts[documentType]
-        if (active) window.clearTimeout(active.timeout)
-        delete evaluationTimeouts[documentType]
-      })
+      Object.keys(evaluationJobs).forEach((key) => clearEvaluationJob(key as CadDocumentType))
       workerRef.current?.terminate()
       workerRef.current = null
     }
-  }, [startWorker])
+  }, [clearEvaluationJob, startWorker])
 
   const structureIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'structure') ?? []
   const experimentIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'experiment') ?? []
-  const structureDocument = applyPreflight(structureState.controller, structureIssues, null)
-  const experimentDocument = applyPreflight(
+  const structureDocument = attachPreflightMetadata(
+    structureState.controller,
+    structureIssues,
+    null,
+    evaluationTimeoutMs,
+    setEvaluationTimeoutMs,
+  )
+  const experimentDocument = attachPreflightMetadata(
     experimentState.controller,
     experimentIssues,
     preflight?.result.spec ?? null,
+    evaluationTimeoutMs,
+    setEvaluationTimeoutMs,
   )
-  const preflightValid = preflight?.result.complete === true && preflight.result.issues.length === 0
+  const compatibility = useMemo<SolverCompatibility>(() => {
+    if (experimentState.controller.solver === null) {
+      return Object.freeze({ status: 'unavailable', issues: Object.freeze([]) })
+    }
+    if (preflight === null) {
+      return Object.freeze({ status: 'checking', issues: Object.freeze([]) })
+    }
+    if (preflight.result.issues.length > 0) {
+      return Object.freeze({ status: 'incompatible', issues: preflight.result.issues })
+    }
+    if (!preflight.result.complete) {
+      return Object.freeze({ status: 'checking', issues: Object.freeze([]) })
+    }
+    return Object.freeze({ status: 'compatible', issues: Object.freeze([]) })
+  }, [experimentState.controller.solver, preflight])
   const processActive = process.status === 'preparing' || process.status === 'running'
   const canRun = !processActive
     && structureDocument.status === 'Ready'
     && experimentDocument.status === 'Ready'
     && structureState.controller.successfulRevision === structureState.controller.revision
     && experimentState.controller.successfulRevision === experimentState.controller.revision
-    && experimentState.controller.solver !== null
-    && preflightValid
+    && compatibility.status === 'compatible'
 
   const run = useCallback(() => {
+    if (compatibility.status !== 'compatible') return
     const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
     const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
     if (
@@ -603,7 +756,7 @@ export function useCadWorkspace(
       structureRevision: structureSnapshot.revision,
       experimentRevision: experimentSnapshot.revision,
     })
-  }, [experimentState.controller.solver, postRequest])
+  }, [compatibility.status, experimentState.controller.solver, postRequest])
 
   const cancel = useCallback(() => {
     const requestId = activeSolverRequestIdRef.current
@@ -614,7 +767,9 @@ export function useCadWorkspace(
   const simulation: SimulationController = {
     canRun,
     cancel,
+    compatibility,
     process,
+    provenance,
     recordedData,
     run,
     stale,

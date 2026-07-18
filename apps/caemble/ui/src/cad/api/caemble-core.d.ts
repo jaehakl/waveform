@@ -27,6 +27,7 @@ export type FloatDataDType = Extract<DataDType, `float${number}`>
 export type NonFloatDataDType = Exclude<DataDType, FloatDataDType>
 export type IntegerDataDType = Exclude<NonFloatDataDType, 'bool' | 'string'>
 export type UcumUnit = string
+// <generated:quantity-kind-types>
 export type QuantityKindName =
   | 'APIGravity'
   | 'AbsoluteActivity'
@@ -1380,6 +1381,7 @@ export type TensorQuantityKindName =
   | 'WebTimeAverageThrust'
   | 'Weight'
 export type ScalarQuantityKindName = Exclude<QuantityKindName, TensorQuantityKindName>
+// </generated:quantity-kind-types>
 type QuantityBasisMetadata<Name extends QuantityKindName> =
   [Name] extends [ScalarQuantityKindName]
     ? Readonly<{ basis?: never }>
@@ -1470,6 +1472,12 @@ export type BoxAttributes = Readonly<{
   pos?: Vec3
   rotate?: Rotation
   scale?: Vec3
+}>
+export type BooleanAttributes = Readonly<{
+  pos?: Vec3
+  rotate?: Rotation
+  scale?: Vec3
+  children?: unknown
 }>
 
 export type CylinderAttributes = Readonly<{

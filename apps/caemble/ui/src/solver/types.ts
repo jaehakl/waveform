@@ -1,26 +1,30 @@
 import type { CadScene } from '../cad/evaluation/types'
 import type {
   EvaluatedExperimentRules,
-  Experiment,
   RecordedData,
   ResolvedExperimentSolver,
-  Structure,
 } from '../cad/model/core'
 import type { Vars } from '../cad/model/types'
-import type { SolverSpec } from './spec'
+import type { EvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
+import type { SolverSpec, SolverValidationIssue } from './spec'
+
+export type SolverCompatibility = Readonly<{
+  status: 'unavailable' | 'checking' | 'compatible' | 'incompatible'
+  issues: readonly SolverValidationIssue[]
+}>
 
 export type SolverModuleInput = Readonly<{
   structure: Readonly<{
-    model: Structure
     vars: Readonly<Vars>
     scene: CadScene
+    provenance: Pick<EvaluatedDocumentSnapshotV2, 'apiVersion' | 'seed' | 'sourceHash'>
   }>
   experiment: Readonly<{
-    model: Experiment
     vars: Readonly<Vars>
     scene: CadScene
     rules: EvaluatedExperimentRules
     solver: ResolvedExperimentSolver
+    provenance: Pick<EvaluatedDocumentSnapshotV2, 'apiVersion' | 'seed' | 'sourceHash'>
   }>
 }>
 
@@ -49,6 +53,25 @@ export type SolverProcess = Readonly<{
 export type SolverModule = Readonly<{
   spec: SolverSpec
   solve: (input: SolverModuleInput, signal: AbortSignal) => Promise<RecordedData>
+}>
+
+export type SolverRunProvenanceV2 = Readonly<{
+  structure: Readonly<{
+    apiVersion: 2
+    sourceHash: string
+    seed: number
+    vars: Readonly<Vars>
+  }>
+  experiment: Readonly<{
+    apiVersion: 2
+    sourceHash: string
+    seed: number
+    vars: Readonly<Vars>
+  }>
+  solver: Readonly<{
+    name: string
+    version: string
+  }>
 }>
 
 export type SolverProcessListener = (process: SolverProcess) => void

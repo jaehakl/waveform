@@ -1,58 +1,58 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateCadScene } from '../cad/evaluation/evaluator'
 import { h } from '../cad/evaluation/jsx'
 import {
-  evaluateWithVars,
-  Experiment,
   Material,
-  Sample,
-  Setup,
-  Structure,
-  vars,
   type RecordedData,
 } from '../cad/model/core'
+import { experiment, structure } from '../cad/model/v2'
+import { evaluateDocumentEntry } from '../cad/execution/userModule'
+import { serializeEvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
 import { SolverController } from './controller'
 import type { SolverSpec } from './spec'
 import type { SolverModule } from './types'
 
 function createPair(name = 'test-solver', version = '1.0.0') {
-  function Conductor() {
-    return h('box', { size: [vars.length as number, 2, 2] })
-  }
-  function Probe() {
-    return h('box', { size: [1, 1, 1] })
-  }
-  const structure = new Structure({
+  const structureDefinition = structure({
     lengthUnit: 'mm',
-    geometry: () => h(Conductor, {
-      id: 'conductor',
-      materials: [new Material('Test', {
-        value: {
-          dtype: 'float64', value: vars.materialValue as number, errorRate: 0.1,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
-        },
-        color: '#2563eb',
-      })],
-    }),
+    geometry: ({ vars }) => {
+      function Conductor() {
+        return h('box', { size: [vars.length, 2, 2] })
+      }
+      return h(Conductor, {
+        id: 'conductor',
+        materials: [new Material('Test', {
+          value: {
+            dtype: 'float64', value: vars.materialValue, errorRate: 0.1,
+            unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          },
+          color: '#2563eb',
+        })],
+      })
+    },
     varsSchema: {
       length: { min: 10, max: 12 },
       materialValue: { min: 3, max: 4 },
     },
     geometryGroup: { conductor: ['conductor'] },
   })
-  const experiment = new Experiment({
+  const experimentDefinition = experiment({
     lengthUnit: 'mm',
     solver: {
       name,
       version,
-      parameters: () => ({
+      parameters: ({ vars }) => ({
         scale: {
-          dtype: 'float64', value: vars.scale as number,
+          dtype: 'float64', value: vars.scale,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       }),
     },
-    geometry: () => h(Probe, { id: 'probe' }),
+    geometry: () => {
+      function Probe() {
+        return h('box', { size: [1, 1, 1] })
+      }
+      return h(Probe, { id: 'probe' })
+    },
     varsSchema: { scale: { min: 2, max: 5 } },
     recordedData: () => [{
       target: ['structure.geometry.conductor'],
@@ -66,8 +66,20 @@ function createPair(name = 'test-solver', version = '1.0.0') {
     }],
   })
   return {
-    sample: new Sample(structure, { length: 12, materialValue: 4 }),
-    setup: new Setup(experiment, { scale: 5 }),
+    structureSnapshot: serializeEvaluatedDocumentSnapshotV2(evaluateDocumentEntry(
+      structureDefinition,
+      'structure',
+      '1'.repeat(64),
+      11,
+      { length: 12, materialValue: 4 },
+    )),
+    experimentSnapshot: serializeEvaluatedDocumentSnapshotV2(evaluateDocumentEntry(
+      experimentDefinition,
+      'experiment',
+      '2'.repeat(64),
+      13,
+      { scale: 5 },
+    )),
   }
 }
 
@@ -117,16 +129,15 @@ function valueModule(solve?: SolverModule['solve']): SolverModule {
 }
 
 describe('SolverController', () => {
-  it('prepares actual Sample and Setup models, dispatches exactly, and publishes process states', async () => {
-    const { sample, setup } = createPair()
-    const previewScene = evaluateWithVars(sample.vars, () => evaluateCadScene(sample.structure.geometry(), {
-      geometryGroup: sample.structure.geometryGroup,
-      surfaceGroup: sample.structure.surfaceGroup,
-    }, 'Structure', sample.structure.lengthUnit))
+  it('dispatches the exact preview snapshots and publishes process states', async () => {
+    const { structureSnapshot, experimentSnapshot } = createPair()
+    const previewScene = structureSnapshot.scene
     const states: string[] = []
     const controller = new SolverController([valueModule(async (input) => {
-      expect(input.structure.model).toBe(sample.structure)
-      expect(input.experiment.model).toBe(setup.experiment)
+      expect(input.structure).not.toHaveProperty('model')
+      expect(input.experiment).not.toHaveProperty('model')
+      expect(input.structure.provenance.sourceHash).toBe('1'.repeat(64))
+      expect(input.experiment.provenance.sourceHash).toBe('2'.repeat(64))
       expect(input.structure.scene.geometryGroups[0].geometryIds).toEqual(['conductor'])
       expect(input.structure.scene.lengthUnit).toBe('mm')
       expect(input.experiment.scene.lengthUnit).toBe('mm')
@@ -146,7 +157,7 @@ describe('SolverController', () => {
     })])
     controller.subscribe((process) => states.push(process.status))
 
-    await expect(controller.run(sample, setup)).resolves.toEqual({
+    await expect(controller.run(structureSnapshot, experimentSnapshot)).resolves.toEqual({
       Value: { value: 20 },
     })
     expect(states).toEqual(['idle', 'preparing', 'running', 'succeeded'])
@@ -159,44 +170,41 @@ describe('SolverController', () => {
     )
     const controller = new SolverController([valueModule()])
     const unsupported = createPair('test-solver', '2.0.0')
-    await expect(controller.run(unsupported.sample, unsupported.setup)).rejects.toThrow(
+    await expect(controller.run(unsupported.structureSnapshot, unsupported.experimentSnapshot)).rejects.toThrow(
       'No solver module is registered for test-solver@2.0.0',
     )
     expect(controller.getProcess().status).toBe('failed')
   })
 
   it('enforces one active run and cancels through AbortSignal', async () => {
-    const { sample, setup } = createPair()
+    const { structureSnapshot, experimentSnapshot } = createPair()
     const controller = new SolverController([valueModule((_input, signal) => new Promise<RecordedData>((_resolve, reject) => {
       signal.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')), { once: true })
     }))])
 
-    const active = controller.run(sample, setup)
-    await expect(controller.run(sample, setup)).rejects.toThrow('already active')
+    const active = controller.run(structureSnapshot, experimentSnapshot)
+    await expect(controller.run(structureSnapshot, experimentSnapshot)).rejects.toThrow('already active')
     controller.cancel()
     await expect(active).rejects.toThrow()
     expect(controller.getProcess()).toMatchObject({ status: 'cancelled', error: 'Solver run was cancelled.' })
   })
 
   it('strictly rejects missing, unknown, and invalid RecordedData values', async () => {
-    const { sample, setup } = createPair()
+    const { structureSnapshot, experimentSnapshot } = createPair()
     for (const result of [
       {},
       { Value: { value: 1 }, Extra: { value: 2 } },
       { Value: { value: [1] } },
     ]) {
       const controller = new SolverController([valueModule(async () => result as RecordedData)])
-      await expect(controller.run(sample, setup)).rejects.toThrow()
+      await expect(controller.run(structureSnapshot, experimentSnapshot)).rejects.toThrow()
       expect(controller.getProcess().status).toBe('failed')
     }
   })
 
   it('validates deferred structure targets against the paired Structure scene', async () => {
-    const { sample } = createPair()
-    function Probe() {
-      return h('box', { size: [1, 1, 1] })
-    }
-    const experiment = new Experiment({ lengthUnit: 'mm',
+    const { structureSnapshot } = createPair()
+    const experimentDefinition = experiment({ lengthUnit: 'mm',
       solver: {
         name: 'test-solver',
         version: '1.0.0',
@@ -207,7 +215,12 @@ describe('SolverController', () => {
           },
         }),
       },
-      geometry: () => h(Probe, { id: 'probe' }),
+      geometry: () => {
+        function Probe() {
+          return h('box', { size: [1, 1, 1] })
+        }
+        return h(Probe, { id: 'probe' })
+      },
       varsSchema: {},
       recordedData: () => [{
         target: ['structure.geometry.missing'],
@@ -221,8 +234,14 @@ describe('SolverController', () => {
       }],
     })
     const controller = new SolverController([valueModule()])
+    const experimentSnapshot = serializeEvaluatedDocumentSnapshotV2(evaluateDocumentEntry(
+      experimentDefinition,
+      'experiment',
+      '3'.repeat(64),
+      17,
+    ))
 
-    await expect(controller.run(sample, new Setup(experiment))).rejects.toThrow(
+    await expect(controller.run(structureSnapshot, experimentSnapshot)).rejects.toThrow(
       'references missing structure.geometry.missing',
     )
   })

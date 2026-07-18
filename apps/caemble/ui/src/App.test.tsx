@@ -35,6 +35,7 @@ describe('App workspace', () => {
     expect(markup).toContain('Waiting for model...')
     expect(markup).toContain('aria-label="Simulation controls"')
     expect(markup).toContain('Solver unavailable')
+    expect(markup).toContain('aria-label="Solver compatibility: unavailable"')
     expect(markup).toMatch(/<button[^>]*aria-label="Run simulation"[^>]*disabled/)
   })
 
@@ -67,7 +68,7 @@ describe('App workspace', () => {
     )
     expect(defaultExperimentCode).toContain("label: 'Total current'")
     expect(defaultExperimentCode).toContain("'structure.geometry.conductor'")
-    expect(defaultExperimentCode).toContain('new Setup(experiment)')
+    expect(defaultExperimentCode).toContain('export default experiment({')
   })
 
   it('shows the available Structure examples', () => {
@@ -75,9 +76,9 @@ describe('App workspace', () => {
 
     expect(markup).toContain('aria-label="Select structure example"')
     expect(markup).toContain('>DC Conductor</option>')
-    expect(markup).toContain('>Fiber Bundle</option>')
-    expect(markup).toContain('>Shell Cutaways</option>')
-    expect(markup).toContain('>Random Curved Cylinder Array</option>')
-    expect(markup).toContain('>Random Curved Sphere HCP Array</option>')
+    expect(markup).toContain('>Fiber Bundle (Geometry Preview)</option>')
+    expect(markup).toContain('>Shell Cutaways (Geometry Preview)</option>')
+    expect(markup).toContain('>Random Curved Cylinder Array (Geometry Preview)</option>')
+    expect(markup).toContain('>Random Curved Sphere HCP Array (Geometry Preview)</option>')
   })
 })

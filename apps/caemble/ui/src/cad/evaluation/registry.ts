@@ -1,27 +1,7 @@
-import { arrayDefinition } from '../elements/operations/array/runtime'
-import { intersectDefinition, subtractDefinition, unionDefinition } from '../elements/operations/booleans/runtime'
-import { shellDefinition } from '../elements/operations/shell/runtime'
-import { boxDefinition } from '../elements/primitives/box/runtime'
-import { cylinderDefinition } from '../elements/primitives/cylinder/runtime'
-import { curvedEdgeCylinderDefinition } from '../elements/primitives/curvedEdgeCylinder/runtime'
-import { curvedSurfaceSphereDefinition } from '../elements/primitives/curvedSurfaceSphere/runtime'
-import { fiberDefinition } from '../elements/primitives/fiber/runtime'
-import { sphereDefinition } from '../elements/primitives/sphere/runtime'
+import { cadElementDefinitions } from '../elements/generated'
 import type { CadElementDefinition } from './types'
 
-export const cadElementDefinitions = [
-  boxDefinition,
-  cylinderDefinition,
-  curvedEdgeCylinderDefinition,
-  sphereDefinition,
-  curvedSurfaceSphereDefinition,
-  fiberDefinition,
-  shellDefinition,
-  arrayDefinition,
-  unionDefinition,
-  subtractDefinition,
-  intersectDefinition,
-] as const satisfies readonly CadElementDefinition[]
+export { cadElementDefinitions }
 
 export type CadElementTag = (typeof cadElementDefinitions)[number]['tag']
 

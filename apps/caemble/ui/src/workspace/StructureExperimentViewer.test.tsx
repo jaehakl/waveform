@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { CadDocumentType } from '../cad'
+import { createCadSourceDocumentV2, type CadDocumentType } from '../cad'
+import type { SolverValidationIssue } from '../solver'
 import { StructureExperimentViewer } from './StructureExperimentViewer'
-import { useCadWorkspace } from './useCadWorkspace'
+import { attachPreflightMetadata, useCadWorkspace } from './useCadWorkspace'
 
 function tabLabels(markup: string) {
   const tabList = markup.match(/<div[^>]*aria-label="Structure and Experiment panels"[^>]*>.*?<\/div>/)?.[0] ?? ''
@@ -12,26 +13,46 @@ function tabLabels(markup: string) {
 function ViewerHarness({
   activeDocumentType,
   experiment,
+  preflightIssues = [],
   structure,
 }: {
   activeDocumentType: CadDocumentType | null
   experiment?: string | null
+  preflightIssues?: readonly SolverValidationIssue[]
   structure?: string | null
 }) {
-  const { experimentDocument, structureDocument } = useCadWorkspace(
-    structure,
-    experiment,
+  const structureSourceDocument = structure == null
+    ? structure
+    : createCadSourceDocumentV2('structure', structure, 1)
+  const experimentSourceDocument = experiment == null
+    ? experiment
+    : createCadSourceDocumentV2('experiment', experiment, 2)
+  const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
+    structureSourceDocument,
+    experimentSourceDocument,
     () => undefined,
     () => undefined,
   )
+  const visibleStructureDocument = preflightIssues.length === 0
+    ? structureDocument
+    : attachPreflightMetadata(
+        structureDocument,
+        preflightIssues,
+        null,
+        structureDocument.evaluationTimeoutMs,
+        structureDocument.setEvaluationTimeoutMs,
+      )
 
   return (
     <StructureExperimentViewer
       activeDocumentType={activeDocumentType}
-      experiment={experiment}
+      experiment={experimentSourceDocument}
       experimentDocument={experimentDocument}
-      structure={structure}
-      structureDocument={structureDocument}
+      solverCompatibility={preflightIssues.length === 0
+        ? simulation.compatibility
+        : { status: 'incompatible', issues: preflightIssues }}
+      structure={structureSourceDocument}
+      structureDocument={visibleStructureDocument}
       onActiveDocumentTypeChange={() => undefined}
     />
   )
@@ -98,5 +119,26 @@ describe('StructureExperimentViewer', () => {
 
     expect(tabLabels(markup)).not.toContain('Result')
     expect(markup).not.toContain('result-tab')
+  })
+
+  it('keeps a successful preview Ready and reports Solver incompatibility as an amber footer status', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerHarness
+        activeDocumentType="structure"
+        experiment="experiment source"
+        preflightIssues={[{
+          documentType: 'structure',
+          path: 'rules.initializations[0].target[0]',
+          message: 'references missing structure.geometry.conductor.',
+        }]}
+        structure="structure source"
+      />,
+    )
+
+    expect(markup).toContain('>Ready</span>')
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain('Preview ready · Simulation incompatible')
+    expect(markup).toContain('See Solver Spec for all compatibility issues.')
+    expect(markup).not.toContain('Solver Spec Error')
   })
 })

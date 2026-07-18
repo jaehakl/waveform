@@ -1,0 +1,146 @@
+import type {
+  QuantityMetadata,
+  ScalarQuantityKindName,
+  TensorQuantityKindName,
+} from '../../quantitykind/runtime'
+import { CadModelError } from './errors'
+import type { UcumUnit } from './units'
+
+export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
+export type DataDType =
+  | 'bool'
+  | 'string'
+  | 'int8'
+  | 'int16'
+  | 'int32'
+  | 'int64'
+  | 'uint8'
+  | 'uint16'
+  | 'uint32'
+  | 'uint64'
+  | 'float16'
+  | 'float32'
+  | 'float64'
+export type FloatDataDType = Extract<DataDType, `float${number}`>
+export type NonFloatDataDType = Exclude<DataDType, FloatDataDType>
+export type IntegerDataDType = Exclude<NonFloatDataDType, 'bool' | 'string'>
+type DataAxisBase = Readonly<{
+  length: number
+  name?: string
+  ticks?: readonly (number | string)[]
+}>
+export type DataAxis = DataAxisBase & Readonly<
+  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
+  | { unit?: never; quantityKind?: never }
+>
+type DataValueDescriptorBase = Readonly<{
+  axes?: readonly DataAxis[]
+  value: boolean | string | number | readonly unknown[]
+}>
+export type MatrixValue = readonly (readonly number[])[]
+export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
+  | ({ dtype: FloatDataDType } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
+  | {
+    dtype: NonFloatDataDType
+    unit?: never
+    quantityKind?: never
+    basis?: never
+  }
+>
+export type MaterialDataValueDescriptor = Readonly<
+  | (DataValueDescriptorBase & { dtype: FloatDataDType; errorRate: number } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
+  | (DataValueDescriptorBase & {
+    dtype: NonFloatDataDType
+    errorRate?: never
+    unit?: never
+    quantityKind?: never
+    basis?: never
+  })
+>
+export type ScalarValue = boolean | string | number
+export type MaterialVariable = ScalarValue | MaterialDataValueDescriptor
+export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+export type ResolvedMaterialVariables = Readonly<
+  Record<string, ScalarValue | DataValueDescriptor> & { color?: string }
+>
+export type SolverParameterValue = ScalarValue | DataValueDescriptor
+export type SolverParameters = Readonly<Record<string, SolverParameterValue>>
+export type ExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: () => SolverParameters
+}>
+export type ResolvedExperimentSolver = Readonly<{
+  name: string
+  version: string
+  parameters: SolverParameters
+}>
+export type ExperimentParameter = ScalarValue | DataValueDescriptor
+export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
+type RecordedDataResultAxisBase = Readonly<{
+  length?: number
+  name?: string
+  ticks?: readonly (number | string)[]
+}>
+export type RecordedDataResultAxis = RecordedDataResultAxisBase & Readonly<
+  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
+  | { unit?: never; quantityKind?: never }
+>
+type RecordedDataResultBase = Readonly<{ axes?: readonly RecordedDataResultAxis[] }>
+export type RecordedDataResult = RecordedDataResultBase & Readonly<
+  | ({ dtype: FloatDataDType } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
+  | {
+    dtype: NonFloatDataDType
+    unit?: never
+    quantityKind?: never
+    basis?: never
+  }
+>
+export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
+  target: readonly ExperimentTarget[]
+  label: string
+  methodId: string
+  parameters: TParameters
+}>
+export type RecordedDataRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<
+  ExperimentRule<TParameters> & { result: RecordedDataResult }
+>
+export type RecordedDataAxis = Readonly<{ ticks?: readonly (number | string)[] }>
+export type RecordedDataTensor = Readonly<{
+  value: boolean | string | number | readonly unknown[]
+  axes?: readonly RecordedDataAxis[]
+}>
+export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
+export type EvaluatedExperimentRules<
+  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
+  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
+  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
+> = Readonly<{
+  initializations: readonly ExperimentRule<TInitializationParameters>[]
+  boundaryConditions: readonly ExperimentRule<TBoundaryConditionParameters>[]
+  recordedData: readonly RecordedDataRule<TRecordedDataParameters>[]
+}>
+
+export function Mat(diagonal: number, offDiagonal = 0, size = 3): MatrixValue {
+  if (typeof diagonal !== 'number' || !Number.isFinite(diagonal)) {
+    throw new CadModelError('Mat diagonal must be a finite number.')
+  }
+  if (typeof offDiagonal !== 'number' || !Number.isFinite(offDiagonal)) {
+    throw new CadModelError('Mat offDiagonal must be a finite number.')
+  }
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new CadModelError('Mat size must be a positive safe integer.')
+  }
+  return Object.freeze(Array.from({ length: size }, (_, row) => Object.freeze(
+    Array.from({ length: size }, (_item, column) => row === column ? diagonal : offDiagonal),
+  )))
+}

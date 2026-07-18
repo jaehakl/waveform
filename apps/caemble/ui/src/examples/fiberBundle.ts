@@ -1,11 +1,10 @@
 export const fiberBundleCode = `import {
   Material,
-  Sample,
-  Structure,
+  structure,
   type FiberFourierMode,
   type Geometry,
   type Vec3,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 class Polymer extends Material {
   toSolverModel() {
@@ -92,10 +91,10 @@ const Bundle: Geometry<{
   </>
 )
 
-const structure = new Structure({
+export default structure({
   lengthUnit: 'mm',
-  geometry: () => {
-    const fourier = (vars.fourierModes as number[][]).map(([amplitude, phase]) => ({
+  geometry: ({ vars }) => {
+    const fourier = vars.fourierModes.map(([amplitude, phase]) => ({
       amplitude,
       phase,
     }))
@@ -103,16 +102,16 @@ const structure = new Structure({
     return (
       <Bundle
         id="bundle"
-        bend={vars.bend as Vec3}
-        bundleRadius={vars.bundleRadius as number}
-        fiberRadius={vars.fiberRadius as number}
+        bend={vars.bend}
+        bundleRadius={vars.bundleRadius}
+        fiberRadius={vars.fiberRadius}
         fourier={fourier}
-        turns={vars.turns as number}
+        turns={vars.turns}
         materials={[
           new Polymer('Tapered Fiber', {
             density: {
               dtype: 'float64',
-              value: vars.density as number,
+              value: vars.density,
               errorRate: 0,
               unit: 'g.cm-3',
               quantityKind: 'MassDensity',
@@ -144,6 +143,4 @@ const structure = new Structure({
     starts: ['bundle.1/surface-1', 'bundle.2/surface-1', 'bundle.3/surface-1'],
   },
 })
-
-export default new Sample(structure)
 `

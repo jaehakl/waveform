@@ -51,9 +51,9 @@ const rules: EvaluatedExperimentRules = {
   ],
 }
 
-const source = `import { Experiment, Setup } from '@caemble/core'
+const source = `import { experiment } from '@caemble/core/v2'
 const tensorValues = [[0.1, 0.2]] as const
-const experiment = new Experiment({ lengthUnit: 'mm',
+const active = experiment({ lengthUnit: 'mm',
   initializations: () => [{
     target: ['structure.geometry.sample'], label: 'Initial profile', methodId: 'field.initialize',
     parameters: {
@@ -79,7 +79,7 @@ const experiment = new Experiment({ lengthUnit: 'mm',
     },
   }],
 })
-export default new Setup(experiment)
+export default active
 `
 
 describe('ExperimentalParameters', () => {

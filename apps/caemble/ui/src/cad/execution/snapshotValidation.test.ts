@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest'
+import { evaluateCadScene } from '../evaluation/evaluator'
+import { Fragment, h } from '../evaluation/jsx'
+import { Material } from '../model/core'
+import { serializeEvaluatedDocumentSnapshotV2 } from './snapshot'
+import {
+  assertEvaluatedDocumentSnapshotV2,
+  assertPlainSnapshotValue,
+} from './snapshotValidation'
+
+function Box() {
+  return h('box', { size: [1, 1, 1] })
+}
+
+describe('plain snapshot validation', () => {
+  it('accepts shared plain values while preserving their aliases', () => {
+    const shared = Object.freeze({ color: '#2563eb' })
+    const value = { first: shared, second: shared }
+
+    expect(() => assertPlainSnapshotValue(value)).not.toThrow()
+    const cloned = structuredClone(value)
+    expect(cloned.first).toBe(cloned.second)
+  })
+
+  it('rejects direct and indirect cycles', () => {
+    const direct: Record<string, unknown> = {}
+    direct.self = direct
+    const parent: Record<string, unknown> = {}
+    const child: Record<string, unknown> = { parent }
+    parent.child = child
+
+    expect(() => assertPlainSnapshotValue(direct)).toThrow('snapshot.self contains a cyclic value')
+    expect(() => assertPlainSnapshotValue(parent)).toThrow('snapshot.child.parent contains a cyclic value')
+  })
+
+  it('validates a serialized scene whose parts share one Material realization', () => {
+    const material = new Material('Shared', { color: '#2563eb' })
+    const scene = evaluateCadScene(h(
+      Fragment,
+      null,
+      h(Box, { id: 'first', materials: [material] }),
+      h(Box, { id: 'second', pos: [2, 0, 0], materials: [material] }),
+    ))
+    const snapshot = serializeEvaluatedDocumentSnapshotV2({
+      apiVersion: 2,
+      kind: 'structure',
+      scene,
+      seed: 7,
+      sourceHash: 'a'.repeat(64),
+      variables: {},
+    })
+
+    expect(snapshot.scene.parts[0].material).toBe(snapshot.scene.parts[1].material)
+    expect(() => assertEvaluatedDocumentSnapshotV2(snapshot)).not.toThrow()
+
+    const cloned = structuredClone(snapshot)
+    expect(cloned.scene.parts[0].material).toBe(cloned.scene.parts[1].material)
+    expect(() => assertEvaluatedDocumentSnapshotV2(cloned)).not.toThrow()
+  })
+})

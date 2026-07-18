@@ -7,11 +7,10 @@ function SyntaxHelp() {
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-slate-950">Caemble Help</h2>
           <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-            A Structure file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Sample</code>,
-            while an Experiment file exports one <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">Setup</code>.
-            Both resolve vars before lazily creating Materials and evaluating root Geometry in the Worker. Each
-            editor auto-runs changed code, and every initial load, source edit, or Reroll creates newly randomized
-            ranged vars. Experiment
+            A Structure file default-exports <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">structure({'{...}'})</code>,
+            while an Experiment file exports <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">experiment({'{...}'})</code>.
+            Both resolve externally supplied or seed-generated vars before evaluating callbacks in an isolated
+            disposable Worker. Source edits preserve the seed; Reroll alone changes it. Experiment
             tensor values are available in the Experimental Parameters tab while the 3D Viewer remains visible.
           </p>
         </div>
@@ -55,7 +54,10 @@ function SyntaxHelp() {
                 Every schema item declares required min and max values. Tensor shape is inferred from either tensor
                 bound, while a scalar opposite bound broadcasts to that shape; two scalar bounds define a scalar var.
                 Equal bounds fix an element. Use <code className="rounded bg-white px-1 py-0.5 text-xs">vars.key</code>
-                inside the lazy geometry factory and Geometry functions. Vars remain unitless intermediate values;
+                through the explicit <code className="rounded bg-white px-1 py-0.5 text-xs">({'{ vars }'})</code>{' '}
+                callback argument. The same compiled Source can be evaluated repeatedly with different external
+                values; unknown keys, shape mismatches, and out-of-range components fail before callbacks run.
+                Vars remain unitless intermediate values;
                 declare Quantity Kind and unit metadata where those values enter a Material, solver, rule, or result
                 descriptor.
               </p>
@@ -111,8 +113,8 @@ function SyntaxHelp() {
                 a symbol and version.
               </p>
               <p className="mt-1">
-                Each Sample and Setup keeps one Material realization across preview and Solver use. Every scalar or
-                float tensor receives one uniform multiplier. Rerolling creates a new realization.
+                Each evaluated snapshot keeps one Material realization across preview and Solver use. Every scalar or
+                float tensor receives one uniform multiplier. Rerolling the definition creates a new realization.
                 The original Material keeps its nominal value and errorRate, while scene and Solver variables expose only
                 the realized value. Nested floats, non-float tensors, color, and other metadata are unchanged.
               </p>
@@ -156,27 +158,29 @@ function SyntaxHelp() {
                 the first draft member and every drafted result is highlighted together in the viewer. Named groups
                 contribute their declared members without becoming nested groups. They are displayed in separate
                 Geometry and Surface sections and can be selected, expanded, edited, or deleted. These edits update
-                the active default Sample&apos;s Structure or Setup&apos;s Experiment in Code Space immediately.
+                the active default-exported Structure or Experiment definition through a source-hash-bound patch.
+                Dynamic object expressions remain executable, but their related visual editor is read-only.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Experiments, Solvers, Conditions, and Recorded Data</p>
               <p className="mt-1">
-                <code className="rounded bg-white px-1 py-0.5 text-xs">Experiment</code> extends Structure. Every
-                Experiment requires a <code className="rounded bg-white px-1 py-0.5 text-xs">solver</code> with
+                <code className="rounded bg-white px-1 py-0.5 text-xs">experiment({'{...}'})</code> defines Experiment
+                geometry and authoring rules. Every Experiment requires a{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">solver</code> with
                 static non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">name</code> and{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">version</code> strings plus a lazy{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">parameters</code> factory. It also adds
-                lazy <code className="rounded bg-white px-1 py-0.5 text-xs">initializations</code>,{' '}
+                callback-based <code className="rounded bg-white px-1 py-0.5 text-xs">initializations</code>,{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">boundaryConditions</code>, and{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays.{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">Setup</code> pairs an Experiment with resolved
-                vars just as Sample pairs a Structure with vars. The editor previews Experiment geometry and the
-                manual simulation combines its latest successful Setup with the latest successful Sample. Each scene
+                <code className="rounded bg-white px-1 py-0.5 text-xs">recordedData</code> rule arrays. The editor
+                previews the latest successful Experiment snapshot, and manual simulation pairs that exact snapshot
+                with the latest successful Structure snapshot. Each scene
                 retains its declared length unit; viewers and solver modules convert only at their consumption boundary.
               </p>
               <p className="mt-1">
-                Solver parameters run first with Setup values available through global{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code>. They must form a plain
+                Solver parameters receive the same explicit{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">({'{ vars }'})</code> context as geometry and
+                rules. They must form a plain
                 JSON-compatible object and are recursively copied and frozen. Safe integers remain raw; every float
                 leaf uses the Quantity Kind and unit-aware float descriptor, including nested arrays and objects. The editor then evaluates Experiment
                 geometry, initializations, boundary conditions, and recorded data in that order. Once both latest
@@ -194,8 +198,9 @@ function SyntaxHelp() {
                 Every registered Solver module supplies one serializable spec sheet. After Experiment evaluation,
                 the Worker checks its required Solver parameters, method IDs, method parameters, targets, Material
                 roles, and RecordedData result schemas. Structure targets and Material roles are completed as soon
-                as both current documents are available. Spec errors keep successful previews visible, mark the
-                relevant document as Error, and disable Run before numerical work starts. Open the{' '}
+                as both current documents are available. Compatibility issues keep successful previews and both
+                documents Ready, mark Simulation as Incompatible, and disable Run before numerical work starts.
+                Actual Source compilation, evaluation, rendering, and Solver execution failures remain errors. Open the{' '}
                 <strong>Solver Spec</strong> tab to inspect the current contract and applicable units. Undeclared
                 Solver, method, and Material parameter keys are accepted and preserved for cross-version source
                 compatibility; registered method IDs and result contracts remain exact.
@@ -211,8 +216,7 @@ function SyntaxHelp() {
                 object whose values are raw bool, string, or safe integer scalars, or explicit dtype descriptors.
                 Raw fractional numbers are rejected; use a float descriptor with a
                 required Quantity Kind and applicable UCUM unit. Functions, null, raw arrays, arbitrary nested
-                objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
-                available through the global{' '}
+                objects, undefined, and non-finite numbers are rejected. v2 never exposes a module-global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
               </p>
               <p className="mt-1">
@@ -404,14 +408,15 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">$cell-x-y-z</code> segment. Injecting{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">id</code> is not supported. The
                 default example uses 60-degree x/y axes and centered A/B/A layers. Its B layer is offset by one-third
-                of both planar basis vectors, adjacent layers use ideal HCP spacing, and seedless random vars produce
+                of both planar basis vectors, adjacent layers use ideal HCP spacing, and deterministically seeded vars produce
                 unit-sphere-uniform rotation axes for all 27 cells.
               </p>
 
               <p className="mt-3 font-semibold text-slate-800">Imports</p>
               <p className="mt-1">
-                Only <code className="rounded bg-white px-1 py-0.5 text-xs">@caemble/core</code> is available. Define
-                reusable Geometry and Material subclasses in the same file.
+                Static imports may use <code className="rounded bg-white px-1 py-0.5 text-xs">@caemble/core/v2</code>{' '}
+                or relative `.ts`/`.tsx` files inside the virtual project. Dynamic imports, URLs, and other packages
+                are rejected. Define reusable Geometry components and Material classes in those project files.
               </p>
           </div>
         </div>

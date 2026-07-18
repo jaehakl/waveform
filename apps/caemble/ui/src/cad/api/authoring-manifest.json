@@ -1,0 +1,6 @@
+{
+  "coreV2DeclarationVersion": "2.0.2",
+  "quantityKindDataVersion": "qudt-3.4.0-ucum-0.2.0",
+  "monacoVersion": "0.55.1",
+  "typescriptVersion": "5.9.3"
+}

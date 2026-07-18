@@ -1,16 +1,15 @@
 export const defaultExperimentCode = `import {
-  Experiment,
+  experiment,
   Material,
-  Setup,
   type Geometry,
   type Vec3,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 const Terminal: Geometry<{ size: Vec3 }> = ({ size }) => (
   <box size={size} />
 )
 
-const experiment = new Experiment({
+export default experiment({
   lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
@@ -25,18 +24,18 @@ const experiment = new Experiment({
       maxIterations: 2000,
     }),
   },
-  geometry: () => (
+  geometry: ({ vars }) => (
     <>
       <Terminal
         id="source-electrode"
-        pos={[-(vars.electrodeOffset as number), 0, 0]}
-        size={vars.electrodeSize as Vec3}
+        pos={[-vars.electrodeOffset, 0, 0]}
+        size={vars.electrodeSize}
         materials={[new Material('Source Electrode', { color: '#ef4444' })]}
       />
       <Terminal
         id="reference-electrode"
-        pos={[vars.electrodeOffset as number, 0, 0]}
-        size={vars.electrodeSize as Vec3}
+        pos={[vars.electrodeOffset, 0, 0]}
+        size={vars.electrodeSize}
         materials={[new Material('Reference Electrode', { color: '#2563eb' })]}
       />
     </>
@@ -64,7 +63,7 @@ const experiment = new Experiment({
       },
     },
   ],
-  boundaryConditions: () => [
+  boundaryConditions: ({ vars }) => [
     {
       target: ['structure.surface.sourceTerminal'],
       label: 'Applied potential',
@@ -72,7 +71,7 @@ const experiment = new Experiment({
       parameters: {
         voltage: {
           dtype: 'float64',
-          value: vars.sourceVoltage as number,
+          value: vars.sourceVoltage,
           unit: 'mV',
           quantityKind: 'Voltage',
         },
@@ -85,7 +84,7 @@ const experiment = new Experiment({
       parameters: {
         voltage: {
           dtype: 'float64',
-          value: vars.referenceVoltage as number,
+          value: vars.referenceVoltage,
           unit: 'mV',
           quantityKind: 'Voltage',
         },
@@ -135,6 +134,4 @@ const experiment = new Experiment({
     },
   ],
 })
-
-export default new Setup(experiment)
 `

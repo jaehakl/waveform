@@ -7,6 +7,7 @@ import type {
   ExperimentRule,
   RecordedDataResultAxis,
   RecordedDataRule,
+  CadSourceTextEditV2,
 } from '../cad'
 import { normalizeDataValueDescriptor } from '../cad/model/core'
 import {
@@ -17,7 +18,7 @@ import {
 import { QuantityKind } from '../quantitykind'
 
 type ExperimentalParametersProps = {
-  onSourceChange: (source: string) => void
+  onSourceChange: (edits: readonly CadSourceTextEditV2[], expectedSource: string) => void
   readOnly: boolean
   rules: EvaluatedExperimentRules | null
   source: string
@@ -81,7 +82,7 @@ function TensorParameterEditor({
   source,
 }: {
   category: ExperimentRuleCategory
-  onSourceChange: (source: string) => void
+  onSourceChange: (edits: readonly CadSourceTextEditV2[], expectedSource: string) => void
   parameter: DataValueDescriptor
   parameterKey: string
   readOnly: boolean
@@ -142,7 +143,7 @@ function TensorParameterEditor({
                   parameterKey,
                   normalized.value,
                 )
-                onSourceChange(update.source)
+                onSourceChange(update.edits, source)
                 setError(null)
               } catch (saveError) {
                 setError(saveError instanceof Error ? saveError.message : 'The tensor value could not be saved.')
@@ -197,7 +198,7 @@ function RuleCard({
   source,
 }: {
   category: ExperimentRuleCategory
-  onSourceChange: (source: string) => void
+  onSourceChange: (edits: readonly CadSourceTextEditV2[], expectedSource: string) => void
   readOnly: boolean
   rule: ExperimentRule | RecordedDataRule
   ruleIndex: number

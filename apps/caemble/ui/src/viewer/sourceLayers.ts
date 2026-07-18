@@ -12,6 +12,7 @@ export type JscadViewerLayer = Readonly<{
   documentType: CadDocumentType
   lengthUnit: UcumUnit
   parts: CadScenePart[]
+  sceneHash?: string | null
 }>
 
 export type JscadViewerSelection = Readonly<{

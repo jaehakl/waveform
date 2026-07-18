@@ -1,106 +1,35 @@
-import * as esbuild from 'esbuild-wasm'
-import wasmUrl from 'esbuild-wasm/esbuild.wasm?url'
-import {
-  evaluateDocumentEntry,
-  loadCompiledCode,
-  type CadExecutionResult,
-  type CadDocumentEntry,
-} from '../execution/userModule'
-import { CadModelError, Sample, Setup } from '../model/core'
+import { assertEvaluatedDocumentSnapshotV2, type EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
 import { SolverController } from '../../solver'
 import { solverModules } from '../../solver/modules'
-import type {
-  CadDocumentType,
-  CadWorkerErrorType,
-  CadWorkerRequest,
-  CadWorkerResponse,
-} from './protocol'
+import type { CadDocumentType, CadWorkerRequest, CadWorkerResponse } from './protocol'
+import { deserializeCadScene } from '../execution/mesh'
 
-const forbiddenPatterns = [
-  { label: 'dynamic import', pattern: /\bimport\s*\(/ },
-  { label: 'fetch', pattern: /\bfetch\s*\(/ },
-  { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
-  { label: 'localStorage', pattern: /\blocalStorage\b/ },
-  { label: 'sessionStorage', pattern: /\bsessionStorage\b/ },
-  { label: 'indexedDB', pattern: /\bindexedDB\b/ },
-  { label: 'document', pattern: /\bdocument\b/ },
-  { label: 'window', pattern: /\bwindow\b/ },
-  { label: 'navigator', pattern: /\bnavigator\b/ },
-  { label: 'self', pattern: /\bself\b/ },
-  { label: 'globalThis', pattern: /\bglobalThis\b/ },
-  { label: 'Worker', pattern: /\bWorker\b/ },
-  { label: 'WebSocket', pattern: /\bWebSocket\b/ },
-  { label: 'eval', pattern: /\beval\s*\(/ },
-  { label: 'Function', pattern: /\bFunction\b/ },
-  { label: 'importScripts', pattern: /\bimportScripts\b/ },
-]
-
-let initialization: Promise<void> | null = null
 let activeSolverRequestId: string | null = null
-const latestRevisions: Record<CadDocumentType, number> = { structure: 0, experiment: 0 }
 const cachedEntries: Partial<Record<CadDocumentType, Readonly<{
   revision: number
-  entry: CadDocumentEntry
-  execution: CadExecutionResult
+  snapshot: EvaluatedDocumentSnapshotV2
 }>>> = {}
 const solverController = new SolverController(solverModules)
-
-solverController.subscribe((process) => {
-  if (!activeSolverRequestId) return
-  postResponse({
-    type: 'solver-process',
-    requestId: activeSolverRequestId,
-    process,
-  })
-})
-
-async function ensureEsbuildReady() {
-  initialization ??= esbuild.initialize({
-    wasmURL: wasmUrl,
-    worker: false,
-  })
-  await initialization
-}
-
-function assertSourceIsAllowed(source: string) {
-  for (const forbidden of forbiddenPatterns) {
-    if (forbidden.pattern.test(source)) {
-      throw new CadModelError(`Forbidden code pattern: ${forbidden.label}`)
-    }
-  }
-}
-
-async function compileUserCode(source: string) {
-  assertSourceIsAllowed(source)
-  await ensureEsbuildReady()
-
-  const result = await esbuild.transform(source, {
-    format: 'cjs',
-    jsxFactory: 'h',
-    jsxFragment: 'Fragment',
-    loader: 'tsx',
-    platform: 'browser',
-    sourcemap: 'inline',
-    target: 'es2020',
-  })
-
-  return result.code
-}
 
 function postResponse(response: CadWorkerResponse) {
   self.postMessage(response)
 }
 
+solverController.subscribe((process) => {
+  if (!activeSolverRequestId) return
+  postResponse({ type: 'solver-process', requestId: activeSolverRequestId, process })
+})
+
 function postSolverPreflight() {
   const experiment = cachedEntries.experiment
-  if (!experiment?.execution.experimentRules || !experiment.execution.solver) return
+  if (!experiment?.snapshot.experimentRules || !experiment.snapshot.solver) return
   const structure = cachedEntries.structure
   const result = solverController.preflight({
-    ...(structure ? { structure: { scene: structure.execution.scene } } : {}),
+    ...(structure ? { structure: { scene: deserializeCadScene(structure.snapshot.scene) } } : {}),
     experiment: {
-      scene: experiment.execution.scene,
-      rules: experiment.execution.experimentRules,
-      solver: experiment.execution.solver,
+      scene: deserializeCadScene(experiment.snapshot.scene),
+      rules: experiment.snapshot.experimentRules,
+      solver: experiment.snapshot.solver,
     },
   })
   postResponse({
@@ -112,59 +41,25 @@ function postSolverPreflight() {
   })
 }
 
-function errorDetails(error: unknown) {
-  const typedError = error as { message?: string; stack?: string }
-  return {
-    message: typedError.message ?? String(error),
-    stack: typedError.stack,
-  }
-}
-
-function postDocumentError(
-  request: Extract<CadWorkerRequest, { type: 'evaluate-document' }>,
-  errorType: CadWorkerErrorType,
-  error: unknown,
-) {
-  if (latestRevisions[request.documentType] !== request.revision) return
-  postResponse({
-    type: 'document-error',
-    requestId: request.requestId,
-    revision: request.revision,
-    documentType: request.documentType,
-    errorType,
-    ...errorDetails(error),
-  })
-}
-
-async function evaluateDocument(request: Extract<CadWorkerRequest, { type: 'evaluate-document' }>) {
+function cacheSnapshot(request: Extract<CadWorkerRequest, { type: 'cache-snapshot' }>) {
   try {
-    let jsCode = ''
-    try {
-      jsCode = await compileUserCode(request.source)
-    } catch (error) {
-      postDocumentError(request, error instanceof CadModelError ? 'model' : 'compile', error)
-      return
+    assertEvaluatedDocumentSnapshotV2(request.snapshot)
+    if (!Number.isSafeInteger(request.revision) || request.revision < 0) {
+      throw new Error('Snapshot revision is invalid.')
     }
-    if (latestRevisions[request.documentType] !== request.revision) return
-
-    try {
-      const entry = loadCompiledCode(jsCode, request.documentType)
-      const execution = evaluateDocumentEntry(entry, request.documentType)
-      if (latestRevisions[request.documentType] !== request.revision) return
-      cachedEntries[request.documentType] = Object.freeze({ revision: request.revision, entry, execution })
-      postResponse({
-        type: 'document-success',
-        requestId: request.requestId,
-        revision: request.revision,
-        documentType: request.documentType,
-        ...execution,
-      })
-      postSolverPreflight()
-    } catch (error) {
-      postDocumentError(request, error instanceof CadModelError ? 'model' : 'runtime', error)
-    }
+    const current = cachedEntries[request.snapshot.kind]
+    if (current && current.revision > request.revision) return
+    cachedEntries[request.snapshot.kind] = Object.freeze({
+      revision: request.revision,
+      snapshot: request.snapshot,
+    })
+    postSolverPreflight()
   } catch (error) {
-    postDocumentError(request, 'runtime', error)
+    postResponse({
+      type: 'solver-error',
+      requestId: request.requestId,
+      message: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
@@ -176,34 +71,46 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
     || !experiment
     || structure.revision !== request.structureRevision
     || experiment.revision !== request.experimentRevision
-    || !(structure.entry instanceof Sample)
-    || !(experiment.entry instanceof Setup)
   ) {
     postResponse({
       type: 'solver-error',
       requestId: request.requestId,
-      message: 'Both current Structure and Experiment documents must be ready before running the solver.',
+      message: 'Both current Structure and Experiment snapshots must be ready before running the solver.',
     })
     return
   }
   if (activeSolverRequestId) {
-    postResponse({
-      type: 'solver-error',
-      requestId: request.requestId,
-      message: 'A solver run is already active.',
-    })
+    postResponse({ type: 'solver-error', requestId: request.requestId, message: 'A solver run is already active.' })
     return
   }
 
   activeSolverRequestId = request.requestId
   try {
-    const recordedData = await solverController.run(structure.entry, experiment.entry)
+    const recordedData = await solverController.run(structure.snapshot, experiment.snapshot)
     postResponse({
       type: 'solver-success',
       requestId: request.requestId,
       structureRevision: request.structureRevision,
       experimentRevision: request.experimentRevision,
       recordedData,
+      provenance: Object.freeze({
+        structure: Object.freeze({
+          apiVersion: structure.snapshot.apiVersion,
+          sourceHash: structure.snapshot.sourceHash,
+          seed: structure.snapshot.seed,
+          vars: structure.snapshot.variables,
+        }),
+        experiment: Object.freeze({
+          apiVersion: experiment.snapshot.apiVersion,
+          sourceHash: experiment.snapshot.sourceHash,
+          seed: experiment.snapshot.seed,
+          vars: experiment.snapshot.variables,
+        }),
+        solver: Object.freeze({
+          name: experiment.snapshot.solver!.name,
+          version: experiment.snapshot.solver!.version,
+        }),
+      }),
     })
   } catch {
     // SolverController publishes the failed or cancelled process state.
@@ -214,16 +121,13 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
 
 self.onmessage = (event: MessageEvent<CadWorkerRequest>) => {
   const message = event.data
-  if (message.type === 'evaluate-document') {
-    latestRevisions[message.documentType] = Math.max(latestRevisions[message.documentType], message.revision)
-    void evaluateDocument(message)
-    return
-  }
-  if (message.type === 'run-solver') {
+  if (message.type === 'cache-snapshot') {
+    cacheSnapshot(message)
+  } else if (message.type === 'run-solver') {
     void runSolver(message)
-    return
-  }
-  if (message.type === 'cancel-solver' && message.requestId === activeSolverRequestId) {
+  } else if (message.type === 'cancel-solver' && activeSolverRequestId === message.requestId) {
     solverController.cancel()
   }
 }
+
+export {}

@@ -1,0 +1,66 @@
+import { readdir, readFile, stat } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { gzipSync } from 'node:zlib'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const dist = path.join(root, 'dist')
+const assets = path.join(dist, 'assets')
+const [indexHtml, packageJson, authoringManifest] = await Promise.all([
+  readFile(path.join(dist, 'index.html'), 'utf8'),
+  readFile(path.join(root, 'package.json'), 'utf8').then(JSON.parse),
+  readFile(path.join(root, 'src/cad/api/authoring-manifest.json'), 'utf8').then(JSON.parse),
+])
+
+if (!/^\d+\.\d+\.\d+$/.test(packageJson.dependencies['monaco-editor'])) {
+  throw new Error('monaco-editor must be pinned to an exact version.')
+}
+if (!/^\d+\.\d+\.\d+$/.test(authoringManifest.coreV2DeclarationVersion)) {
+  throw new Error('@caemble/core/v2 declaration version must be pinned.')
+}
+
+const assetNames = await readdir(assets)
+const textFiles = ['index.html', 'runner.html', ...assetNames.filter((name) => /\.(?:css|js)$/.test(name))]
+const contents = new Map(await Promise.all(textFiles.map(async (name) => {
+  const filePath = name.endsWith('.html') ? path.join(dist, name) : path.join(assets, name)
+  return [name, await readFile(filePath, 'utf8')]
+})))
+
+for (const [name, source] of contents) {
+  if (/cdn\.jsdelivr\.net|esbuild(?:-wasm)?\.wasm|plotly/i.test(source)) {
+    throw new Error(`${name} contains a forbidden production dependency.`)
+  }
+  if (source.includes('new Function') && !name.startsWith('evaluation.worker-')) {
+    throw new Error(`${name} contains new Function outside the isolated evaluation Worker.`)
+  }
+}
+if (assetNames.some((name) => name.endsWith('.wasm'))) {
+  throw new Error('The production build contains a WASM asset.')
+}
+
+const quantityAsset = `quantity-kind-data-${authoringManifest.quantityKindDataVersion}.js`
+if (!assetNames.includes(quantityAsset)) throw new Error(`Missing ${quantityAsset}.`)
+const dataCopies = [...contents].filter(([, source]) => source.includes('"applicableUnits":['))
+if (dataCopies.length !== 1 || dataCopies[0][0] !== quantityAsset) {
+  throw new Error('QuantityKind data must exist only in its versioned shared asset.')
+}
+
+const initialAssetNames = new Set(
+  [...indexHtml.matchAll(/(?:src|href)="\/assets\/([^"]+)"/g)].map((match) => match[1]),
+)
+initialAssetNames.add(quantityAsset)
+if ([...initialAssetNames].some((name) => /monaco|editor\.api|tsMode|\.worker/i.test(name))) {
+  throw new Error('Monaco must not be referenced by the initial HTML entry.')
+}
+
+let initialGzipBytes = 0
+for (const name of initialAssetNames) {
+  const filePath = path.join(assets, name)
+  await stat(filePath)
+  initialGzipBytes += gzipSync(await readFile(filePath)).byteLength
+}
+if (initialGzipBytes > 500 * 1024) {
+  throw new Error(`Initial entry is ${(initialGzipBytes / 1024).toFixed(2)} KiB gzip; the limit is 500 KiB.`)
+}
+
+console.log(`Production asset checks passed: ${(initialGzipBytes / 1024).toFixed(2)} KiB initial gzip.`)

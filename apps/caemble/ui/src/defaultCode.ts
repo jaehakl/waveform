@@ -1,11 +1,10 @@
 export const defaultCode = `import {
   Mat,
   Material,
-  Sample,
-  Structure,
+  structure,
   type Geometry,
   type Vec3,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 const Conductor: Geometry<{
   notchPosition: Vec3
@@ -18,19 +17,19 @@ const Conductor: Geometry<{
   </subtract>
 )
 
-const structure = new Structure({
+export default structure({
   lengthUnit: 'mm',
-  geometry: () => (
+  geometry: ({ vars }) => (
     <Conductor
       id="conductor"
-      size={vars.conductorSize as Vec3}
-      notchPosition={vars.notchPosition as Vec3}
-      notchSize={vars.notchSize as Vec3}
+      size={vars.conductorSize}
+      notchPosition={vars.notchPosition}
+      notchSize={vars.notchSize}
       materials={[
         new Material('Copper', 'reference', {
           electricalConductivity: {
             dtype: 'float64',
-            value: Mat(vars.electricalConductivity as number),
+            value: Mat(vars.electricalConductivity),
             errorRate: 0.001,
             unit: 'S.m-1',
             quantityKind: 'ElectricConductivity',
@@ -54,6 +53,4 @@ const structure = new Structure({
     referenceTerminal: ['conductor/surface-2'],
   },
 })
-
-export default new Sample(structure)
 `

@@ -1,9 +1,8 @@
 export const curvedSurfaceSphereHcpArrayCode = `import {
   Material,
-  Sample,
-  Structure,
+  structure,
   type Geometry,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 const tau = Math.PI * 2
 const arrayShape = [4, 4, 3] as const
@@ -61,9 +60,9 @@ const CurvedParticle: Geometry<{
   />
 )
 
-const structure = new Structure({
+export default structure({
   lengthUnit: 'mm',
-  geometry: () => (
+  geometry: ({ vars }) => (
     <array
       shape={arrayShape}
       period={[latticeSpacing, latticeSpacing, layerSpacing]}
@@ -138,6 +137,4 @@ const structure = new Structure({
     },
   },
 })
-
-export default new Sample(structure)
 `

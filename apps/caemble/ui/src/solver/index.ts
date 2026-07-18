@@ -17,10 +17,12 @@ export type {
   SolverValueSpec,
 } from './spec'
 export type {
+  SolverCompatibility,
   SolverModule,
   SolverModuleInput,
   SolverPreflightInput,
   SolverProcess,
   SolverProcessListener,
   SolverProcessStatus,
+  SolverRunProvenanceV2,
 } from './types'

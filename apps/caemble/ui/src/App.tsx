@@ -1,5 +1,10 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CadDocumentType } from './cad'
+import {
+  cadEntrySource,
+  createCadSourceDocumentV2,
+  updateCadEntrySource,
+  type CadDocumentType,
+} from './cad'
 import { defaultCode } from './defaultCode'
 import { defaultExperimentCode } from './defaultExperimentCode'
 import { caembleExamples } from './examples'
@@ -31,8 +36,8 @@ function navigationClass(active: boolean) {
 
 function App() {
   const [view, setView] = useState<AppView>(initialAppView)
-  const [structure, setStructure] = useState(defaultCode)
-  const [experiment, setExperiment] = useState(defaultExperimentCode)
+  const [structure, setStructure] = useState(() => createCadSourceDocumentV2('structure', defaultCode))
+  const [experiment, setExperiment] = useState(() => createCadSourceDocumentV2('experiment', defaultExperimentCode))
   const [activeDocumentType, setActiveDocumentType] = useState<CadDocumentType>('structure')
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const workspaceRef = useRef<HTMLDivElement | null>(null)
@@ -62,17 +67,24 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  const selectedExample = caembleExamples.find((example) => example.code === structure)
+  const selectedExample = caembleExamples.find((example) => example.code === cadEntrySource(structure))
   const selectedExampleId = selectedExample?.id ?? ''
   const structureViewerDocument = useMemo(() => ({
     scene: structureDocument.scene,
+    sceneHash: structureDocument.sceneHash,
     variables: structureDocument.variables,
-  }), [structureDocument.scene, structureDocument.variables])
+  }), [structureDocument.scene, structureDocument.sceneHash, structureDocument.variables])
   const experimentViewerDocument = useMemo(() => ({
     experimentRules: experimentDocument.experimentRules,
     scene: experimentDocument.scene,
+    sceneHash: experimentDocument.sceneHash,
     variables: experimentDocument.variables,
-  }), [experimentDocument.experimentRules, experimentDocument.scene, experimentDocument.variables])
+  }), [
+    experimentDocument.experimentRules,
+    experimentDocument.scene,
+    experimentDocument.sceneHash,
+    experimentDocument.variables,
+  ])
   const activeDocument = activeDocumentType === 'structure' ? structureDocument : experimentDocument
   const viewerSelection = useMemo(() => activeDocument.selection ? {
     documentType: activeDocumentType,
@@ -125,13 +137,13 @@ function App() {
                 value={selectedExampleId}
                 onChange={(event) => {
                   const example = caembleExamples.find(({ id }) => id === event.target.value)
-                  if (example) setStructure(example.code)
+                  if (example) setStructure((current) => updateCadEntrySource(current, example.code))
                 }}
               >
                 <option disabled value="">Custom</option>
                 {caembleExamples.map((example) => (
                   <option key={example.id} title={example.description} value={example.id}>
-                    {example.title}
+                    {example.title}{example.mode === 'geometry-preview' ? ' (Geometry Preview)' : ''}
                   </option>
                 ))}
               </select>
@@ -152,6 +164,7 @@ function App() {
                 activeDocumentType={activeDocumentType}
                 experiment={experiment}
                 experimentDocument={experimentDocument}
+                solverCompatibility={simulation.compatibility}
                 structure={structure}
                 structureDocument={structureDocument}
                 onActiveDocumentTypeChange={setActiveDocumentType}
@@ -202,6 +215,7 @@ function App() {
               simulation={{
                 canRun: simulation.canRun,
                 cancel: simulation.cancel,
+                compatibility: simulation.compatibility,
                 process: simulation.process,
                 run: simulation.run,
                 solver: experimentDocument.solver,

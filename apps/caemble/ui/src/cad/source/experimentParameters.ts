@@ -1,5 +1,10 @@
-import { parse } from '@babel/parser'
-import type { Expression, ObjectExpression, ObjectMethod, ObjectProperty, Statement } from '@babel/types'
+import type { Expression, ObjectExpression, ObjectMethod, ObjectProperty } from '@babel/types'
+import {
+  analyzeCadSourceV2,
+  resolveSourceBinding as resolveBinding,
+  sourceExpression as expressionArgument,
+  unwrapSourceExpression as unwrapExpression,
+} from './sourceAnalysis'
 
 export type ExperimentRuleCategory = 'initializations' | 'boundaryConditions' | 'recordedData'
 
@@ -11,6 +16,7 @@ export type ExperimentTensorSourceInfo = Readonly<{
 }>
 
 export type ExperimentTensorSourceUpdate = Readonly<{
+  edits: readonly Readonly<{ start: number; end: number; text: string }>[]
   source: string
   bindingName?: string
   shared: boolean
@@ -23,29 +29,6 @@ export class ExperimentParameterSourceError extends Error {
   }
 }
 
-function unwrapExpression(expression: Expression): Expression {
-  if (
-    expression.type === 'TSAsExpression'
-    || expression.type === 'TSSatisfiesExpression'
-    || expression.type === 'TSNonNullExpression'
-    || expression.type === 'TypeCastExpression'
-  ) {
-    return unwrapExpression(expression.expression)
-  }
-  return expression
-}
-
-function expressionArgument(value: unknown, label: string): Expression {
-  if (!value || typeof value !== 'object' || !('type' in value)) {
-    throw new ExperimentParameterSourceError(`${label} could not be resolved to a source expression.`)
-  }
-  const type = String(value.type)
-  if (type === 'SpreadElement' || type === 'ArgumentPlaceholder') {
-    throw new ExperimentParameterSourceError(`${label} cannot use a spread or argument placeholder.`)
-  }
-  return value as Expression
-}
-
 function propertyName(property: ObjectExpression['properties'][number]) {
   if (property.type === 'SpreadElement' || property.computed) return null
   if (property.key.type === 'Identifier') return property.key.name
@@ -53,102 +36,20 @@ function propertyName(property: ObjectExpression['properties'][number]) {
   return null
 }
 
-function importedName(statement: Statement, imported: 'Experiment' | 'Setup') {
-  if (statement.type !== 'ImportDeclaration' || statement.source.value !== '@caemble/core') return []
-  return statement.specifiers.flatMap((specifier) => {
-    if (specifier.type !== 'ImportSpecifier') return []
-    const name = specifier.imported.type === 'Identifier' ? specifier.imported.name : specifier.imported.value
-    return name === imported ? [specifier.local.name] : []
-  })
-}
-
-function collectBindings(statements: readonly Statement[]) {
-  const bindings = new Map<string, Expression>()
-  statements.forEach((statement) => {
-    if (statement.type !== 'VariableDeclaration' || statement.kind !== 'const') return
-    statement.declarations.forEach((declaration) => {
-      if (declaration.id.type !== 'Identifier' || !declaration.init) return
-      bindings.set(declaration.id.name, expressionArgument(declaration.init, declaration.id.name))
-    })
-  })
-  return bindings
-}
-
-function resolveBinding(
-  expression: Expression,
-  bindings: ReadonlyMap<string, Expression>,
-  visited = new Set<string>(),
-): { expression: Expression; bindingName?: string } {
-  const unwrapped = unwrapExpression(expression)
-  if (unwrapped.type !== 'Identifier') return { expression: unwrapped }
-  if (visited.has(unwrapped.name)) {
-    throw new ExperimentParameterSourceError(`Circular source binding detected at ${unwrapped.name}.`)
-  }
-  const bound = bindings.get(unwrapped.name)
-  if (!bound) return { expression: unwrapped }
-  visited.add(unwrapped.name)
-  const resolved = resolveBinding(bound, bindings, visited)
-  return {
-    expression: resolved.expression,
-    bindingName: resolved.bindingName ?? unwrapped.name,
-  }
-}
-
-function requireConstructor(expression: Expression, names: ReadonlySet<string>, label: 'Experiment' | 'Setup') {
-  if (expression.type !== 'NewExpression' || expression.callee.type !== 'Identifier' || !names.has(expression.callee.name)) {
-    throw new ExperimentParameterSourceError(`The active default export ${label} constructor could not be traced statically.`)
-  }
-  return expression
-}
-
 function activeExperimentSource(source: string) {
-  let ast
   try {
-    ast = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] })
+    const analysis = analyzeCadSourceV2(source, 'experiment')
+    if (analysis.options.properties.some((property) => property.type === 'SpreadElement' || property.computed)) {
+      throw new ExperimentParameterSourceError(
+        'The active experiment uses spread or computed options, so parameter editing is read-only.',
+      )
+    }
+    return analysis
   } catch (error) {
     throw new ExperimentParameterSourceError(
       error instanceof Error ? error.message : 'The Experiment source could not be parsed.',
     )
   }
-
-  const statements = ast.program.body
-  const setupNames = new Set(statements.flatMap((statement) => importedName(statement, 'Setup')))
-  const experimentNames = new Set(statements.flatMap((statement) => importedName(statement, 'Experiment')))
-  if (setupNames.size === 0 || experimentNames.size === 0) {
-    throw new ExperimentParameterSourceError('Setup and Experiment must be named imports from @caemble/core.')
-  }
-
-  const defaultExports = statements.filter((statement) => statement.type === 'ExportDefaultDeclaration')
-  if (defaultExports.length !== 1) {
-    throw new ExperimentParameterSourceError('Exactly one default export is required for parameter editing.')
-  }
-  const declaration = defaultExports[0].declaration
-  if (declaration.type === 'FunctionDeclaration' || declaration.type === 'ClassDeclaration' || declaration.type === 'TSDeclareFunction') {
-    throw new ExperimentParameterSourceError('The default export must resolve to a Setup expression.')
-  }
-
-  const bindings = collectBindings(statements)
-  const setup = requireConstructor(
-    resolveBinding(declaration, bindings).expression,
-    setupNames,
-    'Setup',
-  )
-  const experimentArgument = setup.arguments[0]
-  if (!experimentArgument) throw new ExperimentParameterSourceError('The active Setup does not have an Experiment argument.')
-  const experiment = requireConstructor(
-    resolveBinding(expressionArgument(experimentArgument, 'Setup Experiment'), bindings).expression,
-    experimentNames,
-    'Experiment',
-  )
-  const optionsArgument = experiment.arguments[0]
-  if (!optionsArgument) throw new ExperimentParameterSourceError('The active Experiment does not have an options object.')
-  const options = resolveBinding(expressionArgument(optionsArgument, 'Experiment options'), bindings).expression
-  if (options.type !== 'ObjectExpression') {
-    throw new ExperimentParameterSourceError(
-      'The active Experiment options must be an object literal or a top-level const object literal.',
-    )
-  }
-  return { ast, bindings, options }
 }
 
 function objectProperty(
@@ -312,9 +213,11 @@ export function updateExperimentTensorSource(
   const lineStart = source.lastIndexOf('\n', Math.max(0, resolved.start - 1)) + 1
   const continuationIndent = ' '.repeat(resolved.start - lineStart)
   const text = serialized.replace(/\n/g, `${newline}${continuationIndent}`)
+  const edits = [{ start: resolved.start, end: resolved.end, text }]
   return {
     bindingName: resolved.bindingName,
+    edits,
     shared: resolved.shared,
-    source: `${source.slice(0, resolved.start)}${text}${source.slice(resolved.end)}`,
+    source: `${source.slice(0, edits[0].start)}${edits[0].text}${source.slice(edits[0].end)}`,
   }
 }

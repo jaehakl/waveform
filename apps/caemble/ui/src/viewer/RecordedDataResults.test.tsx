@@ -111,7 +111,7 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('aria-label="Numeric profile result display unit"')
     expect(markup).toContain('aria-label="Numeric profile position axis display unit"')
     expect(markup).toContain('[0,500,1000]')
-    expect(markup).toContain('Loading line chart...')
+    expect(markup).toContain('aria-label="Recorded line chart"')
   })
 
   it('converts scalar display values while keeping unitless results and nonnumeric axes read-only', () => {
@@ -152,7 +152,7 @@ describe('RecordedDataResults', () => {
     expect(markup).not.toContain('>e</td>')
   })
 
-  it('lazy-loads Plotly for populated numeric line and heatmap plots', () => {
+  it('renders CSP-safe native SVG line and heatmap plots', () => {
     const markup = renderToStaticMarkup(
       <RecordedDataResults
         rules={rules.slice(1)}
@@ -163,8 +163,9 @@ describe('RecordedDataResults', () => {
       />,
     )
 
-    expect(markup).toContain('Loading line chart...')
-    expect(markup).toContain('Loading heatmap...')
+    expect(markup).toContain('aria-label="Recorded line chart"')
+    expect(markup).toContain('aria-label="Recorded heatmap"')
+    expect(markup).toContain('<polyline')
   })
 
   it('defaults vector results to norm and exposes identity-basis components', () => {
@@ -182,7 +183,7 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('x [0]')
     expect(markup).toContain('y [1]')
     expect(markup).toContain('z [2]')
-    expect(markup).toContain('Loading line chart...')
+    expect(markup).toContain('aria-label="Recorded line chart"')
   })
 
   it('projects vector and general tensor components after recursive unit conversion', () => {

@@ -1,13 +1,12 @@
 export const shellCutawaysCode = `import {
   Material,
-  Sample,
-  Structure,
+  structure,
   type BoxAttributes,
   type CurvedEdgeCylinderAttributes,
   type CurvedSurfaceSphereAttributes,
   type FiberAttributes,
   type Geometry,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 const curvedCylinderAttributes = {
   height: 16,
@@ -111,7 +110,7 @@ const layer1Material = new Material('Layer 1', { color: '#0ea5e9' })
 const layer2Material = new Material('Layer 2', { color: '#f59e0b' })
 const layer3Material = new Material('Layer 3', { color: '#d946ef' })
 
-const structure = new Structure({
+export default structure({
   lengthUnit: 'mm',
   geometry: () => (
     <>
@@ -139,6 +138,4 @@ const structure = new Structure({
   ),
   varsSchema: {},
 })
-
-export default new Sample(structure)
 `

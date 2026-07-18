@@ -1,9 +1,8 @@
 export const curvedEdgeCylinderArrayCode = `import {
   Material,
-  Sample,
-  Structure,
+  structure,
   type Geometry,
-} from '@caemble/core'
+} from '@caemble/core/v2'
 
 const tau = Math.PI * 2
 const arrayShape = [4, 4, 1] as const
@@ -51,9 +50,9 @@ const CurvedCell: Geometry<{
   />
 )
 
-const structure = new Structure({
+export default structure({
   lengthUnit: 'mm',
-  geometry: () => (
+  geometry: ({ vars }) => (
     <array
       shape={arrayShape}
       period={[14, 14, 0]}
@@ -128,6 +127,4 @@ const structure = new Structure({
     },
   },
 })
-
-export default new Sample(structure)
 `

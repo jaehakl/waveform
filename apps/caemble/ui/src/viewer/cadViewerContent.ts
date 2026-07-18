@@ -3,6 +3,7 @@ import type { JscadViewerLayer } from './sourceLayers'
 
 export type CadViewerDocument = Readonly<{
   scene: CadScene | null
+  sceneHash?: string | null
   variables: Readonly<Vars> | null
   experimentRules?: EvaluatedExperimentRules | null
 }>
@@ -27,11 +28,13 @@ export function resolveCadViewerContent(
       documentType: 'experiment' as const,
       lengthUnit: experiment.scene?.lengthUnit ?? lengthUnit,
       parts: experiment.scene?.parts ?? [],
+      sceneHash: experiment.sceneHash ?? null,
     }] : []),
     ...(structure && structureVisible ? [{
       documentType: 'structure' as const,
       lengthUnit: structure.scene?.lengthUnit ?? lengthUnit,
       parts: structure.scene?.parts ?? [],
+      sceneHash: structure.sceneHash ?? null,
     }] : []),
   ] satisfies JscadViewerLayer[]
 

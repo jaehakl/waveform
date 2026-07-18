@@ -1,6 +1,7 @@
 import type { ResolvedExperimentSolver } from '../cad'
 import { QuantityKind } from '../quantitykind'
 import type {
+  SolverCompatibility,
   SolverMethodSpec,
   SolverParameterSpec,
   SolverResultValueSpec,
@@ -10,6 +11,7 @@ import type {
 } from '../solver'
 
 type SolverSpecSheetProps = Readonly<{
+  compatibility: SolverCompatibility
   solver: ResolvedExperimentSolver | null
   spec: SolverSpec | null
 }>
@@ -126,62 +128,120 @@ function MethodCard({ category, method }: { category: SolverRuleCategory; method
   )
 }
 
-export default function SolverSpecSheet({ solver, spec }: SolverSpecSheetProps) {
-  if (!solver) {
-    return <div className="grid h-full place-items-center bg-slate-50 text-sm text-slate-500">Waiting for Solver metadata.</div>
-  }
-  if (!spec) {
-    return (
-      <div className="grid h-full place-items-center bg-slate-50 px-6 text-center">
-        <div>
-          <h3 className="text-sm font-semibold text-rose-700">Solver spec unavailable</h3>
-          <p className="mt-2 text-xs text-slate-600">No registered spec matches {solver.name}@{solver.version}.</p>
+export default function SolverSpecSheet({ compatibility, solver, spec }: SolverSpecSheetProps) {
+  const issueGroups = ([
+    { documentType: 'structure', label: 'Structure' },
+    { documentType: 'experiment', label: 'Experiment' },
+  ] as const).map((group) => ({
+    ...group,
+    issues: compatibility.issues.filter((issue) => issue.documentType === group.documentType),
+  }))
+  const compatibilityPanel = (
+    <section
+      aria-label="Solver compatibility details"
+      className={`rounded-lg border p-4 ${
+        compatibility.status === 'compatible'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+          : compatibility.status === 'incompatible'
+            ? 'border-amber-300 bg-amber-50 text-amber-950'
+            : 'border-slate-200 bg-white text-slate-700'
+      }`}
+      role="status"
+    >
+      <h3 className="text-sm font-semibold">
+        {compatibility.status === 'compatible'
+          ? 'Simulation compatible'
+          : compatibility.status === 'incompatible'
+            ? `Simulation incompatible · ${compatibility.issues.length} issue${compatibility.issues.length === 1 ? '' : 's'}`
+            : compatibility.status === 'checking'
+              ? 'Checking simulation compatibility'
+              : 'Simulation unavailable'}
+      </h3>
+      {compatibility.status === 'incompatible' ? (
+        <div className="mt-3 space-y-3">
+          {issueGroups.map((group) => group.issues.length === 0 ? null : (
+            <div key={group.documentType}>
+              <h4 className="text-xs font-semibold uppercase tracking-wide">{group.label}</h4>
+              <ul className="mt-1 space-y-1 text-xs leading-5">
+                {group.issues.map((issue, index) => (
+                  <li key={`${issue.path}-${index}`}>
+                    <code className="rounded bg-white/70 px-1 py-0.5">{issue.path}</code>: {issue.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
-      </div>
-    )
-  }
+      ) : (
+        <p className="mt-1 text-xs leading-5">
+          {compatibility.status === 'compatible'
+            ? 'The latest Structure and Experiment snapshots satisfy the registered Solver specification.'
+            : compatibility.status === 'checking'
+              ? 'Waiting for the latest snapshots and Solver preflight result.'
+              : 'Evaluate an Experiment with Solver metadata to check compatibility.'}
+        </p>
+      )}
+    </section>
+  )
 
   return (
     <div className="h-full overflow-auto bg-slate-50 px-4 py-4">
-      <header className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-900">{spec.name}@{spec.version}</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{spec.description}</p>
-        <p className="mt-2 text-xs text-slate-500">Undeclared parameter keys are accepted and preserved.</p>
-      </header>
+      {compatibilityPanel}
 
-      <section className="mt-5">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Solver Parameters</h4>
-        <ParameterList parameters={spec.parameters} />
-      </section>
-
-      <section className="mt-5">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Material Roles</h4>
-        <div className="mt-2 space-y-3">
-          {spec.materials.map((material) => (
-            <article className="rounded border border-slate-200 bg-white p-3" key={material.role}>
-              <h5 className="text-sm font-semibold text-slate-900">{material.role}</h5>
-              <p className="mt-1 text-xs leading-5 text-slate-600">{material.description}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                From {material.target.category}.{material.target.methodId} targets
-              </p>
-              <ParameterList parameters={material.parameters} />
-            </article>
-          ))}
-          {spec.materials.length === 0 ? <p className="text-xs text-slate-500">No Material roles.</p> : null}
+      {!solver ? (
+        <div className="grid min-h-48 place-items-center px-6 text-center text-sm text-slate-500">
+          Waiting for Solver metadata.
         </div>
-      </section>
-
-      {categories.map((category) => (
-        <section className="mt-5" key={category.id}>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{category.label}</h4>
-          <div className="mt-2 space-y-3">
-            {spec.methods[category.id].map((method) => (
-              <MethodCard category={category.id} key={method.methodId} method={method} />
-            ))}
-            {spec.methods[category.id].length === 0 ? <p className="text-xs text-slate-500">No methods.</p> : null}
+      ) : !spec ? (
+        <div className="grid min-h-48 place-items-center px-6 text-center">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">Solver specification unavailable</h3>
+            <p className="mt-2 text-xs text-slate-600">No registered spec matches {solver.name}@{solver.version}.</p>
           </div>
-        </section>
-      ))}
+        </div>
+      ) : (
+        <>
+          <header className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-base font-semibold text-slate-900">{spec.name}@{spec.version}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{spec.description}</p>
+            <p className="mt-2 text-xs text-slate-500">Undeclared parameter keys are accepted and preserved.</p>
+          </header>
+
+          <section className="mt-5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Solver Parameters</h4>
+            <ParameterList parameters={spec.parameters} />
+          </section>
+
+          <section className="mt-5">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">Material Roles</h4>
+            <div className="mt-2 space-y-3">
+              {spec.materials.map((material) => (
+                <article className="rounded border border-slate-200 bg-white p-3" key={material.role}>
+                  <h5 className="text-sm font-semibold text-slate-900">{material.role}</h5>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">{material.description}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    From {material.target.category}.{material.target.methodId} targets
+                  </p>
+                  <ParameterList parameters={material.parameters} />
+                </article>
+              ))}
+              {spec.materials.length === 0 ? <p className="text-xs text-slate-500">No Material roles.</p> : null}
+            </div>
+          </section>
+
+          {categories.map((category) => (
+            <section className="mt-5" key={category.id}>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600">{category.label}</h4>
+              <div className="mt-2 space-y-3">
+                {spec.methods[category.id].map((method) => (
+                  <MethodCard category={category.id} key={method.methodId} method={method} />
+                ))}
+                {spec.methods[category.id].length === 0 ? <p className="text-xs text-slate-500">No methods.</p> : null}
+              </div>
+            </section>
+          ))}
+        </>
+      )}
     </div>
   )
 }

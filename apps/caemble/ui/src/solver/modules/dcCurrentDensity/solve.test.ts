@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { Fragment, h } from '../../../cad/evaluation/jsx'
 import {
-  Experiment,
   Material,
-  Sample,
-  Setup,
-  Structure,
 } from '../../../cad/model/core'
+import { experiment, structure } from '../../../cad/model/v2'
+import { evaluateDocumentEntry } from '../../../cad/execution/userModule'
+import { serializeEvaluatedDocumentSnapshotV2 } from '../../../cad/execution/snapshot'
 import type { Rotation, Vec3 } from '../../../cad/model/types'
 import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 import { SolverController } from '../../controller'
@@ -88,7 +87,7 @@ function createDcPair(options: {
   function Probe() {
     return h('box', { size: [1, 1, 1] })
   }
-  const structure = new Structure({
+  const structureDefinition = structure({
     lengthUnit: structureLengthUnit,
     geometry: () => h(Conductor, {
       id: 'conductor',
@@ -118,7 +117,7 @@ function createDcPair(options: {
       referenceTerminal: [referenceSurfaceId],
     },
   })
-  const experiment = new Experiment({
+  const experimentDefinition = experiment({
     lengthUnit: structureLengthUnit,
     solver: {
       name: 'dc-current-density',
@@ -235,11 +234,32 @@ function createDcPair(options: {
       },
     ] as never,
   })
-  return { sample: new Sample(structure), setup: new Setup(experiment) }
+  return { experimentDefinition, structureDefinition }
+}
+
+function evaluatePair(pair: ReturnType<typeof createDcPair>) {
+  return {
+    structureSnapshot: serializeEvaluatedDocumentSnapshotV2(evaluateDocumentEntry(
+      pair.structureDefinition,
+      'structure',
+      '4'.repeat(64),
+      101,
+    )),
+    experimentSnapshot: serializeEvaluatedDocumentSnapshotV2(evaluateDocumentEntry(
+      pair.experimentDefinition,
+      'experiment',
+      '5'.repeat(64),
+      103,
+    )),
+  }
 }
 
 async function runPair(pair: ReturnType<typeof createDcPair>) {
-  return new SolverController([dcCurrentDensitySolver]).run(pair.sample, pair.setup)
+  const snapshots = evaluatePair(pair)
+  return new SolverController([dcCurrentDensitySolver]).run(
+    snapshots.structureSnapshot,
+    snapshots.experimentSnapshot,
+  )
 }
 
 describe('dc-current-density@2.0.0', () => {
@@ -521,14 +541,14 @@ describe('dc-current-density@2.0.0', () => {
   })
 
   it('rejects multiple parts, invalid terminals, and disconnected voxel domains', async () => {
-    const valid = createDcPair()
+    const valid = evaluatePair(createDcPair())
     function Conductor() {
       return h('box', { size: [100, 5, 5] })
     }
     function Extra() {
       return h('box', { size: [2, 2, 2] })
     }
-    const multipleParts = new Structure({
+    const multipleParts = structure({
       lengthUnit: 'mm',
       geometry: () => h(Fragment, {},
         h(Conductor, {
@@ -551,8 +571,10 @@ describe('dc-current-density@2.0.0', () => {
       },
     })
     await expect(new SolverController([dcCurrentDensitySolver]).run(
-      new Sample(multipleParts),
-      valid.setup,
+      serializeEvaluatedDocumentSnapshotV2(
+        evaluateDocumentEntry(multipleParts, 'structure', '6'.repeat(64), 107),
+      ),
+      valid.experimentSnapshot,
     )).rejects.toThrow('supports exactly one Structure Geometry part')
 
     await expect(runPair(createDcPair({
@@ -586,10 +608,10 @@ describe('dc-current-density@2.0.0', () => {
 
   it('yields during occupancy generation so AbortSignal cancellation is effective', async () => {
     const controller = new SolverController([dcCurrentDensitySolver])
-    const pair = createDcPair({ gridShape: [80, 41, 41] })
+    const pair = evaluatePair(createDcPair({ gridShape: [80, 41, 41] }))
     setTimeout(() => controller.cancel(), 0)
 
-    await expect(controller.run(pair.sample, pair.setup)).rejects.toMatchObject({ name: 'AbortError' })
+    await expect(controller.run(pair.structureSnapshot, pair.experimentSnapshot)).rejects.toMatchObject({ name: 'AbortError' })
     expect(controller.getProcess().status).toBe('cancelled')
   })
 })

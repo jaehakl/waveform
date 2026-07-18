@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { CadDocumentType } from '../cad'
+import { cadEntrySource, type CadDocumentType, type CadSourceDocumentV2 } from '../cad'
 import CadEditor from '../editor/CadEditor'
 import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
 import SolverSpecSheet from './SolverSpecSheet'
+import type { SolverCompatibility } from '../solver'
 import type { CadDocumentController } from './useCadWorkspace'
 
 export type StructureExperimentViewerProps = {
   activeDocumentType: CadDocumentType | null
-  structure?: string | null
-  experiment?: string | null
+  structure?: CadSourceDocumentV2 | null
+  experiment?: CadSourceDocumentV2 | null
   structureDocument: CadDocumentController
   experimentDocument: CadDocumentController
+  solverCompatibility: SolverCompatibility
   onActiveDocumentTypeChange: (documentType: CadDocumentType) => void
 }
 
@@ -53,6 +55,7 @@ export function StructureExperimentViewer({
   experiment,
   experimentDocument,
   onActiveDocumentTypeChange,
+  solverCompatibility,
   structure,
   structureDocument,
 }: StructureExperimentViewerProps) {
@@ -141,6 +144,22 @@ export function StructureExperimentViewer({
         </div>
 
         <div className="flex shrink-0 items-center gap-3 pb-1 text-sm sm:pb-0">
+          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+            <span>Limit</span>
+            <select
+              aria-label="Model evaluation timeout"
+              className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 disabled:opacity-50"
+              disabled={activeDocument.runIsBusy}
+              value={activeDocument.evaluationTimeoutMs}
+              onChange={(event) => activeDocument.setEvaluationTimeoutMs(
+                Number(event.target.value) as 3000 | 10000 | 30000,
+              )}
+            >
+              <option value={3000}>3 s</option>
+              <option value={10000}>10 s</option>
+              <option value={30000}>30 s</option>
+            </select>
+          </label>
           <button
             aria-label={`Reroll ${activeDocument.documentType}`}
             className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
@@ -158,7 +177,8 @@ export function StructureExperimentViewer({
       <div className="min-h-0 flex-1">
         {availableTabs.map((tab) => {
           const document = tab.documentType === 'structure' ? structureDocument : experimentDocument
-          const source = tab.documentType === 'structure' ? structure : experiment
+          const sourceDocument = tab.documentType === 'structure' ? structure : experiment
+          const source = sourceDocument ? cadEntrySource(sourceDocument) : ''
 
           return (
             <div
@@ -169,17 +189,18 @@ export function StructureExperimentViewer({
               key={tab.id}
               role="tabpanel"
             >
-              {tab.panel === 'source' ? (
+              {selectedTab !== tab.id ? null : tab.panel === 'source' ? (
                 <CadEditor
+                  diagnostics={document.diagnostics.filter((diagnostic) => diagnostic.file === sourceDocument?.entryFile)}
                   modelPath={`file:///${tab.documentType}.tsx`}
-                  readOnly={document.readOnly}
-                  value={source ?? ''}
+                  readOnly={document.sourceReadOnly}
+                  value={source}
                   onChange={document.handleSourceChange}
                 />
               ) : tab.panel === 'tree' ? (
                 <GeometryTree
                   draftSelection={document.draftSelection}
-                  readOnly={document.readOnly}
+                  readOnly={document.structuredReadOnly}
                   scene={document.scene}
                   selectedId={document.selectedId}
                   onDraftSelectionChange={document.setDraftSelection}
@@ -188,13 +209,14 @@ export function StructureExperimentViewer({
                 />
               ) : tab.panel === 'parameters' ? (
                 <ExperimentalParameters
-                  onSourceChange={experimentDocument.handleSourceChange}
-                  readOnly={experimentDocument.readOnly}
+                  onSourceChange={experimentDocument.handleSourcePatch}
+                  readOnly={experimentDocument.structuredReadOnly}
                   rules={experimentDocument.experimentRules}
-                  source={experiment ?? ''}
+                  source={experiment ? cadEntrySource(experiment) : ''}
                 />
               ) : (
                 <SolverSpecSheet
+                  compatibility={solverCompatibility}
                   solver={experimentDocument.solver}
                   spec={experimentDocument.solverSpec}
                 />
@@ -213,11 +235,21 @@ export function StructureExperimentViewer({
               {activeDocument.error.stack ? `\n\n${activeDocument.error.stack}` : ''}
             </pre>
           </div>
+        ) : solverCompatibility.status === 'incompatible' ? (
+          <div className="max-h-36 overflow-auto text-amber-900" role="status">
+            <div className="text-sm font-semibold">Preview ready · Simulation incompatible</div>
+            <p className="mt-1 text-xs leading-5">
+              {solverCompatibility.issues.length} compatibility issue{solverCompatibility.issues.length === 1 ? '' : 's'} ·{' '}
+              {(activeDocument.preflightIssues[0] ?? solverCompatibility.issues[0])?.path}:{' '}
+              {(activeDocument.preflightIssues[0] ?? solverCompatibility.issues[0])?.message}
+              {' '}See Solver Spec for all compatibility issues.
+            </p>
+          </div>
         ) : (
           <div className="text-sm text-slate-600">
             {activeDocument.documentType === 'structure'
-              ? 'Edit the Structure and Sample. Successful geometry remains visible while new errors are shown here.'
-              : 'Edit the Experiment and Setup. Structure targets remain name-based until simulation time.'}
+              ? 'Edit the Structure definition. Successful geometry remains visible while new errors are shown here.'
+              : 'Edit the Experiment definition. Structure targets remain name-based until simulation time.'}
           </div>
         )}
       </footer>

@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest'
 import JscadViewer, { ViewerToolbar } from './JscadViewer'
 import { createLayerRenderParts, materialGridPartsFromLayers, scaleViewerLayers } from './sourceLayers'
 
+const idleSolverProcess = {
+  runId: null,
+  status: 'idle',
+  solver: null,
+  error: null,
+  startedAt: null,
+  finishedAt: null,
+} as const
+
 describe('JscadViewer modes', () => {
   it('defaults to the Geometry tab and exposes the shared render panel', () => {
     const markup = renderToStaticMarkup(
@@ -131,14 +140,8 @@ describe('JscadViewer modes', () => {
         simulation={{
           canRun: true,
           cancel: () => undefined,
-          process: {
-            runId: null,
-            status: 'idle',
-            solver: null,
-            error: null,
-            startedAt: null,
-            finishedAt: null,
-          },
+          compatibility: { status: 'compatible', issues: [] },
+          process: idleSolverProcess,
           run: () => undefined,
           solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: false,
@@ -150,10 +153,87 @@ describe('JscadViewer modes', () => {
     )
 
     expect(markup).toContain('dc-current-density@1.0.0')
+    expect(markup).toContain('aria-label="Solver compatibility: compatible"')
+    expect(markup).toContain('>Compatible</span>')
     expect(markup).toContain('aria-label="Simulation status: idle"')
     const runButton = markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]
     expect(runButton).toBeDefined()
     expect(runButton).not.toMatch(/\sdisabled(?:=|>)/)
+  })
+
+  it('shows Checking and Unavailable compatibility independently of process status', () => {
+    for (const status of ['checking', 'unavailable'] as const) {
+      const markup = renderToStaticMarkup(
+        <ViewerToolbar
+          gridError={null}
+          gridResult={null}
+          gridStatus="idle"
+          mode="geometry"
+          spacingDraft="1"
+          spacingError={null}
+          simulation={{
+            canRun: false,
+            cancel: () => undefined,
+            compatibility: { status, issues: [] },
+            process: idleSolverProcess,
+            run: () => undefined,
+            solver: status === 'checking'
+              ? { name: 'dc-current-density', version: '2.0.0' }
+              : null,
+            stale: false,
+          }}
+          onApplySpacing={() => undefined}
+          onChangeSpacing={() => undefined}
+          onSelectMode={() => undefined}
+        />,
+      )
+
+      expect(markup).toContain(`aria-label="Solver compatibility: ${status}"`)
+      expect(markup).toContain(`>${status === 'checking' ? 'Checking' : 'Unavailable'}</span>`)
+      expect(markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]).toContain('disabled')
+    }
+  })
+
+  it('shows incompatibility count and first issue, links Run guidance to Solver Spec, and keeps it non-alerting', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerToolbar
+        gridError={null}
+        gridResult={null}
+        gridStatus="idle"
+        mode="geometry"
+        spacingDraft="1"
+        spacingError={null}
+        simulation={{
+          canRun: false,
+          cancel: () => undefined,
+          compatibility: {
+            status: 'incompatible',
+            issues: [{
+              documentType: 'structure',
+              path: 'rules.initializations[0].target[0]',
+              message: 'references missing structure.geometry.conductor.',
+            }],
+          },
+          process: idleSolverProcess,
+          run: () => undefined,
+          solver: { name: 'dc-current-density', version: '2.0.0' },
+          stale: false,
+        }}
+        onApplySpacing={() => undefined}
+        onChangeSpacing={() => undefined}
+        onSelectMode={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('aria-label="Solver compatibility: incompatible"')
+    expect(markup).toContain('>Incompatible · 1</span>')
+    expect(markup).toContain('id="simulation-compatibility-message" role="status"')
+    expect(markup).toContain('references missing structure.geometry.conductor.')
+    expect(markup).toContain('See Solver Spec.')
+    expect(markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]).toMatch(
+      /aria-describedby="simulation-compatibility-message".*disabled/,
+    )
+    expect(markup).not.toContain('role="alert"')
   })
 
   it('replaces Run with Cancel while active and exposes failed stale state without discarding the toolbar', () => {
@@ -168,6 +248,7 @@ describe('JscadViewer modes', () => {
         simulation={{
           canRun: false,
           cancel: () => undefined,
+          compatibility: { status: 'compatible', issues: [] },
           process: {
             runId: 'solver-1',
             status: 'running',
@@ -200,6 +281,7 @@ describe('JscadViewer modes', () => {
         simulation={{
           canRun: true,
           cancel: () => undefined,
+          compatibility: { status: 'compatible', issues: [] },
           process: {
             runId: 'solver-1',
             status: 'failed',

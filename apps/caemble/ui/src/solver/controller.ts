@@ -1,13 +1,6 @@
-import { evaluateCadScene } from '../cad/evaluation/evaluator'
-import {
-  CadModelError,
-  evaluateExperimentRules,
-  evaluateExperimentSolver,
-  evaluateWithVars,
-  Sample,
-  Setup,
-  type RecordedData,
-} from '../cad/model/core'
+import { assertEvaluatedDocumentSnapshotV2, type EvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
+import { deserializeCadScene } from '../cad/execution/mesh'
+import { CadModelError, type RecordedData } from '../cad/model/core'
 import { normalizeRecordedData } from '../cad/model/recordedData'
 import { SolverRegistry } from './registry'
 import type {
@@ -62,37 +55,42 @@ function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
-function prepareSolverInput(sample: Sample, setup: Setup): SolverModuleInput {
-  if (!(sample instanceof Sample)) throw new CadModelError('SolverController requires a Sample instance.')
-  if (!(setup instanceof Setup)) throw new CadModelError('SolverController requires a Setup instance.')
-
-  const structureScene = evaluateWithVars(sample.vars, () => evaluateCadScene(sample.structure.geometry(), {
-    geometryGroup: sample.structure.geometryGroup,
-    surfaceGroup: sample.structure.surfaceGroup,
-  }, 'Structure', sample.structure.lengthUnit))
-  const experimentEvaluation = evaluateWithVars(setup.vars, () => {
-    const experiment = setup.experiment
-    const solver = evaluateExperimentSolver(experiment)
-    const scene = evaluateCadScene(experiment.geometry(), {
-      geometryGroup: experiment.geometryGroup,
-      surfaceGroup: experiment.surfaceGroup,
-    }, 'Experiment', experiment.lengthUnit)
-    const rules = evaluateExperimentRules(experiment)
-    return Object.freeze({ rules, scene, solver })
-  })
-
+function prepareSolverInput(
+  structureSnapshot: EvaluatedDocumentSnapshotV2,
+  experimentSnapshot: EvaluatedDocumentSnapshotV2,
+): SolverModuleInput {
+  assertEvaluatedDocumentSnapshotV2(structureSnapshot)
+  assertEvaluatedDocumentSnapshotV2(experimentSnapshot)
+  if (structureSnapshot.kind !== 'structure') {
+    throw new CadModelError('SolverController requires a Structure snapshot.')
+  }
+  if (
+    experimentSnapshot.kind !== 'experiment'
+    || !experimentSnapshot.experimentRules
+    || !experimentSnapshot.solver
+  ) {
+    throw new CadModelError('SolverController requires a complete Experiment snapshot.')
+  }
   return Object.freeze({
     structure: Object.freeze({
-      model: sample.structure,
-      vars: sample.vars,
-      scene: structureScene,
+      vars: structureSnapshot.variables,
+      scene: deserializeCadScene(structureSnapshot.scene),
+      provenance: Object.freeze({
+        apiVersion: structureSnapshot.apiVersion,
+        seed: structureSnapshot.seed,
+        sourceHash: structureSnapshot.sourceHash,
+      }),
     }),
     experiment: Object.freeze({
-      model: setup.experiment,
-      vars: setup.vars,
-      scene: experimentEvaluation.scene,
-      rules: experimentEvaluation.rules,
-      solver: experimentEvaluation.solver,
+      vars: experimentSnapshot.variables,
+      scene: deserializeCadScene(experimentSnapshot.scene),
+      rules: experimentSnapshot.experimentRules,
+      solver: experimentSnapshot.solver,
+      provenance: Object.freeze({
+        apiVersion: experimentSnapshot.apiVersion,
+        seed: experimentSnapshot.seed,
+        sourceHash: experimentSnapshot.sourceHash,
+      }),
     }),
   })
 }
@@ -126,21 +124,24 @@ export class SolverController {
     this.active?.abortController.abort()
   }
 
-  async run(sample: Sample, setup: Setup): Promise<RecordedData> {
+  async run(
+    structureSnapshot: EvaluatedDocumentSnapshotV2,
+    experimentSnapshot: EvaluatedDocumentSnapshotV2,
+  ): Promise<RecordedData> {
     if (this.active) throw new CadModelError('A solver run is already active.')
 
     const runId = `solver-${Date.now()}-${this.sequence + 1}`
     this.sequence += 1
     const abortController = new AbortController()
-    const solver = setup instanceof Setup
-      ? Object.freeze({ name: setup.experiment.solver.name, version: setup.experiment.solver.version })
+    const solver = experimentSnapshot.kind === 'experiment' && experimentSnapshot.solver
+      ? Object.freeze({ name: experimentSnapshot.solver.name, version: experimentSnapshot.solver.version })
       : null
     const startedAt = Date.now()
     this.active = Object.freeze({ runId, abortController })
     this.updateProcess('preparing', { runId, solver, startedAt })
 
     try {
-      const input = prepareSolverInput(sample, setup)
+      const input = prepareSolverInput(structureSnapshot, experimentSnapshot)
       throwIfAborted(abortController.signal)
       const module = this.registry.get(input.experiment.solver.name, input.experiment.solver.version)
       if (!module) {

@@ -1,7 +1,7 @@
 import { CadModelError } from '../cad/model/errors'
 import type { Vec3 } from '../cad/model/types'
 import { convertUcumValue, normalizeUcumUnit, type UcumUnit } from '../cad/model/units'
-import { quantityKindData } from './data'
+import { quantityKindData } from './runtimeData'
 import { identityCartesianBasis } from './identityBasis'
 
 type QuantityKindData = typeof quantityKindData
