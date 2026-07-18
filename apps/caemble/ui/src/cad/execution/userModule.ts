@@ -4,6 +4,7 @@ import {
   evaluateExperimentSolver,
   evaluateWithVars,
   Experiment,
+  Mat,
   Material,
   Sample,
   Setup,
@@ -17,11 +18,10 @@ import type { CadScene } from '../evaluation/types'
 import type { EvaluatedExperimentRules, ResolvedExperimentSolver } from '../model/core'
 import type { Vars } from '../model/types'
 import type { CadDocumentType } from '../worker/protocol'
-import { IDENTITY_CARTESIAN_BASIS } from '../../quantitykind'
 
 const coreModule = Object.freeze({
   Experiment,
-  IDENTITY_CARTESIAN_BASIS,
+  Mat,
   Material,
   Sample,
   Setup,

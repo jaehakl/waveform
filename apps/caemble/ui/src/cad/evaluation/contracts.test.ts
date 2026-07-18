@@ -5,6 +5,7 @@ import monacoSetupSource from '../../editor/monacoSetup.ts?raw'
 import { cadElementCatalog } from '../catalog'
 import * as cadFacade from '../index'
 import { QuantityKind } from '../../quantitykind'
+import * as quantityKindFacade from '../../quantitykind'
 import { cadElementDefinitions, createCadElementRegistry } from './registry'
 import type { CadElementDefinition } from './types'
 
@@ -56,6 +57,7 @@ describe('CAD registry contracts', () => {
     expect(monacoSetupSource).toContain("import jsxTypes from '../cad/api/cad-jsx.d.ts?raw'")
     expect(monacoSetupSource).toContain("'file:///node_modules/@caemble/core/index.d.ts'")
     expect(monacoSetupSource).not.toContain('const cadTypes')
+    expect(coreDeclarations).not.toContain('IDENTITY_CARTESIAN_BASIS')
 
     const cylinderDeclaration = coreDeclarations.match(/export type CylinderAttributes = Readonly<\{[\s\S]*?\n\}>/)?.[0]
     expect(cylinderDeclaration).toContain('radius_2?: number')
@@ -96,8 +98,11 @@ describe('CAD registry contracts', () => {
   })
 
   it('exposes model and evaluation APIs through the CAD facade', () => {
+    expect(cadFacade).not.toHaveProperty('IDENTITY_CARTESIAN_BASIS')
+    expect(quantityKindFacade).not.toHaveProperty('IDENTITY_CARTESIAN_BASIS')
     expect(cadFacade).toMatchObject({
       CadModelError: expect.any(Function),
+      Mat: expect.any(Function),
       Material: expect.any(Function),
       Sample: expect.any(Function),
       Structure: expect.any(Function),

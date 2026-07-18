@@ -74,7 +74,7 @@ A Structure file default-exports a `Sample`; an Experiment file default-exports 
 
 ```tsx
 import {
-  IDENTITY_CARTESIAN_BASIS,
+  Mat,
   Material,
   Sample,
   Structure,
@@ -104,15 +104,10 @@ const structure = new Structure({
       materials={[new Material('Copper', 'reference', {
         electricalConductivity: {
           dtype: 'float64',
-          value: [
-            [vars.electricalConductivity as number, 0, 0],
-            [0, vars.electricalConductivity as number, 0],
-            [0, 0, vars.electricalConductivity as number],
-          ],
+          value: Mat(vars.electricalConductivity as number),
           errorRate: 0.001,
           unit: 'S.m-1',
           quantityKind: 'ElectricConductivity',
-          basis: IDENTITY_CARTESIAN_BASIS,
         },
         color: '#d97706',
       })]}
@@ -158,7 +153,6 @@ Every rule contains targets, an Experiment label, a simulation-engine method ID,
 ```tsx
 import {
   Experiment,
-  IDENTITY_CARTESIAN_BASIS,
   Material,
   Setup,
   type Geometry,
@@ -253,7 +247,6 @@ const experiment = new Experiment({
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
-        basis: IDENTITY_CARTESIAN_BASIS,
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -289,11 +282,13 @@ An explicit physical value uses `{ dtype: 'float16' | 'float32' | 'float64', val
 
 A Material float descriptor additionally requires `errorRate`, while retaining required `unit` and `quantityKind`. `errorRate` is a unitless ratio in `[0, 1)`, so `0.001` means `0.1%`; even a deterministic value must state `errorRate: 0`. Each Sample and Setup applies one uniform multiplier to the descriptor's complete value, preserving exact zeros, isotropy, and component ratios. The Material retains its nominal descriptor, while evaluated scene and solver variables contain the realized value without `errorRate`.
 
-`varsSchema` and its resolved `vars` payload deliberately remain unitless intermediate data. All 1,219 QUDT 3.4 Quantity Kinds have an explicit Caemble tensor-order contract: order 0 has component shape `[]`, order 1 `[3]`, order 2 `[3,3]`, and order n `[3]^n`. Runtime inference and scalar fallback are absent. Every float descriptor declares `unit` and `quantityKind`; order-1 and higher quantities additionally require a finite, orthonormal, right-handed `CartesianBasis`, while scalar quantities forbid `basis`. Non-float descriptors reject all quantity metadata. Unit conversion recurses over every component, and tensor quantities accept only zero-preserving linear conversions.
+`varsSchema` and its resolved `vars` payload deliberately remain unitless intermediate data. All 1,219 QUDT 3.4 Quantity Kinds have an explicit Caemble tensor-order contract: order 0 has component shape `[]`, order 1 `[3]`, order 2 `[3,3]`, and order n `[3]^n`. Runtime inference and bare-scalar fallback are absent. Every float descriptor declares `unit` and `quantityKind`; order-1 and higher quantities accept an optional finite, orthonormal, right-handed `CartesianBasis` and default an omitted basis to the identity Cartesian basis, while scalar quantities forbid `basis`. Non-float descriptors reject all quantity metadata. Unit conversion recurses over every component, and tensor quantities accept only zero-preserving linear conversions.
+
+`Mat(diagonal, offDiagonal = 0, size = 3)` creates a deeply frozen square matrix. For example, `Mat(a)` returns `[[a,0,0],[0,a,0],[0,0,a]]`, `Mat(a, b)` fills every off-diagonal component with `b`, and `Mat(a, b, 2)` returns `[[a,b],[b,a]]`. TypeScript has positional rather than named arguments, so a 2×2 diagonal matrix is written as `Mat(a, 0, 2)`. `Mat` does not bypass Quantity Kind shape validation: an order-2 Quantity still requires its `[3,3]` component shape, while a bare scalar remains invalid.
 
 Each rule has a non-empty `target` array, so one method and parameter dictionary may apply to several groups. Every target uses `source.kind.group`. The source is `experiment` or `structure`, the kind is `geometry` or `surface`, and everything after the second dot is the case-sensitive group name. Therefore group names may themselves contain dots. Experiment-local contracts are checked as soon as that document evaluates; when the paired Structure is ready, common solver-spec preflight resolves Structure targets and Material roles before Run. Labels are case-sensitive and unique within each of the three rule lists.
 
-Raw scalar parameters may be booleans, strings, or safe integers. Every explicit value uses `{ dtype, value, axes?, unit?, quantityKind?, basis? }`. Supported dtypes are `bool`, `string`, signed/unsigned 8/16/32/64-bit integers, and float16/32/64. Omitting `axes` means one Quantity value. Providing a non-empty `axes` array means Quantity values are arranged along those axes; each fixed axis requires a positive safe-integer `length`. The recursive value shape is exactly the axis lengths followed by `componentShape(quantityKind)`. Thus a single vector has no `axes` and stores `[x,y,z]`, while three scalar integers use `axes: [{ length: 3 }]` and store `[a,b,c]`. `axes: []` is rejected.
+Raw scalar parameters may be booleans, strings, or safe integers. Every explicit value uses `{ dtype, value, axes?, unit?, quantityKind?, basis? }`. Supported dtypes are `bool`, `string`, signed/unsigned 8/16/32/64-bit integers, and float16/32/64. Omitting `axes` means one Quantity value. Providing a non-empty `axes` array means Quantity values are arranged along those axes; each fixed axis requires a positive safe-integer `length`. The recursive value shape is exactly the axis lengths followed by `componentShape(quantityKind)`. Thus a single vector has no `axes` and stores `[x,y,z]`, while three scalar integers use `axes: [{ length: 3 }]` and store `[a,b,c]`. Multiple order-2 values can use an axes-shaped collection such as `[Mat(a), Mat(b)]`. `axes: []` is rejected.
 
 Each fixed axis uses `{ length, name?, ticks?, unit?, quantityKind? }`. `ticks.length` must equal `length`; omitted names become `axis 0`, `axis 1`, and so on, and omitted ticks become zero-based indices. Component indices are not included in `axes`; their coordinate system is declared by `basis`. Unit-bearing axes use scalar Quantity Kinds. The obsolete `type`, `shape`, `dimension`, `sampleDimension`, `sampleShape`, and `sampleAxes` fields are rejected with migration errors.
 
@@ -317,7 +312,7 @@ The default `dc-current-density@2.0.0` module performs a browser-side voxel fini
 
 The default conductivity is `5.96e7 I S.m-1` with one `errorRate` multiplier shared by the whole matrix. Current density is declared with two dynamic axes, component shape `[3]`, and identity basis; payload values are `[v][u][3]` global components. The norm reproduces the former scalar heatmap magnitude, while `Total current` preserves the existing absolute flux integral.
 
-This is a strict breaking migration: scalar conductivity/current-density values and legacy tensor fields fail explicitly, and no v1 module is registered alongside v2. A uniform verification bar still converges to `596000 A/m²` and `14.9 A`.
+This is a strict breaking migration: bare scalar conductivity/current-density values and legacy tensor fields fail explicitly, and no v1 module is registered alongside v2. Isotropic conductivity may use `Mat(σ)`. A uniform verification bar still converges to `596000 A/m²` and `14.9 A`.
 
 Source edits and `Reroll` immediately mark an existing result **Stale** and never trigger a run. A failed or cancelled replacement keeps the last successful result with its error and stale marker. The shared Worker has no queue or run history. If a document evaluation times out, the Worker is restarted, the last scenes/results remain visible, the timed-out document becomes Error, and only the successful peer is restored automatically; retry the timed-out document by editing it or pressing `Reroll`.
 

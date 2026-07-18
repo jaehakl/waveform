@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { RecordedDataRule, UcumUnit } from '../cad'
-import { IDENTITY_CARTESIAN_BASIS, QuantityKind } from '../quantitykind'
+import { QuantityKind } from '../quantitykind'
+import { identityCartesianBasis } from '../quantitykind/identityBasis'
 import {
   convertRecordedNumericTicks,
   convertRecordedNumericValue,
@@ -397,7 +398,7 @@ function RecordedResultCard({
     ? QuantityKind[rule.result.quantityKind].componentShape()
     : []
   const componentOptions = componentIndexPaths(tensorOrder)
-  const identityBasis = JSON.stringify(rule.result.basis) === JSON.stringify(IDENTITY_CARTESIAN_BASIS)
+  const identityBasis = JSON.stringify(rule.result.basis) === JSON.stringify(identityCartesianBasis)
   const [componentSelection, setComponentSelection] = useState('norm')
   const display = useMemo(() => {
     const conversionErrors: string[] = []

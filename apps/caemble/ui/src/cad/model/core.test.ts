@@ -6,6 +6,7 @@ import {
   normalizeDataValue,
   normalizeDataValueDescriptor,
   resolveMaterialVariables,
+  Mat,
   Material,
   Experiment,
   Sample,
@@ -20,7 +21,7 @@ import {
   type DataValueDescriptor,
   type QuantityKindName,
 } from './core'
-import { IDENTITY_CARTESIAN_BASIS } from '../../quantitykind'
+import { identityCartesianBasis } from '../../quantitykind/identityBasis'
 import { componentShapeForTensorOrder } from '../../quantitykind/runtime'
 
 function assertQuantityMetadataTypes() {
@@ -34,9 +35,8 @@ function assertQuantityMetadataTypes() {
   }
   const vectorData: DataValueDescriptor = {
     dtype: 'float64', value: [1, 2, 3],
-    unit: 'N', quantityKind: 'Force', basis: IDENTITY_CARTESIAN_BASIS,
+    unit: 'N', quantityKind: 'Force', basis: identityCartesianBasis,
   }
-  // @ts-expect-error tensor Quantity Kinds require a basis
   const vectorWithoutBasis: DataValueDescriptor = {
     dtype: 'float64', value: [1, 2, 3],
     unit: 'N', quantityKind: 'Force',
@@ -554,6 +554,15 @@ describe('Experiment and Setup', () => {
             quantityKind: 'Voltage',
           },
         },
+        {
+          target: ['experiment.geometry.domain'],
+          label: 'Vector',
+          methodId: 'record.vector',
+          parameters: {},
+          result: {
+            dtype: 'float64', unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
+          },
+        },
       ],
     })
     const rules = evaluateExperimentRules(experiment)
@@ -565,6 +574,7 @@ describe('Experiment and Setup', () => {
       { name: 'time' },
       { length: 2, name: 'component', ticks: ['a', 'b'] },
     ])
+    expect(rules.recordedData[2].result.basis).toEqual(identityCartesianBasis)
   })
 
   it('rejects raw array, object, and null values in Experiment and Solver maps', () => {
@@ -644,12 +654,26 @@ describe('Material and global vars', () => {
     expect(new Material('Al').variables).not.toHaveProperty('color')
   })
 
+  it('builds frozen square matrices from diagonal, off-diagonal, and size inputs', () => {
+    expect(Mat(4)).toEqual([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
+    expect(Mat(4, 2)).toEqual([[4, 2, 2], [2, 4, 2], [2, 2, 4]])
+    expect(Mat(4, 2, 2)).toEqual([[4, 2], [2, 4]])
+    const identityScaled = Mat(4, 0, 2)
+    expect(identityScaled).toEqual([[4, 0], [0, 4]])
+    expect(Object.isFrozen(identityScaled)).toBe(true)
+    expect(identityScaled.every(Object.isFrozen)).toBe(true)
+
+    expect(() => Mat(Number.NaN)).toThrow('Mat diagonal must be a finite number')
+    expect(() => Mat(1, Number.POSITIVE_INFINITY)).toThrow('Mat offDiagonal must be a finite number')
+    expect(() => Mat(1, 0, 0)).toThrow('Mat size must be a positive safe integer')
+    expect(() => Mat(1, 0, 1.5)).toThrow('Mat size must be a positive safe integer')
+  })
+
   it('combines outer and Quantity Kind component shapes and validates Cartesian bases', () => {
     const vector = normalizeDataValueDescriptor({
       dtype: 'float64',
       unit: 'A.m-2',
       quantityKind: 'ElectricCurrentDensity',
-      basis: IDENTITY_CARTESIAN_BASIS,
       value: [1, 2, 3],
     })
     const matrixSamples = normalizeDataValueDescriptor({
@@ -657,7 +681,6 @@ describe('Material and global vars', () => {
       axes: [{ length: 2 }],
       unit: 'S.m-1',
       quantityKind: 'ElectricConductivity',
-      basis: IDENTITY_CARTESIAN_BASIS,
       value: [
         [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         [[2, 0, 0], [0, 2, 0], [0, 0, 2]],
@@ -666,33 +689,33 @@ describe('Material and global vars', () => {
 
     expect(vector).toMatchObject({ value: [1, 2, 3] })
     expect(vector).not.toHaveProperty('axes')
-    expect(vector.basis).toEqual(IDENTITY_CARTESIAN_BASIS)
+    expect(vector.basis).toEqual(identityCartesianBasis)
     expect(matrixSamples.value).toHaveLength(2)
     expect(Object.isFrozen(vector.basis)).toBe(true)
     expect(Object.isFrozen(vector.basis?.[0])).toBe(true)
 
-    expect(() => normalizeDataValueDescriptor({
+    expect(normalizeDataValueDescriptor({
       dtype: 'float64',
       unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', value: [1, 2, 3],
-    })).toThrow('basis is required for tensor Quantity Kind ElectricCurrentDensity')
+    }).basis).toEqual(identityCartesianBasis)
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: IDENTITY_CARTESIAN_BASIS,
+      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: identityCartesianBasis,
       value: 1,
     })).toThrow('actual shape []; expected shape [3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64', axes: [{ length: 2 }],
-      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: IDENTITY_CARTESIAN_BASIS,
+      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: identityCartesianBasis,
       value: [[1, 2, 3], [4, 5]],
     })).toThrow('actual shape [2, ragged [3] | [2]]; expected shape [2,3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
+      unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
       value: [[1, 0, 0], [0, 1, 0]],
     })).toThrow('expected shape [3,3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'V', quantityKind: 'Voltage', basis: IDENTITY_CARTESIAN_BASIS, value: 1,
+      unit: 'V', quantityKind: 'Voltage', basis: identityCartesianBasis, value: 1,
     })).toThrow('basis is not allowed for scalar Quantity Kind Voltage')
   })
 
@@ -986,7 +1009,7 @@ describe('Material and global vars', () => {
         dtype: 'float64', value: 1.5, errorRate: 0,
         unit: 'S.m-1', quantityKind: 'ElectricConductivity',
       } as never,
-    })).toThrow('component shape [3,3] after its axes')
+    })).toThrow('actual shape []; expected shape [3,3]')
     expect(() => new Material('Core', {
       count: { dtype: 'int32', value: 1, errorRate: 0 } as never,
     })).toThrow('errorRate is allowed only for a float Material descriptor')

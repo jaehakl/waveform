@@ -84,6 +84,16 @@ function SyntaxHelp() {
                 <code className="rounded bg-white px-1 py-0.5 text-xs">{'{fraction}'}</code> or another explicitly
                 applicable code; percent keeps its UCUM scale.
               </p>
+              <p className="mt-1">
+                Use <code className="rounded bg-white px-1 py-0.5 text-xs">Mat(diagonal, offDiagonal = 0, size = 3)</code>{' '}
+                to create a deeply frozen square matrix. <code className="rounded bg-white px-1 py-0.5 text-xs">Mat(a)</code>{' '}
+                returns <code className="rounded bg-white px-1 py-0.5 text-xs">[[a,0,0],[0,a,0],[0,0,a]]</code>,{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">Mat(a, b)</code> fills every off-diagonal component
+                with b, and <code className="rounded bg-white px-1 py-0.5 text-xs">Mat(a, b, 2)</code> creates a 2×2 matrix.
+                TypeScript uses positional arguments, so a 2×2 diagonal matrix is{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">Mat(a, 0, 2)</code>. Quantity Kind component-shape
+                validation still applies.
+              </p>
 
               <p className="mt-3 font-semibold text-slate-800">Materials</p>
               <p className="mt-1">
@@ -220,8 +230,8 @@ function SyntaxHelp() {
                 or provide its unit and quantityKind together.
                 Missing names become axis 0, axis 1, and so on; missing ticks become zero-based indices matching the
                 corresponding axis length; explicit ticks must have that same length. Empty axes are rejected.
-                Order-0 quantities forbid basis; order-1 and higher quantities require a
-                finite, orthonormal, right-handed Cartesian basis. Explicit ticks accept strings and finite numbers. Prefer a top-level const
+                Order-0 quantities forbid basis; order-1 and higher quantities default an omitted basis to the identity
+                Cartesian basis and validate any explicitly supplied basis as finite, orthonormal, and right-handed. Explicit ticks accept strings and finite numbers. Prefer a top-level const
                 for raw tensor data. Experimental Parameters edits only inline and top-level const JSON arrays;
                 normalized axes, Quantity Kinds, tensor order, component shape, basis, and units are displayed read-only, computed and vars-backed values
                 remain read-only, and scalar or schema edits stay in Experiment Source.
@@ -285,8 +295,8 @@ function SyntaxHelp() {
                 and <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
               </p>
               <p className="mt-1">
-                The v2 contract rejects obsolete type/shape/dimension/sampleDimension/sampleShape/sampleAxes fields, scalar conductivity, scalar current-density
-                payloads, and conductivity other than positive isotropic σI in the identity basis. Resolution affects notch details, so refine the initialization
+                The v2 contract rejects obsolete type/shape/dimension/sampleDimension/sampleShape/sampleAxes fields, bare scalar conductivity, scalar current-density
+                payloads, and conductivity other than positive isotropic σI in the identity basis. Isotropic conductivity can use Mat(σ). Resolution affects notch details, so refine the initialization
                 grid and compare flux before treating a result as converged.
                 Runs are limited to 250,000 voxels and one connected, homogeneous, isotropic Material part with two
                 planar opposing terminals. Terminal voltage, conductivity, and scene lengths are converted to the

@@ -60,7 +60,7 @@ Every float descriptor, float result, and unit-bearing axis in the external cont
 
 `quantityKind` must be a `QuantityKindName`. `referenceUnit` must appear exactly in that Quantity Kind's `applicableUnits`; a Quantity Kind with an empty list cannot be used. The reference unit documents the solver's comparison/working unit and is used for range checks. It does not restrict callers to that unit: every applicable unit is accepted and the solver remains responsible for converting consumed values component by component.
 
-Every order-1 or higher quantity spec additionally declares `referenceBasis`, a finite orthonormal right-handed `CartesianBasis`. The caller's descriptor must contain an element-for-element identical `basis`; solver validation does not rotate components automatically. Scalar Quantity Kinds forbid a basis. Tensor unit conversions must be zero-preserving linear conversions, while affine conversions are rejected.
+Every order-1 or higher quantity spec additionally declares `referenceBasis`, a finite orthonormal right-handed `CartesianBasis`. An omitted caller basis is normalized to the identity Cartesian basis; the resulting basis must match `referenceBasis` element for element because solver validation does not rotate components automatically. Scalar Quantity Kinds forbid a basis. Tensor unit conversions must be zero-preserving linear conversions, while affine conversions are rejected.
 
 Do not accept equivalent UCUM spellings that are absent from the applicable list. For example, use QUDT's `S.m-1` spelling for `ElectricConductivity`, not `S/m`.
 

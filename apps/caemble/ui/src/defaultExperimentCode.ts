@@ -1,6 +1,5 @@
 export const defaultExperimentCode = `import {
   Experiment,
-  IDENTITY_CARTESIAN_BASIS,
   Material,
   Setup,
   type Geometry,
@@ -110,7 +109,6 @@ const experiment = new Experiment({
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
-        basis: IDENTITY_CARTESIAN_BASIS,
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },

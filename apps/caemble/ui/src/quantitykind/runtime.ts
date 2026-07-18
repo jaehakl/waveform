@@ -2,6 +2,7 @@ import { CadModelError } from '../cad/model/errors'
 import type { Vec3 } from '../cad/model/types'
 import { convertUcumValue, normalizeUcumUnit, type UcumUnit } from '../cad/model/units'
 import { quantityKindData } from './data'
+import { identityCartesianBasis } from './identityBasis'
 
 type QuantityKindData = typeof quantityKindData
 
@@ -41,12 +42,6 @@ export type ScalarQuantityKindName = {
 export type TensorQuantityKindName = Exclude<QuantityKindName, ScalarQuantityKindName>
 
 export type CartesianBasis = readonly [Vec3, Vec3, Vec3]
-
-export const IDENTITY_CARTESIAN_BASIS = Object.freeze([
-  Object.freeze([1, 0, 0] as const),
-  Object.freeze([0, 1, 0] as const),
-  Object.freeze([0, 0, 1] as const),
-]) as CartesianBasis
 
 export function componentShapeForTensorOrder(order: number, path = 'Tensor order'): readonly 3[] {
   if (!Number.isSafeInteger(order) || order < 0) {
@@ -145,7 +140,7 @@ type QuantityBasisMetadata<Name extends QuantityKindName> =
   [Name] extends [ScalarQuantityKindName]
     ? Readonly<{ basis?: never }>
     : [Name] extends [TensorQuantityKindName]
-      ? Readonly<{ basis: CartesianBasis }>
+      ? Readonly<{ basis?: CartesianBasis }>
       : Readonly<{ basis?: CartesianBasis }>
 
 export type QuantityMetadata<Name extends QuantityKindName = QuantityKindName> = Readonly<{
@@ -216,13 +211,10 @@ export function normalizeQuantityMetadata(
   if (tensorOrder === 0 && hasBasis) {
     throw new CadModelError(`${path}.basis is not allowed for scalar Quantity Kind ${quantityKind}.`)
   }
-  if (tensorOrder > 0 && !hasBasis) {
-    throw new CadModelError(
-      `${path}.basis is required for tensor Quantity Kind ${quantityKind}; every value must append component shape ${JSON.stringify(getQuantityKindComponentShape(quantityKind))} after its axes.`,
-    )
-  }
   const basis = tensorOrder > 0
-    ? normalizeCartesianBasis(value.basis, `${path}.basis`)
+    ? hasBasis
+      ? normalizeCartesianBasis(value.basis, `${path}.basis`)
+      : identityCartesianBasis
     : undefined
 
   return Object.freeze({ unit, quantityKind, ...(basis === undefined ? {} : { basis }) }) as QuantityMetadata

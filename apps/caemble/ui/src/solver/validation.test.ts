@@ -4,7 +4,7 @@ import { SolverRegistry } from './registry'
 import type { SolverSpec } from './spec'
 import { validateSolverContract } from './validation'
 import { dcCurrentDensitySpec } from './modules/dcCurrentDensity'
-import { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
+import { identityCartesianBasis } from '../quantitykind/identityBasis'
 
 function validInput(): SolverPreflightInput {
   return {
@@ -25,7 +25,7 @@ function validInput(): SolverPreflightInput {
               electricalConductivity: {
                 dtype: 'float64',
                 value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
-                unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
+                unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
               },
               futureMaterialParameter: 'preserved',
             },
@@ -128,7 +128,7 @@ function validInput(): SolverPreflightInput {
             result: {
               dtype: 'float64',
               unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
-              basis: IDENTITY_CARTESIAN_BASIS,
+              basis: identityCartesianBasis,
               axes: [
                 { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
                 { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -213,7 +213,7 @@ describe('Solver spec validation', () => {
     mutable.structure.scene.parts[0].material!.variables.electricalConductivity = {
       dtype: 'float64',
       value: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-      unit: 'V', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
+      unit: 'V', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
     }
 
     const messages = validateSolverContract(dcCurrentDensitySpec, input).issues.map((issue) => issue.message)
@@ -290,7 +290,7 @@ describe('Solver spec validation', () => {
     const scalarReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
       parameters: { relativeTolerance: { value: { referenceBasis?: unknown } } }
     }
-    scalarReferenceBasis.parameters.relativeTolerance.value.referenceBasis = IDENTITY_CARTESIAN_BASIS
+    scalarReferenceBasis.parameters.relativeTolerance.value.referenceBasis = identityCartesianBasis
     expect(() => new SolverRegistry([moduleFor(scalarReferenceBasis as unknown as SolverSpec)]))
       .toThrow('referenceBasis is forbidden for scalar Quantity Kind DimensionlessRatio')
 

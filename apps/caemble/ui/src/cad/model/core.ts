@@ -75,6 +75,7 @@ type DataValueDescriptorBase = Readonly<{
   axes?: readonly DataAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
+export type MatrixValue = readonly (readonly number[])[]
 export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
   | ({
     dtype: FloatDataDType
@@ -205,6 +206,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return isRecord(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))
+}
+
+export function Mat(diagonal: number, offDiagonal = 0, size = 3): MatrixValue {
+  if (typeof diagonal !== 'number' || !Number.isFinite(diagonal)) {
+    throw new CadModelError('Mat diagonal must be a finite number.')
+  }
+  if (typeof offDiagonal !== 'number' || !Number.isFinite(offDiagonal)) {
+    throw new CadModelError('Mat offDiagonal must be a finite number.')
+  }
+  if (!Number.isSafeInteger(size) || size <= 0) {
+    throw new CadModelError('Mat size must be a positive safe integer.')
+  }
+
+  const matrix = Object.freeze(Array.from({ length: size }, (_, row) => Object.freeze(
+    Array.from({ length: size }, (_item, column) => row === column ? diagonal : offDiagonal),
+  )))
+  return matrix
 }
 
 function normalizeRawScalar(value: unknown, path: string): ScalarValue {

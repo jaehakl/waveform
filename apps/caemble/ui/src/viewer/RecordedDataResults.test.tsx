@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { RecordedDataRule } from '../cad'
-import { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
+import { identityCartesianBasis } from '../quantitykind/identityBasis'
 import RecordedDataResults from './RecordedDataResults'
 import {
   componentIndexPaths,
@@ -21,7 +21,7 @@ function rule(
     ? unit === 'A'
       ? { unit, quantityKind: 'ElectricCurrent' as const }
       : unit === 'A.m-2'
-        ? { unit, quantityKind: 'ElectricCurrentDensity' as const, basis: IDENTITY_CARTESIAN_BASIS }
+        ? { unit, quantityKind: 'ElectricCurrentDensity' as const, basis: identityCartesianBasis }
         : { unit: '{fraction}', quantityKind: 'DimensionlessRatio' as const }
     : {}
   return {

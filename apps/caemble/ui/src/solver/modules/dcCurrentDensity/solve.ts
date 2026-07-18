@@ -11,7 +11,7 @@ import {
 } from '../../../cad/model/core'
 import { convertUcumValue } from '../../../cad/model/units'
 import type { Vec3 } from '../../../cad/model/types'
-import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
+import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 import type { SolverModuleInput } from '../../types'
 
 const maximumVoxelCount = 250_000
@@ -200,7 +200,7 @@ function isotropicConductivity(value: unknown) {
   if (descriptor.axes !== undefined) {
     throw new CadModelError(`${path}.axes must be omitted for one conductivity tensor.`)
   }
-  if (JSON.stringify(descriptor.basis) !== JSON.stringify(IDENTITY_CARTESIAN_BASIS)) {
+  if (JSON.stringify(descriptor.basis) !== JSON.stringify(identityCartesianBasis)) {
     throw new CadModelError(`${path}.basis must exactly match the global identity basis.`)
   }
   if (typeof descriptor.unit !== 'string') {

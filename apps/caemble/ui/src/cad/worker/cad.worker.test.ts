@@ -20,7 +20,7 @@ const workerScope = {
 }
 
 const structureSource = `
-const { IDENTITY_CARTESIAN_BASIS, Material, Sample, Structure } = require('@caemble/core')
+const { Material, Sample, Structure } = require('@caemble/core')
 function Conductor() { return h('box', { size: [100, 5, 5] }) }
 const structure = new Structure({
   lengthUnit: 'mm',
@@ -30,7 +30,7 @@ const structure = new Structure({
       electricalConductivity: {
         dtype: 'float64',
         value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
-        unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
+        unit: 'S.m-1', quantityKind: 'ElectricConductivity',
       },
     })],
   }),
@@ -45,7 +45,7 @@ module.exports.default = new Sample(structure)
 `
 
 const experimentSource = `
-const { Experiment, IDENTITY_CARTESIAN_BASIS, Setup } = require('@caemble/core')
+const { Experiment, Setup } = require('@caemble/core')
 function Probe() { return h('box', { size: [1, 1, 1] }) }
 const experiment = new Experiment({
   lengthUnit: 'mm',
@@ -110,7 +110,6 @@ const experiment = new Experiment({
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
-        basis: IDENTITY_CARTESIAN_BASIS,
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },

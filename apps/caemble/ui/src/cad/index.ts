@@ -15,6 +15,7 @@ export {
   CadModelError,
   evaluateWithVars,
   Experiment,
+  Mat,
   Material,
   Sample,
   Setup,
@@ -24,7 +25,6 @@ export {
   vars,
 } from './model/core'
 export { assertUcumUnitComparable, convertUcumValue, normalizeUcumUnit } from './model/units'
-export { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
 export type {
   CartesianBasis,
   DataAxis,
@@ -43,6 +43,7 @@ export type {
   MaterialDataValueDescriptor,
   MaterialVariable,
   MaterialVariables,
+  MatrixValue,
   NonFloatDataDType,
   QuantityKindName,
   QuantityMetadata,

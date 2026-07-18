@@ -2,7 +2,6 @@
 import { QuantityKindEntry } from './runtime'
 import type { QuantityKindDefinition, QuantityKindName } from './runtime'
 
-export { IDENTITY_CARTESIAN_BASIS } from './runtime'
 export type {
   ApplicableUnit,
   CartesianBasis,

@@ -5,7 +5,7 @@ import { defaultCode } from '../../defaultCode'
 import { defaultExperimentCode } from '../../defaultExperimentCode'
 import { caembleExamples } from '../../examples'
 import { executeCompiledCode, requireCaembleModule } from './userModule'
-import { IDENTITY_CARTESIAN_BASIS } from '../../quantitykind'
+import { identityCartesianBasis } from '../../quantitykind/identityBasis'
 
 const validModule = `
 const { Material, Sample, Structure } = require('@caemble/core')
@@ -36,6 +36,8 @@ describe('compiled user module execution', () => {
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Sample')
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Setup')
     expect(requireCaembleModule('@caemble/core')).toHaveProperty('Experiment')
+    expect(requireCaembleModule('@caemble/core')).toHaveProperty('Mat')
+    expect(requireCaembleModule('@caemble/core')).not.toHaveProperty('IDENTITY_CARTESIAN_BASIS')
     const execution = executeCompiledCode(validModule)
 
     expect(execution).toMatchObject({
@@ -70,6 +72,7 @@ describe('compiled user module execution', () => {
       "{ name: 'cross-section u', unit: 'm', quantityKind: 'Length' }",
     )
     expect(defaultExperimentCode).toContain("quantityKind: 'ElectricCurrent'")
+    expect(defaultExperimentCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
     expect(defaultExperimentCode).toContain('export default new Setup(experiment)')
 
@@ -128,7 +131,7 @@ describe('compiled user module execution', () => {
       dtype: 'float64',
       unit: 'A.m-2',
       quantityKind: 'ElectricCurrentDensity',
-      basis: IDENTITY_CARTESIAN_BASIS,
+      basis: identityCartesianBasis,
       axes: [
         { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
         { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -169,6 +172,8 @@ describe('compiled user module execution', () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain("unit: 'S.m-1'")
     expect(defaultCode).toContain("quantityKind: 'ElectricConductivity'")
+    expect(defaultCode).toContain('value: Mat(vars.electricalConductivity as number)')
+    expect(defaultCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultCode).toContain('errorRate: 0.001')
     expect(defaultCode).toContain('conductorSize: { min: [100, 12, 10], max: [100, 12, 10] }')
     expect(defaultCode).toContain('notchSize: { min: [20, 4, 5], max: [40, 6, 7] }')
@@ -197,7 +202,7 @@ describe('compiled user module execution', () => {
             value: expect.any(Array),
             unit: 'S.m-1',
             quantityKind: 'ElectricConductivity',
-            basis: IDENTITY_CARTESIAN_BASIS,
+            basis: identityCartesianBasis,
           },
           color: '#d97706',
         },

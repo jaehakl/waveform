@@ -2,7 +2,6 @@ export type Tensor = number | readonly Tensor[]
 export type Vars = Readonly<Record<string, Tensor>>
 export type Vec3 = readonly [number, number, number]
 export type CartesianBasis = readonly [Vec3, Vec3, Vec3]
-export const IDENTITY_CARTESIAN_BASIS: CartesianBasis
 export type Rotation = Readonly<{ axis: Vec3; angle: number }>
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type VarsSchemaEntry = Readonly<{
@@ -1385,7 +1384,7 @@ type QuantityBasisMetadata<Name extends QuantityKindName> =
   [Name] extends [ScalarQuantityKindName]
     ? Readonly<{ basis?: never }>
     : [Name] extends [TensorQuantityKindName]
-      ? Readonly<{ basis: CartesianBasis }>
+      ? Readonly<{ basis?: CartesianBasis }>
       : Readonly<{ basis?: CartesianBasis }>
 export type QuantityMetadata<Name extends QuantityKindName = QuantityKindName> = Readonly<{
   unit: UcumUnit
@@ -1404,6 +1403,7 @@ type DataValueDescriptorBase = Readonly<{
   axes?: readonly DataAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
+export type MatrixValue = readonly (readonly number[])[]
 export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
   | ({
     dtype: FloatDataDType
@@ -1629,6 +1629,7 @@ export function assertUcumUnitComparable(
   path: string,
 ): void
 export function isFloatDType(dtype: DataDType): boolean
+export function Mat(diagonal: number, offDiagonal?: number, size?: number): MatrixValue
 
 export class Material {
   constructor(symbol: string)

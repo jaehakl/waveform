@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RecordedDataRule } from '../cad'
-import { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
+import { identityCartesianBasis } from '../quantitykind/identityBasis'
 import {
   convertRecordedNumericTicks,
   convertRecordedNumericValue,
@@ -109,7 +109,7 @@ describe('CadViewer recordedData normalization', () => {
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
-        basis: IDENTITY_CARTESIAN_BASIS,
+        basis: identityCartesianBasis,
         axes: [{ name: 'position' }],
       },
     }
@@ -121,7 +121,7 @@ describe('CadViewer recordedData normalization', () => {
     expect(tensor).toMatchObject({
       componentShape: [3],
       tensorOrder: 1,
-      basis: IDENTITY_CARTESIAN_BASIS,
+      basis: identityCartesianBasis,
       value: [[1, 2, 3], [4, 5, 6]],
     })
     expect(() => normalizeCadViewerRecordedTensor(rule, {

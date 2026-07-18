@@ -1,5 +1,5 @@
 import type { SolverSpec, SolverTargetSpec } from '../../spec'
-import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
+import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 
 const oneStructureGeometry = Object.freeze({
   source: 'structure',
@@ -66,7 +66,7 @@ export const dcCurrentDensitySpec = Object.freeze({
             dtype: 'float64',
             quantityKind: 'ElectricConductivity',
             referenceUnit: 'S.m-1',
-            referenceBasis: IDENTITY_CARTESIAN_BASIS,
+            referenceBasis: identityCartesianBasis,
           },
         },
       },
@@ -132,7 +132,7 @@ export const dcCurrentDensitySpec = Object.freeze({
           dtype: 'float64',
           quantityKind: 'ElectricCurrentDensity',
           referenceUnit: 'A.m-2',
-          referenceBasis: IDENTITY_CARTESIAN_BASIS,
+          referenceBasis: identityCartesianBasis,
           axes: [
             { name: 'cross-section v', quantityKind: 'Length', referenceUnit: 'm' },
             { name: 'cross-section u', quantityKind: 'Length', referenceUnit: 'm' },

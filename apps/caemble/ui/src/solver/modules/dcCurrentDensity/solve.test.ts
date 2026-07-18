@@ -8,7 +8,7 @@ import {
   Structure,
 } from '../../../cad/model/core'
 import type { Rotation, Vec3 } from '../../../cad/model/types'
-import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
+import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 import { SolverController } from '../../controller'
 import { dcCurrentDensitySolver } from '.'
 
@@ -105,7 +105,7 @@ function createDcPair(options: {
             : {
                 unit: conductivityUnit,
                 quantityKind: 'ElectricConductivity',
-                basis: IDENTITY_CARTESIAN_BASIS,
+                basis: identityCartesianBasis,
               }),
         },
         color: '#d97706',
@@ -194,7 +194,7 @@ function createDcPair(options: {
                 : {
                     unit: densityUnit,
                     quantityKind: 'ElectricCurrentDensity',
-                    basis: IDENTITY_CARTESIAN_BASIS,
+                    basis: identityCartesianBasis,
                   }),
               axes: [{ length: 3, name: 'component', ticks: ['x', 'y', 'z'] }],
             }
@@ -205,7 +205,7 @@ function createDcPair(options: {
                 : {
                     unit: densityUnit,
                     quantityKind: 'ElectricCurrentDensity',
-                    basis: IDENTITY_CARTESIAN_BASIS,
+                    basis: identityCartesianBasis,
                   }),
               axes: [
                 {
@@ -537,7 +537,7 @@ describe('dc-current-density@2.0.0', () => {
             electricalConductivity: {
               dtype: 'float64',
               value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
-              unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
+              unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
             },
           })],
         }),
