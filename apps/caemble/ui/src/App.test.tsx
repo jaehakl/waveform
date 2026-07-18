@@ -58,8 +58,10 @@ describe('App workspace', () => {
     expect(defaultExperimentCode).toContain("methodId: 'dc.voxel-grid'")
     expect(defaultExperimentCode).toContain('value: [100, 41, 41]')
     expect(defaultExperimentCode).toContain("quantityKind: 'DimensionlessRatio'")
-    expect(defaultExperimentCode).toContain('dimension: 2')
-    expect(defaultExperimentCode).toContain('shape: [-1, -1]')
+    expect(defaultExperimentCode).not.toContain('sampleDimension')
+    expect(defaultExperimentCode).not.toContain("type: 'tensor'")
+    expect(defaultExperimentCode).not.toContain('shape:')
+    expect(defaultExperimentCode).toContain('axes: [{ length: 3 }]')
     expect(defaultExperimentCode).toContain(
       "{ name: 'cross-section v', unit: 'm', quantityKind: 'Length' }",
     )

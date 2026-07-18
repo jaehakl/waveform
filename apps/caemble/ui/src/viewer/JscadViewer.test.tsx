@@ -234,7 +234,7 @@ describe('JscadViewer modes', () => {
           methodId: 'dc.total-current',
           parameters: {},
           result: {
-            type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+            dtype: 'float64',
             unit: 'A', quantityKind: 'ElectricCurrent',
           },
         }]}
@@ -249,7 +249,6 @@ describe('JscadViewer modes', () => {
     expect(markup).toMatch(/<button[^>]*aria-selected="false"[^>]*id="viewer-results-tab"/)
   })
 })
-
 describe('JscadViewer source layers', () => {
   const structurePart = {
     id: 'shared', geometry: {}, material: { symbol: 'Structure', variables: { color: '#2563eb' } }, surfaces: [],

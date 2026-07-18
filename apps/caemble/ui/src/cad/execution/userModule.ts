@@ -17,8 +17,17 @@ import type { CadScene } from '../evaluation/types'
 import type { EvaluatedExperimentRules, ResolvedExperimentSolver } from '../model/core'
 import type { Vars } from '../model/types'
 import type { CadDocumentType } from '../worker/protocol'
+import { IDENTITY_CARTESIAN_BASIS } from '../../quantitykind'
 
-const coreModule = Object.freeze({ Experiment, Material, Sample, Setup, Structure, VariableObject })
+const coreModule = Object.freeze({
+  Experiment,
+  IDENTITY_CARTESIAN_BASIS,
+  Material,
+  Sample,
+  Setup,
+  Structure,
+  VariableObject,
+})
 
 export type CadExecutionResult = Readonly<{
   scene: CadScene

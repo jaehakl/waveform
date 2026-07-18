@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react'
 import type { RecordedDataRule, UcumUnit } from '../cad'
+import { IDENTITY_CARTESIAN_BASIS, QuantityKind } from '../quantitykind'
 import {
   convertRecordedNumericTicks,
   convertRecordedNumericValue,
@@ -11,6 +12,11 @@ import {
   type RecordedDataDisplayUnitTarget,
   type ResolvedRecordedTensor,
 } from './recordedData'
+import {
+  componentIndexPaths,
+  componentLabel,
+  projectRecordedComponents,
+} from './recordedComponents'
 
 const Plot = lazy(async () => {
   const [factoryModule, plotlyModule] = await Promise.all([
@@ -56,6 +62,7 @@ function tickText(ticks: readonly (number | string)[]) {
 
 function schemaAxis(rule: RecordedDataRule, axisIndex: number) {
   return {
+    length: rule.result.axes?.[axisIndex]?.length,
     name: rule.result.axes?.[axisIndex]?.name ?? `axis ${axisIndex}`,
     quantityKind: rule.result.axes?.[axisIndex]?.quantityKind,
     ticks: rule.result.axes?.[axisIndex]?.ticks,
@@ -77,9 +84,10 @@ function axisTitle(
 }
 
 function visualizationKind(rule: RecordedDataRule) {
-  if (rule.result.dimension === 0) return 'scalar'
+  const axisCount = rule.result.axes?.length ?? 0
+  if (axisCount === 0) return 'scalar'
   if (!isNumericRecordedDType(rule.result.dtype)) return 'table'
-  return rule.result.dimension === 1 ? 'line chart' : 'heatmap'
+  return axisCount === 1 ? 'line chart' : 'heatmap'
 }
 
 function EmptyPlot({
@@ -90,6 +98,7 @@ function EmptyPlot({
   rule: RecordedDataRule
 }) {
   const kind = visualizationKind(rule)
+  const axisCount = rule.result.axes?.length ?? 0
   return (
     <div
       aria-label={`${rule.label} empty ${kind}`}
@@ -97,18 +106,20 @@ function EmptyPlot({
       data-result-visualization={kind}
     >
       <div className="absolute inset-x-4 bottom-3 truncate text-center text-[10px] text-slate-400">
-        {rule.result.dimension === 0
-          ? '0D scalar'
-          : axisTitle(rule, rule.result.dimension - 1, axisUnits)}
+        {axisCount === 0
+          ? 'scalar result'
+          : axisTitle(rule, axisCount - 1, axisUnits)}
       </div>
-      {rule.result.dimension >= 2 ? (
+      {axisCount >= 2 ? (
         <div className="absolute bottom-8 left-2 top-2 flex items-center text-[10px] text-slate-400 [writing-mode:vertical-rl]">
-          {axisTitle(rule, rule.result.dimension - 2, axisUnits)}
+          {axisTitle(rule, axisCount - 2, axisUnits)}
         </div>
       ) : null}
       <div className="text-center">
         <div className="text-sm font-semibold text-slate-500">No recorded data</div>
-        <div className="mt-1 text-xs text-slate-400">Empty {kind} · expected {JSON.stringify(rule.result.shape)}</div>
+        <div className="mt-1 text-xs text-slate-400">
+          Empty {kind} · expected axis lengths {JSON.stringify(rule.result.axes?.map((axis) => axis.length ?? 'dynamic') ?? [])}
+        </div>
       </div>
     </div>
   )
@@ -171,7 +182,7 @@ function MatrixTable({
   tensor: ResolvedRecordedTensor
   value: unknown
 }) {
-  if (tensor.shape.length === 1) {
+  if (tensor.axes.length === 1) {
     const axis = tensor.axes[0]
     return (
       <div className="max-h-80 overflow-auto rounded border border-slate-200">
@@ -235,12 +246,12 @@ function TensorVisualization({
   rule: RecordedDataRule
   tensor: ResolvedRecordedTensor
 }) {
-  const leadingAxisCount = Math.max(0, tensor.shape.length - 2)
+  const leadingAxisCount = Math.max(0, tensor.axes.length - 2)
   const [sliceIndices, setSliceIndices] = useState(() => Array.from({ length: leadingAxisCount }, () => 0))
-  const safeIndices = sliceIndices.map((index, axisIndex) => Math.min(index, Math.max(0, tensor.shape[axisIndex] - 1)))
+  const safeIndices = sliceIndices.map((index, axisIndex) => Math.min(index, Math.max(0, tensor.axes[axisIndex].length - 1)))
   const value = getSlice(tensor.value, safeIndices)
 
-  if (tensor.shape.length === 0) {
+  if (tensor.axes.length === 0) {
     return (
       <div
         aria-label="Recorded scalar value"
@@ -253,12 +264,12 @@ function TensorVisualization({
     )
   }
 
-  if (tensor.shape.some((size) => size === 0)) {
+  if (tensor.axes.some((axis) => axis.length === 0)) {
     return (
       <div className="grid min-h-56 place-items-center rounded border border-dashed border-slate-300 bg-slate-50 text-center">
         <div>
           <div className="text-sm font-semibold text-slate-500">No recorded values</div>
-          <div className="mt-1 text-xs text-slate-400">Resolved empty tensor · actual {JSON.stringify(tensor.shape)}</div>
+          <div className="mt-1 text-xs text-slate-400">Resolved empty data · actual axis lengths {JSON.stringify(tensor.axes.map((axis) => axis.length))}</div>
         </div>
       </div>
     )
@@ -306,7 +317,7 @@ function TensorVisualization({
     )
   }
 
-  if (tensor.shape.length === 1) {
+  if (tensor.axes.length === 1) {
     const axis = tensor.axes[0]
     const values = value as readonly number[]
     return (
@@ -379,6 +390,15 @@ function RecordedResultCard({
   onDisplayUnitChange: RecordedDataResultsProps['onDisplayUnitChange']
 }) {
   const { error, rule, tensor } = entry
+  const tensorOrder = rule.result.quantityKind
+    ? QuantityKind[rule.result.quantityKind].tensorOrder()
+    : 0
+  const componentShape = rule.result.quantityKind
+    ? QuantityKind[rule.result.quantityKind].componentShape()
+    : []
+  const componentOptions = componentIndexPaths(tensorOrder)
+  const identityBasis = JSON.stringify(rule.result.basis) === JSON.stringify(IDENTITY_CARTESIAN_BASIS)
+  const [componentSelection, setComponentSelection] = useState('norm')
   const display = useMemo(() => {
     const conversionErrors: string[] = []
     const resultUnitOptions = rule.result.quantityKind && rule.result.unit
@@ -393,7 +413,12 @@ function RecordedResultCard({
 
     if (tensor && rule.result.unit && requestedResultUnit && requestedResultUnit !== rule.result.unit) {
       try {
-        resultValue = convertRecordedNumericValue(tensor.value, rule.result.unit, requestedResultUnit)
+        resultValue = convertRecordedNumericValue(
+          tensor.value,
+          rule.result.unit,
+          requestedResultUnit,
+          tensor.tensorOrder,
+        )
       } catch (conversionError) {
         resultUnit = rule.result.unit
         resultValue = tensor.value
@@ -403,7 +428,7 @@ function RecordedResultCard({
       }
     }
 
-    const axes = Array.from({ length: rule.result.dimension }, (_, axisIndex) => {
+    const axes = Array.from({ length: rule.result.axes?.length ?? 0 }, (_, axisIndex) => {
       const axis = schemaAxis(rule, axisIndex)
       const sourceTicks = tensor?.axes[axisIndex].ticks ?? axis.ticks
       const numericTicks = sourceTicks !== undefined
@@ -437,7 +462,12 @@ function RecordedResultCard({
         ...axis,
         ticks: axes[axisIndex].ticks ?? axis.ticks,
       }))),
-      value: resultValue ?? tensor.value,
+      value: projectRecordedComponents(
+        resultValue ?? tensor.value,
+        tensor.axes.length,
+        tensor.tensorOrder,
+        componentSelection,
+      ) as ResolvedRecordedTensor['value'],
     }) : null
 
     return {
@@ -448,7 +478,7 @@ function RecordedResultCard({
       resultUnitOptions,
       tensor: displayedTensor,
     }
-  }, [displayUnits, rule, tensor])
+  }, [componentSelection, displayUnits, rule, tensor])
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -459,9 +489,12 @@ function RecordedResultCard({
         </div>
         <div className="flex flex-col items-end gap-2 text-right text-xs text-slate-500">
           <div className="font-mono">
-            <div>{rule.result.dtype} · {rule.result.dimension}D · {unitLabel(display.resultUnit)}</div>
-            <div>expected {JSON.stringify(rule.result.shape)}</div>
-            {tensor ? <div>actual {JSON.stringify(tensor.shape)}</div> : null}
+            <div>
+              {rule.result.dtype} · axes {rule.result.axes?.map((axis) => axis.length ?? 'dynamic').join(' × ') ?? 'none'} · {unitLabel(display.resultUnit)}
+            </div>
+            <div>tensor order {tensorOrder} · components {JSON.stringify(componentShape)}</div>
+            {rule.result.basis ? <div>basis {JSON.stringify(rule.result.basis)}</div> : null}
+            {tensor ? <div>actual axis lengths {JSON.stringify(tensor.axes.map((axis) => axis.length))}</div> : null}
           </div>
           {display.resultUnit && display.resultUnitOptions.length > 0 ? (
             <label className="flex items-center gap-2 font-medium text-slate-600">
@@ -479,8 +512,27 @@ function RecordedResultCard({
         </div>
       </div>
 
+      {tensorOrder > 0 ? (
+        <label className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+          <span>Displayed component</span>
+          <select
+            aria-label={`${rule.label} component`}
+            className="rounded border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-800"
+            value={componentSelection}
+            onChange={(event) => setComponentSelection(event.target.value)}
+          >
+            <option value="norm">norm</option>
+            {componentOptions.map((indices) => (
+              <option key={indices.join(',')} value={`component:${indices.join(',')}`}>
+                {componentLabel(indices, identityBasis)} [{indices.join(',')}]
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
       <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
-        {Array.from({ length: rule.result.dimension }, (_, axisIndex) => {
+        {Array.from({ length: rule.result.axes?.length ?? 0 }, (_, axisIndex) => {
           const axis = display.axes[axisIndex]
           return (
             <div className="rounded bg-slate-50 px-3 py-2" key={axisIndex}>
@@ -495,6 +547,7 @@ function RecordedResultCard({
                   {axis.unitOptions.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                 </select>
               ) : <span>{unitLabel(axis.unit)}</span>}{' · '}
+              <span>length {axis.length ?? 'dynamic'}</span>{' · '}
               <span className="font-mono">
                 {axis.ticks ? JSON.stringify(axis.ticks) : 'dynamic ticks from result'}
               </span>
@@ -512,7 +565,7 @@ function RecordedResultCard({
       <div className="mt-4">
         {display.tensor ? (
           <TensorVisualization
-            key={`${rule.result.dtype}-${JSON.stringify(display.tensor.shape)}`}
+            key={`${rule.result.dtype}-${JSON.stringify(display.tensor.axes.map((axis) => axis.length))}-${componentSelection}`}
             axisUnits={display.axisUnits}
             resultUnit={display.resultUnit}
             rule={rule}

@@ -4,6 +4,7 @@ import { SolverRegistry } from './registry'
 import type { SolverSpec } from './spec'
 import { validateSolverContract } from './validation'
 import { dcCurrentDensitySpec } from './modules/dcCurrentDensity'
+import { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
 
 function validInput(): SolverPreflightInput {
   return {
@@ -22,8 +23,9 @@ function validInput(): SolverPreflightInput {
             symbol: 'Copper',
             variables: {
               electricalConductivity: {
-                type: 'float', value: 5.96e7,
-                unit: 'S.m-1', quantityKind: 'ElectricConductivity',
+                dtype: 'float64',
+                value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
+                unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
               },
               futureMaterialParameter: 'preserved',
             },
@@ -70,10 +72,10 @@ function validInput(): SolverPreflightInput {
       },
       solver: {
         name: 'dc-current-density',
-        version: '1.0.0',
+        version: '2.0.0',
         parameters: {
           relativeTolerance: {
-            type: 'float', value: 0.000001,
+            dtype: 'float64', value: 0.000001,
             unit: '%', quantityKind: 'DimensionlessRatio',
           },
           maxIterations: 1000,
@@ -87,8 +89,8 @@ function validInput(): SolverPreflightInput {
           methodId: 'dc.voxel-grid',
           parameters: {
             gridShape: {
-              type: 'tensor', dimension: 1, shape: [3], dtype: 'int32',
-              axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+              dtype: 'int32',
+              axes: [{ length: 3 }],
               value: [20, 11, 11],
             },
             futureMethodParameter: true,
@@ -100,7 +102,7 @@ function validInput(): SolverPreflightInput {
             label: 'Source',
             methodId: 'dc.source-potential',
             parameters: {
-              voltage: { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+              voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
             },
           },
           {
@@ -108,7 +110,7 @@ function validInput(): SolverPreflightInput {
             label: 'Reference',
             methodId: 'dc.reference-potential',
             parameters: {
-              voltage: { type: 'float', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+              voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
             },
           },
         ],
@@ -119,13 +121,14 @@ function validInput(): SolverPreflightInput {
             methodId: 'dc.current-density',
             parameters: {
               crossSectionPosition: {
-                type: 'float', value: 0.5,
+                dtype: 'float64', value: 0.5,
                 unit: '{fraction}', quantityKind: 'DimensionlessRatio',
               },
             },
             result: {
-              type: 'tensor', dimension: 2, shape: [-1, -1], dtype: 'float64',
+              dtype: 'float64',
               unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
+              basis: IDENTITY_CARTESIAN_BASIS,
               axes: [
                 { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
                 { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -138,13 +141,13 @@ function validInput(): SolverPreflightInput {
             methodId: 'dc.total-current',
             parameters: {
               crossSectionPosition: {
-                type: 'float', value: 0.5,
+                dtype: 'float64', value: 0.5,
                 unit: '{fraction}', quantityKind: 'DimensionlessRatio',
               },
             },
             result: {
-              type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
-              unit: 'A', quantityKind: 'ElectricCurrent', axes: [],
+              dtype: 'float64',
+              unit: 'A', quantityKind: 'ElectricCurrent',
             },
           },
         ],
@@ -197,7 +200,7 @@ describe('Solver spec validation', () => {
         rules: {
           initializations: Array<{ methodId: string; [key: string]: unknown }>
           boundaryConditions: Array<{ parameters: { voltage: Record<string, unknown> } }>
-          recordedData: Array<{ result: { shape: number[] } }>
+          recordedData: Array<{ result: { axes: unknown[] } }>
         }
       }
     }
@@ -206,15 +209,17 @@ describe('Solver spec validation', () => {
       methodId: 'dc.unknown',
     })
     mutable.experiment.rules.boundaryConditions[0].parameters.voltage.quantityKind = 'Length'
-    mutable.experiment.rules.recordedData[0].result.shape = [1, 1]
+    mutable.experiment.rules.recordedData[0].result.axes = [{ name: 'only one axis' }]
     mutable.structure.scene.parts[0].material!.variables.electricalConductivity = {
-      type: 'float', value: 1, unit: 'S/m', quantityKind: 'ElectricConductivity',
+      dtype: 'float64',
+      value: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+      unit: 'V', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
     }
 
     const messages = validateSolverContract(dcCurrentDensitySpec, input).issues.map((issue) => issue.message)
     expect(messages.some((message) => message.includes('is not registered'))).toBe(true)
     expect(messages.some((message) => message.includes('must be Voltage'))).toBe(true)
-    expect(messages.some((message) => message.includes('must be [-1,-1]'))).toBe(true)
+    expect(messages.some((message) => message.includes('must contain 2 axes'))).toBe(true)
     expect(messages.some((message) => message.includes('is not applicable'))).toBe(true)
   })
 
@@ -228,8 +233,29 @@ describe('Solver spec validation', () => {
 
     const registry = new SolverRegistry([moduleFor(structuredClone(dcCurrentDensitySpec))])
     const unknown = structuredClone(validInput()) as SolverPreflightInput
-    ;(unknown.experiment.solver as { version: string }).version = '2.0.0'
+    ;(unknown.experiment.solver as { version: string }).version = '1.0.0'
     expect(registry.preflight(unknown).issues[0].message).toContain('No solver module is registered')
+  })
+
+  it('requires tensor bases to match the solver reference basis exactly', () => {
+    const rotated = structuredClone(validInput()) as SolverPreflightInput
+    const conductivity = rotated.structure!.scene.parts[0].material!.variables
+      .electricalConductivity as unknown as { basis: number[][] }
+    conductivity.basis = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
+
+    expect(validateSolverContract(dcCurrentDensitySpec, rotated).issues).toContainEqual(expect.objectContaining({
+      documentType: 'structure',
+      path: 'structure.parts.conductor.material.variables.electricalConductivity.basis',
+      message: 'must exactly match the solver referenceBasis.',
+    }))
+
+    const missing = structuredClone(validInput()) as SolverPreflightInput
+    delete (missing.structure!.scene.parts[0].material!.variables
+      .electricalConductivity as unknown as { basis?: unknown }).basis
+    expect(validateSolverContract(dcCurrentDensitySpec, missing).issues).toContainEqual(expect.objectContaining({
+      path: 'structure.parts.conductor.material.variables.electricalConductivity.basis',
+      message: 'must exactly match the solver referenceBasis.',
+    }))
   })
 
   it('validates and deeply freezes registered specs', () => {
@@ -253,5 +279,26 @@ describe('Solver spec validation', () => {
     emptyQuantityKind.parameters.relativeTolerance.value.referenceUnit = '1'
     expect(() => new SolverRegistry([moduleFor(emptyQuantityKind as unknown as SolverSpec)]))
       .toThrow('has no applicable UCUM units')
+
+    const missingReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{ parameters: { electricalConductivity: { value: { referenceBasis?: unknown } } } }>
+    }
+    delete missingReferenceBasis.materials[0].parameters.electricalConductivity.value.referenceBasis
+    expect(() => new SolverRegistry([moduleFor(missingReferenceBasis as unknown as SolverSpec)]))
+      .toThrow('referenceBasis must contain exactly three Cartesian basis vectors')
+
+    const scalarReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
+      parameters: { relativeTolerance: { value: { referenceBasis?: unknown } } }
+    }
+    scalarReferenceBasis.parameters.relativeTolerance.value.referenceBasis = IDENTITY_CARTESIAN_BASIS
+    expect(() => new SolverRegistry([moduleFor(scalarReferenceBasis as unknown as SolverSpec)]))
+      .toThrow('referenceBasis is forbidden for scalar Quantity Kind DimensionlessRatio')
+
+    const obsoleteDimension = structuredClone(dcCurrentDensitySpec) as unknown as {
+      methods: { initializations: Array<{ parameters: { gridShape: { value: { sampleDimension?: number } } } }> }
+    }
+    obsoleteDimension.methods.initializations[0].parameters.gridShape.value.sampleDimension = 1
+    expect(() => new SolverRegistry([moduleFor(obsoleteDimension as unknown as SolverSpec)]))
+      .toThrow('sampleDimension is obsolete in the dtype/axes contract')
   })
 })

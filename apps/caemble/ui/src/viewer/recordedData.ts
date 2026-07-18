@@ -89,9 +89,14 @@ export function recordedDisplayUnitOptions(
   quantityKind: QuantityKindName,
   sourceUnit: UcumUnit,
 ): readonly UcumUnit[] {
-  const units = QuantityKind[quantityKind].applicableUnits() as readonly UcumUnit[]
+  const definition = QuantityKind[quantityKind]
+  const units = definition.applicableUnits() as readonly UcumUnit[]
+  const tensorOrder = definition.tensorOrder()
   return Object.freeze([sourceUnit, ...units.filter((unit) => unit !== sourceUnit)].filter((unit) => {
     try {
+      if (tensorOrder > 0 && convertUcumValue(0, sourceUnit, unit, `${quantityKind} display unit`) !== 0) {
+        return false
+      }
       convertUcumValue(1, sourceUnit, unit, `${quantityKind} display unit`)
       return true
     } catch {
@@ -104,17 +109,18 @@ export function convertRecordedNumericValue(
   value: ResolvedRecordedTensor['value'],
   sourceUnit: UcumUnit,
   displayUnit: UcumUnit,
+  tensorOrder = 0,
 ): ResolvedRecordedTensor['value'] {
   if (sourceUnit === displayUnit) return value
-  if (Array.isArray(value)) {
-    return Object.freeze(value.map((item) => convertRecordedNumericValue(
-      item as ResolvedRecordedTensor['value'],
-      sourceUnit,
-      displayUnit,
-    )))
+  if (tensorOrder > 0 && convertUcumValue(0, sourceUnit, displayUnit, 'Recorded tensor display unit') !== 0) {
+    throw new Error('Recorded tensor display unit conversion must preserve zero.')
   }
-  if (typeof value !== 'number') throw new Error('Recorded value unit conversion requires numeric tensor values.')
-  return convertUcumValue(value, sourceUnit, displayUnit, 'Recorded value display unit')
+  const convertValue = (item: unknown): ResolvedRecordedTensor['value'] => {
+    if (Array.isArray(item)) return Object.freeze(item.map(convertValue))
+    if (typeof item !== 'number') throw new Error('Recorded value unit conversion requires numeric tensor values.')
+    return convertUcumValue(item, sourceUnit, displayUnit, 'Recorded value display unit')
+  }
+  return convertValue(value)
 }
 
 export function convertRecordedNumericTicks(

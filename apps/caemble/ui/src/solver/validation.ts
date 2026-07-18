@@ -1,30 +1,36 @@
 import type { CadScene, CadScenePart } from '../cad/evaluation/types'
 import {
   CadModelError,
-  isExperimentFloatDType,
+  isFloatDType,
+  normalizeDataElement,
+  type DataDType,
   type EvaluatedExperimentRules,
   type ExperimentRule,
   type RecordedDataRule,
 } from '../cad/model/core'
-import { normalizeUcumUnit } from '../cad/model/units'
+import { convertUcumValue, normalizeUcumUnit } from '../cad/model/units'
 import { QuantityKind } from '../quantitykind'
-import type { QuantityKindName } from '../quantitykind/runtime'
+import {
+  normalizeCartesianBasis,
+  type QuantityKindName,
+} from '../quantitykind/runtime'
 import type {
   SolverAxisSpec,
   SolverMaterialSpec,
   SolverMethodSpec,
   SolverNumericBounds,
   SolverParameterSpec,
+  SolverResultAxisSpec,
+  SolverResultValueSpec,
   SolverRuleCategory,
   SolverSpec,
-  SolverTensorValueSpec,
   SolverValidationIssue,
   SolverValidationResult,
   SolverValueSpec,
 } from './spec'
 import type { SolverPreflightInput } from './types'
 
-const tensorDTypes = new Set([
+const dataDTypes = new Set<DataDType>([
   'bool', 'string',
   'int8', 'int16', 'int32', 'int64',
   'uint8', 'uint16', 'uint32', 'uint64',
@@ -67,7 +73,11 @@ function assertBounds(bounds: SolverNumericBounds, path: string) {
   }
 }
 
-function assertQuantitySpec(value: Readonly<{ quantityKind: unknown; referenceUnit: unknown }>, path: string) {
+function assertQuantitySpec(
+  value: Readonly<{ quantityKind: unknown; referenceUnit: unknown; referenceBasis?: unknown }>,
+  path: string,
+  scalarOnly = false,
+) {
   if (
     typeof value.quantityKind !== 'string'
     || !Object.prototype.hasOwnProperty.call(QuantityKind, value.quantityKind)
@@ -83,12 +93,36 @@ function assertQuantitySpec(value: Readonly<{ quantityKind: unknown; referenceUn
   if (!applicableUnits.includes(unit)) {
     throw new CadModelError(`${path}.referenceUnit ${unit} is not applicable to ${quantityKind}.`)
   }
+  const tensorOrder = QuantityKind[quantityKind].tensorOrder()
+  if (scalarOnly && tensorOrder > 0) {
+    throw new CadModelError(`${path}.quantityKind ${quantityKind} must have tensor order 0.`)
+  }
+  if (tensorOrder === 0 && value.referenceBasis !== undefined) {
+    throw new CadModelError(`${path}.referenceBasis is forbidden for scalar Quantity Kind ${quantityKind}.`)
+  }
+  if (tensorOrder > 0) normalizeCartesianBasis(value.referenceBasis, `${path}.referenceBasis`)
 }
 
-function assertAxisSpec(axis: SolverAxisSpec, path: string) {
-  assertNonEmpty(axis.name, `${path}.name`)
+function assertAxisSpec(
+  axis: SolverAxisSpec | SolverResultAxisSpec,
+  path: string,
+  allowDynamicLength: boolean,
+) {
+  if (!isRecord(axis)) throw new CadModelError(`${path} must be an axis spec.`)
+  if (axis.length === undefined) {
+    if (!allowDynamicLength) throw new CadModelError(`${path}.length must be a positive safe integer.`)
+    if (axis.ticks !== undefined) {
+      throw new CadModelError(`${path}.ticks must be omitted when ${path}.length is dynamic.`)
+    }
+  } else if (!Number.isSafeInteger(axis.length) || axis.length <= 0) {
+    throw new CadModelError(`${path}.length must be a positive safe integer when specified.`)
+  }
+  if (axis.name !== undefined) assertNonEmpty(axis.name, `${path}.name`)
   if (axis.ticks !== undefined && !Array.isArray(axis.ticks)) {
     throw new CadModelError(`${path}.ticks must be an array.`)
+  }
+  if (axis.ticks !== undefined && axis.ticks.length !== axis.length) {
+    throw new CadModelError(`${path}.ticks must contain exactly ${axis.length} entries.`)
   }
   axis.ticks?.forEach((tick, index) => {
     if (typeof tick !== 'string' && (typeof tick !== 'number' || !Number.isFinite(tick))) {
@@ -96,71 +130,82 @@ function assertAxisSpec(axis: SolverAxisSpec, path: string) {
     }
   })
   const hasQuantity = axis.quantityKind !== undefined || axis.referenceUnit !== undefined
-  if (hasQuantity) assertQuantitySpec(axis as SolverAxisSpec & { quantityKind: unknown; referenceUnit: unknown }, path)
+  if (hasQuantity) {
+    assertQuantitySpec(
+      axis as SolverAxisSpec & { quantityKind: unknown; referenceUnit: unknown },
+      path,
+      true,
+    )
+  }
 }
 
-function assertValueSpec(value: SolverValueSpec, path: string, allowDynamicShape = false) {
-  if (!isRecord(value) || typeof value.type !== 'string') {
+function assertValueSpec(
+  value: SolverValueSpec | SolverResultValueSpec,
+  path: string,
+  allowDynamicAxes = false,
+) {
+  if (!isRecord(value)) {
     throw new CadModelError(`${path} must be a value spec.`)
   }
+  const obsoleteField = ['type', 'shape', 'dimension', 'sampleDimension', 'sampleShape', 'sampleAxes']
+    .find((field) => Object.prototype.hasOwnProperty.call(value, field))
+  if (obsoleteField) {
+    const replacement = obsoleteField === 'type'
+      ? 'use dtype'
+      : obsoleteField === 'sampleAxes'
+        ? 'use axes'
+        : 'express every outer dimension as an axis length'
+    throw new CadModelError(`${path}.${obsoleteField} is obsolete in the dtype/axes contract; ${replacement}.`)
+  }
   if (value.description !== undefined) assertNonEmpty(value.description, `${path}.description`)
+  if (typeof value.dtype !== 'string' || !dataDTypes.has(value.dtype as DataDType)) {
+    throw new CadModelError(`${path}.dtype is not supported.`)
+  }
+  const dtype = value.dtype as DataDType
+  if (value.axes !== undefined) {
+    if (!Array.isArray(value.axes)) throw new CadModelError(`${path}.axes must be an array.`)
+    if (value.axes.length === 0) {
+      throw new CadModelError(`${path}.axes must be omitted for a single value; axes cannot be empty.`)
+    }
+    value.axes.forEach((axis, index) => assertAxisSpec(
+      axis,
+      `${path}.axes[${index}]`,
+      allowDynamicAxes,
+    ))
+  }
 
-  if (value.type === 'null' || value.type === 'boolean') return
-  if (value.type === 'string') {
-    if (value.minimumLength !== undefined && (!Number.isSafeInteger(value.minimumLength) || value.minimumLength < 0)) {
+  if (dtype === 'string') {
+    const stringSpec = value as Readonly<{ minimumLength?: number; values?: readonly string[] }>
+    if (stringSpec.minimumLength !== undefined && (!Number.isSafeInteger(stringSpec.minimumLength) || stringSpec.minimumLength < 0)) {
       throw new CadModelError(`${path}.minimumLength must be a non-negative safe integer.`)
     }
-    if (value.values !== undefined) {
-      if (!Array.isArray(value.values) || value.values.length === 0 || value.values.some((item) => typeof item !== 'string')) {
+    if (stringSpec.values !== undefined) {
+      if (!Array.isArray(stringSpec.values) || stringSpec.values.length === 0 || stringSpec.values.some((item) => typeof item !== 'string')) {
         throw new CadModelError(`${path}.values must be a non-empty string array.`)
       }
-      if (new Set(value.values).size !== value.values.length) {
+      if (new Set(stringSpec.values).size !== stringSpec.values.length) {
         throw new CadModelError(`${path}.values must not contain duplicates.`)
       }
     }
     return
   }
-  if (value.type === 'integer') {
-    assertBounds(value, path)
+  if (isFloatDType(dtype)) {
+    assertQuantitySpec(
+      value as SolverResultValueSpec & { quantityKind: unknown; referenceUnit: unknown },
+      path,
+    )
+    assertBounds(value as SolverNumericBounds, path)
     return
   }
-  if (value.type === 'float') {
-    assertQuantitySpec(value, path)
-    assertBounds(value, path)
-    return
+  const metadataSpec = value as Readonly<Record<string, unknown>>
+  if (
+    metadataSpec.quantityKind !== undefined
+    || metadataSpec.referenceUnit !== undefined
+    || metadataSpec.referenceBasis !== undefined
+  ) {
+    throw new CadModelError(`${path} non-float dtype must not declare quantity metadata.`)
   }
-  if (value.type === 'array') {
-    if (value.minimumLength !== undefined || value.maximumLength !== undefined) {
-      assertCardinality(value.minimumLength ?? 0, value.maximumLength ?? Number.MAX_SAFE_INTEGER, path)
-    }
-    assertValueSpec(value.items, `${path}.items`)
-    return
-  }
-  if (value.type === 'object') {
-    assertParameterSpecs(value.parameters, `${path}.parameters`)
-    return
-  }
-  if (value.type !== 'tensor') throw new CadModelError(`${path}.type is not supported.`)
-  if (!Number.isSafeInteger(value.dimension) || value.dimension < 0 || value.shape.length !== value.dimension) {
-    throw new CadModelError(`${path} must declare a non-negative dimension matching shape.`)
-  }
-  value.shape.forEach((size, index) => {
-    if (!Number.isSafeInteger(size) || (size <= 0 && !(allowDynamicShape && size === -1))) {
-      throw new CadModelError(`${path}.shape[${index}] must be a positive safe integer${allowDynamicShape ? ' or -1' : ''}.`)
-    }
-  })
-  if (!tensorDTypes.has(value.dtype)) throw new CadModelError(`${path}.dtype is not supported.`)
-  if (isExperimentFloatDType(value.dtype)) {
-    assertQuantitySpec(value as SolverTensorValueSpec & { quantityKind: unknown; referenceUnit: unknown }, path)
-  }
-  else if (value.quantityKind !== undefined || value.referenceUnit !== undefined) {
-    throw new CadModelError(`${path} non-float tensor must not declare quantity metadata.`)
-  }
-  if (value.axes !== undefined) {
-    if (value.axes.length !== value.dimension) throw new CadModelError(`${path}.axes must match dimension.`)
-    value.axes.forEach((axis, index) => assertAxisSpec(axis, `${path}.axes[${index}]`))
-  }
-  if (value.element !== undefined) assertBounds(value.element, `${path}.element`)
+  if (dtype !== 'bool') assertBounds(value as SolverNumericBounds, path)
 }
 
 function assertParameterSpecs(parameters: Readonly<Record<string, SolverParameterSpec>>, path: string) {
@@ -271,7 +316,11 @@ function validateBounds(
 
 function quantityValue(
   value: Readonly<Record<string, unknown>>,
-  spec: Readonly<{ quantityKind: QuantityKindName; referenceUnit: string }>,
+  spec: Readonly<{
+    quantityKind: QuantityKindName
+    referenceUnit: string
+    referenceBasis?: unknown
+  }>,
   path: string,
   documentType: SolverValidationIssue['documentType'],
   issues: SolverValidationIssue[],
@@ -289,13 +338,22 @@ function quantityValue(
     addIssue(issues, documentType, `${path}.unit`, `${value.unit} is not applicable to ${spec.quantityKind}.`)
     return undefined
   }
+  const tensorOrder = QuantityKind[spec.quantityKind].tensorOrder()
+  if (tensorOrder === 0) {
+    if (value.basis !== undefined) {
+      addIssue(issues, documentType, `${path}.basis`, 'is forbidden for a scalar Quantity Kind.')
+      return undefined
+    }
+  } else if (JSON.stringify(value.basis) !== JSON.stringify(spec.referenceBasis)) {
+    addIssue(issues, documentType, `${path}.basis`, 'must exactly match the solver referenceBasis.')
+    return undefined
+  }
   if (typeof value.value !== 'number' || !Number.isFinite(value.value)) return undefined
   try {
-    return QuantityKind[spec.quantityKind].transform(
-      value.value,
-      value.unit as never,
-      spec.referenceUnit as never,
-    )
+    if (tensorOrder > 0 && convertUcumValue(0, value.unit, spec.referenceUnit, path) !== 0) {
+      throw new CadModelError('Tensor unit conversion must preserve zero.')
+    }
+    return convertUcumValue(value.value, value.unit, spec.referenceUnit, path)
   } catch {
     addIssue(
       issues,
@@ -307,13 +365,10 @@ function quantityValue(
   }
 }
 
-function scalarDescriptor(value: unknown, type: 'bool' | 'string' | 'int') {
-  return isRecord(value) && value.type === type ? value.value : value
-}
-
 function validateAxis(
   value: unknown,
-  spec: SolverAxisSpec,
+  spec: SolverAxisSpec | SolverResultAxisSpec,
+  axisIndex: number,
   path: string,
   documentType: SolverValidationIssue['documentType'],
   issues: SolverValidationIssue[],
@@ -322,7 +377,15 @@ function validateAxis(
     addIssue(issues, documentType, path, 'must be an axis descriptor.')
     return
   }
-  if (value.name !== spec.name) addIssue(issues, documentType, `${path}.name`, `must be ${spec.name}.`)
+  if (value.length !== spec.length) {
+    const expected = spec.length === undefined ? 'dynamic' : String(spec.length)
+    addIssue(issues, documentType, `${path}.length`, `must be ${expected}.`)
+  }
+  const expectedName = spec.name ?? `axis ${axisIndex}`
+  const actualName = value.name ?? `axis ${axisIndex}`
+  if (actualName !== expectedName) {
+    addIssue(issues, documentType, `${path}.name`, `must be ${expectedName}.`)
+  }
   if (spec.ticks !== undefined && JSON.stringify(value.ticks) !== JSON.stringify(spec.ticks)) {
     addIssue(issues, documentType, `${path}.ticks`, `must be ${JSON.stringify(spec.ticks)}.`)
   }
@@ -335,64 +398,88 @@ function validateAxis(
   quantityValue({ ...value, value: 0 }, spec, path, documentType, issues)
 }
 
-function tensorElements(value: unknown): number[] {
-  if (Array.isArray(value)) return value.flatMap(tensorElements)
-  return typeof value === 'number' ? [value] : []
+function dataLeaves(
+  value: unknown,
+  path: string,
+): readonly Readonly<{ path: string; value: unknown }>[] {
+  if (!Array.isArray(value)) return [{ path, value }]
+  return value.flatMap((item, index) => dataLeaves(item, `${path}[${index}]`))
 }
 
-function validateTensor(
+function validateDescriptor(
   value: unknown,
-  spec: SolverTensorValueSpec,
+  spec: SolverValueSpec,
   path: string,
   documentType: SolverValidationIssue['documentType'],
   issues: SolverValidationIssue[],
 ) {
-  if (!isRecord(value) || value.type !== 'tensor') {
-    addIssue(issues, documentType, path, 'must be a tensor descriptor.')
+  if (!isRecord(value)) {
+    addIssue(issues, documentType, path, 'must be a dtype descriptor.')
     return
   }
+  const obsoleteField = ['type', 'shape', 'dimension', 'sampleDimension', 'sampleShape', 'sampleAxes']
+    .find((field) => Object.prototype.hasOwnProperty.call(value, field))
+  if (obsoleteField) {
+    addIssue(issues, documentType, `${path}.${obsoleteField}`, 'is obsolete in the dtype/axes contract.')
+  }
   if (value.dtype !== spec.dtype) addIssue(issues, documentType, `${path}.dtype`, `must be ${spec.dtype}.`)
-  if (value.dimension !== spec.dimension) {
-    addIssue(issues, documentType, `${path}.dimension`, `must be ${spec.dimension}.`)
-  }
-  if (JSON.stringify(value.shape) !== JSON.stringify(spec.shape)) {
-    addIssue(issues, documentType, `${path}.shape`, `must be ${JSON.stringify(spec.shape)}.`)
-  }
-  const quantitySpec = spec as SolverTensorValueSpec & {
+  const quantitySpec = spec as SolverValueSpec & {
     quantityKind: QuantityKindName
     referenceUnit: string
+    referenceBasis?: unknown
   }
-  if (isExperimentFloatDType(spec.dtype)) {
+  if (isFloatDType(spec.dtype)) {
     quantityValue({ ...value, value: 0 }, quantitySpec, path, documentType, issues)
   }
-  else if (value.quantityKind !== undefined || value.unit !== undefined) {
+  else if (value.quantityKind !== undefined || value.unit !== undefined || value.basis !== undefined) {
     addIssue(issues, documentType, path, 'must be unitless for a non-float dtype.')
   }
-  if (spec.axes !== undefined) {
-    const axes = value.axes
-    if (!Array.isArray(axes) || axes.length !== spec.axes.length) {
-      addIssue(issues, documentType, `${path}.axes`, `must contain ${spec.axes.length} axes.`)
-    } else {
-      spec.axes.forEach((axis, index) => validateAxis(
-        axes[index],
-        axis,
-        `${path}.axes[${index}]`,
-        documentType,
-        issues,
-      ))
+  const axes = value.axes
+  if (spec.axes === undefined) {
+    if (axes !== undefined) addIssue(issues, documentType, `${path}.axes`, 'must be omitted for a single value.')
+  } else if (!Array.isArray(axes) || axes.length !== spec.axes.length) {
+    addIssue(issues, documentType, `${path}.axes`, `must contain ${spec.axes.length} axes.`)
+  } else {
+    spec.axes.forEach((axis, index) => validateAxis(
+      axes[index],
+      axis,
+      index,
+      `${path}.axes[${index}]`,
+      documentType,
+      issues,
+    ))
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+    addIssue(issues, documentType, `${path}.value`, 'is required.')
+    return
+  }
+  dataLeaves(value.value, `${path}.value`).forEach((leaf) => {
+    try {
+      normalizeDataElement(leaf.value, spec.dtype, leaf.path)
+    } catch (error) {
+      addIssue(issues, documentType, leaf.path, error instanceof Error ? error.message.replace(`${leaf.path} `, '') : 'is invalid.')
+      return
     }
-  }
-  if (spec.element !== undefined && Object.prototype.hasOwnProperty.call(value, 'value')) {
-    tensorElements(value.value).forEach((element, index) => {
-      let comparable = element
-      if (isExperimentFloatDType(spec.dtype)) {
-        const transformed = quantityValue({ ...value, value: element }, quantitySpec, path, documentType, [])
-        if (transformed === undefined) return
-        comparable = transformed
+    if (spec.dtype === 'string') {
+      const stringValue = leaf.value as string
+      if (spec.minimumLength !== undefined && stringValue.length < spec.minimumLength) {
+        addIssue(issues, documentType, leaf.path, `must contain at least ${spec.minimumLength} characters.`)
       }
-      validateBounds(comparable, spec.element!, `${path}.value element ${index}`, documentType, issues)
-    })
-  }
+      if (spec.values && !spec.values.includes(stringValue)) {
+        addIssue(issues, documentType, leaf.path, `must be one of ${spec.values.join(', ')}.`)
+      }
+      return
+    }
+    if (spec.dtype === 'bool') return
+    let comparable = leaf.value as number
+    if (isFloatDType(spec.dtype)) {
+      const transformed = quantityValue({ ...value, value: comparable }, quantitySpec, path, documentType, [])
+      if (transformed === undefined) return
+      comparable = transformed
+    }
+    validateBounds(comparable, spec, leaf.path, documentType, issues)
+  })
 }
 
 function validateValue(
@@ -402,69 +489,90 @@ function validateValue(
   documentType: SolverValidationIssue['documentType'],
   issues: SolverValidationIssue[],
 ) {
-  if (spec.type === 'null') {
-    if (value !== null) addIssue(issues, documentType, path, 'must be null.')
+  if (isRecord(value)) {
+    validateDescriptor(value, spec, path, documentType, issues)
     return
   }
-  if (spec.type === 'boolean') {
-    if (typeof scalarDescriptor(value, 'bool') !== 'boolean') addIssue(issues, documentType, path, 'must be boolean.')
+  if (Array.isArray(value) || value === null) {
+    addIssue(issues, documentType, path, 'raw composite values are forbidden; use a dtype descriptor with axes.')
     return
   }
-  if (spec.type === 'string') {
-    const actual = scalarDescriptor(value, 'string')
-    if (typeof actual !== 'string') {
+  if (spec.axes !== undefined) {
+    addIssue(issues, documentType, path, 'must be a dtype descriptor with axes.')
+    return
+  }
+  if (spec.dtype === 'bool') {
+    if (typeof value !== 'boolean') addIssue(issues, documentType, path, 'must be boolean.')
+    return
+  }
+  if (spec.dtype === 'string') {
+    if (typeof value !== 'string') {
       addIssue(issues, documentType, path, 'must be a string.')
       return
     }
-    if (spec.minimumLength !== undefined && actual.length < spec.minimumLength) {
+    if (spec.minimumLength !== undefined && value.length < spec.minimumLength) {
       addIssue(issues, documentType, path, `must contain at least ${spec.minimumLength} characters.`)
     }
-    if (spec.values && !spec.values.includes(actual)) {
+    if (spec.values && !spec.values.includes(value)) {
       addIssue(issues, documentType, path, `must be one of ${spec.values.join(', ')}.`)
     }
     return
   }
-  if (spec.type === 'integer') {
-    const actual = scalarDescriptor(value, 'int')
-    if (typeof actual !== 'number' || !Number.isSafeInteger(actual)) {
-      addIssue(issues, documentType, path, 'must be a safe integer.')
-      return
-    }
-    validateBounds(actual, spec, path, documentType, issues)
+  if (isFloatDType(spec.dtype)) {
+    addIssue(issues, documentType, path, 'must be an explicit float dtype descriptor.')
     return
   }
-  if (spec.type === 'float') {
-    if (!isRecord(value) || value.type !== 'float' || typeof value.value !== 'number' || !Number.isFinite(value.value)) {
-      addIssue(issues, documentType, path, 'must be a finite float descriptor.')
-      return
-    }
-    const comparable = quantityValue(value, spec, path, documentType, issues)
-    if (comparable !== undefined) validateBounds(comparable, spec, path, documentType, issues)
+  try {
+    normalizeDataElement(value, spec.dtype, path)
+  } catch {
+    addIssue(issues, documentType, path, `must be a ${spec.dtype} safe integer.`)
     return
   }
-  if (spec.type === 'tensor') {
-    validateTensor(value, spec, path, documentType, issues)
-    return
-  }
-  if (spec.type === 'array') {
-    if (!Array.isArray(value)) {
-      addIssue(issues, documentType, path, 'must be an array.')
-      return
-    }
-    if (spec.minimumLength !== undefined && value.length < spec.minimumLength) {
-      addIssue(issues, documentType, path, `must contain at least ${spec.minimumLength} items.`)
-    }
-    if (spec.maximumLength !== undefined && value.length > spec.maximumLength) {
-      addIssue(issues, documentType, path, `must contain at most ${spec.maximumLength} items.`)
-    }
-    value.forEach((item, index) => validateValue(item, spec.items, `${path}[${index}]`, documentType, issues))
-    return
-  }
+  validateBounds(value as number, spec, path, documentType, issues)
+}
+
+function validateResult(
+  value: unknown,
+  spec: SolverResultValueSpec,
+  path: string,
+  documentType: SolverValidationIssue['documentType'],
+  issues: SolverValidationIssue[],
+) {
   if (!isRecord(value)) {
-    addIssue(issues, documentType, path, 'must be an object.')
+    addIssue(issues, documentType, path, 'must be a dtype result descriptor.')
     return
   }
-  validateParameters(value, spec.parameters, path, documentType, issues)
+  const obsoleteField = ['type', 'shape', 'dimension', 'sampleDimension', 'sampleShape', 'sampleAxes']
+    .find((field) => Object.prototype.hasOwnProperty.call(value, field))
+  if (obsoleteField) {
+    addIssue(issues, documentType, `${path}.${obsoleteField}`, 'is obsolete in the dtype/axes contract.')
+  }
+  if (value.dtype !== spec.dtype) addIssue(issues, documentType, `${path}.dtype`, `must be ${spec.dtype}.`)
+  if (isFloatDType(spec.dtype)) {
+    quantityValue(value, spec as SolverResultValueSpec & {
+      quantityKind: QuantityKindName
+      referenceUnit: string
+      referenceBasis?: unknown
+    }, path, documentType, issues)
+  } else if (value.quantityKind !== undefined || value.unit !== undefined || value.basis !== undefined) {
+    addIssue(issues, documentType, path, 'must be unitless for a non-float dtype.')
+  }
+
+  const axes = value.axes
+  if (spec.axes === undefined) {
+    if (axes !== undefined) addIssue(issues, documentType, `${path}.axes`, 'must be omitted for a single value.')
+  } else if (!Array.isArray(axes) || axes.length !== spec.axes.length) {
+    addIssue(issues, documentType, `${path}.axes`, `must contain ${spec.axes.length} axes.`)
+  } else {
+    spec.axes.forEach((axis, index) => validateAxis(
+      axes[index],
+      axis,
+      index,
+      `${path}.axes[${index}]`,
+      documentType,
+      issues,
+    ))
+  }
 }
 
 function validateParameters(
@@ -580,7 +688,7 @@ function validateMethod(
     validateParameters(rule.parameters, method.parameters, `${path}.parameters`, 'experiment', issues)
     validateRuleTarget(rule, method, path, input, issues)
     if (category === 'recordedData' && method.result) {
-      validateTensor((rule as RecordedDataRule).result, method.result, `${path}.result`, 'experiment', issues)
+      validateResult((rule as RecordedDataRule).result, method.result, `${path}.result`, 'experiment', issues)
     }
   })
 }

@@ -1,4 +1,5 @@
 export const defaultCode = `import {
+  IDENTITY_CARTESIAN_BASIS,
   Material,
   Sample,
   Structure,
@@ -28,11 +29,16 @@ const structure = new Structure({
       materials={[
         new Material('Copper', 'reference', {
           electricalConductivity: {
-            type: 'float',
-            value: vars.electricalConductivity as number,
+            dtype: 'float64',
+            value: [
+              [vars.electricalConductivity as number, 0, 0],
+              [0, vars.electricalConductivity as number, 0],
+              [0, 0, vars.electricalConductivity as number],
+            ],
             errorRate: 0.001,
             unit: 'S.m-1',
             quantityKind: 'ElectricConductivity',
+            basis: IDENTITY_CARTESIAN_BASIS,
           },
           color: '#d97706',
         }),

@@ -95,7 +95,7 @@ const structure = new Structure({
         materials={[
           new Material('HCP Particle', {
             density: {
-              type: 'float',
+              dtype: 'float64',
               value: 1.05,
               errorRate: 0,
               unit: 'g.cm-3',

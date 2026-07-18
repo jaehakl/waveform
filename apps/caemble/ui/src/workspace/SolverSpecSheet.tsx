@@ -3,6 +3,7 @@ import { QuantityKind } from '../quantitykind'
 import type {
   SolverMethodSpec,
   SolverParameterSpec,
+  SolverResultValueSpec,
   SolverRuleCategory,
   SolverSpec,
   SolverValueSpec,
@@ -19,13 +20,21 @@ const categories: readonly Readonly<{ id: SolverRuleCategory; label: string }>[]
   { id: 'recordedData', label: 'Recorded Data' },
 ]
 
-function QuantityContract({ spec }: { spec: Readonly<{ quantityKind: keyof typeof QuantityKind; referenceUnit: string }> }) {
+function QuantityContract({ spec }: { spec: Readonly<{
+  quantityKind: keyof typeof QuantityKind
+  referenceUnit: string
+  referenceBasis?: readonly (readonly number[])[]
+}> }) {
   const units = QuantityKind[spec.quantityKind].applicableUnits()
+  const tensorOrder = QuantityKind[spec.quantityKind].tensorOrder()
+  const componentShape = QuantityKind[spec.quantityKind].componentShape()
   return (
     <span>
       <span className="font-medium text-sky-800">{spec.quantityKind}</span>
       {' · reference '}
       <code>{spec.referenceUnit}</code>
+      {` · order ${tensorOrder} · components ${JSON.stringify(componentShape)}`}
+      {spec.referenceBasis ? ` · reference basis ${JSON.stringify(spec.referenceBasis)}` : ''}
       {' · '}
       <details className="inline">
         <summary className="inline cursor-pointer text-sky-700">{units.length} applicable units</summary>
@@ -52,35 +61,25 @@ function boundsText(spec: Readonly<{
   return [minimum, maximum].filter(Boolean).join(' and ')
 }
 
-function ValueContract({ spec }: { spec: SolverValueSpec }) {
+function ValueContract({ spec }: { spec: SolverValueSpec | SolverResultValueSpec }) {
   const bounds = 'minimum' in spec || 'maximum' in spec ? boundsText(spec) : ''
-  if (spec.type === 'float') {
-    return (
-      <span>
-        float · <QuantityContract spec={spec} />{bounds ? ` · ${bounds}` : ''}
-      </span>
-    )
-  }
-  if (spec.type === 'tensor') {
-    return (
-      <div>
-        tensor · {spec.dtype} · {spec.dimension}D · shape {JSON.stringify(spec.shape)}
-        {spec.quantityKind ? <><br /><QuantityContract spec={spec as Parameters<typeof QuantityContract>[0]['spec']} /></> : null}
-        {spec.element && boundsText(spec.element) ? ` · elements ${boundsText(spec.element)}` : ''}
-        {spec.axes?.map((axis, index) => (
-          <div className="ml-3 mt-1" key={`${axis.name}-${index}`}>
-            axis {index}: {axis.name}
-            {axis.ticks ? ` · ticks ${JSON.stringify(axis.ticks)}` : ''}
-            {axis.quantityKind ? <><br /><QuantityContract spec={axis} /></> : ' · unitless'}
-          </div>
-        ))}
-      </div>
-    )
-  }
-  if (spec.type === 'array') return <span>array · items: <ValueContract spec={spec.items} /></span>
-  if (spec.type === 'object') return <span>object · {Object.keys(spec.parameters).length} declared parameters</span>
-  if (spec.type === 'string' && spec.values) return <span>string · one of {spec.values.join(', ')}</span>
-  return <span>{spec.type}{bounds ? ` · ${bounds}` : ''}</span>
+  return (
+    <div>
+      dtype {spec.dtype}
+      {'quantityKind' in spec && spec.quantityKind
+        ? <><br /><QuantityContract spec={spec as Parameters<typeof QuantityContract>[0]['spec']} /></>
+        : null}
+      {bounds ? ` · every value ${bounds}` : ''}
+      {spec.dtype === 'string' && spec.values ? ` · one of ${spec.values.join(', ')}` : ''}
+      {spec.axes?.map((axis, index) => (
+        <div className="ml-3 mt-1" key={`${axis.name}-${index}`}>
+          axis {index}: {axis.name ?? `axis ${index}`} · length {axis.length ?? 'dynamic'}
+          {axis.ticks ? ` · ticks ${JSON.stringify(axis.ticks)}` : ''}
+          {axis.quantityKind ? <><br /><QuantityContract spec={axis} /></> : ' · unitless'}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function ParameterList({ parameters }: { parameters: Readonly<Record<string, SolverParameterSpec>> }) {

@@ -2,7 +2,19 @@
 import { QuantityKindEntry } from './runtime'
 import type { QuantityKindDefinition, QuantityKindName } from './runtime'
 
-export type { ApplicableUnit, QuantityKindDefinition, QuantityKindName } from './runtime'
+export { IDENTITY_CARTESIAN_BASIS } from './runtime'
+export type {
+  ApplicableUnit,
+  CartesianBasis,
+  QuantityKindComponentShape,
+  QuantityKindComponentValue,
+  QuantityKindDefinition,
+  QuantityKindName,
+  QuantityKindTensorOrder,
+  QuantityMetadata,
+  ScalarQuantityKindName,
+  TensorQuantityKindName,
+} from './runtime'
 
 export const QuantityKind = Object.freeze({
   APIGravity: new QuantityKindEntry("APIGravity"),

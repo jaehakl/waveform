@@ -28,7 +28,7 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       id: 'conductor',
       materials: [new Material('Test', {
         value: {
-          type: 'float', value: vars.materialValue as number, errorRate: 0.1,
+          dtype: 'float64', value: vars.materialValue as number, errorRate: 0.1,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         color: '#2563eb',
@@ -47,7 +47,7 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       version,
       parameters: () => ({
         scale: {
-          type: 'float', value: vars.scale as number,
+          dtype: 'float64', value: vars.scale as number,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       }),
@@ -60,7 +60,7 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       methodId: 'test.value',
       parameters: {},
       result: {
-        type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+        dtype: 'float64',
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
     }],
@@ -79,7 +79,7 @@ function valueModule(solve?: SolverModule['solve']): SolverModule {
     parameters: {
       scale: {
         description: 'Result scale.',
-        value: { type: 'float', quantityKind: 'DimensionlessRatio', referenceUnit: '{fraction}' },
+        value: { dtype: 'float64', quantityKind: 'DimensionlessRatio', referenceUnit: '{fraction}' },
       },
     },
     materials: [],
@@ -101,13 +101,9 @@ function valueModule(solve?: SolverModule['solve']): SolverModule {
         },
         parameters: {},
         result: {
-          type: 'tensor',
-          dimension: 0,
-          shape: [],
           dtype: 'float64',
           quantityKind: 'DimensionlessRatio',
           referenceUnit: '{fraction}',
-          axes: [],
         },
       }],
     },
@@ -143,7 +139,7 @@ describe('SolverController', () => {
       expect(appliedMaterialValue).not.toHaveProperty('errorRate')
       expect(input.experiment.solver.parameters).toEqual({
         scale: {
-          type: 'float', value: 5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 5, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       })
       return { Value: { value: 20 } }
@@ -151,7 +147,7 @@ describe('SolverController', () => {
     controller.subscribe((process) => states.push(process.status))
 
     await expect(controller.run(sample, setup)).resolves.toEqual({
-      Value: { value: 20, axes: [] },
+      Value: { value: 20 },
     })
     expect(states).toEqual(['idle', 'preparing', 'running', 'succeeded'])
     expect(controller.getProcess()).toMatchObject({ status: 'succeeded', error: null })
@@ -206,7 +202,7 @@ describe('SolverController', () => {
         version: '1.0.0',
         parameters: () => ({
           scale: {
-            type: 'float', value: 1,
+            dtype: 'float64', value: 1,
             unit: '{fraction}', quantityKind: 'DimensionlessRatio',
           },
         }),
@@ -219,7 +215,7 @@ describe('SolverController', () => {
         methodId: 'test.value',
         parameters: {},
         result: {
-          type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+          dtype: 'float64',
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       }],

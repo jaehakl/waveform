@@ -1,11 +1,17 @@
 import { createUcumService } from '@fhir-toolkit/ucum'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { CadModelError } from '../cad/model/errors'
+import { quantityKindData } from './data'
 import {
   QuantityKind,
   type ApplicableUnit,
   type QuantityKindDefinition,
 } from './index'
+import {
+  componentShapeForTensorOrder,
+  transformQuantityComponents,
+} from './runtime'
+import { quantityKindTensorOrders } from './tensorOrder'
 
 function assertCompileTimeUnitTypes() {
   // @ts-expect-error seconds are not an applicable Length unit
@@ -14,6 +20,61 @@ function assertCompileTimeUnitTypes() {
 void assertCompileTimeUnitTypes
 
 describe('QuantityKind', () => {
+  it('has one explicit, frozen tensor order for every QUDT 3.4 name', () => {
+    const sourceNames = Object.keys(quantityKindData).sort()
+    const orderNames = Object.keys(quantityKindTensorOrders).sort()
+
+    expect(sourceNames).toHaveLength(1_219)
+    expect(orderNames).toEqual(sourceNames)
+    expect(Object.isFrozen(quantityKindTensorOrders)).toBe(true)
+    for (const name of sourceNames) {
+      expect(Object.prototype.hasOwnProperty.call(quantityKindTensorOrders, name)).toBe(true)
+      const order = quantityKindTensorOrders[name as keyof typeof quantityKindTensorOrders]
+      expect(Number.isSafeInteger(order)).toBe(true)
+      expect(order).toBeGreaterThanOrEqual(0)
+      expect(order).toBeLessThanOrEqual(2)
+    }
+    expect((quantityKindTensorOrders as Record<string, number>).NotAQuantityKind).toBeUndefined()
+  })
+
+  it('fixes representative and text-ambiguous scalar, vector, and matrix orders', () => {
+    expect(QuantityKind.Length.tensorOrder()).toBe(0)
+    expect(QuantityKind.Length.componentShape()).toEqual([])
+    expect(QuantityKind.Force.tensorOrder()).toBe(1)
+    expect(QuantityKind.Force.componentShape()).toEqual([3])
+    expect(QuantityKind.ElectricConductivity.tensorOrder()).toBe(2)
+    expect(QuantityKind.ElectricConductivity.componentShape()).toEqual([3, 3])
+    expect(QuantityKind.Stress.tensorOrder()).toBe(2)
+    expect(QuantityKind.Strain.tensorOrder()).toBe(2)
+    expect(QuantityKind.ElectricQuadrupoleMoment.tensorOrder()).toBe(2)
+
+    expect(QuantityKind.AngularFrequency.tensorOrder()).toBe(0)
+    expect(QuantityKind.BendingMomentOfForce.tensorOrder()).toBe(0)
+    expect(QuantityKind.HorizontalVelocity.tensorOrder()).toBe(0)
+    expect(QuantityKind.MaxOperatingThrust.tensorOrder()).toBe(0)
+    expect(QuantityKind.ParticleCurrent.tensorOrder()).toBe(0)
+    expect(QuantityKind.Pressure.tensorOrder()).toBe(0)
+    expect(QuantityKind.RotationalVelocity.tensorOrder()).toBe(0)
+    expect(QuantityKind.Tilt.tensorOrder()).toBe(0)
+    expect(QuantityKind.VolumeStrain.tensorOrder()).toBe(0)
+
+    expectTypeOf(QuantityKind.Length.tensorOrder()).toEqualTypeOf<0>()
+    expectTypeOf(QuantityKind.Force.tensorOrder()).toEqualTypeOf<1>()
+    expectTypeOf(QuantityKind.ElectricConductivity.tensorOrder()).toEqualTypeOf<2>()
+    expectTypeOf(QuantityKind.Force.componentShape()).toEqualTypeOf<readonly [3]>()
+    expectTypeOf(QuantityKind.ElectricConductivity.componentShape())
+      .toEqualTypeOf<readonly [3, 3]>()
+    expect(Object.isFrozen(QuantityKind.Force.componentShape())).toBe(true)
+  })
+
+  it('builds arbitrary non-negative component orders without a scalar fallback', () => {
+    expect(componentShapeForTensorOrder(3)).toEqual([3, 3, 3])
+    expect(componentShapeForTensorOrder(4)).toEqual([3, 3, 3, 3])
+    expect(Object.isFrozen(componentShapeForTensorOrder(4))).toBe(true)
+    expect(() => componentShapeForTensorOrder(-1)).toThrow('non-negative safe integer')
+    expect(() => componentShapeForTensorOrder(1.5)).toThrow('non-negative safe integer')
+  })
+
   it('exposes every source name, including deprecated and non-identifier names', () => {
     const entries = Object.values(QuantityKind)
 
@@ -72,6 +133,33 @@ describe('QuantityKind', () => {
     expect(QuantityKind.Temperature.transform(0, 'Cel', 'K')).toBeCloseTo(273.15)
   })
 
+  it('recursively converts every vector and matrix component and rejects affine tensor conversions', () => {
+    const vector = QuantityKind.ElectricCurrentDensity.transform(
+      [1, 2, 3],
+      'A.cm-2',
+      'A.m-2',
+    )
+    const matrix = QuantityKind.ElectricConductivity.transform(
+      [[1, 0, 0], [0, 2, 0], [0, 0, 3]],
+      'S.cm-1',
+      'S.m-1',
+    )
+
+    expect(vector).toEqual([10_000, 20_000, 30_000])
+    matrix.flat().forEach((component, index) => {
+      expect(component).toBeCloseTo([100, 0, 0, 0, 200, 0, 0, 0, 300][index], 12)
+    })
+    expect(Object.isFrozen(vector)).toBe(true)
+    expect(Object.isFrozen(matrix[0])).toBe(true)
+    expect(() => transformQuantityComponents(
+      [0, 0, 0],
+      [3],
+      'Cel',
+      'K',
+      'Synthetic vector conversion',
+    )).toThrow('zero-preserving unit transform')
+  })
+
   it('rejects non-finite values, foreign units, and incompatible applicable units', () => {
     expect(() => QuantityKind.Length.transform(Number.NaN, 'mm', 'm')).toThrow(CadModelError)
     expect(() => QuantityKind.Length.transform(
@@ -85,7 +173,7 @@ describe('QuantityKind', () => {
       's' as unknown as ApplicableUnit<'Length'>,
     )).toThrow('does not include target UCUM unit s')
     expect(() => QuantityKind.AngularAcceleration.transform(
-      1,
+      [1, 1, 1],
       '{#}.s-2',
       'rad.s-2',
     )).toThrow(CadModelError)

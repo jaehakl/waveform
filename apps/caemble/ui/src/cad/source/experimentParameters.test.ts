@@ -14,13 +14,10 @@ const experiment = new Experiment({ lengthUnit: 'mm',
     methodId: 'field.inline',
     parameters: {
       profile: {
-        type: 'tensor',
-        dimension: 2,
-        shape: [1, 2],
         dtype: 'float32',
         unit: '{fraction}',
         quantityKind: 'DimensionlessRatio',
-        axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 1] }],
+        axes: [{ length: 1, name: 'batch', ticks: ['sample'] }, { length: 2, name: 'position', ticks: [0, 1] }],
         value: [[1, 2]] as const,
       },
     },
@@ -34,9 +31,9 @@ export default new Setup(experiment)
 
     expect(info).toEqual({ editable: true, shared: false })
     expect(update.source).toMatch(/value: \[\n\s+\[\n\s+3,\n\s+4\n\s+]\n\s+] as const/)
-    expect(update.source).toContain('shape: [1, 2]')
+    expect(update.source).not.toContain('shape:')
     expect(update.source).toContain("dtype: 'float32'")
-    expect(update.source).toContain("axes: [{ name: 'batch', ticks: ['sample'] }, { name: 'position', ticks: [0, 1] }]")
+    expect(update.source).toContain("axes: [{ length: 1, name: 'batch', ticks: ['sample'] }, { length: 2, name: 'position', ticks: [0, 1] }]")
   })
 
   it('updates a top-level const array and reports when the binding is shared', () => {
@@ -46,13 +43,13 @@ const experiment = new Experiment({ lengthUnit: 'mm',
   initializations: () => [{
     target: ['structure.geometry.sample'], label: 'Initial', methodId: 'initial',
     parameters: {
-      profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', axes: [{ name: 'x' }], value: sharedData },
+      profile: { dtype: 'int16', axes: [{ length: 2, name: 'x' }], value: sharedData },
     },
   }],
   boundaryConditions: () => [{
     target: ['structure.geometry.sample'], label: 'Boundary', methodId: 'boundary',
     parameters: {
-      profile: { type: 'tensor', dimension: 1, shape: [2], dtype: 'int16', axes: [{ name: 'x' }], value: sharedData },
+      profile: { dtype: 'int16', axes: [{ length: 2, name: 'x' }], value: sharedData },
     },
   }],
 })
@@ -66,7 +63,7 @@ export default new Setup(experiment)
     expect(update.shared).toBe(true)
     expect(update.source).toMatch(/const sharedData = \[\n\s+7,\n\s+8\n\s+] as const/)
     expect(update.source.match(/value: sharedData/g)).toHaveLength(2)
-    expect(update.source.match(/axes: \[\{ name: 'x' }]/g)).toHaveLength(2)
+    expect(update.source.match(/axes: \[\{ length: 2, name: 'x' }]/g)).toHaveLength(2)
   })
 
   it('preserves CRLF and UTF-8 Korean text while replacing a const array', () => {
@@ -79,12 +76,12 @@ const experiment = new Experiment({ lengthUnit: 'mm',
     methodId: 'record.text',
     parameters: {
       names: {
-        type: 'tensor', dimension: 1, shape: [2], dtype: 'string',
-        axes: [{ name: '이름', ticks: ['첫째', '둘째'] }], value: profile,
+        dtype: 'string',
+        axes: [{ length: 2, name: '이름', ticks: ['첫째', '둘째'] }], value: profile,
       },
     },
     result: {
-      type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+      dtype: 'float64',
       unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     },
   }],
@@ -95,7 +92,7 @@ export default new Setup(experiment)
     const update = updateExperimentTensorSource(source, 'recordedData', 0, 'names', ['수정', '완료'])
 
     expect(update.source).toContain('한국어 기록')
-    expect(update.source).toContain("axes: [{ name: '이름', ticks: ['첫째', '둘째'] }]")
+    expect(update.source).toContain("axes: [{ length: 2, name: '이름', ticks: ['첫째', '둘째'] }]")
     expect(update.source).toContain('"수정"')
     expect(update.source).toContain('"완료"')
     expect(update.source.replace(/\r\n/g, '')).not.toContain('\n')
@@ -108,14 +105,14 @@ const experiment = new Experiment({ lengthUnit: 'mm',
     {
       target: ['structure.geometry.sample'], label: 'Computed', methodId: 'computed',
       parameters: { profile: {
-        type: 'tensor', dimension: 1, shape: [2], dtype: 'float64',
+        dtype: 'float64', axes: [{ length: 2 }],
         unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: makeData(),
       } },
     },
     {
       target: ['structure.geometry.sample'], label: 'Vars', methodId: 'vars',
       parameters: { profile: {
-        type: 'tensor', dimension: 1, shape: [2], dtype: 'float64',
+        dtype: 'float64', axes: [{ length: 2 }],
         unit: '{fraction}', quantityKind: 'DimensionlessRatio', value: vars.profile,
       } },
     },

@@ -81,7 +81,7 @@ const structure = new Structure({
         materials={[
           new Material('Curved Polymer', {
             density: {
-              type: 'float',
+              dtype: 'float64',
               value: 1.12,
               errorRate: 0,
               unit: 'g.cm-3',

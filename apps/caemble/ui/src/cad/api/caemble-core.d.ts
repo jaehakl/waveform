@@ -1,6 +1,8 @@
 export type Tensor = number | readonly Tensor[]
 export type Vars = Readonly<Record<string, Tensor>>
 export type Vec3 = readonly [number, number, number]
+export type CartesianBasis = readonly [Vec3, Vec3, Vec3]
+export const IDENTITY_CARTESIAN_BASIS: CartesianBasis
 export type Rotation = Readonly<{ axis: Vec3; angle: number }>
 export type StructureGroupMap = Readonly<Record<string, readonly string[]>>
 export type VarsSchemaEntry = Readonly<{
@@ -8,7 +10,7 @@ export type VarsSchemaEntry = Readonly<{
   max: Tensor
 }>
 export type ExperimentTarget = `${'experiment' | 'structure'}.${'geometry' | 'surface'}.${string}`
-export type ExperimentTensorDType =
+export type DataDType =
   | 'bool'
   | 'string'
   | 'int8'
@@ -22,8 +24,9 @@ export type ExperimentTensorDType =
   | 'float16'
   | 'float32'
   | 'float64'
-export type ExperimentFloatTensorDType = Extract<ExperimentTensorDType, `float${number}`>
-export type ExperimentNonFloatTensorDType = Exclude<ExperimentTensorDType, ExperimentFloatTensorDType>
+export type FloatDataDType = Extract<DataDType, `float${number}`>
+export type NonFloatDataDType = Exclude<DataDType, FloatDataDType>
+export type IntegerDataDType = Exclude<NonFloatDataDType, 'bool' | 'string'>
 export type UcumUnit = string
 export type QuantityKindName =
   | 'APIGravity'
@@ -1245,69 +1248,203 @@ export type QuantityKindName =
   | 'Work'
   | 'WorkFunction'
   | 'ZenithAngle'
-export type QuantityMetadata = Readonly<{
+export type TensorQuantityKindName =
+  | 'Acceleration'
+  | 'AngularAcceleration'
+  | 'AngularImpulse'
+  | 'AngularMomentum'
+  | 'AngularMomentumPerAngle'
+  | 'AngularReciprocalLatticeVector'
+  | 'AngularVelocity'
+  | 'AreicChargeDensityOrElectricFluxDensityOrElectricPolarization'
+  | 'AuxillaryMagneticField'
+  | 'AverageVacuumThrust'
+  | 'BurgersVector'
+  | 'CENTER-OF-MASS'
+  | 'CartesianCoordinates'
+  | 'Conductivity'
+  | 'Debye-WallerFactor'
+  | 'DebyeWallerFactor'
+  | 'DiffusionCoefficient'
+  | 'DiffusionCoefficientForFluenceRate'
+  | 'Displacement'
+  | 'DisplacementCurrentDensity'
+  | 'DisplacementVectorOfIon'
+  | 'DragForce'
+  | 'ElectricConductivity'
+  | 'ElectricCurrentDensity'
+  | 'ElectricDipoleMoment'
+  | 'ElectricDisplacement'
+  | 'ElectricDisplacementField'
+  | 'ElectricField'
+  | 'ElectricFieldStrength'
+  | 'ElectricFluxDensity'
+  | 'ElectricPolarizability'
+  | 'ElectricPolarization'
+  | 'ElectricQuadrupoleMoment'
+  | 'ElectricSusceptibility'
+  | 'ElectrolyticConductivity'
+  | 'ElectromagneticPermeability'
+  | 'ElectromagneticPermeabilityRatio'
+  | 'ElectronMobility'
+  | 'EquilibriumPositionVectorOfIon'
+  | 'Force'
+  | 'ForcePerElectricCharge'
+  | 'FundamentalLatticeVector'
+  | 'FundamentalReciprocalLatticeVector'
+  | 'Gradient'
+  | 'GravitationalAttraction'
+  | 'HeatFlowRatePerArea'
+  | 'HeatFluxDensity'
+  | 'HydraulicPermeability'
+  | 'Impulse'
+  | 'InitialVelocity'
+  | 'InversePermittivity'
+  | 'KinematicViscosityOrDiffusionConstantOrThermalDiffusivity'
+  | 'LatticeVector'
+  | 'LiftForce'
+  | 'LinearAcceleration'
+  | 'LinearElectricCurrentDensity'
+  | 'LinearMomentum'
+  | 'LinearVelocity'
+  | 'MagneticAreaMoment'
+  | 'MagneticDipoleMoment'
+  | 'MagneticDipoleMomentOfAMolecule'
+  | 'MagneticField'
+  | 'MagneticFieldStrength'
+  | 'MagneticFieldStrength_H'
+  | 'MagneticFluxDensity'
+  | 'MagneticFluxDensityOrMagneticPolarization'
+  | 'MagneticMoment'
+  | 'MagneticPolarization'
+  | 'MagneticReluctivity'
+  | 'MagneticSusceptability'
+  | 'MagneticVectorPotential'
+  | 'Magnetization'
+  | 'MagnetizationField'
+  | 'MassFluxDensity'
+  | 'MechanicalMobility'
+  | 'Mobility'
+  | 'MoistureDiffusivity'
+  | 'MolarAngularMomentum'
+  | 'MolarConductivity'
+  | 'MolarFluxDensity'
+  | 'MomentOfForce'
+  | 'MomentOfInertia'
+  | 'Momentum'
+  | 'MomentumPerAngle'
+  | 'NeutronDiffusionCoefficient'
+  | 'NuclearQuadrupoleMoment'
+  | 'OrbitalAngularMomentumPerMass'
+  | 'ParticleCurrentDensity'
+  | 'ParticlePositionVector'
+  | 'PeltierCoefficient'
+  | 'Permeability'
+  | 'PermeabilityRatio'
+  | 'Permittivity'
+  | 'PermittivityRatio'
+  | 'Polarizability'
+  | 'PolarizationField'
+  | 'PositionVector'
+  | 'PoyntingVector'
+  | 'PressureGradient'
+  | 'RelativePermittivity'
+  | 'ResidualResistivity'
+  | 'Resistivity'
+  | 'SeebeckCoefficient'
+  | 'SoundIntensity'
+  | 'SoundParticleAcceleration'
+  | 'SoundParticleDisplacement'
+  | 'SoundParticleVelocity'
+  | 'Spin'
+  | 'Strain'
+  | 'Stress'
+  | 'TemperatureGradient'
+  | 'ThermalConductivity'
+  | 'ThermalDiffusionRatioCoefficient'
+  | 'ThermalDiffusivity'
+  | 'ThermalExpansionCoefficient'
+  | 'ThermalResistivity'
+  | 'Thrust'
+  | 'TimeAveragedSoundIntensity'
+  | 'Torque'
+  | 'TotalAngularMomentum'
+  | 'TotalCurrentDensity'
+  | 'VacuumThrust'
+  | 'VaporPermeability'
+  | 'VapourPermeability'
+  | 'Velocity'
+  | 'VolumetricFlux'
+  | 'Vorticity'
+  | 'WaterVaporDiffusionCoefficient'
+  | 'WaterVapourDiffusionCoefficient'
+  | 'WebTimeAverageThrust'
+  | 'Weight'
+export type ScalarQuantityKindName = Exclude<QuantityKindName, TensorQuantityKindName>
+type QuantityBasisMetadata<Name extends QuantityKindName> =
+  [Name] extends [ScalarQuantityKindName]
+    ? Readonly<{ basis?: never }>
+    : [Name] extends [TensorQuantityKindName]
+      ? Readonly<{ basis: CartesianBasis }>
+      : Readonly<{ basis?: CartesianBasis }>
+export type QuantityMetadata<Name extends QuantityKindName = QuantityKindName> = Readonly<{
   unit: UcumUnit
-  quantityKind: QuantityKindName
-}>
-export type FloatValue = Readonly<{
-  type: 'float'
-  value: number
-  unit: UcumUnit
-  quantityKind: QuantityKindName
-}>
-export type ExperimentScalarParameter =
-  | boolean
-  | string
-  | number
-  | Readonly<{ type: 'bool'; value: boolean }>
-  | Readonly<{ type: 'string'; value: string }>
-  | Readonly<{ type: 'int'; value: number }>
-  | FloatValue
-type ExperimentTensorAxisBase = Readonly<{
+  quantityKind: Name
+}> & QuantityBasisMetadata<Name>
+type DataAxisBase = Readonly<{
+  length: number
   name?: string
   ticks?: readonly (number | string)[]
 }>
-export type ExperimentTensorAxis = ExperimentTensorAxisBase & Readonly<
-  | { unit: UcumUnit; quantityKind: QuantityKindName }
+export type DataAxis = DataAxisBase & Readonly<
+  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
   | { unit?: never; quantityKind?: never }
 >
-type ExperimentTensorParameterBase = Readonly<{
-  type: 'tensor'
-  dimension: number
-  shape: readonly number[]
-  axes?: readonly ExperimentTensorAxis[]
+type DataValueDescriptorBase = Readonly<{
+  axes?: readonly DataAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
-export type ExperimentTensorParameter = ExperimentTensorParameterBase & Readonly<
+export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
+  | ({
+    dtype: FloatDataDType
+  } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
   | {
-    dtype: ExperimentFloatTensorDType
-    unit: UcumUnit
-    quantityKind: QuantityKindName
-  }
-  | {
-    dtype: ExperimentNonFloatTensorDType
+    dtype: NonFloatDataDType
     unit?: never
     quantityKind?: never
+    basis?: never
   }
 >
-export type ExperimentParameter = ExperimentScalarParameter | ExperimentTensorParameter
+export type ScalarValue = boolean | string | number
+export type ExperimentParameter = ScalarValue | DataValueDescriptor
 export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
+type RecordedDataResultAxisBase = Readonly<{
+  length?: number
+  name?: string
+  ticks?: readonly (number | string)[]
+}>
+export type RecordedDataResultAxis = RecordedDataResultAxisBase & Readonly<
+  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
+  | { unit?: never; quantityKind?: never }
+>
 type RecordedDataResultBase = Readonly<{
-  type: 'tensor'
-  dimension: number
-  shape: readonly number[]
-  axes?: readonly ExperimentTensorAxis[]
+  axes?: readonly RecordedDataResultAxis[]
 }>
 export type RecordedDataResult = RecordedDataResultBase & Readonly<
+  | ({
+    dtype: FloatDataDType
+  } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
   | {
-    dtype: ExperimentFloatTensorDType
-    unit: UcumUnit
-    quantityKind: QuantityKindName
-  }
-  | {
-    dtype: ExperimentNonFloatTensorDType
+    dtype: NonFloatDataDType
     unit?: never
     quantityKind?: never
+    basis?: never
   }
 >
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
@@ -1439,39 +1576,31 @@ export type GeometryAttributes<P extends object = object> = Readonly<
 >
 export type Geometry<P extends object = object> = (props: GeometryAttributes<P>) => unknown
 
-export type MaterialVariable =
-  | string
-  | number
-  | boolean
-  | null
-  | FloatValue
-  | readonly MaterialVariable[]
-  | Readonly<{ [key: string]: MaterialVariable }>
-export type MaterialFloatValue = Readonly<{
-  type: 'float'
-  value: number
-  errorRate: number
-  unit: UcumUnit
-  quantityKind: QuantityKindName
-}>
-export type MaterialFloatTensorValue = Readonly<{
-  type: 'tensor'
-  dimension: number
-  shape: readonly number[]
-  dtype: ExperimentFloatTensorDType
-  axes?: readonly ExperimentTensorAxis[]
-  unit: UcumUnit
-  quantityKind: QuantityKindName
-  value: number | readonly unknown[]
-  errorRate: number
-}>
+export type MaterialDataValueDescriptor = Readonly<
+  | (DataValueDescriptorBase & {
+    dtype: FloatDataDType
+    errorRate: number
+  } & (
+    QuantityMetadata<ScalarQuantityKindName>
+    | QuantityMetadata<TensorQuantityKindName>
+  ))
+  | (DataValueDescriptorBase & {
+    dtype: NonFloatDataDType
+    errorRate?: never
+    unit?: never
+    quantityKind?: never
+    basis?: never
+  })
+>
+export type MaterialVariable = ScalarValue | MaterialDataValueDescriptor
 export type MaterialVariables = Readonly<
-  Record<string, MaterialVariable | MaterialFloatValue | MaterialFloatTensorValue> & { color?: string }
+  Record<string, MaterialVariable> & { color?: string }
 >
 export type ResolvedMaterialVariables = Readonly<
-  Record<string, MaterialVariable | ExperimentTensorParameter> & { color?: string }
+  Record<string, ScalarValue | DataValueDescriptor> & { color?: string }
 >
-export type SolverParameters = Readonly<Record<string, MaterialVariable>>
+export type SolverParameterValue = ScalarValue | DataValueDescriptor
+export type SolverParameters = Readonly<Record<string, SolverParameterValue>>
 export type ExperimentSolver = Readonly<{
   name: string
   version: string
@@ -1499,7 +1628,7 @@ export function assertUcumUnitComparable(
   expectedUnit: UcumUnit | undefined,
   path: string,
 ): void
-export function isExperimentFloatDType(dtype: ExperimentTensorDType): boolean
+export function isFloatDType(dtype: DataDType): boolean
 
 export class Material {
   constructor(symbol: string)

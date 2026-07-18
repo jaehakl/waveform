@@ -71,7 +71,7 @@ function SyntaxHelp() {
               <p className="mt-1">
                 Floating-point values use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'float\', value, unit, quantityKind }'}
+                  {'{ dtype: \'float64\', value, unit, quantityKind, basis? }'}
                 </code>. Quantity Kind names are selected from the QUDT vocabulary exposed by autocomplete. Units
                 follow the official UCUM grammar and must exactly match one of that Quantity Kind&apos;s applicable
                 codes. Equivalent but differently spelled expressions are rejected. Use codes such as{' '}
@@ -87,22 +87,22 @@ function SyntaxHelp() {
 
               <p className="mt-3 font-semibold text-slate-800">Materials</p>
               <p className="mt-1">
-                A Material contains a symbol, an optional version, and a deeply read-only JSON-compatible variables
+                A Material contains a symbol, an optional version, and a deeply read-only variables
                 dictionary. Put an optional <code className="rounded bg-white px-1 py-0.5 text-xs">color</code> in
                 that dictionary using <code className="rounded bg-white px-1 py-0.5 text-xs">#RRGGBB</code>.
-                Raw numeric leaves are safe integers; fractional, physical, and dimensionless float leaves use the
-                float descriptor, including nested arrays and objects. A top-level Material float additionally requires
+                Each variable is a raw boolean, string, safe integer, or dtype descriptor; raw arrays, nested arbitrary
+                objects, and null are rejected. Fractional, physical, and dimensionless values use a float descriptor.
+                Every Material float descriptor additionally requires
                 a unitless <code className="rounded bg-white px-1 py-0.5 text-xs">errorRate</code> in{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">[0, 1)</code>;{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">0.001</code> means{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">0.1%</code>. Top-level float16, float32, and
-                float64 tensors require the same field.
+                <code className="rounded bg-white px-1 py-0.5 text-xs">0.1%</code>.
                 Geometry without a Material or color is shown as a neutral wireframe. Different instances may share
                 a symbol and version.
               </p>
               <p className="mt-1">
-                Each Sample and Setup keeps one Material realization across preview and Solver use. Scalars receive one
-                uniform multiplier; float tensor elements are sampled independently. Rerolling creates a new realization.
+                Each Sample and Setup keeps one Material realization across preview and Solver use. Every scalar or
+                float tensor receives one uniform multiplier. Rerolling creates a new realization.
                 The original Material keeps its nominal value and errorRate, while scene and Solver variables expose only
                 the realized value. Nested floats, non-float tensors, color, and other metadata are unchanged.
               </p>
@@ -194,40 +194,45 @@ function SyntaxHelp() {
                 Each rule has a non-empty <code className="rounded bg-white px-1 py-0.5 text-xs">target</code> array,
                 whose entries use <code className="rounded bg-white px-1 py-0.5 text-xs">source.kind.group</code>, for
                 example <code className="rounded bg-white px-1 py-0.5 text-xs">['experiment.geometry.domain']</code> or{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.sampleBoundary']</code>.
+                <code className="rounded bg-white px-1 py-0.5 text-xs">['structure.surface.conductorBoundary']</code>.
                 Experiment targets must name one of its own groups. Structure targets are deferred until the paired
                 document is ready, then common spec preflight verifies every referenced member before Run. Every
                 rule also has a category-unique Experiment label, a reusable simulation method ID, and a parameters
-                object whose values are raw bool, string, safe integer scalars, explicit scalar descriptors, or
-                explicit tensor descriptors. Raw fractional numbers are rejected; use a float descriptor with a
+                object whose values are raw bool, string, or safe integer scalars, or explicit dtype descriptors.
+                Raw fractional numbers are rejected; use a float descriptor with a
                 required Quantity Kind and applicable UCUM unit. Functions, null, raw arrays, arbitrary nested
                 objects, undefined, and non-finite numbers are rejected. All three factories run with Setup values
                 available through the global{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">vars</code> binding.
               </p>
               <p className="mt-1">
-                Tensor parameters use{' '}
+                Explicit values use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'tensor\', dimension, shape, dtype, axes?, unit, quantityKind, value }'}
+                  {'{ dtype, value, axes?, unit?, quantityKind?, basis? }'}
                 </code>{' '}
-                with dimension at least one, positive fixed shape sizes, and an exact recursive value shape. Dtypes
+                where omitting axes means one Quantity value and a non-empty axes array arranges Quantity values.
+                All 1,219 QUDT 3.4 Quantity Kinds have an explicit Caemble tensor order with no inferred fallback.
+                Each order contributes a trailing [3] per component index, so storage is always axis lengths
+                followed by componentShape. Dtypes
                 are bool, string, signed or unsigned 8/16/32/64-bit integers, or float16/32/64; 64-bit integers are
                 limited to JavaScript safe integers. Float dtypes require both unit and quantityKind; non-float
-                dtypes reject both. Optional axes contains one object per dimension. An axis may omit unit metadata,
+                dtypes reject all quantity metadata. Every fixed axis requires a positive safe-integer length and may omit unit metadata,
                 or provide its unit and quantityKind together.
                 Missing names become axis 0, axis 1, and so on; missing ticks become zero-based indices matching the
-                corresponding shape size. Explicit ticks accept strings and finite numbers. Prefer a top-level const
+                corresponding axis length; explicit ticks must have that same length. Empty axes are rejected.
+                Order-0 quantities forbid basis; order-1 and higher quantities require a
+                finite, orthonormal, right-handed Cartesian basis. Explicit ticks accept strings and finite numbers. Prefer a top-level const
                 for raw tensor data. Experimental Parameters edits only inline and top-level const JSON arrays;
-                normalized axes, Quantity Kinds, and units are displayed read-only, computed and vars-backed values
+                normalized axes, Quantity Kinds, tensor order, component shape, basis, and units are displayed read-only, computed and vars-backed values
                 remain read-only, and scalar or schema edits stay in Experiment Source.
               </p>
               <p className="mt-1">
-                Every recorded-data rule also declares a tensor-only{' '}
+                Every recorded-data rule also declares a{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ type: \'tensor\', dimension: 0, shape: [], dtype: \'float64\', unit: \'A\', quantityKind: \'ElectricCurrent\' }'}
-                </code>, which normalizes to an empty axes array. Result shapes, unlike parameter shapes, may use{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">-1</code> on multiple axes. A wildcard axis
+                  {'{ dtype: \'float64\', unit: \'A\', quantityKind: \'ElectricCurrent\' }'}
+                </code>. RecordedData result axes alone may omit{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">length</code> to be dynamic. A dynamic axis
                 may declare its name and paired unit/quantityKind metadata but must omit source ticks; its length and
                 optional ticks are resolved from the matching result payload, falling back to zero-based indices.
                 Float results require a Quantity Kind and applicable UCUM unit; non-float results reject both.
@@ -235,12 +240,13 @@ function SyntaxHelp() {
               <p className="mt-1">
                 CadViewer recordedData is a dictionary keyed by the unique recorded rule label. Each entry contains{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">{'{ value, axes?: [{ ticks? }] }'}</code>;
-                dtype, dimension, shape, and axis names remain defined by Experiment Source. Results appears whenever
-                recorded rules exist, shows empty plot shells before values arrive, and renders 0D scalars, numeric
+                dtype, component shape, basis, and axis names remain defined by Experiment Source. Results appears whenever
+                recorded rules exist, shows empty plot shells before values arrive, and renders scalar results, numeric
                 1D line charts, numeric 2D heatmaps, and bool/string tables. Higher-dimensional tensors use leading
-                axis selectors and visualize the final two axes. Scalar suffixes, plot axes, and heatmap colorbars
+                axis selectors and visualize the final two axes. Vector and tensor quantities default to
+                Euclidean/Frobenius norm and expose every basis component. Scalar suffixes, plot axes, and heatmap colorbars
                 use schema units. Non-float schemas without unit metadata are displayed as unitless. A solver success must include every rule label and
-                no unknown labels; shape, dtype, and axes are validated before the recursively frozen result is
+                no unknown labels; axis lengths, component shape, dtype, basis, and axes are validated before the recursively frozen result is
                 accepted. Result plots are read-only and their local validation errors do not change CAD compile or
                 render status.
               </p>
@@ -250,13 +256,13 @@ function SyntaxHelp() {
                 The default Structure is a fixed <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
                 copper bar with a randomized corner-notch size from <code className="rounded bg-white px-1 py-0.5 text-xs">[20, 4, 5]</code>{' '}
                 through <code className="rounded bg-white px-1 py-0.5 text-xs">[40, 6, 7]</code>, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
-                5.96e7 S.m-1 (ElectricConductivity)</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@1.0.0</code>. A{' '}
+                σI = 5.96e7 S.m-1 (ElectricConductivity)</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@2.0.0</code>. A{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc.voxel-grid</code> initialization owns the
                 editable int32 <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>{' '}
-                tensor. Both RecordedData rules sample the same axial face near the notch entrance through{' '}
+                tensor. Both RecordedData rules record the same axial face near the notch entrance through{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'crossSectionPosition = { type: \'float\', value: 0.35, unit: \'{fraction}\', quantityKind: \'DimensionlessRatio\' }'}
+                  {'crossSectionPosition = { dtype: \'float64\', value: 0.35, unit: \'{fraction}\', quantityKind: \'DimensionlessRatio\' }'}
                 </code>. Applicable dimensionless forms such as 0.35 fraction and 35% are convertible; different
                 result positions fail.
                 The solver derives geometry conversion from Structure{' '}
@@ -267,8 +273,8 @@ function SyntaxHelp() {
                 The Worker builds a cell-centered voxel finite-volume system for{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">∇·(σ∇V) = 0</code>, applies 1 mV/0 V
                 Dirichlet terminals and insulating conditions elsewhere, and solves it with Jacobi-preconditioned
-                conjugate gradient. The signed source-to-reference axial current density is returned as a float64{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">41×41</code> heatmap declared as{' '}
+                conjugate gradient. The source-to-reference current density is returned in global Cartesian components as a float64{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">[41,41,3]</code> payload declared as{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">A.m-2 / ElectricCurrentDensity</code>, with
                 u/v axes declared as <code className="rounded bg-white px-1 py-0.5 text-xs">m / Length</code>;
                 exterior and notch cells are zero. Applicable alternative result/axis units are converted before
@@ -279,8 +285,8 @@ function SyntaxHelp() {
                 and <code className="rounded bg-white px-1 py-0.5 text-xs">14.9 A</code>.
               </p>
               <p className="mt-1">
-                The v1 2D heatmap schema intentionally breaks the former three-component vector schema and the former
-                solver-level grid/section parameter placement. Resolution affects notch details, so refine the initialization
+                The v2 contract rejects obsolete type/shape/dimension/sampleDimension/sampleShape/sampleAxes fields, scalar conductivity, scalar current-density
+                payloads, and conductivity other than positive isotropic σI in the identity basis. Resolution affects notch details, so refine the initialization
                 grid and compare flux before treating a result as converged.
                 Runs are limited to 250,000 voxels and one connected, homogeneous, isotropic Material part with two
                 planar opposing terminals. Terminal voltage, conductivity, and scene lengths are converted to the

@@ -20,7 +20,7 @@ const workerScope = {
 }
 
 const structureSource = `
-const { Material, Sample, Structure } = require('@caemble/core')
+const { IDENTITY_CARTESIAN_BASIS, Material, Sample, Structure } = require('@caemble/core')
 function Conductor() { return h('box', { size: [100, 5, 5] }) }
 const structure = new Structure({
   lengthUnit: 'mm',
@@ -28,8 +28,9 @@ const structure = new Structure({
     id: 'conductor',
     materials: [new Material('Copper', {
       electricalConductivity: {
-        type: 'float', value: 5.96e7, errorRate: 0,
-        unit: 'S.m-1', quantityKind: 'ElectricConductivity',
+        dtype: 'float64',
+        value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
+        unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
       },
     })],
   }),
@@ -44,17 +45,17 @@ module.exports.default = new Sample(structure)
 `
 
 const experimentSource = `
-const { Experiment, Setup } = require('@caemble/core')
+const { Experiment, IDENTITY_CARTESIAN_BASIS, Setup } = require('@caemble/core')
 function Probe() { return h('box', { size: [1, 1, 1] }) }
 const experiment = new Experiment({
   lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
-    version: '1.0.0',
+    version: '2.0.0',
     parameters: () => ({
       conductivityVariable: 'electricalConductivity',
       relativeTolerance: {
-        type: 'float', value: 1e-10,
+        dtype: 'float64', value: 1e-10,
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
       maxIterations: 1000,
@@ -69,11 +70,8 @@ const experiment = new Experiment({
       methodId: 'dc.voxel-grid',
       parameters: {
         gridShape: {
-          type: 'tensor',
-          dimension: 1,
-          shape: [3],
           dtype: 'int32',
-          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          axes: [{ length: 3 }],
           value: [20, 11, 11],
         },
       },
@@ -85,7 +83,7 @@ const experiment = new Experiment({
       label: 'Source',
       methodId: 'dc.source-potential',
       parameters: {
-        voltage: { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+        voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
       },
     },
     {
@@ -93,7 +91,7 @@ const experiment = new Experiment({
       label: 'Reference',
       methodId: 'dc.reference-potential',
       parameters: {
-        voltage: { type: 'float', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+        voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
       },
     },
   ],
@@ -104,17 +102,15 @@ const experiment = new Experiment({
       methodId: 'dc.current-density',
       parameters: {
         crossSectionPosition: {
-          type: 'float', value: 0.5,
+          dtype: 'float64', value: 0.5,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
       result: {
-        type: 'tensor',
-        dimension: 2,
-        shape: [-1, -1],
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
+        basis: IDENTITY_CARTESIAN_BASIS,
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -127,12 +123,12 @@ const experiment = new Experiment({
       methodId: 'dc.total-current',
       parameters: {
         crossSectionPosition: {
-          type: 'float', value: 0.5,
+          dtype: 'float64', value: 0.5,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
       result: {
-        type: 'tensor', dimension: 0, shape: [], dtype: 'float64',
+        dtype: 'float64',
         unit: 'A', quantityKind: 'ElectricCurrent',
       },
     },
@@ -194,7 +190,7 @@ describe('persistent CAD Worker', () => {
     }
     if (fullPreflight.type !== 'solver-preflight') throw new Error('Expected a solver-preflight response.')
     expect(fullPreflight.result).toMatchObject({ complete: true, issues: [] })
-    expect(fullPreflight.result.spec).toMatchObject({ name: 'dc-current-density', version: '1.0.0' })
+    expect(fullPreflight.result.spec).toMatchObject({ name: 'dc-current-density', version: '2.0.0' })
     expect(structureSuccess.scene.lengthUnit).toBe('mm')
     expect(experimentSuccess.scene.lengthUnit).toBe('mm')
     expect(esbuild.initialize).toHaveBeenCalledTimes(1)
@@ -216,10 +212,10 @@ describe('persistent CAD Worker', () => {
     })
     const success = await waitForResponse('solver-success', 'valid-run')
     if (success.type !== 'solver-success') throw new Error('Expected a solver-success response.')
-    const heatmap = success.recordedData['Current density'].value as number[][]
+    const heatmap = success.recordedData['Current density'].value as [number, number, number][][]
     expect(heatmap).toHaveLength(11)
-    expect(heatmap.every((row) => row.length === 11)).toBe(true)
-    expect(heatmap.flat().every((value) => Math.abs(value - 596000) < 1e-6)).toBe(true)
+    expect(heatmap.every((row) => row.length === 11 && row.every((value) => value.length === 3))).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 596000) < 1e-6)).toBe(true)
     expect(success.recordedData['Current density'].axes?.[0].ticks).toHaveLength(11)
     expect(success.recordedData['Current density'].axes?.[1].ticks).toHaveLength(11)
     expect(success.recordedData['Total current'].value).toBeCloseTo(14.9, 9)

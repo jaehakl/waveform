@@ -7,14 +7,16 @@ import {
   Setup,
   Structure,
 } from '../../../cad/model/core'
-import type { Vec3 } from '../../../cad/model/types'
+import type { Rotation, Vec3 } from '../../../cad/model/types'
+import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
 import { SolverController } from '../../controller'
 import { dcCurrentDensitySolver } from '.'
 
 function createDcPair(options: {
   axisUnit?: string | null
-  conductivity?: number | null
+  conductivity?: number | readonly (readonly number[])[] | null
   conductivityUnit?: string | null
+  conductorRotation?: Rotation
   conductorSize?: Vec3
   cutter?: Readonly<{ position: Vec3; size: Vec3 }>
   densityCrossSectionPosition?: unknown
@@ -44,10 +46,11 @@ function createDcPair(options: {
     axisUnit = 'm',
     conductivity = 5.96e7,
     conductivityUnit = 'S.m-1',
+    conductorRotation,
     conductorSize = [100, 5, 5],
     cutter,
     densityCrossSectionPosition = {
-      type: 'float', value: 0.5,
+      dtype: 'float64', value: 0.5,
       unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     },
     densityTarget = 'structure.geometry.conductor',
@@ -69,7 +72,7 @@ function createDcPair(options: {
     sourceVoltageUnit = 'mV',
     structureLengthUnit = 'mm',
     totalCrossSectionPosition = {
-      type: 'float', value: 0.5,
+      dtype: 'float64', value: 0.5,
       unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     },
     totalCurrentUnit = 'A',
@@ -89,17 +92,24 @@ function createDcPair(options: {
     lengthUnit: structureLengthUnit,
     geometry: () => h(Conductor, {
       id: 'conductor',
-      materials: [new Material('Copper', conductivity === null ? {} : {
+      rotate: conductorRotation,
+      materials: [new Material('Copper', (conductivity === null ? {} : {
         electricalConductivity: {
-          type: 'float',
-          value: conductivity,
+          dtype: 'float64',
+          value: typeof conductivity === 'number'
+            ? [[conductivity, 0, 0], [0, conductivity, 0], [0, 0, conductivity]]
+            : conductivity,
           errorRate: 0,
           ...(conductivityUnit === null
             ? {}
-            : { unit: conductivityUnit, quantityKind: 'ElectricConductivity' }),
+            : {
+                unit: conductivityUnit,
+                quantityKind: 'ElectricConductivity',
+                basis: IDENTITY_CARTESIAN_BASIS,
+              }),
         },
         color: '#d97706',
-      })],
+      }) as never)],
     }),
     varsSchema: {},
     geometryGroup: { conductor: ['conductor'] },
@@ -112,11 +122,11 @@ function createDcPair(options: {
     lengthUnit: structureLengthUnit,
     solver: {
       name: 'dc-current-density',
-      version: '1.0.0',
+      version: '2.0.0',
       parameters: () => ({
         conductivityVariable: 'electricalConductivity',
         relativeTolerance: {
-          type: 'float', value: 1e-10,
+          dtype: 'float64', value: 1e-10,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 1000,
@@ -131,11 +141,8 @@ function createDcPair(options: {
       methodId: gridMethodId,
       parameters: {
         gridShape: {
-          type: 'tensor',
-          dimension: 1,
-          shape: [3],
           dtype: 'int32',
-          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          axes: [{ length: 3 }],
           value: gridShape,
           ...gridDescriptorOverrides,
         },
@@ -148,7 +155,7 @@ function createDcPair(options: {
         methodId: 'dc.source-potential',
         parameters: {
           voltage: {
-            type: 'float',
+            dtype: 'float64',
             value: sourceVoltage,
             ...(sourceVoltageUnit === null
               ? {}
@@ -162,7 +169,7 @@ function createDcPair(options: {
         methodId: 'dc.reference-potential',
         parameters: {
           voltage: {
-            type: 'float',
+            dtype: 'float64',
             value: referenceVoltage,
             ...(referenceVoltageUnit === null
               ? {}
@@ -181,23 +188,25 @@ function createDcPair(options: {
         },
         result: legacyDensitySchema
           ? {
-              type: 'tensor',
-              dimension: 1,
-              shape: [3],
               dtype: 'float64',
               ...(densityUnit === null
                 ? {}
-                : { unit: densityUnit, quantityKind: 'ElectricCurrentDensity' }),
-              axes: [{ name: 'component', ticks: ['x', 'y', 'z'] }],
+                : {
+                    unit: densityUnit,
+                    quantityKind: 'ElectricCurrentDensity',
+                    basis: IDENTITY_CARTESIAN_BASIS,
+                  }),
+              axes: [{ length: 3, name: 'component', ticks: ['x', 'y', 'z'] }],
             }
           : {
-              type: 'tensor',
-              dimension: 2,
-              shape: [-1, -1],
               dtype: 'float64',
               ...(densityUnit === null
                 ? {}
-                : { unit: densityUnit, quantityKind: 'ElectricCurrentDensity' }),
+                : {
+                    unit: densityUnit,
+                    quantityKind: 'ElectricCurrentDensity',
+                    basis: IDENTITY_CARTESIAN_BASIS,
+                  }),
               axes: [
                 {
                   name: 'cross-section v',
@@ -218,9 +227,6 @@ function createDcPair(options: {
           crossSectionPosition: totalCrossSectionPosition,
         },
         result: {
-          type: 'tensor',
-          dimension: 0,
-          shape: [],
           dtype: 'float64',
           ...(totalCurrentUnit === null
             ? {}
@@ -236,14 +242,14 @@ async function runPair(pair: ReturnType<typeof createDcPair>) {
   return new SolverController([dcCurrentDensitySolver]).run(pair.sample, pair.setup)
 }
 
-describe('dc-current-density@1.0.0', () => {
+describe('dc-current-density@2.0.0', () => {
   it('converges to the uniform-bar analytic heatmap and total current in SI units', async () => {
     const result = await runPair(createDcPair())
-    const heatmap = result['Current density'].value as number[][]
+    const heatmap = result['Current density'].value as Vec3[][]
 
     expect(heatmap).toHaveLength(11)
-    expect(heatmap.every((row) => row.length === 11)).toBe(true)
-    expect(heatmap.flat().every((value) => Math.abs(value - 596000) < 1e-6)).toBe(true)
+    expect(heatmap.every((row) => row.length === 11 && row.every((value) => value.length === 3))).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 596000) < 1e-6)).toBe(true)
     expect(result['Current density'].axes?.[0].ticks).toHaveLength(11)
     expect(result['Current density'].axes?.[1].ticks).toHaveLength(11)
     expect(result['Total current'].value).toBeCloseTo(14.9, 9)
@@ -251,18 +257,30 @@ describe('dc-current-density@1.0.0', () => {
 
   it('reverses every signed heatmap value while preserving total-current magnitude', async () => {
     const result = await runPair(createDcPair({ sourceVoltage: 0, referenceVoltage: 1 }))
-    const heatmap = result['Current density'].value as number[][]
+    const heatmap = result['Current density'].value as Vec3[][]
 
-    expect(heatmap.flat().every((value) => Math.abs(value + 596000) < 1e-6)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(value[0] + 596000) < 1e-6)).toBe(true)
     expect(result['Total current'].value).toBeCloseTo(14.9, 9)
   })
 
   it('uses the Structure lengthUnit for field length and cross-sectional area', async () => {
     const result = await runPair(createDcPair({ structureLengthUnit: 'm' }))
-    const heatmap = result['Current density'].value as number[][]
+    const heatmap = result['Current density'].value as Vec3[][]
 
-    expect(heatmap.flat().every((value) => Math.abs(value - 596) < 1e-9)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 596) < 1e-9)).toBe(true)
     expect(result['Total current'].value).toBeCloseTo(14900, 8)
+  })
+
+  it('returns global vector components for a rotated conductor without changing total current', async () => {
+    const result = await runPair(createDcPair({
+      conductorRotation: { axis: [0, 0, 1], angle: Math.PI / 2 },
+    }))
+    const heatmap = result['Current density'].value as Vec3[][]
+
+    expect(heatmap.flat().every((value) => Math.abs(value[0]) < 1e-6)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(value[1] - 596000) < 1e-6)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(value[2]) < 1e-6)).toBe(true)
+    expect(result['Total current'].value).toBeCloseTo(14.9, 9)
   })
 
   it('converts compatible input, output, axis, and dimensionless UCUM units', async () => {
@@ -275,13 +293,13 @@ describe('dc-current-density@1.0.0', () => {
       sourceVoltageUnit: 'uV',
       totalCurrentUnit: 'mA',
       densityCrossSectionPosition: {
-        type: 'float', value: 50, unit: '%', quantityKind: 'DimensionlessRatio',
+        dtype: 'float64', value: 50, unit: '%', quantityKind: 'DimensionlessRatio',
       },
     }))
-    const heatmap = result['Current density'].value as number[][]
+    const heatmap = result['Current density'].value as Vec3[][]
     const vTicks = result['Current density'].axes?.[0].ticks as number[]
 
-    expect(heatmap.flat().every((value) => Math.abs(value - 0.596) < 1e-9)).toBe(true)
+    expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 0.596) < 1e-9)).toBe(true)
     expect(Math.max(...vTicks.map(Math.abs))).toBeLessThan(2.6)
     expect(result['Total current'].value).toBeCloseTo(14900, 7)
 
@@ -297,24 +315,24 @@ describe('dc-current-density@1.0.0', () => {
       conductorSize: [100, 12, 10],
       cutter: { position: [0, 4.5, 2.5], size: [30, 5, 5] },
       densityCrossSectionPosition: {
-        type: 'float', value: 0.35,
+        dtype: 'float64', value: 0.35,
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
       gridShape: [100, 41, 41],
       parameterOverrides: {
         relativeTolerance: {
-          type: 'float', value: 1e-8,
+          dtype: 'float64', value: 1e-8,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 2000,
       },
       totalCrossSectionPosition: {
-        type: 'float', value: 0.35,
+        dtype: 'float64', value: 0.35,
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
     }))
-    const heatmap = notched['Current density'].value as number[][]
-    const values = heatmap.flat()
+    const heatmap = notched['Current density'].value as Vec3[][]
+    const values = heatmap.flat().map((value) => value[0])
     const conductingValues = values.filter((value) => value > 0)
     const vTicks = notched['Current density'].axes?.[0].ticks as number[]
     const uTicks = notched['Current density'].axes?.[1].ticks as number[]
@@ -342,18 +360,18 @@ describe('dc-current-density@1.0.0', () => {
         conductorSize: [100, 12, 10],
         cutter: { position: [0, 4.5, 2.5], size: [30, 5, 5] },
         densityCrossSectionPosition: {
-          type: 'float', value: crossSectionPosition,
+          dtype: 'float64', value: crossSectionPosition,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         gridShape: [30, 17, 17],
         parameterOverrides: {
           relativeTolerance: {
-            type: 'float', value: 1e-9,
+            dtype: 'float64', value: 1e-9,
             unit: '{fraction}', quantityKind: 'DimensionlessRatio',
           },
         },
         totalCrossSectionPosition: {
-          type: 'float', value: crossSectionPosition,
+          dtype: 'float64', value: crossSectionPosition,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       }))
@@ -368,14 +386,14 @@ describe('dc-current-density@1.0.0', () => {
     const invalidSolverParameters = [
       [{
         relativeTolerance: {
-          type: 'float', value: 1, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 1, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
-      }, 'relativeTolerance: must be less than 1'],
+      }, 'relativeTolerance.value: must be less than 1'],
       [{
         relativeTolerance: {
-          type: 'float', value: 0, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 0, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
-      }, 'relativeTolerance: must be greater than 0'],
+      }, 'relativeTolerance.value: must be greater than 0'],
       [{ maxIterations: 0 }, 'maxIterations: must be greater than or equal to 1'],
     ] as const
 
@@ -388,21 +406,32 @@ describe('dc-current-density@1.0.0', () => {
     )
     await expect(runPair(createDcPair({
       densityCrossSectionPosition: {
-        type: 'float', value: 0, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+        dtype: 'float64', value: 0, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
     }))).rejects.toThrow('crossSectionPosition')
     await expect(runPair(createDcPair({ densityCrossSectionPosition: 0.5 }))).rejects.toThrow(
       'raw numbers must be safe integers',
     )
     await expect(runPair(createDcPair({ conductivity: 0 }))).rejects.toThrow('electricalConductivity')
+    await expect(runPair(createDcPair({ conductivity: -1 }))).rejects.toThrow(
+      'must have positive diagonal components',
+    )
+    await expect(runPair(createDcPair({
+      conductivity: [[5.96e7, 0, 0], [0, 5.95e7, 0], [0, 0, 5.96e7]],
+    }))).rejects.toThrow('must be isotropic σI; diagonal components differ')
+    await expect(runPair(createDcPair({
+      conductivity: [[5.96e7, 1e-4, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
+    }))).rejects.toThrow('must be isotropic σI; off-diagonal components exceed')
     await expect(runPair(createDcPair({ conductivity: null }))).rejects.toThrow('electricalConductivity')
-    await expect(runPair(createDcPair({ conductivityUnit: null }))).rejects.toThrow('must contain exactly')
+    await expect(runPair(createDcPair({ conductivityUnit: null }))).rejects.toThrow(
+      'must specify both unit and quantityKind for a float dtype',
+    )
     await expect(runPair(createDcPair({ conductivityUnit: 'V' }))).rejects.toThrow('not applicable')
     await expect(runPair(createDcPair({ sourceVoltageUnit: null }))).rejects.toThrow(
-      'must contain exactly type, value, unit, quantityKind',
+      'must specify both unit and quantityKind for a float dtype',
     )
     await expect(runPair(createDcPair({ densityUnit: null }))).rejects.toThrow(
-      'must specify both unit and quantityKind for a float tensor dtype',
+      'must specify both unit and quantityKind for a float dtype',
     )
     await expect(runPair(createDcPair({ axisUnit: null }))).rejects.toThrow(
       'result.axes[0]',
@@ -414,8 +443,21 @@ describe('dc-current-density@1.0.0', () => {
       'is not applicable to Quantity Kind ElectricCurrent',
     )
     await expect(runPair(createDcPair({ totalCurrentUnit: null }))).rejects.toThrow(
-      'must specify both unit and quantityKind for a float tensor dtype',
+      'must specify both unit and quantityKind for a float dtype',
     )
+  })
+
+  it('accepts σI perturbations at the relative 1e-12 boundary', async () => {
+    const sigma = 5.96e7
+    const result = await runPair(createDcPair({
+      conductivity: [
+        [sigma, sigma * 1e-12, 0],
+        [0, sigma * (1 + 1e-12), 0],
+        [0, 0, sigma],
+      ],
+    }))
+
+    expect(result['Total current'].value).toBeCloseTo(14.9, 8)
   })
 
   it('validates the voxel-grid initialization contract and preserves undeclared parameters', async () => {
@@ -435,24 +477,19 @@ describe('dc-current-density@1.0.0', () => {
       gridDescriptorOverrides: { dtype: 'int16' },
     }))).rejects.toThrow('dtype: must be int32')
     await expect(runPair(createDcPair({
-      gridDescriptorOverrides: { axes: [{ name: 'grid axis', ticks: ['x', 'y', 'z'] }] },
-    }))).rejects.toThrow('ticks: must be ["s","u","v"]')
-    await expect(runPair(createDcPair({
       gridDescriptorOverrides: {
-        dimension: 2,
-        shape: [1, 3],
         axes: [
-          { name: 'outer', ticks: ['grid'] },
-          { name: 'grid axis', ticks: ['s', 'u', 'v'] },
+          { length: 1, name: 'outer', ticks: ['grid'] },
+          { length: 3, name: 'grid axis', ticks: ['s', 'u', 'v'] },
         ],
         value: [[20, 11, 11]],
       },
-    }))).rejects.toThrow('dimension: must be 1')
+    }))).rejects.toThrow('axes: must contain 1 axes')
     await expect(runPair(createDcPair({
       parameterOverrides: {
-        gridShape: [20, 11, 11],
+        gridShape: { dtype: 'int32', axes: [{ length: 3 }], value: [20, 11, 11] },
         crossSectionPosition: {
-          type: 'float', value: 0.5,
+          dtype: 'float64', value: 0.5,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
@@ -462,11 +499,11 @@ describe('dc-current-density@1.0.0', () => {
   it('requires matching dimensionless cross-section positions on both recorded results', async () => {
     await expect(runPair(createDcPair({
       densityCrossSectionPosition: {
-        type: 'float', value: 0.4,
+        dtype: 'float64', value: 0.4,
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
       totalCrossSectionPosition: {
-        type: 'float', value: 0.6,
+        dtype: 'float64', value: 0.6,
         unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
     }))).rejects.toThrow('must use the same crossSectionPosition')
@@ -478,7 +515,7 @@ describe('dc-current-density@1.0.0', () => {
     )
     await expect(runPair(createDcPair({
       densityCrossSectionPosition: {
-        type: 'float', value: 0.5, unit: 'V', quantityKind: 'Voltage',
+        dtype: 'float64', value: 0.5, unit: 'V', quantityKind: 'Voltage',
       },
     }))).rejects.toThrow('must be DimensionlessRatio')
   })
@@ -498,8 +535,9 @@ describe('dc-current-density@1.0.0', () => {
           id: 'conductor',
           materials: [new Material('Copper', {
             electricalConductivity: {
-              type: 'float', value: 5.96e7, errorRate: 0,
-              unit: 'S.m-1', quantityKind: 'ElectricConductivity',
+              dtype: 'float64',
+              value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
+              unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: IDENTITY_CARTESIAN_BASIS,
             },
           })],
         }),
@@ -529,7 +567,7 @@ describe('dc-current-density@1.0.0', () => {
 
   it('rejects the former vector schema and forced PCG nonconvergence', async () => {
     await expect(runPair(createDcPair({ legacyDensitySchema: true }))).rejects.toThrow(
-      'result.dimension: must be 2',
+      'result.axes: must contain 2 axes',
     )
 
     await expect(runPair(createDcPair({
@@ -538,7 +576,7 @@ describe('dc-current-density@1.0.0', () => {
       gridShape: [30, 15, 15],
       parameterOverrides: {
         relativeTolerance: {
-          type: 'float', value: 1e-14,
+          dtype: 'float64', value: 1e-14,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 1,

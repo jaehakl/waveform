@@ -111,7 +111,7 @@ const structure = new Structure({
         materials={[
           new Polymer('Tapered Fiber', {
             density: {
-              type: 'float',
+              dtype: 'float64',
               value: vars.density as number,
               errorRate: 0,
               unit: 'g.cm-3',

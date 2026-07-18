@@ -1,5 +1,6 @@
 export const defaultExperimentCode = `import {
   Experiment,
+  IDENTITY_CARTESIAN_BASIS,
   Material,
   Setup,
   type Geometry,
@@ -14,10 +15,10 @@ const experiment = new Experiment({
   lengthUnit: 'mm',
   solver: {
     name: 'dc-current-density',
-    version: '1.0.0',
+    version: '2.0.0',
     parameters: () => ({
       relativeTolerance: {
-        type: 'float',
+        dtype: 'float64',
         value: 1e-8,
         unit: '{fraction}',
         quantityKind: 'DimensionlessRatio',
@@ -57,11 +58,8 @@ const experiment = new Experiment({
       methodId: 'dc.voxel-grid',
       parameters: {
         gridShape: {
-          type: 'tensor',
-          dimension: 1,
-          shape: [3],
           dtype: 'int32',
-          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          axes: [{ length: 3 }],
           value: [100, 41, 41],
         },
       },
@@ -74,7 +72,7 @@ const experiment = new Experiment({
       methodId: 'dc.source-potential',
       parameters: {
         voltage: {
-          type: 'float',
+          dtype: 'float64',
           value: vars.sourceVoltage as number,
           unit: 'mV',
           quantityKind: 'Voltage',
@@ -87,7 +85,7 @@ const experiment = new Experiment({
       methodId: 'dc.reference-potential',
       parameters: {
         voltage: {
-          type: 'float',
+          dtype: 'float64',
           value: vars.referenceVoltage as number,
           unit: 'mV',
           quantityKind: 'Voltage',
@@ -102,19 +100,17 @@ const experiment = new Experiment({
       methodId: 'dc.current-density',
       parameters: {
         crossSectionPosition: {
-          type: 'float',
+          dtype: 'float64',
           value: 0.35,
           unit: '{fraction}',
           quantityKind: 'DimensionlessRatio',
         },
       },
       result: {
-        type: 'tensor',
-        dimension: 2,
-        shape: [-1, -1],
         dtype: 'float64',
         unit: 'A.m-2',
         quantityKind: 'ElectricCurrentDensity',
+        basis: IDENTITY_CARTESIAN_BASIS,
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -127,16 +123,13 @@ const experiment = new Experiment({
       methodId: 'dc.total-current',
       parameters: {
         crossSectionPosition: {
-          type: 'float',
+          dtype: 'float64',
           value: 0.35,
           unit: '{fraction}',
           quantityKind: 'DimensionlessRatio',
         },
       },
       result: {
-        type: 'tensor',
-        dimension: 0,
-        shape: [],
         dtype: 'float64',
         unit: 'A',
         quantityKind: 'ElectricCurrent',

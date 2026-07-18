@@ -3,12 +3,15 @@ import type { CadScene, CadScenePart, CadSceneSurface } from '../../../cad/evalu
 import { createSolidPointTester } from '../../../cad/geometry/solid'
 import {
   CadModelError,
+  isFloatDType,
+  type DataDType,
+  type DataValueDescriptor,
   type ExperimentRule,
-  type FloatValue,
   type RecordedDataRule,
 } from '../../../cad/model/core'
 import { convertUcumValue } from '../../../cad/model/units'
 import type { Vec3 } from '../../../cad/model/types'
+import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
 import type { SolverModuleInput } from '../../types'
 
 const maximumVoxelCount = 250_000
@@ -148,15 +151,16 @@ function voltage(rule: ExperimentRule) {
   return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`, 'V')
 }
 
-function isFloatValue(value: unknown): value is FloatValue {
+function isFloatValue(value: unknown): value is DataValueDescriptor & { value: number } {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    && 'type' in value && value.type === 'float'
+    && 'dtype' in value && typeof value.dtype === 'string'
+    && isFloatDType(value.dtype as DataDType)
     && 'value' in value && typeof value.value === 'number'
 }
 
 function floatParameter(value: unknown, name: string, unit: string | undefined) {
   if (!isFloatValue(value) || !Number.isFinite(value.value)) {
-    throw new CadModelError(`${name} must be a finite float descriptor.`)
+    throw new CadModelError(`${name} must be a finite float dtype descriptor.`)
   }
   return convertUcumValue(value.value, value.unit, unit, name)
 }
@@ -175,6 +179,67 @@ function crossSectionPosition(rule: RecordedDataRule) {
     `${rule.methodId} parameters.crossSectionPosition`,
     undefined,
   )
+}
+
+function isotropicConductivity(value: unknown) {
+  const path = 'Conductor Material electricalConductivity'
+  if (
+    typeof value !== 'object'
+    || value === null
+    || Array.isArray(value)
+    || !('dtype' in value)
+  ) {
+    throw new CadModelError(
+      `${path} must use dtype 'float64', omit axes, and provide component shape [3,3].`,
+    )
+  }
+  const descriptor = value as Readonly<Record<string, unknown>>
+  if (descriptor.type !== undefined || descriptor.shape !== undefined) {
+    throw new CadModelError(`${path} must migrate type/shape to dtype and axes.`)
+  }
+  if (descriptor.axes !== undefined) {
+    throw new CadModelError(`${path}.axes must be omitted for one conductivity tensor.`)
+  }
+  if (JSON.stringify(descriptor.basis) !== JSON.stringify(IDENTITY_CARTESIAN_BASIS)) {
+    throw new CadModelError(`${path}.basis must exactly match the global identity basis.`)
+  }
+  if (typeof descriptor.unit !== 'string') {
+    throw new CadModelError(`${path}.unit must be an applicable ElectricConductivity unit.`)
+  }
+  const unit = descriptor.unit
+  if (!Array.isArray(descriptor.value) || descriptor.value.length !== 3) {
+    throw new CadModelError(`${path}.value must have component shape [3,3].`)
+  }
+  const matrix = descriptor.value.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length !== 3) {
+      throw new CadModelError(`${path}.value must have component shape [3,3].`)
+    }
+    return row.map((component, columnIndex) => {
+      if (typeof component !== 'number' || !Number.isFinite(component)) {
+        throw new CadModelError(`${path}.value[${rowIndex}][${columnIndex}] must be finite.`)
+      }
+      return convertUcumValue(component, unit, 'S/m', path)
+    })
+  })
+  const diagonal = [matrix[0][0], matrix[1][1], matrix[2][2]]
+  if (diagonal.some((component) => component <= 0)) {
+    throw new CadModelError(`${path} must have positive diagonal components.`)
+  }
+  const scaleValue = Math.max(...diagonal)
+  const relativeIsotropyTolerance = 1e-12 + Number.EPSILON
+  if (diagonal.some((component) => (
+    Math.abs(component - diagonal[0]) / scaleValue > relativeIsotropyTolerance
+  ))) {
+    throw new CadModelError(`${path} must be isotropic σI; diagonal components differ beyond relative tolerance 1e-12.`)
+  }
+  for (let row = 0; row < 3; row += 1) {
+    for (let column = 0; column < 3; column += 1) {
+      if (row !== column && Math.abs(matrix[row][column]) / scaleValue > relativeIsotropyTolerance) {
+        throw new CadModelError(`${path} must be isotropic σI; off-diagonal components exceed relative tolerance 1e-12.`)
+      }
+    }
+  }
+  return (diagonal[0] + diagonal[1] + diagonal[2]) / 3
 }
 
 function localPoint(origin: Vec3, axis: Vec3, uAxis: Vec3, vAxis: Vec3, s: number, u: number, v: number) {
@@ -502,7 +567,7 @@ function crossSectionResult(
   const [axialCount, uCount, vCount] = shape
   const [axialSpacing, uSpacing, vSpacing] = spacings
   const faceIndex = Math.min(axialCount, Math.max(0, Math.round(crossSectionPosition * axialCount)))
-  const values = Array.from({ length: vCount }, (_value, row) => {
+  const axialValues = Array.from({ length: vCount }, (_value, row) => {
     const k = vCount - row - 1
     return Array.from({ length: uCount }, (_columnValue, j) => {
       if (faceIndex === 0) {
@@ -529,7 +594,7 @@ function crossSectionResult(
       return Object.is(currentDensity, -0) ? 0 : currentDensity
     })
   })
-  const totalCurrent = Math.abs(values.reduce((sum, row) => (
+  const totalCurrent = Math.abs(axialValues.reduce((sum, row) => (
     sum + row.reduce((rowSum, value) => rowSum + value, 0)
   ), 0) * uSpacing * vSpacing * sceneLengthToMeters ** 2)
   const uTicks = Array.from({ length: uCount }, (_value, j) => (
@@ -539,6 +604,7 @@ function crossSectionResult(
     const k = vCount - row - 1
     return (frame.minimumV + (k + 0.5) * vSpacing) * sceneLengthToMeters
   })
+  const values = axialValues.map((row) => row.map((value) => scale(frame.axis, value)))
   return { totalCurrent, uTicks, values, vTicks }
 }
 
@@ -571,7 +637,7 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     throw new CadModelError('DC recorded-data rules must use the same crossSectionPosition.')
   }
   if (input.structure.scene.parts.length !== 1) {
-    throw new CadModelError('dc-current-density@1.0.0 supports exactly one Structure Geometry part.')
+    throw new CadModelError('dc-current-density@2.0.0 supports exactly one Structure Geometry part.')
   }
   const conductor = geometryPart(input.structure.scene, densityGroup)
   const source = surfaceForGroup(
@@ -589,10 +655,8 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     throw new CadModelError('DC source and reference potentials must target different terminal surfaces.')
   }
 
-  const conductivitySi = floatParameter(
+  const conductivitySi = isotropicConductivity(
     conductor.material!.variables.electricalConductivity,
-    'Conductor Material electricalConductivity',
-    'S/m',
   )
   const sceneLengthToMeters = convertUcumValue(
     1,
@@ -637,7 +701,7 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
 
   return {
     [densityRule.label]: {
-      value: result.values.map((row) => row.map((value) => value * densityScale)),
+      value: result.values.map((row) => row.map((vector) => vector.map((value) => value * densityScale))),
       axes: [
         { ticks: result.vTicks.map((tick) => tick * vScale) },
         { ticks: result.uTicks.map((tick) => tick * uScale) },

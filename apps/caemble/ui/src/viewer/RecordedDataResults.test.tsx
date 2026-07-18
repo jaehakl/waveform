@@ -1,7 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { RecordedDataRule } from '../cad'
+import { IDENTITY_CARTESIAN_BASIS } from '../quantitykind'
 import RecordedDataResults from './RecordedDataResults'
+import {
+  componentIndexPaths,
+  componentLabel,
+  projectRecordedComponents,
+} from './recordedComponents'
+import { convertRecordedNumericValue } from './recordedData'
 
 function rule(
   label: string,
@@ -14,7 +21,7 @@ function rule(
     ? unit === 'A'
       ? { unit, quantityKind: 'ElectricCurrent' as const }
       : unit === 'A.m-2'
-        ? { unit, quantityKind: 'ElectricCurrentDensity' as const }
+        ? { unit, quantityKind: 'ElectricCurrentDensity' as const, basis: IDENTITY_CARTESIAN_BASIS }
         : { unit: '{fraction}', quantityKind: 'DimensionlessRatio' as const }
     : {}
   return {
@@ -23,16 +30,16 @@ function rule(
     methodId: `field.${label.toLowerCase().replace(/ /g, '-')}`,
     parameters: {},
     result: {
-      type: 'tensor',
-      dimension: shape.length,
-      shape,
       dtype,
       ...quantityMetadata,
-      axes: shape.map((size, index) => ({
-        name: `axis ${index}`,
-        ...(axisUnit ? { unit: axisUnit, quantityKind: 'Length' as const } : {}),
-        ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
-      })),
+      ...(shape.length === 0 ? {} : {
+        axes: shape.map((size, index) => ({
+          ...(size === -1 ? {} : { length: size }),
+          name: `axis ${index}`,
+          ...(axisUnit ? { unit: axisUnit, quantityKind: 'Length' as const } : {}),
+          ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
+        })),
+      }),
     } as RecordedDataRule['result'],
   }
 }
@@ -40,8 +47,8 @@ function rule(
 describe('RecordedDataResults', () => {
   const rules = [
     rule('Average', [], 'float64', 'A'),
-    rule('Profile', [3], 'float32', 'A.m-2', 'm'),
-    rule('Field', [2, 3], 'float32', 'A.m-2', 'm'),
+    rule('Profile', [3], 'float32', 'A', 'm'),
+    rule('Field', [2, 3], 'float32', 'A', 'm'),
   ]
 
   it('shows schema-driven scalar, chart, and heatmap shells without values', () => {
@@ -52,7 +59,7 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('data-result-visualization="line chart"')
     expect(markup).toContain('data-result-visualization="heatmap"')
     expect(markup.match(/No recorded data/g)).toHaveLength(3)
-    expect(markup).toContain('expected [2,3]')
+    expect(markup).toContain('expected axis lengths [2,3]')
     expect(markup).toMatch(/<select[^>]*aria-label="Average result display unit"[^>]*>\s*<option[^>]*value="A"/)
     expect(markup).toContain('<option value="mA">mA</option>')
     expect(markup).not.toContain('aria-label="Profile axis 0 axis display unit"')
@@ -85,13 +92,10 @@ describe('RecordedDataResults', () => {
       methodId: 'field.numeric-profile',
       parameters: {},
       result: {
-        type: 'tensor',
-        dimension: 1,
-        shape: [3],
         dtype: 'float32',
         unit: 'A',
         quantityKind: 'ElectricCurrent',
-        axes: [{ name: 'position', ticks: [0, 0.5, 1], unit: 'm', quantityKind: 'Length' }],
+        axes: [{ length: 3, name: 'position', ticks: [0, 0.5, 1], unit: 'm', quantityKind: 'Length' }],
       },
     }
     const markup = renderToStaticMarkup(
@@ -102,7 +106,8 @@ describe('RecordedDataResults', () => {
       />,
     )
 
-    expect(markup).toContain('float32 · 1D · mA')
+    expect(markup).toContain('float32 · axes 3 · mA')
+    expect(markup).toContain('length 3')
     expect(markup).toContain('aria-label="Numeric profile result display unit"')
     expect(markup).toContain('aria-label="Numeric profile position axis display unit"')
     expect(markup).toContain('[0,500,1000]')
@@ -162,6 +167,51 @@ describe('RecordedDataResults', () => {
     expect(markup).toContain('Loading heatmap...')
   })
 
+  it('defaults vector results to norm and exposes identity-basis components', () => {
+    const vectorRule = rule('Current density', [2], 'float64', 'A.m-2')
+    const markup = renderToStaticMarkup(
+      <RecordedDataResults
+        rules={[vectorRule]}
+        recordedData={{ 'Current density': { value: [[3, 4, 0], [0, 0, 5]] } }}
+      />,
+    )
+
+    expect(markup).toContain('tensor order 1 · components [3]')
+    expect(markup).toContain('aria-label="Current density component"')
+    expect(markup).toMatch(/<option value="norm" selected="">norm<\/option>/)
+    expect(markup).toContain('x [0]')
+    expect(markup).toContain('y [1]')
+    expect(markup).toContain('z [2]')
+    expect(markup).toContain('Loading line chart...')
+  })
+
+  it('projects vector and general tensor components after recursive unit conversion', () => {
+    const converted = convertRecordedNumericValue([[3, 4, 0]], 'A', 'mA', 1)
+    expect(projectRecordedComponents(converted, 1, 1, 'norm')).toEqual([5_000])
+    expect(projectRecordedComponents(converted, 1, 1, 'component:1')).toEqual([4_000])
+    expect(projectRecordedComponents(
+      [[1, 2, 2], [0, 0, 0], [0, 0, 0]],
+      0,
+      2,
+      'norm',
+    )).toBe(3)
+    expect(projectRecordedComponents(
+      [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+      0,
+      2,
+      'component:2,1',
+    )).toBe(8)
+  })
+
+  it('enumerates high-order selectors and labels rotated-basis components', () => {
+    expect(componentIndexPaths(3)).toHaveLength(27)
+    expect(componentIndexPaths(4)).toHaveLength(81)
+    expect(componentIndexPaths(4)[80]).toEqual([2, 2, 2, 2])
+    expect(componentLabel([0, 2], true)).toBe('xz')
+    expect(componentLabel([0, 2], false)).toBe('b0b2')
+    expect(Object.isFrozen(componentIndexPaths(4))).toBe(true)
+  })
+
   it('renders a resolved empty wildcard tensor without attempting an invalid slice', () => {
     const emptyRule = rule('Dynamic empty', [-1, -1, -1], 'float32')
     const markup = renderToStaticMarkup(
@@ -172,6 +222,6 @@ describe('RecordedDataResults', () => {
     )
 
     expect(markup).toContain('No recorded values')
-    expect(markup).toContain('Resolved empty tensor · actual [0,0,0]')
+    expect(markup).toContain('Resolved empty data · actual axis lengths [0,0,0]')
   })
 })

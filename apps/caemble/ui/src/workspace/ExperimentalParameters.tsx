@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react'
 import type {
+  DataAxis,
+  DataValueDescriptor,
   EvaluatedExperimentRules,
   ExperimentParameter,
   ExperimentRule,
-  ExperimentTensorAxis,
-  ExperimentTensorParameter,
+  RecordedDataResultAxis,
   RecordedDataRule,
 } from '../cad'
-import { normalizeExperimentTensorParameter } from '../cad/model/core'
+import { normalizeDataValueDescriptor } from '../cad/model/core'
 import {
   inspectExperimentTensorSource,
   updateExperimentTensorSource,
   type ExperimentRuleCategory,
 } from '../cad/source/experimentParameters'
+import { QuantityKind } from '../quantitykind'
 
 type ExperimentalParametersProps = {
   onSourceChange: (source: string) => void
@@ -27,35 +29,28 @@ const categories = [
   { id: 'recordedData', label: 'Recorded Data' },
 ] as const
 
-function isTensorParameter(value: unknown): value is ExperimentTensorParameter {
-  return typeof value === 'object' && value !== null && 'type' in value && value.type === 'tensor'
+function isDataDescriptor(value: unknown): value is DataValueDescriptor {
+  return typeof value === 'object' && value !== null && 'dtype' in value
 }
 
 function parameterSummary(value: ExperimentParameter) {
   if (typeof value !== 'object' || value === null) return `${String(value)} · ${typeof value === 'number' ? 'integer' : typeof value}`
-  if (value.type === 'tensor') return ''
-  if (value.type === 'float') return `${value.value} · ${value.quantityKind} · ${value.unit}`
-  return `${String(value.value)} · ${value.type}`
+  return `${String(value.value)} · ${value.dtype}${value.quantityKind ? ` · ${value.quantityKind} · ${value.unit}` : ''}`
 }
 
 function TensorAxes({
   axes,
   label,
-  shape,
 }: {
-  axes?: readonly ExperimentTensorAxis[]
+  axes?: readonly (DataAxis | RecordedDataResultAxis)[]
   label: string
-  shape?: readonly number[]
 }) {
   if (!axes) return null
 
   return (
     <div aria-label={label} className="mt-3 rounded border border-slate-200 bg-white p-2 text-xs text-slate-600">
       <div className="font-semibold text-slate-700">Axes (source-only)</div>
-      {axes.length === 0 ? (
-        <div className="mt-1 font-mono">[] (0D tensor)</div>
-      ) : (
-        <div className="mt-1 space-y-1.5">
+      <div className="mt-1 space-y-1.5">
           {axes.map((axis, index) => (
             <div className="grid gap-1 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]" key={`${axis.name}-${index}`}>
               <span className="font-medium text-slate-700">
@@ -64,12 +59,13 @@ function TensorAxes({
                   : 'unitless'}
               </span>
               <code className="overflow-x-auto whitespace-nowrap text-slate-600">
-                {shape?.[index] === -1 ? 'dynamic ticks from result' : JSON.stringify(axis.ticks ?? [])}
+                {axis.length === undefined
+                  ? 'length dynamic · ticks from result'
+                  : `length ${axis.length} · ticks ${JSON.stringify(axis.ticks ?? [])}`}
               </code>
             </div>
           ))}
-        </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -86,7 +82,7 @@ function TensorParameterEditor({
 }: {
   category: ExperimentRuleCategory
   onSourceChange: (source: string) => void
-  parameter: ExperimentTensorParameter
+  parameter: DataValueDescriptor
   parameterKey: string
   readOnly: boolean
   ruleIndex: number
@@ -101,6 +97,8 @@ function TensorParameterEditor({
     [category, parameterKey, ruleIndex, source],
   )
   const editable = !readOnly && sourceInfo.editable
+  const tensorOrder = parameter.quantityKind ? QuantityKind[parameter.quantityKind].tensorOrder() : 0
+  const componentShape = parameter.quantityKind ? QuantityKind[parameter.quantityKind].componentShape() : []
 
   return (
     <div className="rounded border border-slate-200 bg-slate-50 p-3">
@@ -108,9 +106,11 @@ function TensorParameterEditor({
         <div>
           <div className="font-mono text-xs font-semibold text-slate-800">{parameterKey}</div>
           <div className="mt-1 text-xs text-slate-500">
-            {parameter.dtype} · {parameter.dimension}D · shape {JSON.stringify(parameter.shape)} ·{' '}
+            {parameter.dtype} · axes {parameter.axes?.map((axis) => axis.length).join(' × ') ?? 'none'} ·{' '}
+            order {tensorOrder} · components {JSON.stringify(componentShape)} ·{' '}
             {parameter.quantityKind ? `${parameter.quantityKind} · ${parameter.unit}` : 'unitless'}
           </div>
+          {parameter.basis ? <div className="mt-1 font-mono text-xs text-slate-500">basis {JSON.stringify(parameter.basis)}</div> : null}
         </div>
         <div className="flex gap-2">
           <button
@@ -131,7 +131,7 @@ function TensorParameterEditor({
             onClick={() => {
               try {
                 const parsed = JSON.parse(draft) as unknown
-                const normalized = normalizeExperimentTensorParameter({
+                const normalized = normalizeDataValueDescriptor({
                   ...parameter,
                   value: parsed,
                 }, `Experiment ${category}[${ruleIndex}].parameters.${parameterKey}`)
@@ -154,10 +154,13 @@ function TensorParameterEditor({
         </div>
       </div>
 
-      <TensorAxes axes={parameter.axes} label={`${ruleLabel} ${parameterKey} axes`} shape={parameter.shape} />
+      <TensorAxes
+        axes={parameter.axes}
+        label={`${ruleLabel} ${parameterKey} axes`}
+      />
 
       <textarea
-        aria-label={`${ruleLabel} ${parameterKey} tensor JSON`}
+        aria-label={`${ruleLabel} ${parameterKey} data JSON`}
         className="mt-3 min-h-36 w-full resize-y rounded border border-slate-300 bg-white p-2 font-mono text-xs leading-5 text-slate-800 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 read-only:bg-slate-100 read-only:text-slate-500"
         readOnly={!editable}
         spellCheck={false}
@@ -201,9 +204,17 @@ function RuleCard({
   source: string
 }) {
   const tensorParameters = Object.entries(rule.parameters).filter(
-    (entry): entry is [string, ExperimentTensorParameter] => isTensorParameter(entry[1]),
+    (entry): entry is [string, DataValueDescriptor] => isDataDescriptor(entry[1]) && Array.isArray(entry[1].value),
   )
-  const scalarParameters = Object.entries(rule.parameters).filter(([, value]) => !isTensorParameter(value))
+  const scalarParameters = Object.entries(rule.parameters).filter(([, value]) => (
+    !isDataDescriptor(value) || !Array.isArray(value.value)
+  ))
+  const resultTensorOrder = 'result' in rule && rule.result.quantityKind
+    ? QuantityKind[rule.result.quantityKind].tensorOrder()
+    : 0
+  const resultComponentShape = 'result' in rule && rule.result.quantityKind
+    ? QuantityKind[rule.result.quantityKind].componentShape()
+    : []
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -221,13 +232,14 @@ function RuleCard({
         <div className="mt-3 rounded border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900">
           <div className="font-semibold">Recorded result schema (source-only)</div>
           <div className="mt-1 font-mono">
-            {rule.result.dtype} · {rule.result.dimension}D · shape {JSON.stringify(rule.result.shape)} ·{' '}
+            {rule.result.dtype} · axes {rule.result.axes?.map((axis) => axis.length ?? 'dynamic').join(' × ') ?? 'none'} ·{' '}
+            order {resultTensorOrder} · components {JSON.stringify(resultComponentShape)} ·{' '}
             {rule.result.quantityKind ? `${rule.result.quantityKind} · ${rule.result.unit}` : 'unitless'}
           </div>
+          {rule.result.basis ? <div className="mt-1 font-mono">basis {JSON.stringify(rule.result.basis)}</div> : null}
           <TensorAxes
             axes={rule.result.axes}
             label={`${rule.label} result axes`}
-            shape={rule.result.shape}
           />
         </div>
       ) : null}
@@ -249,7 +261,7 @@ function RuleCard({
           ))}
         </div>
       ) : (
-        <p className="mt-3 text-xs text-slate-500">This rule has no tensor parameters.</p>
+        <p className="mt-3 text-xs text-slate-500">This rule has no array-valued descriptors.</p>
       )}
 
       {scalarParameters.length > 0 ? (
@@ -291,8 +303,8 @@ export default function ExperimentalParameters({
   return (
     <div className="h-full overflow-auto bg-slate-50 px-4 py-4">
       <div className="mb-4 rounded border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
-        Only tensor values are editable here. Scalar values, Quantity Kinds, units, tensor dtype, dimension, shape,
-        axes, and recorded result schemas are source-only.
+        Only array-valued descriptor values are editable here. Scalar values, Quantity Kinds, units, dtype, axes,
+        component shape, basis, and recorded result schemas are source-only.
       </div>
 
       <div className="space-y-5">

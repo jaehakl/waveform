@@ -1,10 +1,14 @@
 import type {
-  ExperimentFloatTensorDType,
-  ExperimentNonFloatTensorDType,
-  ExperimentTensorDType,
+  CartesianBasis,
+  DataDType,
+  FloatDataDType,
+  IntegerDataDType,
 } from '../cad/model/core'
 import type { UcumUnit } from '../cad/model/units'
-import type { QuantityKindName } from '../quantitykind/runtime'
+import type {
+  QuantityKindName,
+  ScalarQuantityKindName,
+} from '../quantitykind/runtime'
 
 export type SolverRuleCategory = 'initializations' | 'boundaryConditions' | 'recordedData'
 
@@ -19,69 +23,52 @@ type SolverValueSpecBase = Readonly<{
   description?: string
 }>
 
-export type SolverQuantitySpec = Readonly<{
-  quantityKind: QuantityKindName
+export type SolverQuantitySpec<Name extends QuantityKindName = QuantityKindName> =
+  Name extends QuantityKindName ? Readonly<{
+  quantityKind: Name
   referenceUnit: UcumUnit
-}>
+}> & (Name extends ScalarQuantityKindName
+  ? Readonly<{ referenceBasis?: never }>
+  : Readonly<{ referenceBasis: CartesianBasis }>) : never
+
+type SolverAxisQuantity = Readonly<
+  | SolverQuantitySpec<ScalarQuantityKindName>
+  | { quantityKind?: never; referenceUnit?: never; referenceBasis?: never }
+>
 
 export type SolverAxisSpec = Readonly<{
-  name: string
+  length: number
+  name?: string
   ticks?: readonly (number | string)[]
+}> & SolverAxisQuantity
+
+export type SolverResultAxisSpec = Readonly<{
+  length?: number
+  name?: string
+  ticks?: readonly (number | string)[]
+}> & SolverAxisQuantity
+
+type SolverValueSpecForAxis<TAxis> = SolverValueSpecBase & Readonly<{
+  axes?: readonly TAxis[]
 }> & Readonly<
-  | SolverQuantitySpec
-  | { quantityKind?: never; referenceUnit?: never }
+  | { dtype: 'bool' }
+  | {
+    dtype: 'string'
+    values?: readonly string[]
+    minimumLength?: number
+  }
+  | ({ dtype: IntegerDataDType } & SolverNumericBounds)
+  | ({ dtype: FloatDataDType } & SolverQuantitySpec & SolverNumericBounds)
 >
 
-export type SolverTensorValueSpec = SolverValueSpecBase & Readonly<{
-  type: 'tensor'
-  dimension: number
-  shape: readonly number[]
-  axes?: readonly SolverAxisSpec[]
-  element?: SolverNumericBounds
-}> & Readonly<
-  | {
-    dtype: ExperimentFloatTensorDType
-    quantityKind: QuantityKindName
-    referenceUnit: UcumUnit
-  }
-  | {
-    dtype: ExperimentNonFloatTensorDType
-    quantityKind?: never
-    referenceUnit?: never
-  }
->
+export type SolverValueSpec = SolverValueSpecForAxis<SolverAxisSpec>
+export type SolverResultValueSpec = SolverValueSpecForAxis<SolverResultAxisSpec>
 
 export type SolverParameterSpec = Readonly<{
   description: string
   required?: boolean
   value: SolverValueSpec
 }>
-
-export type SolverValueSpec =
-  | SolverValueSpecBase & Readonly<{ type: 'null' }>
-  | SolverValueSpecBase & Readonly<{ type: 'boolean' }>
-  | SolverValueSpecBase & Readonly<{
-    type: 'string'
-    values?: readonly string[]
-    minimumLength?: number
-  }>
-  | SolverValueSpecBase & Readonly<{
-    type: 'integer'
-  }> & SolverNumericBounds
-  | SolverValueSpecBase & Readonly<{
-    type: 'float'
-  }> & SolverQuantitySpec & SolverNumericBounds
-  | SolverTensorValueSpec
-  | SolverValueSpecBase & Readonly<{
-    type: 'array'
-    items: SolverValueSpec
-    minimumLength?: number
-    maximumLength?: number
-  }>
-  | SolverValueSpecBase & Readonly<{
-    type: 'object'
-    parameters: Readonly<Record<string, SolverParameterSpec>>
-  }>
 
 export type SolverTargetSpec = Readonly<{
   source: 'structure' | 'experiment'
@@ -99,7 +86,7 @@ export type SolverMethodSpec = Readonly<{
   maximumOccurrences: number
   target: SolverTargetSpec
   parameters: Readonly<Record<string, SolverParameterSpec>>
-  result?: SolverTensorValueSpec
+  result?: SolverResultValueSpec
 }>
 
 export type SolverMaterialSpec = Readonly<{
@@ -133,4 +120,4 @@ export type SolverValidationResult = Readonly<{
   spec?: SolverSpec
 }>
 
-export type SolverSpecTensorDType = ExperimentTensorDType
+export type SolverSpecDType = DataDType

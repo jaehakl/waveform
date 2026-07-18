@@ -184,7 +184,7 @@ describe('CAD transforms-materials', () => {
   it('shares one serializable snapshot for parts using the same Material instance', () => {
     const shared = new Material('Core', 'Kittel_1988', {
       density: {
-        type: 'float', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
       },
       color: '#2563eb',
     })
@@ -201,7 +201,7 @@ describe('CAD transforms-materials', () => {
       symbol: 'Core',
       version: 'Kittel_1988',
       variables: {
-        density: { type: 'float', value: 2.7, unit: 'g.cm-3', quantityKind: 'MassDensity' },
+        density: { dtype: 'float64', value: 2.7, unit: 'g.cm-3', quantityKind: 'MassDensity' },
         color: '#2563eb',
       },
     })
@@ -213,19 +213,19 @@ describe('CAD transforms-materials', () => {
     try {
       const shared = new Material('Shared', {
         density: {
-          type: 'float', value: 10, errorRate: 0.2,
+          dtype: 'float64', value: 10, errorRate: 0.2,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       })
       const first = new Material('Separate', {
         density: {
-          type: 'float', value: 10, errorRate: 0.2,
+          dtype: 'float64', value: 10, errorRate: 0.2,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       })
       const second = new Material('Separate', {
         density: {
-          type: 'float', value: 10, errorRate: 0.2,
+          dtype: 'float64', value: 10, errorRate: 0.2,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       })
@@ -254,6 +254,3 @@ describe('CAD transforms-materials', () => {
     }
   })
 })
-
-
-

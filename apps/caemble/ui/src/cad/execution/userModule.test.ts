@@ -5,6 +5,7 @@ import { defaultCode } from '../../defaultCode'
 import { defaultExperimentCode } from '../../defaultExperimentCode'
 import { caembleExamples } from '../../examples'
 import { executeCompiledCode, requireCaembleModule } from './userModule'
+import { IDENTITY_CARTESIAN_BASIS } from '../../quantitykind'
 
 const validModule = `
 const { Material, Sample, Structure } = require('@caemble/core')
@@ -88,10 +89,10 @@ describe('compiled user module execution', () => {
 
     expect(solver).toEqual({
       name: 'dc-current-density',
-      version: '1.0.0',
+      version: '2.0.0',
       parameters: {
         relativeTolerance: {
-          type: 'float', value: 1e-8, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 1e-8, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 2000,
       },
@@ -109,11 +110,8 @@ describe('compiled user module execution', () => {
       methodId: 'dc.voxel-grid',
       parameters: {
         gridShape: {
-          type: 'tensor',
-          dimension: 1,
-          shape: [3],
           dtype: 'int32',
-          axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
+          axes: [{ length: 3, name: 'axis 0', ticks: [0, 1, 2] }],
           value: [100, 41, 41],
         },
       },
@@ -123,16 +121,14 @@ describe('compiled user module execution', () => {
       'dc.reference-potential',
     ])
     expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([
-      { type: 'float', value: 1, unit: 'mV', quantityKind: 'Voltage' },
-      { type: 'float', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+      { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+      { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
     ])
     expect(experimentRules?.recordedData[0].result).toEqual({
-      type: 'tensor',
-      dimension: 2,
-      shape: [-1, -1],
       dtype: 'float64',
       unit: 'A.m-2',
       quantityKind: 'ElectricCurrentDensity',
+      basis: IDENTITY_CARTESIAN_BASIS,
       axes: [
         { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
         { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -145,23 +141,19 @@ describe('compiled user module execution', () => {
     expect(experimentRules?.recordedData.map((rule) => rule.parameters)).toEqual([
       {
         crossSectionPosition: {
-          type: 'float', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
       {
         crossSectionPosition: {
-          type: 'float', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
     ])
     expect(experimentRules?.recordedData[1].result).toEqual({
-      type: 'tensor',
-      dimension: 0,
-      shape: [],
       dtype: 'float64',
       unit: 'A',
       quantityKind: 'ElectricCurrent',
-      axes: [],
     })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(2)
@@ -201,18 +193,24 @@ describe('compiled user module execution', () => {
         version: 'reference',
         variables: {
           electricalConductivity: {
-            type: 'float',
-            value: expect.any(Number),
+            dtype: 'float64',
+            value: expect.any(Array),
             unit: 'S.m-1',
             quantityKind: 'ElectricConductivity',
+            basis: IDENTITY_CARTESIAN_BASIS,
           },
           color: '#d97706',
         },
       },
     })
-    const conductivity = parts[0].material?.variables.electricalConductivity as { value: number }
-    expect(conductivity.value).toBeGreaterThanOrEqual(5.96e7 * (1 - 0.001))
-    expect(conductivity.value).toBeLessThanOrEqual(5.96e7 * (1 + 0.001))
+    const conductivity = parts[0].material?.variables.electricalConductivity as unknown as {
+      value: readonly (readonly number[])[]
+    }
+    const diagonal = [conductivity.value[0][0], conductivity.value[1][1], conductivity.value[2][2]]
+    expect(diagonal[0]).toBeGreaterThanOrEqual(5.96e7 * (1 - 0.001))
+    expect(diagonal[0]).toBeLessThanOrEqual(5.96e7 * (1 + 0.001))
+    expect(diagonal).toEqual([diagonal[0], diagonal[0], diagonal[0]])
+    expect(conductivity.value.flat().filter((_value, index) => ![0, 4, 8].includes(index))).toEqual([0, 0, 0, 0, 0, 0])
     expect(conductivity).not.toHaveProperty('errorRate')
     expect(geometryGroups[0]).toMatchObject({ name: 'conductor', geometryIds: ['conductor'] })
     expect(surfaceGroups.map((group) => group.name)).toEqual(['sourceTerminal', 'referenceTerminal'])

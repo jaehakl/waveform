@@ -1,4 +1,5 @@
 import type { SolverSpec, SolverTargetSpec } from '../../spec'
+import { IDENTITY_CARTESIAN_BASIS } from '../../../quantitykind'
 
 const oneStructureGeometry = Object.freeze({
   source: 'structure',
@@ -19,9 +20,9 @@ const oneStructureSurface = Object.freeze({
 } as const satisfies SolverTargetSpec)
 
 const crossSectionPosition = Object.freeze({
-  description: 'Normalized axial position of the sampled cross-section.',
+  description: 'Normalized axial position of the recorded cross-section.',
   value: {
-    type: 'float',
+    dtype: 'float64',
     quantityKind: 'DimensionlessRatio',
     referenceUnit: '{fraction}',
     minimum: 0,
@@ -33,13 +34,13 @@ const crossSectionPosition = Object.freeze({
 
 export const dcCurrentDensitySpec = Object.freeze({
   name: 'dc-current-density',
-  version: '1.0.0',
+  version: '2.0.0',
   description: 'Solves steady-state electric potential, current density, and total current in one homogeneous conductor.',
   parameters: {
     relativeTolerance: {
       description: 'Relative convergence tolerance for the preconditioned conjugate-gradient solve.',
       value: {
-        type: 'float',
+        dtype: 'float64',
         quantityKind: 'DimensionlessRatio',
         referenceUnit: '{fraction}',
         minimum: 0,
@@ -50,7 +51,7 @@ export const dcCurrentDensitySpec = Object.freeze({
     },
     maxIterations: {
       description: 'Maximum number of solver iterations.',
-      value: { type: 'integer', minimum: 1 },
+      value: { dtype: 'int32', minimum: 1 },
     },
   },
   materials: [
@@ -60,13 +61,12 @@ export const dcCurrentDensitySpec = Object.freeze({
       target: { category: 'initializations', methodId: 'dc.voxel-grid' },
       parameters: {
         electricalConductivity: {
-          description: 'Positive scalar electrical conductivity.',
+          description: 'Positive isotropic electrical-conductivity tensor σI in the global identity basis.',
           value: {
-            type: 'float',
+            dtype: 'float64',
             quantityKind: 'ElectricConductivity',
             referenceUnit: 'S.m-1',
-            minimum: 0,
-            exclusiveMinimum: true,
+            referenceBasis: IDENTITY_CARTESIAN_BASIS,
           },
         },
       },
@@ -84,12 +84,9 @@ export const dcCurrentDensitySpec = Object.freeze({
           gridShape: {
             description: 'Number of cells along the s, u, and v grid axes.',
             value: {
-              type: 'tensor',
-              dimension: 1,
-              shape: [3],
               dtype: 'int32',
-              axes: [{ name: 'grid axis', ticks: ['s', 'u', 'v'] }],
-              element: { minimum: 3 },
+              axes: [{ length: 3 }],
+              minimum: 3,
             },
           },
         },
@@ -105,7 +102,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: {
           voltage: {
             description: 'Source terminal electric potential.',
-            value: { type: 'float', quantityKind: 'Voltage', referenceUnit: 'V' },
+            value: { dtype: 'float64', quantityKind: 'Voltage', referenceUnit: 'V' },
           },
         },
       },
@@ -118,7 +115,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: {
           voltage: {
             description: 'Reference terminal electric potential.',
-            value: { type: 'float', quantityKind: 'Voltage', referenceUnit: 'V' },
+            value: { dtype: 'float64', quantityKind: 'Voltage', referenceUnit: 'V' },
           },
         },
       },
@@ -132,12 +129,10 @@ export const dcCurrentDensitySpec = Object.freeze({
         target: oneStructureGeometry,
         parameters: { crossSectionPosition },
         result: {
-          type: 'tensor',
-          dimension: 2,
-          shape: [-1, -1],
           dtype: 'float64',
           quantityKind: 'ElectricCurrentDensity',
           referenceUnit: 'A.m-2',
+          referenceBasis: IDENTITY_CARTESIAN_BASIS,
           axes: [
             { name: 'cross-section v', quantityKind: 'Length', referenceUnit: 'm' },
             { name: 'cross-section u', quantityKind: 'Length', referenceUnit: 'm' },
@@ -152,13 +147,9 @@ export const dcCurrentDensitySpec = Object.freeze({
         target: oneStructureGeometry,
         parameters: { crossSectionPosition },
         result: {
-          type: 'tensor',
-          dimension: 0,
-          shape: [],
           dtype: 'float64',
           quantityKind: 'ElectricCurrent',
           referenceUnit: 'A',
-          axes: [],
         },
       },
     ],

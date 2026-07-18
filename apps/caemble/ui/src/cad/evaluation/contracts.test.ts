@@ -75,13 +75,24 @@ describe('CAD registry contracts', () => {
 
   it('keeps the Monaco QuantityKindName union synchronized with the generated facade', () => {
     const declaration = coreDeclarations.match(
-      /export type QuantityKindName =([\s\S]*?)export type QuantityMetadata/,
+      /export type QuantityKindName =([\s\S]*?)export type TensorQuantityKindName/,
     )?.[1]
     const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])]
       .map((match) => match[1])
 
     expect(declarationNames).toHaveLength(1_219)
     expect(declarationNames.sort()).toEqual(Object.keys(QuantityKind).sort())
+
+    const tensorDeclaration = coreDeclarations.match(
+      /export type TensorQuantityKindName =([\s\S]*?)export type ScalarQuantityKindName/,
+    )?.[1]
+    const tensorDeclarationNames = [...(tensorDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])]
+      .map((match) => match[1])
+    const tensorQuantityKindNames = Object.values(QuantityKind)
+      .filter((entry) => entry.tensorOrder() > 0)
+      .map((entry) => entry.name)
+
+    expect(tensorDeclarationNames.sort()).toEqual(tensorQuantityKindNames.sort())
   })
 
   it('exposes model and evaluation APIs through the CAD facade', () => {

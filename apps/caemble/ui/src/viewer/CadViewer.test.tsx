@@ -100,11 +100,7 @@ describe('CadViewer', () => {
         methodId: 'field.average',
         parameters: {},
         result: {
-          type: 'tensor' as const,
-          dimension: 0,
-          shape: [],
           dtype: 'float64' as const,
-          axes: [],
           unit: '{fraction}',
           quantityKind: 'DimensionlessRatio' as const,
         },

@@ -432,15 +432,15 @@ function JscadViewer({
     label: rule.label,
     result: {
       axes: rule.result.axes?.map((axis) => ({
+        length: axis.length,
         name: axis.name,
         quantityKind: axis.quantityKind,
         ticks: axis.ticks,
         unit: axis.unit,
       })),
-      dimension: rule.result.dimension,
       dtype: rule.result.dtype,
       quantityKind: rule.result.quantityKind,
-      shape: rule.result.shape,
+      basis: rule.result.basis,
       unit: rule.result.unit,
     },
   }))), [recordedDataRules])
