@@ -2,15 +2,13 @@ import { CadModelError } from '../cad/model/errors'
 import type { Vec3 } from '../cad/model/types'
 import { convertUcumValue, normalizeUcumUnit, type UcumUnit } from '../cad/model/units'
 import { quantityKindData } from './data'
-import { quantityKindTensorOrders } from './tensorOrder'
 
 type QuantityKindData = typeof quantityKindData
-type QuantityKindTensorOrders = typeof quantityKindTensorOrders
 
 export type QuantityKindName = keyof QuantityKindData
 
 export type QuantityKindTensorOrder<Name extends QuantityKindName> =
-  QuantityKindTensorOrders[Name]
+  QuantityKindData[Name]['tensorOrder']
 
 type ComponentShapeForOrder<
   Order extends number,
@@ -60,7 +58,7 @@ export function componentShapeForTensorOrder(order: number, path = 'Tensor order
 export function getQuantityKindTensorOrder<Name extends QuantityKindName>(
   name: Name,
 ): QuantityKindTensorOrder<Name> {
-  return quantityKindTensorOrders[name]
+  return quantityKindData[name].tensorOrder
 }
 
 export function getQuantityKindComponentShape<Name extends QuantityKindName>(
@@ -208,7 +206,7 @@ export function normalizeQuantityMetadata(
     )
   }
 
-  const tensorOrder = quantityKindTensorOrders[quantityKind]
+  const tensorOrder = quantityKindData[quantityKind].tensorOrder
   if (scalarOnly && tensorOrder > 0) {
     throw new CadModelError(
       `${path}.quantityKind ${quantityKind} has tensor order ${tensorOrder} and component shape ${JSON.stringify(getQuantityKindComponentShape(quantityKind))}; use a float dtype descriptor without axes, the complete component value, and basis.`,

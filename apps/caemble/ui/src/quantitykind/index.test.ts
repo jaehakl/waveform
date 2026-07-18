@@ -11,7 +11,6 @@ import {
   componentShapeForTensorOrder,
   transformQuantityComponents,
 } from './runtime'
-import { quantityKindTensorOrders } from './tensorOrder'
 
 function assertCompileTimeUnitTypes() {
   // @ts-expect-error seconds are not an applicable Length unit
@@ -21,20 +20,17 @@ void assertCompileTimeUnitTypes
 
 describe('QuantityKind', () => {
   it('has one explicit, frozen tensor order for every QUDT 3.4 name', () => {
-    const sourceNames = Object.keys(quantityKindData).sort()
-    const orderNames = Object.keys(quantityKindTensorOrders).sort()
+    const entries = Object.values(quantityKindData)
 
-    expect(sourceNames).toHaveLength(1_219)
-    expect(orderNames).toEqual(sourceNames)
-    expect(Object.isFrozen(quantityKindTensorOrders)).toBe(true)
-    for (const name of sourceNames) {
-      expect(Object.prototype.hasOwnProperty.call(quantityKindTensorOrders, name)).toBe(true)
-      const order = quantityKindTensorOrders[name as keyof typeof quantityKindTensorOrders]
-      expect(Number.isSafeInteger(order)).toBe(true)
-      expect(order).toBeGreaterThanOrEqual(0)
-      expect(order).toBeLessThanOrEqual(2)
+    expect(entries).toHaveLength(1_219)
+    expect(Object.isFrozen(quantityKindData)).toBe(true)
+    for (const entry of entries) {
+      expect(Object.isFrozen(entry)).toBe(true)
+      expect(Object.prototype.hasOwnProperty.call(entry, 'tensorOrder')).toBe(true)
+      expect(Number.isSafeInteger(entry.tensorOrder)).toBe(true)
+      expect(entry.tensorOrder).toBeGreaterThanOrEqual(0)
+      expect(entry.tensorOrder).toBeLessThanOrEqual(2)
     }
-    expect((quantityKindTensorOrders as Record<string, number>).NotAQuantityKind).toBeUndefined()
   })
 
   it('fixes representative and text-ambiguous scalar, vector, and matrix orders', () => {
