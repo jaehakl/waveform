@@ -1,7 +1,14 @@
 import type { ResolvedExperimentSolver } from '../cad'
 import { QuantityKind } from '../quantitykind'
+import {
+  materialModelByKey,
+  materialParameterByKey,
+  type MaterialModelKey,
+  type MaterialPropertyKey,
+} from '../material/data'
 import type {
   SolverCompatibility,
+  SolverMaterialParameterMap,
   SolverMethodSpec,
   SolverParameterSpec,
   SolverResultValueSpec,
@@ -98,6 +105,74 @@ function ParameterList({ parameters }: { parameters: Readonly<Record<string, Sol
           <dd className="mt-1 text-xs leading-5 text-slate-700"><ValueContract spec={parameter.value} /></dd>
         </div>
       ))}
+    </dl>
+  )
+}
+
+function MaterialParameterList({ parameters }: { parameters: SolverMaterialParameterMap }) {
+  const entries = Object.entries(parameters)
+  if (entries.length === 0) return <p className="mt-2 text-xs text-slate-500">No required parameters.</p>
+  return (
+    <dl className="mt-2 space-y-2">
+      {entries.map(([key, rawParameter]) => {
+        const parameter = rawParameter as Readonly<{
+          description: string
+          required?: boolean
+          value: Readonly<Record<string, unknown>>
+        }>
+        const property = Object.prototype.hasOwnProperty.call(materialParameterByKey, key)
+          ? materialParameterByKey[key as MaterialPropertyKey]
+          : undefined
+        const model = property === undefined
+          ? materialModelByKey[key as MaterialModelKey]
+          : undefined
+        return (
+          <div className="rounded border border-slate-200 bg-slate-50 p-2" key={key}>
+            <dt className="font-mono text-xs font-semibold text-slate-800">
+              {key} · {parameter.required === false ? 'optional' : 'required'}
+            </dt>
+            <dd className="mt-1 text-xs leading-5 text-slate-600">{parameter.description}</dd>
+            <dd className="mt-1 text-xs leading-5 text-slate-700">
+              {property ? (
+                <ValueContract spec={{
+                  ...parameter.value,
+                  quantityKind: property.quantity_kind,
+                } as SolverValueSpec} />
+              ) : model ? (
+                <div>
+                  sampled relation · at least {model.minimum_samples} samples
+                  <br />input · <QuantityContract spec={{
+                    quantityKind: model.input.quantity_kind,
+                    referenceUnit: parameter.value.input && typeof parameter.value.input === 'object'
+                      ? (parameter.value.input as { referenceUnit: string }).referenceUnit
+                      : '',
+                    ...(
+                      parameter.value.input
+                      && typeof parameter.value.input === 'object'
+                      && 'referenceBasis' in parameter.value.input
+                        ? { referenceBasis: (parameter.value.input as { referenceBasis: readonly (readonly number[])[] }).referenceBasis }
+                        : {}
+                    ),
+                  }} />
+                  <br />output · <QuantityContract spec={{
+                    quantityKind: model.output.quantity_kind,
+                    referenceUnit: parameter.value.output && typeof parameter.value.output === 'object'
+                      ? (parameter.value.output as { referenceUnit: string }).referenceUnit
+                      : '',
+                    ...(
+                      parameter.value.output
+                      && typeof parameter.value.output === 'object'
+                      && 'referenceBasis' in parameter.value.output
+                        ? { referenceBasis: (parameter.value.output as { referenceBasis: readonly (readonly number[])[] }).referenceBasis }
+                        : {}
+                    ),
+                  }} />
+                </div>
+              ) : null}
+            </dd>
+          </div>
+        )
+      })}
     </dl>
   )
 }
@@ -222,7 +297,7 @@ export default function SolverSpecSheet({ compatibility, solver, spec }: SolverS
                   <p className="mt-1 text-xs text-slate-500">
                     From {material.target.category}.{material.target.methodId} targets
                   </p>
-                  <ParameterList parameters={material.parameters} />
+                  <MaterialParameterList parameters={material.parameters} />
                 </article>
               ))}
               {spec.materials.length === 0 ? <p className="text-xs text-slate-500">No Material roles.</p> : null}

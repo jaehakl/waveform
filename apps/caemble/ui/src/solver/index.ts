@@ -2,6 +2,10 @@ export { SolverController } from './controller'
 export { SolverRegistry } from './registry'
 export type {
   SolverAxisSpec,
+  SolverMaterialParameterMap,
+  SolverMaterialParameterSpec,
+  SolverMaterialPropertyValueSpec,
+  SolverMaterialRelationValueSpec,
   SolverMaterialSpec,
   SolverMethodSpec,
   SolverParameterSpec,

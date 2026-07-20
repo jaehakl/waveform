@@ -143,16 +143,6 @@ export const transportMaterialParameters = defineMaterialParameterDomain('transp
     ],
   },
   {
-    key: 'transport.sorption_isotherm',
-    label_ko: '흡착 등온선',
-    quantity_kind: 'MassFraction',
-    special_qualifiers: [
-      'species',
-      'sorbent',
-      'isotherm_definition',
-    ],
-  },
-  {
     key: 'transport.capillary_pressure',
     label_ko: '모세관압',
     quantity_kind: 'Pressure',
@@ -171,4 +161,3 @@ export const transportMaterialParameters = defineMaterialParameterDomain('transp
     ],
   },
 ] as const)
-

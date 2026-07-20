@@ -79,12 +79,11 @@ export default structure({
         verticalCurvature={0}
         materials={[
           new Material('Curved Polymer', {
-            density: {
+            'general.mass_density': {
               dtype: 'float64',
               value: 1.12,
               errorRate: 0,
               unit: 'g.cm-3',
-              quantityKind: 'MassDensity',
             },
             color: '#0f766e',
           }),

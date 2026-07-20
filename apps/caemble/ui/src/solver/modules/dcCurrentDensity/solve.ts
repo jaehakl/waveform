@@ -182,7 +182,7 @@ function crossSectionPosition(rule: RecordedDataRule) {
 }
 
 function isotropicConductivity(value: unknown) {
-  const path = 'Conductor Material electricalConductivity'
+  const path = 'Conductor Material electrical.conductivity'
   if (
     typeof value !== 'object'
     || value === null
@@ -637,7 +637,7 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     throw new CadModelError('DC recorded-data rules must use the same crossSectionPosition.')
   }
   if (input.structure.scene.parts.length !== 1) {
-    throw new CadModelError('dc-current-density@2.0.0 supports exactly one Structure Geometry part.')
+    throw new CadModelError('dc-current-density@0.0.0 supports exactly one Structure Geometry part.')
   }
   const conductor = geometryPart(input.structure.scene, densityGroup)
   const source = surfaceForGroup(
@@ -656,7 +656,7 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
   }
 
   const conductivitySi = isotropicConductivity(
-    conductor.material!.variables.electricalConductivity,
+    conductor.material!.variables['electrical.conductivity'],
   )
   const sceneLengthToMeters = convertUcumValue(
     1,

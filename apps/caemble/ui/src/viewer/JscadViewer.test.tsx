@@ -189,7 +189,7 @@ describe('JscadViewer modes', () => {
             process: idleSolverProcess,
             run: () => undefined,
             solver: status === 'checking'
-              ? { name: 'dc-current-density', version: '2.0.0' }
+              ? { name: 'dc-current-density', version: '0.0.0' }
               : null,
             stale: false,
           }}
@@ -228,7 +228,7 @@ describe('JscadViewer modes', () => {
           },
           process: idleSolverProcess,
           run: () => undefined,
-          solver: { name: 'dc-current-density', version: '2.0.0' },
+          solver: { name: 'dc-current-density', version: '0.0.0' },
           stale: false,
         }}
         onApplySpacing={() => undefined}

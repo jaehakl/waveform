@@ -26,7 +26,7 @@ const active = structure({
   geometry: ({ vars }) => h(Root, {
     id: 'root',
     width: vars.width,
-    materials: [new Material('Core', { epsilon: vars.epsilon, color: '#2563eb' })],
+    materials: [new Material('Core', { color: '#2563eb' })],
   }),
   varsSchema: {
     width: { min: 4, max: 4 },
@@ -54,7 +54,7 @@ describe('compiled user module execution', () => {
         lengthUnit: 'mm',
         parts: [{
           id: 'root',
-          material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
+          material: { symbol: 'Core', variables: { color: '#2563eb' } },
         }],
         tree: { label: 'Structure' },
         geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
@@ -102,7 +102,7 @@ describe('compiled user module execution', () => {
 
     expect(solver).toEqual({
       name: 'dc-current-density',
-      version: '2.0.0',
+      version: '0.0.0',
       parameters: {
         relativeTolerance: {
           dtype: 'float64', value: 1e-8, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
@@ -181,7 +181,8 @@ describe('compiled user module execution', () => {
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain("unit: 'S.m-1'")
-    expect(defaultCode).toContain("quantityKind: 'electromagnetism.ElectricConductivity'")
+    expect(defaultCode).toContain("'electrical.conductivity': {")
+    expect(defaultCode).not.toContain("quantityKind: 'electromagnetism.ElectricConductivity'")
     expect(defaultCode).toContain('value: Mat(vars.electricalConductivity)')
     expect(defaultCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultCode).toContain('errorRate: 0.001')
@@ -207,7 +208,7 @@ describe('compiled user module execution', () => {
         symbol: 'Copper',
         version: 'reference',
         variables: {
-          electricalConductivity: {
+          'electrical.conductivity': {
             dtype: 'float64',
             value: expect.any(Array),
             unit: 'S.m-1',
@@ -218,7 +219,7 @@ describe('compiled user module execution', () => {
         },
       },
     })
-    const conductivity = parts[0].material?.variables.electricalConductivity as unknown as {
+    const conductivity = parts[0].material?.variables['electrical.conductivity'] as unknown as {
       value: readonly (readonly number[])[]
     }
     const diagonal = [conductivity.value[0][0], conductivity.value[1][1], conductivity.value[2][2]]

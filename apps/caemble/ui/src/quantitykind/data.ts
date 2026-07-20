@@ -87,8 +87,8 @@ const domainEntryCount = quantityKindDataByDomain.reduce(
 if (Object.keys(quantityKindData).length !== domainEntryCount) {
   throw new Error('QuantityKind names must be unique across physical domains.')
 }
-if (domainEntryCount !== 1_231) {
-  throw new Error(`QuantityKind data must contain exactly 1,231 entries; found ${domainEntryCount}.`)
+if (domainEntryCount !== 1_233) {
+  throw new Error(`QuantityKind data must contain exactly 1,233 entries; found ${domainEntryCount}.`)
 }
 
 const baseNames = new Set<string>()

@@ -1,14 +1,14 @@
-# Material Parameter Catalog v0.1 (Draft)
+# Material Parameter Catalog v0.0.0
 
 - Catalog ID: `material-parameter-catalog`
-- QuantityKind data version: `1.0.0`
-- Total canonical property keys: **260**
+- QuantityKind data version: `0.0.0`
+- Total canonical property keys: **258**
 
 ## Rules
 
 - **canonical_key**: domain.property; do not encode direction, component, temperature, pressure, frequency, wavelength, species, phase, or model branch in the key
-- **value_representation**: A property may be scalar, vector, tensor, complex, curve, table, or function.
-- **model_parameters**: Constitutive-model coefficients belong under model.<model>.<parameter>, not in this flat physical-property catalog.
+- **value_shape**: A property is one physical quantity value with no axes; its exact Cartesian component shape is determined only by the referenced QuantityKind tensorOrder.
+- **model_parameters**: Dependencies and constitutive relations must use a key enumerated in the separate Material model catalog; arbitrary model.* keys are forbidden.
 - **interface_properties**: interface.* records belong to a material/phase pair, not to one bulk material.
 - **quantity_kind**: reference the single canonical QuantityKind name; domain prefixes identify physical meaning, not the catalog property's usage domain.
 
@@ -55,8 +55,8 @@
 | `mechanical.bulk_modulus` | 체적 탄성률 | `mechanics.BulkModulus` |  |
 | `mechanical.compressibility` | 압축률 | `fluidDynamics.Compressibility` |  |
 | `mechanical.lame_first_parameter` | 라메 제1상수 | `mechanics.Stress` | `coordinate_frame` |
-| `mechanical.elastic_stiffness_tensor` | 탄성 강성 텐서 | `mechanics.ModulusOfElasticity` | `coordinate_frame`, `tensor_convention` |
-| `mechanical.elastic_compliance_tensor` | 탄성 컴플라이언스 텐서 | `InversePressure` | `coordinate_frame`, `tensor_convention` |
+| `mechanical.elastic_stiffness_tensor` | 탄성 강성 텐서 | `mechanics.ElasticStiffnessTensor` | `coordinate_frame`, `tensor_convention` |
+| `mechanical.elastic_compliance_tensor` | 탄성 컴플라이언스 텐서 | `mechanics.ElasticComplianceTensor` | `coordinate_frame`, `tensor_convention` |
 | `mechanical.yield_strength` | 항복강도 | `mechanics.Stress` | `loading_mode`, `yield_definition`, `strain_rate` |
 | `mechanical.tensile_strength` | 인장강도 | `mechanics.Stress` | `test_method`, `strain_rate` |
 | `mechanical.compressive_strength` | 압축강도 | `mechanics.Stress` | `test_method`, `strain_rate` |
@@ -144,7 +144,7 @@
 | `fluid.speed_of_sound` | 음속 | `acoustics.SpeedOfSound` | `wave_mode` |
 | `fluid.yield_stress` | 유변학적 항복응력 | `mechanics.Stress` | `rheology_model` |
 
-### transport (19)
+### transport (18)
 
 | Key | Korean label | QuantityKind | Special qualifiers |
 |---|---|---|---|
@@ -164,7 +164,6 @@
 | `transport.henry_constant` | 헨리 상수 | `chemistry.HenrysLawVolatilityConstant` | `solute`, `solvent`, `definition` |
 | `transport.partition_coefficient` | 분배계수 | `DimensionlessRatio` | `species`, `phase_pair`, `definition` |
 | `transport.adsorption_coefficient` | 흡착계수 | `chemistry.SoilAdsorptionCoefficient` | `species`, `sorbent`, `definition` |
-| `transport.sorption_isotherm` | 흡착 등온선 | `MassFraction` | `species`, `sorbent`, `isotherm_definition` |
 | `transport.capillary_pressure` | 모세관압 | `Pressure` | `phase_pair`, `saturation_definition` |
 | `transport.mobility` | 이동도 | `transport.Mobility` | `carrier_or_species`, `driving_field` |
 
@@ -188,7 +187,7 @@
 | `electrical.surface_resistance` | 표면저항 | `electromagnetism.Resistance` | `electrode_geometry` |
 | `electrical.dielectric_relaxation_time` | 유전 완화시간 | `RelaxationTime` | `mode_or_branch_index` |
 
-### magnetic (17)
+### magnetic (16)
 
 | Key | Korean label | QuantityKind | Special qualifiers |
 |---|---|---|---|
@@ -200,7 +199,6 @@
 | `magnetic.saturation_flux_density` | 포화 자속밀도 | `electromagnetism.MagneticFluxDensity` | `field_direction` |
 | `magnetic.remanent_magnetization` | 잔류 자화 | `electromagnetism.Magnetization` | `field_direction` |
 | `magnetic.saturation_magnetization` | 포화 자화 | `electromagnetism.Magnetization` | `field_direction` |
-| `magnetic.b_h_curve` | B-H 곡선 | `electromagnetism.MagneticFluxDensity` | `field_direction`, `hysteresis_branch` |
 | `magnetic.curie_temperature` | 퀴리 온도 | `materials.CurieTemperature` |  |
 | `magnetic.neel_temperature` | 닐 온도 | `materials.NeelTemperature` |  |
 | `magnetic.lower_critical_flux_density` | 하부 임계 자속밀도 | `materials.LowerCriticalMagneticFluxDensity` |  |
@@ -380,39 +378,3 @@
 | `interface.thermal_contact_resistance_per_area` | 면적 열접촉저항 | `thermodynamics.ThermalResistancePerArea` | `material_pair`, `contact_pressure`, `surface_state` |
 | `interface.electrical_contact_resistance` | 전기 접촉저항 | `electromagnetism.Resistance` | `material_pair`, `contact_pressure`, `surface_state` |
 | `interface.mass_transfer_coefficient` | 계면 물질전달계수 | `kinematics.Speed` | `species`, `phase_pair` |
-
-## Model namespace examples
-
-- `model.johnson_cook.initial_yield_stress`
-- `model.johnson_cook.hardening_coefficient`
-- `model.johnson_cook.hardening_exponent`
-- `model.johnson_cook.strain_rate_coefficient`
-- `model.johnson_cook.thermal_softening_exponent`
-- `model.mooney_rivlin.c10`
-- `model.mooney_rivlin.c01`
-- `model.ogden.mu`
-- `model.ogden.alpha`
-- `model.prony.shear_fraction`
-- `model.prony.bulk_fraction`
-- `model.prony.relaxation_time`
-- `model.norton.creep_coefficient`
-- `model.norton.stress_exponent`
-- `model.power_law.consistency_index`
-- `model.power_law.flow_behavior_index`
-- `model.bingham.yield_stress`
-- `model.bingham.plastic_viscosity`
-- `model.herschel_bulkley.yield_stress`
-- `model.herschel_bulkley.consistency_index`
-- `model.herschel_bulkley.flow_behavior_index`
-- `model.mohr_coulomb.cohesion`
-- `model.mohr_coulomb.friction_angle`
-- `model.mohr_coulomb.dilation_angle`
-- `model.modified_cam_clay.preconsolidation_pressure`
-- `model.modified_cam_clay.compression_index`
-- `model.modified_cam_clay.swelling_index`
-- `model.van_genuchten.alpha`
-- `model.van_genuchten.n`
-- `model.butler_volmer.exchange_current_density`
-- `model.jiles_atherton.a`
-- `model.sellmeier.b`
-- `model.sellmeier.c`

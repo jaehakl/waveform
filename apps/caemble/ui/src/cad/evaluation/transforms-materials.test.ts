@@ -90,7 +90,7 @@ describe('CAD transforms-materials', () => {
   })
 
   it('inherits materials through nested Geometry without registration', () => {
-    const core = new Material('Core', { epsilon: 12, color: '#2563eb' })
+    const core = new Material('Core', { color: '#2563eb' })
 
     function Parent() {
       return h(Box, { id: 'child' })
@@ -100,7 +100,7 @@ describe('CAD transforms-materials', () => {
 
     expect(parts).toHaveLength(1)
     expect(parts[0]).toMatchObject({
-      material: { symbol: 'Core', variables: { epsilon: 12, color: '#2563eb' } },
+      material: { symbol: 'Core', variables: { color: '#2563eb' } },
     })
   })
 
@@ -183,8 +183,8 @@ describe('CAD transforms-materials', () => {
 
   it('shares one serializable snapshot for parts using the same Material instance', () => {
     const shared = new Material('Core', 'Kittel_1988', {
-      density: {
-        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+      'general.mass_density': {
+        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3',
       },
       color: '#2563eb',
     })
@@ -201,7 +201,7 @@ describe('CAD transforms-materials', () => {
       symbol: 'Core',
       version: 'Kittel_1988',
       variables: {
-        density: { dtype: 'float64', value: 2.7, unit: 'g.cm-3', quantityKind: 'MassDensity' },
+        'general.mass_density': { dtype: 'float64', value: 2.7, unit: 'g.cm-3', quantityKind: 'MassDensity' },
         color: '#2563eb',
       },
     })
@@ -212,21 +212,21 @@ describe('CAD transforms-materials', () => {
     const random = vi.spyOn(Math, 'random').mockReturnValue(0)
     try {
       const shared = new Material('Shared', {
-        density: {
+        'general.mass_density': {
           dtype: 'float64', value: 10, errorRate: 0.2,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          unit: 'kg.m-3',
         },
       })
       const first = new Material('Separate', {
-        density: {
+        'general.mass_density': {
           dtype: 'float64', value: 10, errorRate: 0.2,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          unit: 'kg.m-3',
         },
       })
       const second = new Material('Separate', {
-        density: {
+        'general.mass_density': {
           dtype: 'float64', value: 10, errorRate: 0.2,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          unit: 'kg.m-3',
         },
       })
       const structure = new Structure({
@@ -243,7 +243,9 @@ describe('CAD transforms-materials', () => {
       })
       const sample = new Sample(structure)
       const scene = evaluateWithVars(sample.vars, () => evaluateCadScene(structure.geometry()))
-      const applied = scene.parts.map((part) => part.material?.variables.density as { value: number })
+      const applied = scene.parts.map((part) => (
+        part.material?.variables['general.mass_density'] as { value: number }
+      ))
 
       expect(scene.parts[0].material).toBe(scene.parts[1].material)
       expect(applied[0]).toEqual(applied[1])

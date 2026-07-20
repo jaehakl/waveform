@@ -88,4 +88,39 @@ describe('@caemble/core/v2 authoring declaration', () => {
     expect(diagnosticsFor(wrongMethod).join('\n')).toContain('dc.unknown')
     expect(diagnosticsFor(wrongParameter).join('\n')).toContain('unknownGridShape')
   })
+
+  it('generates strict canonical Material property and model authoring types', () => {
+    expect(coreV2Types).toContain(
+      "'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>",
+    )
+    expect(coreTypes).toContain("'model.sorption.isotherm': Readonly<{")
+
+    const localKey = defaultCode.replace("'electrical.conductivity': {", 'electricalConductivity: {')
+    const arbitraryKey = defaultCode.replace("'electrical.conductivity': {", "'custom.conductivity': {")
+    const manualQuantityKind = defaultCode.replace(
+      "unit: 'S.m-1',",
+      "unit: 'S.m-1',\n            quantityKind: 'electromagnetism.ElectricConductivity',",
+    )
+    expect(diagnosticsFor(localKey).join('\n')).toContain('electricalConductivity')
+    expect(diagnosticsFor(arbitraryKey).join('\n')).toContain('custom.conductivity')
+    expect(diagnosticsFor(manualQuantityKind).join('\n')).toContain(
+      "Type 'string' is not assignable to type 'undefined'",
+    )
+
+    const modelRelation = `
+      import { Material } from '@caemble/core/v2'
+      new Material('Sorbent', {
+        'model.sorption.isotherm': {
+          kind: 'sampled_relation',
+          input: { unit: '%', values: [0, 100] },
+          output: { unit: '{fraction}', values: [0, 0.2] },
+        },
+      })
+    `
+    expect(diagnosticsFor(modelRelation)).toEqual([])
+    expect(diagnosticsFor(modelRelation.replace(
+      'model.sorption.isotherm',
+      'model.sorption.local_isotherm',
+    )).join('\n')).toContain('model.sorption.local_isotherm')
+  })
 })

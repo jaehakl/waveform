@@ -21,9 +21,9 @@ function createPair(name = 'test-solver', version = '1.0.0') {
       return h(Conductor, {
         id: 'conductor',
         materials: [new Material('Test', {
-          value: {
+          'general.mass_density': {
             dtype: 'float64', value: vars.materialValue, errorRate: 0.1,
-            unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+            unit: 'kg.m-3',
           },
           color: '#2563eb',
         })],
@@ -144,7 +144,8 @@ describe('SolverController', () => {
       expect(input.structure.scene.parts[0].material?.variables).toEqual(
         previewScene.parts[0].material?.variables,
       )
-      const appliedMaterialValue = input.structure.scene.parts[0].material?.variables.value as { value: number }
+      const appliedMaterialValue = input.structure.scene.parts[0].material
+        ?.variables['general.mass_density'] as { value: number }
       expect(appliedMaterialValue.value).toBeGreaterThanOrEqual(3.6)
       expect(appliedMaterialValue.value).toBeLessThanOrEqual(4.4)
       expect(appliedMaterialValue).not.toHaveProperty('errorRate')

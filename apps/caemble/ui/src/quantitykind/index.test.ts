@@ -31,6 +31,8 @@ const addedBaseNames = new Set([
   'MagnetoelectricCoefficient',
   'StiffnessPerArea',
   'ThermalResistancePerArea',
+  'ElasticComplianceTensor',
+  'ElasticStiffnessTensor',
 ])
 
 function assertCompileTimeContracts() {
@@ -48,14 +50,14 @@ function assertCompileTimeContracts() {
 void assertCompileTimeContracts
 
 describe('QuantityKind', () => {
-  it('contains exactly 1,231 unique definitions split across the fixed physical domains', () => {
+  it('contains exactly 1,233 unique definitions split across the fixed physical domains', () => {
     const entries = Object.entries(quantityKindData)
     const baseNames = entries.map(([name, entry]) => (
       entry.domain === 'general' ? name : name.slice(entry.domain.length + 1)
     ))
 
-    expect(entries).toHaveLength(1_231)
-    expect(new Set(baseNames)).toHaveLength(1_231)
+    expect(entries).toHaveLength(1_233)
+    expect(new Set(baseNames)).toHaveLength(1_233)
     expect(quantityKindDomains).toEqual([
       'general',
       'geometry',
@@ -97,14 +99,14 @@ describe('QuantityKind', () => {
       2_166_136_261,
     )
     expect(preservedNameChecksum).toBe(552_131_150)
-    expect(baseNames.filter((name) => addedBaseNames.has(name))).toHaveLength(12)
+    expect(baseNames.filter((name) => addedBaseNames.has(name))).toHaveLength(14)
   })
 
   it('exposes one flat API with physical-domain and domain-name types', () => {
     const entries = Object.values(QuantityKind)
 
-    expect(entries).toHaveLength(1_231)
-    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_231)
+    expect(entries).toHaveLength(1_233)
+    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_233)
     for (const [name, entry] of Object.entries(QuantityKind)) expect(entry.name).toBe(name)
     expect(QuantityKind['mechanics.CENTER-OF-MASS'].name).toBe('mechanics.CENTER-OF-MASS')
     expect(Object.isFrozen(QuantityKind)).toBe(true)
@@ -162,6 +164,10 @@ describe('QuantityKind', () => {
     expect(QuantityKind['coupledPhenomena.PiezoresistiveCoefficient'].componentShape())
       .toEqual([3, 3, 3, 3])
     expect(QuantityKind['coupledPhenomena.ElectrostrictionCoefficient'].componentShape())
+      .toEqual([3, 3, 3, 3])
+    expect(QuantityKind['mechanics.ElasticStiffnessTensor'].componentShape())
+      .toEqual([3, 3, 3, 3])
+    expect(QuantityKind['mechanics.ElasticComplianceTensor'].componentShape())
       .toEqual([3, 3, 3, 3])
 
     const expectedUnits = {
@@ -229,7 +235,7 @@ describe('QuantityKind', () => {
   it('returns canonical descriptions with normalized whitespace and preserves missing values', () => {
     const descriptions = Object.values(QuantityKind).map((entry) => entry.description())
 
-    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_019)
+    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_021)
     expect(descriptions.filter((description) => description === undefined)).toHaveLength(212)
     expect(QuantityKind['informationComputing.AbsoluteTypographicMeasurement'].description())
       .toBeUndefined()
@@ -249,9 +255,9 @@ describe('QuantityKind', () => {
     const withUnits = entries.filter((entry) => entry.applicableUnits().length > 0)
     const unitEntryCount = entries.reduce((sum, entry) => sum + entry.applicableUnits().length, 0)
 
-    expect(withUnits).toHaveLength(832)
-    expect(entries.length - withUnits.length).toBe(399)
-    expect(unitEntryCount).toBe(10_466)
+    expect(withUnits).toHaveLength(836)
+    expect(entries.length - withUnits.length).toBe(397)
+    expect(unitEntryCount).toBe(10_491)
     expect(QuantityKind['fluidDynamics.APIGravity'].applicableUnits()).toEqual([])
 
     for (const entry of entries) {

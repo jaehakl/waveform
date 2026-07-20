@@ -20,6 +20,10 @@ import { thermalMaterialParameters } from './data/thermal'
 import { thermodynamicMaterialParameters } from './data/thermodynamic'
 import { transportMaterialParameters } from './data/transport'
 import {
+  materialModelByKey,
+  materialModelCatalog,
+  materialModelData,
+  materialParameterByKey,
   materialParameterCatalog,
   materialParameterData,
   materialParameterDomains,
@@ -31,9 +35,9 @@ const expectedDomainCounts = {
   thermal: 20,
   thermodynamic: 16,
   fluid: 8,
-  transport: 19,
+  transport: 18,
   electrical: 15,
-  magnetic: 17,
+  magnetic: 16,
   optical: 13,
   radiative: 2,
   acoustic: 6,
@@ -82,14 +86,14 @@ describe('material parameter catalog', () => {
   it('aggregates the frozen domain files with only the canonical property schema', () => {
     expect(materialParameterDomains).toEqual(Object.keys(expectedDomainCounts))
     expect(Object.isFrozen(materialParameterDomains)).toBe(true)
-    expect(materialParameterData).toHaveLength(260)
-    expect(new Set(properties.map(({ key }) => key)).size).toBe(260)
+    expect(materialParameterData).toHaveLength(258)
+    expect(new Set(properties.map(({ key }) => key)).size).toBe(258)
     expect(materialParameterCatalog.properties).toBe(materialParameterData)
     expect(Object.isFrozen(materialParameterData)).toBe(true)
     expect(Object.isFrozen(materialParameterCatalog)).toBe(true)
     expect(Object.isFrozen(materialParameterCatalog.design_rules)).toBe(true)
     expect(Object.isFrozen(materialParameterCatalog.global_qualifiers)).toBe(true)
-    expect(Object.isFrozen(materialParameterCatalog.model_namespace_examples)).toBe(true)
+    expect(materialParameterCatalog).not.toHaveProperty('model_namespace_examples')
 
     for (const [domain, expectedCount] of Object.entries(expectedDomainCounts)) {
       const domainParameters = parametersByDomain[domain as keyof typeof parametersByDomain]
@@ -117,8 +121,8 @@ describe('material parameter catalog', () => {
 
   it('uses the canonical QuantityKind dataset without source prefixes or extensions', () => {
     expect(materialParameterCatalog.catalog_id).toBe('material-parameter-catalog')
-    expect(materialParameterCatalog.catalog_version).toBe('0.1-draft')
-    expect(materialParameterCatalog.quantity_kind_data_version).toBe('1.0.0')
+    expect(materialParameterCatalog.catalog_version).toBe('0.0.0')
+    expect(materialParameterCatalog.quantity_kind_data_version).toBe('0.0.0')
     expect(materialParameterCatalog.design_rules.quantity_kind).toEqual(expect.any(String))
     expect(materialParameterCatalog).not.toHaveProperty('aliases')
     expect(materialParameterCatalog).not.toHaveProperty('relationships')
@@ -128,6 +132,29 @@ describe('material parameter catalog', () => {
       expect(property.quantity_kind).not.toMatch(/^(?:mdb|qudt):/)
       expect(Object.prototype.hasOwnProperty.call(quantityKindData, property.quantity_kind)).toBe(true)
     }
+  })
+
+  it('keeps sampled dependencies in the enumerated model catalog only', () => {
+    expect(materialParameterCatalog.design_rules).toHaveProperty('value_shape')
+    expect(materialParameterCatalog.design_rules).not.toHaveProperty('value_representation')
+    expect(materialParameterByKey).not.toHaveProperty('magnetic.b_h_curve')
+    expect(materialParameterByKey).not.toHaveProperty('transport.sorption_isotherm')
+    expect(materialModelCatalog).toMatchObject({
+      catalog_id: 'material-model-catalog',
+      catalog_version: '0.0.0',
+      quantity_kind_data_version: '0.0.0',
+    })
+    expect(materialModelData).toHaveLength(2)
+    expect(Object.keys(materialModelByKey)).toEqual([
+      'model.magnetic_hysteresis.b_h_curve',
+      'model.sorption.isotherm',
+    ])
+    expect(materialModelByKey['model.magnetic_hysteresis.b_h_curve']).toMatchObject({
+      input: { quantity_kind: 'electromagnetism.MagneticFieldStrength' },
+      output: { quantity_kind: 'electromagnetism.MagneticFluxDensity' },
+      minimum_samples: 2,
+      shared_basis: true,
+    })
   })
 
   it('reuses the definition by meaning instead of the material-property domain', () => {

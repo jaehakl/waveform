@@ -69,15 +69,6 @@ export const magneticMaterialParameters = defineMaterialParameterDomain('magneti
     ],
   },
   {
-    key: 'magnetic.b_h_curve',
-    label_ko: 'B-H 곡선',
-    quantity_kind: 'electromagnetism.MagneticFluxDensity',
-    special_qualifiers: [
-      'field_direction',
-      'hysteresis_branch',
-    ],
-  },
-  {
     key: 'magnetic.curie_temperature',
     label_ko: '퀴리 온도',
     quantity_kind: 'materials.CurieTemperature',
@@ -122,4 +113,3 @@ export const magneticMaterialParameters = defineMaterialParameterDomain('magneti
     ],
   },
 ] as const)
-

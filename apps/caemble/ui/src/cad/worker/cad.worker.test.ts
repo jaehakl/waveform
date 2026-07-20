@@ -25,12 +25,16 @@ function createSnapshots() {
     geometry: () => h(Conductor, {
       id: 'conductor',
       materials: [new Material('Copper', {
-        electricalConductivity: {
+        'electrical.conductivity': {
           dtype: 'float64',
           value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
           errorRate: 0,
           unit: 'S.m-1',
-          quantityKind: 'electromagnetism.ElectricConductivity',
+        },
+        'model.magnetic_hysteresis.b_h_curve': {
+          kind: 'sampled_relation',
+          input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]] },
+          output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
         },
       })],
     }),
@@ -45,9 +49,8 @@ function createSnapshots() {
     lengthUnit: 'mm',
     solver: {
       name: 'dc-current-density',
-      version: '2.0.0',
+      version: '0.0.0',
       parameters: () => ({
-        conductivityVariable: 'electricalConductivity',
         relativeTolerance: {
           dtype: 'float64', value: 1e-10,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
@@ -136,6 +139,12 @@ describe('snapshot-only Solver Worker', () => {
 
   it('preflights cached snapshots, rejects stale revisions, solves, and cancels', async () => {
     const snapshots = createSnapshots()
+    expect(snapshots.structure.scene.parts[0].material
+      ?.variables['model.magnetic_hysteresis.b_h_curve']).toMatchObject({
+      kind: 'sampled_relation',
+      input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]] },
+      output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
+    })
     dispatch({
       type: 'cache-snapshot', requestId: 'cache-experiment', revision: 2, snapshot: snapshots.experiment,
     })
@@ -158,7 +167,7 @@ describe('snapshot-only Solver Worker', () => {
     expect(success.provenance).toEqual({
       structure: { apiVersion: 2, sourceHash: '1'.repeat(64), seed: 1, vars: {} },
       experiment: { apiVersion: 2, sourceHash: '2'.repeat(64), seed: 2, vars: {} },
-      solver: { name: 'dc-current-density', version: '2.0.0' },
+      solver: { name: 'dc-current-density', version: '0.0.0' },
     })
 
     dispatch({ type: 'run-solver', requestId: 'cancelled-run', structureRevision: 2, experimentRevision: 2 })

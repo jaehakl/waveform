@@ -34,7 +34,7 @@ const crossSectionPosition = Object.freeze({
 
 export const dcCurrentDensitySpec = Object.freeze({
   name: 'dc-current-density',
-  version: '2.0.0',
+  version: '0.0.0',
   description: 'Solves steady-state electric potential, current density, and total current in one homogeneous conductor.',
   parameters: {
     relativeTolerance: {
@@ -60,11 +60,10 @@ export const dcCurrentDensitySpec = Object.freeze({
       description: 'The homogeneous isotropic conductor targeted by dc.voxel-grid.',
       target: { category: 'initializations', methodId: 'dc.voxel-grid' },
       parameters: {
-        electricalConductivity: {
+        'electrical.conductivity': {
           description: 'Positive isotropic electrical-conductivity tensor σI in the global identity basis.',
           value: {
             dtype: 'float64',
-            quantityKind: 'electromagnetism.ElectricConductivity',
             referenceUnit: 'S.m-1',
             referenceBasis: identityCartesianBasis,
           },

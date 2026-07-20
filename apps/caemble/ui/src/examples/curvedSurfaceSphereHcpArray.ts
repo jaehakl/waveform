@@ -93,12 +93,11 @@ export default structure({
         polarMode2Phase={0}
         materials={[
           new Material('HCP Particle', {
-            density: {
+            'general.mass_density': {
               dtype: 'float64',
               value: 1.05,
               errorRate: 0,
               unit: 'g.cm-3',
-              quantityKind: 'MassDensity',
             },
             color: '#7c3aed',
           }),

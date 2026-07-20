@@ -50,7 +50,7 @@ export const mechanicalMaterialParameters = defineMaterialParameterDomain('mecha
   {
     key: 'mechanical.elastic_stiffness_tensor',
     label_ko: '탄성 강성 텐서',
-    quantity_kind: 'mechanics.ModulusOfElasticity',
+    quantity_kind: 'mechanics.ElasticStiffnessTensor',
     special_qualifiers: [
       'coordinate_frame',
       'tensor_convention',
@@ -59,7 +59,7 @@ export const mechanicalMaterialParameters = defineMaterialParameterDomain('mecha
   {
     key: 'mechanical.elastic_compliance_tensor',
     label_ko: '탄성 컴플라이언스 텐서',
-    quantity_kind: 'InversePressure',
+    quantity_kind: 'mechanics.ElasticComplianceTensor',
     special_qualifiers: [
       'coordinate_frame',
       'tensor_convention',
@@ -306,4 +306,3 @@ export const mechanicalMaterialParameters = defineMaterialParameterDomain('mecha
     ],
   },
 ] as const)
-

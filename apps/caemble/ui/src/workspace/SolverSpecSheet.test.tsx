@@ -5,7 +5,7 @@ import SolverSpecSheet from './SolverSpecSheet'
 
 const solver = {
   name: 'dc-current-density',
-  version: '2.0.0',
+  version: '0.0.0',
   parameters: {},
 }
 
@@ -20,9 +20,9 @@ describe('SolverSpecSheet', () => {
     )
 
     expect(markup).toContain('Simulation compatible')
-    expect(markup).toContain('dc-current-density@2.0.0')
+    expect(markup).toContain('dc-current-density@0.0.0')
     expect(markup).toContain('relativeTolerance')
-    expect(markup).toContain('electricalConductivity')
+    expect(markup).toContain('electrical.conductivity')
     expect(markup).toContain('dc.voxel-grid')
     expect(markup).toContain('dc.current-density')
     expect(markup).toContain('electromagnetism.ElectricCurrentDensity')

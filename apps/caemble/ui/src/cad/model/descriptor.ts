@@ -1,8 +1,16 @@
 import type {
+  CartesianBasis,
   QuantityMetadata,
+  QuantityKindName,
   ScalarQuantityKindName,
   TensorQuantityKindName,
 } from '../../quantitykind/runtime'
+import type {
+  MaterialModelDefinitionFor,
+  MaterialModelKey,
+  MaterialPropertyKey,
+  MaterialPropertyQuantityKind,
+} from '../../material/data'
 import { CadModelError } from './errors'
 import type { UcumUnit } from './units'
 
@@ -50,24 +58,67 @@ export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
     basis?: never
   }
 >
-export type MaterialDataValueDescriptor = Readonly<
-  | (DataValueDescriptorBase & { dtype: FloatDataDType; errorRate: number } & (
-    QuantityMetadata<ScalarQuantityKindName>
-    | QuantityMetadata<TensorQuantityKindName>
-  ))
-  | (DataValueDescriptorBase & {
-    dtype: NonFloatDataDType
-    errorRate?: never
-    unit?: never
-    quantityKind?: never
-    basis?: never
-  })
->
+type MaterialInputBasisMetadata<Name extends QuantityKindName> =
+  Name extends ScalarQuantityKindName
+    ? Readonly<{ basis?: never }>
+    : Readonly<{ basis?: CartesianBasis }>
+
+export type MaterialDataValueDescriptor<
+  Key extends MaterialPropertyKey = MaterialPropertyKey,
+> = Key extends MaterialPropertyKey ? Readonly<{
+  dtype: FloatDataDType
+  value: number | readonly unknown[]
+  unit: UcumUnit
+  errorRate: number
+  axes?: never
+  quantityKind?: never
+}> & MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>> : never
+
+export type ResolvedMaterialDataValueDescriptor<
+  Key extends MaterialPropertyKey = MaterialPropertyKey,
+> = Key extends MaterialPropertyKey ? Readonly<{
+  dtype: FloatDataDType
+  value: number | readonly unknown[]
+  unit: UcumUnit
+  quantityKind: MaterialPropertyQuantityKind<Key>
+  errorRate: number
+  axes?: never
+}> & MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>> : never
+
+type MaterialModelInputQuantityKind<Key extends MaterialModelKey> =
+  MaterialModelDefinitionFor<Key>['input']['quantity_kind']
+type MaterialModelOutputQuantityKind<Key extends MaterialModelKey> =
+  MaterialModelDefinitionFor<Key>['output']['quantity_kind']
+
+export type MaterialQuantitySeries<Name extends QuantityKindName> = Readonly<{
+  unit: UcumUnit
+  values: readonly unknown[]
+}> & MaterialInputBasisMetadata<Name>
+
+export type MaterialSampledRelation<
+  Key extends MaterialModelKey = MaterialModelKey,
+> = Key extends MaterialModelKey ? Readonly<{
+  kind: 'sampled_relation'
+  input: MaterialQuantitySeries<MaterialModelInputQuantityKind<Key>>
+  output: MaterialQuantitySeries<MaterialModelOutputQuantityKind<Key>>
+}> : never
+
 export type ScalarValue = boolean | string | number
-export type MaterialVariable = ScalarValue | MaterialDataValueDescriptor
-export type MaterialVariables = Readonly<Record<string, MaterialVariable> & { color?: string }>
+export type MaterialVariable = string | MaterialDataValueDescriptor | MaterialSampledRelation
+export type MaterialVariables = Readonly<
+  { color?: string }
+  & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> }
+  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+>
+export type NormalizedMaterialVariables = Readonly<
+  { color?: string }
+  & { [Key in MaterialPropertyKey]?: ResolvedMaterialDataValueDescriptor<Key> }
+  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+>
 export type ResolvedMaterialVariables = Readonly<
-  Record<string, ScalarValue | DataValueDescriptor> & { color?: string }
+  { color?: string }
+  & { [Key in MaterialPropertyKey]?: DataValueDescriptor }
+  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
 >
 export type SolverParameterValue = ScalarValue | DataValueDescriptor
 export type SolverParameters = Readonly<Record<string, SolverParameterValue>>

@@ -18,6 +18,14 @@ import { thermalMaterialParameters } from './data/thermal'
 import { thermodynamicMaterialParameters } from './data/thermodynamic'
 import { transportMaterialParameters } from './data/transport'
 import {
+  materialModelByKey,
+  materialModelCatalog,
+  materialModelData,
+  type MaterialModelDefinition,
+  type MaterialModelDefinitionFor,
+  type MaterialModelKey,
+} from './modelData'
+import {
   materialParameterDomains,
   type MaterialParameterCatalog,
   type MaterialParameterDefinition,
@@ -25,7 +33,11 @@ import {
 } from './types'
 
 export { materialParameterDomains }
+export { materialModelByKey, materialModelCatalog, materialModelData }
 export type {
+  MaterialModelDefinition,
+  MaterialModelDefinitionFor,
+  MaterialModelKey,
   MaterialParameterCatalog,
   MaterialParameterDefinition,
   MaterialParameterDomain,
@@ -61,9 +73,9 @@ const expectedDomainCounts = Object.freeze({
   thermal: 20,
   thermodynamic: 16,
   fluid: 8,
-  transport: 19,
+  transport: 18,
   electrical: 15,
-  magnetic: 17,
+  magnetic: 16,
   optical: 13,
   radiative: 2,
   acoustic: 6,
@@ -123,16 +135,32 @@ export const materialParameterData = Object.freeze([
   ...interfaceMaterialParameters,
 ] as const)
 
-if (materialParameterData.length !== 260 || keys.size !== 260) {
+if (materialParameterData.length !== 258 || keys.size !== 258) {
   throw new TypeError(
-    `Material parameter catalog has ${materialParameterData.length} definitions and ${keys.size} unique keys; expected 260`,
+    `Material parameter catalog has ${materialParameterData.length} definitions and ${keys.size} unique keys; expected 258`,
   )
 }
 
+export type MaterialPropertyDefinition = (typeof materialParameterData)[number]
+export type MaterialPropertyKey = MaterialPropertyDefinition['key']
+export type MaterialPropertyDefinitionFor<Key extends MaterialPropertyKey> = Extract<
+  MaterialPropertyDefinition,
+  { readonly key: Key }
+>
+export type MaterialPropertyQuantityKind<Key extends MaterialPropertyKey> =
+  MaterialPropertyDefinitionFor<Key>['quantity_kind']
+export type MaterialCatalogKey = MaterialPropertyKey | MaterialModelKey
+
+export const materialParameterByKey = Object.freeze(Object.fromEntries(
+  materialParameterData.map((definition) => [definition.key, definition]),
+)) as Readonly<{
+  [Key in MaterialPropertyKey]: MaterialPropertyDefinitionFor<Key>
+}>
+
 const designRules = Object.freeze({
   canonical_key: 'domain.property; do not encode direction, component, temperature, pressure, frequency, wavelength, species, phase, or model branch in the key',
-  value_representation: 'A property may be scalar, vector, tensor, complex, curve, table, or function.',
-  model_parameters: 'Constitutive-model coefficients belong under model.<model>.<parameter>, not in this flat physical-property catalog.',
+  value_shape: 'A property is one physical quantity value with no axes; its exact Cartesian component shape is determined only by the referenced QuantityKind tensorOrder.',
+  model_parameters: 'Dependencies and constitutive relations must use a key enumerated in the separate Material model catalog; arbitrary model.* keys are forbidden.',
   interface_properties: 'interface.* records belong to a material/phase pair, not to one bulk material.',
   quantity_kind: "reference the single canonical QuantityKind name; domain prefixes identify physical meaning, not the catalog property's usage domain.",
 })
@@ -149,48 +177,11 @@ const globalQualifiers = Object.freeze([
   'measurement_or_derivation_method',
 ] as const)
 
-const modelNamespaceExamples = Object.freeze([
-  'model.johnson_cook.initial_yield_stress',
-  'model.johnson_cook.hardening_coefficient',
-  'model.johnson_cook.hardening_exponent',
-  'model.johnson_cook.strain_rate_coefficient',
-  'model.johnson_cook.thermal_softening_exponent',
-  'model.mooney_rivlin.c10',
-  'model.mooney_rivlin.c01',
-  'model.ogden.mu',
-  'model.ogden.alpha',
-  'model.prony.shear_fraction',
-  'model.prony.bulk_fraction',
-  'model.prony.relaxation_time',
-  'model.norton.creep_coefficient',
-  'model.norton.stress_exponent',
-  'model.power_law.consistency_index',
-  'model.power_law.flow_behavior_index',
-  'model.bingham.yield_stress',
-  'model.bingham.plastic_viscosity',
-  'model.herschel_bulkley.yield_stress',
-  'model.herschel_bulkley.consistency_index',
-  'model.herschel_bulkley.flow_behavior_index',
-  'model.mohr_coulomb.cohesion',
-  'model.mohr_coulomb.friction_angle',
-  'model.mohr_coulomb.dilation_angle',
-  'model.modified_cam_clay.preconsolidation_pressure',
-  'model.modified_cam_clay.compression_index',
-  'model.modified_cam_clay.swelling_index',
-  'model.van_genuchten.alpha',
-  'model.van_genuchten.n',
-  'model.butler_volmer.exchange_current_density',
-  'model.jiles_atherton.a',
-  'model.sellmeier.b',
-  'model.sellmeier.c',
-] as const)
-
 export const materialParameterCatalog = Object.freeze({
   catalog_id: 'material-parameter-catalog',
-  catalog_version: '0.1-draft',
-  quantity_kind_data_version: '1.0.0',
+  catalog_version: '0.0.0',
+  quantity_kind_data_version: '0.0.0',
   design_rules: designRules,
   global_qualifiers: globalQualifiers,
   properties: materialParameterData,
-  model_namespace_examples: modelNamespaceExamples,
 }) satisfies MaterialParameterCatalog

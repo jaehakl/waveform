@@ -93,7 +93,7 @@ function createDcPair(options: {
       id: 'conductor',
       rotate: conductorRotation,
       materials: [new Material('Copper', (conductivity === null ? {} : {
-        electricalConductivity: {
+        'electrical.conductivity': {
           dtype: 'float64',
           value: typeof conductivity === 'number'
             ? [[conductivity, 0, 0], [0, conductivity, 0], [0, 0, conductivity]]
@@ -103,7 +103,6 @@ function createDcPair(options: {
             ? {}
             : {
                 unit: conductivityUnit,
-                quantityKind: 'electromagnetism.ElectricConductivity',
                 basis: identityCartesianBasis,
               }),
         },
@@ -121,9 +120,8 @@ function createDcPair(options: {
     lengthUnit: structureLengthUnit,
     solver: {
       name: 'dc-current-density',
-      version: '2.0.0',
+      version: '0.0.0',
       parameters: () => ({
-        conductivityVariable: 'electricalConductivity',
         relativeTolerance: {
           dtype: 'float64', value: 1e-10,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
@@ -262,7 +260,7 @@ async function runPair(pair: ReturnType<typeof createDcPair>) {
   )
 }
 
-describe('dc-current-density@2.0.0', () => {
+describe('dc-current-density@0.0.0', () => {
   it('converges to the uniform-bar analytic heatmap and total current in SI units', async () => {
     const result = await runPair(createDcPair())
     const heatmap = result['Current density'].value as Vec3[][]
@@ -432,7 +430,7 @@ describe('dc-current-density@2.0.0', () => {
     await expect(runPair(createDcPair({ densityCrossSectionPosition: 0.5 }))).rejects.toThrow(
       'raw numbers must be safe integers',
     )
-    await expect(runPair(createDcPair({ conductivity: 0 }))).rejects.toThrow('electricalConductivity')
+    await expect(runPair(createDcPair({ conductivity: 0 }))).rejects.toThrow('electrical.conductivity')
     await expect(runPair(createDcPair({ conductivity: -1 }))).rejects.toThrow(
       'must have positive diagonal components',
     )
@@ -442,9 +440,9 @@ describe('dc-current-density@2.0.0', () => {
     await expect(runPair(createDcPair({
       conductivity: [[5.96e7, 1e-4, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
     }))).rejects.toThrow('must be isotropic σI; off-diagonal components exceed')
-    await expect(runPair(createDcPair({ conductivity: null }))).rejects.toThrow('electricalConductivity')
+    await expect(runPair(createDcPair({ conductivity: null }))).rejects.toThrow('electrical.conductivity')
     await expect(runPair(createDcPair({ conductivityUnit: null }))).rejects.toThrow(
-      'must specify both unit and quantityKind for a float dtype',
+      'must contain exactly dtype, value, unit, errorRate',
     )
     await expect(runPair(createDcPair({ conductivityUnit: 'V' }))).rejects.toThrow('not applicable')
     await expect(runPair(createDcPair({ sourceVoltageUnit: null }))).rejects.toThrow(
@@ -554,10 +552,10 @@ describe('dc-current-density@2.0.0', () => {
         h(Conductor, {
           id: 'conductor',
           materials: [new Material('Copper', {
-            electricalConductivity: {
+            'electrical.conductivity': {
               dtype: 'float64',
               value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
-              unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
+              unit: 'S.m-1', basis: identityCartesianBasis,
             },
           })],
         }),

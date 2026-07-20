@@ -272,9 +272,9 @@ function SyntaxHelp() {
               <p className="mt-1">
                 The default Structure is a fixed <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
                 copper bar with a randomized corner-notch size from <code className="rounded bg-white px-1 py-0.5 text-xs">[20, 4, 5]</code>{' '}
-                through <code className="rounded bg-white px-1 py-0.5 text-xs">[40, 6, 7]</code>, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
+                through <code className="rounded bg-white px-1 py-0.5 text-xs">[40, 6, 7]</code>, <code className="rounded bg-white px-1 py-0.5 text-xs">electrical.conductivity =
                 σI = 5.96e7 S.m-1 (electromagnetism.ElectricConductivity)</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@2.0.0</code>. A{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@0.0.0</code>. A{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc.voxel-grid</code> initialization owns the
                 editable int32 <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>{' '}
                 tensor. Both RecordedData rules record the same axial face near the notch entrance through{' '}

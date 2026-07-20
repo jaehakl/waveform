@@ -3,12 +3,19 @@ import {
   CadModelError,
   isFloatDType,
   normalizeDataElement,
+  normalizeMaterialSampledRelation,
   type DataDType,
   type EvaluatedExperimentRules,
   type ExperimentRule,
   type RecordedDataRule,
 } from '../cad/model/core'
 import { convertUcumValue, normalizeUcumUnit } from '../cad/model/units'
+import {
+  materialModelByKey,
+  materialParameterByKey,
+  type MaterialModelKey,
+  type MaterialPropertyKey,
+} from '../material/data'
 import { QuantityKind } from '../quantitykind'
 import {
   normalizeCartesianBasis,
@@ -17,6 +24,7 @@ import {
 import type {
   SolverAxisSpec,
   SolverMaterialSpec,
+  SolverMaterialParameterMap,
   SolverMethodSpec,
   SolverNumericBounds,
   SolverParameterSpec,
@@ -221,6 +229,93 @@ function assertParameterSpecs(parameters: Readonly<Record<string, SolverParamete
   })
 }
 
+function assertMaterialParameterSpecs(parameters: SolverMaterialParameterMap, path: string) {
+  if (!isRecord(parameters)) throw new CadModelError(`${path} must be an object.`)
+  Object.entries(parameters).forEach(([key, parameter]) => {
+    const parameterPath = `${path}.${key}`
+    if (!isRecord(parameter)) throw new CadModelError(`${parameterPath} must be a parameter spec.`)
+    assertNonEmpty(parameter.description, `${parameterPath}.description`)
+    if (parameter.required !== undefined && typeof parameter.required !== 'boolean') {
+      throw new CadModelError(`${parameterPath}.required must be boolean.`)
+    }
+    if (!isRecord(parameter.value)) throw new CadModelError(`${parameterPath}.value must be a value spec.`)
+
+    if (Object.prototype.hasOwnProperty.call(materialParameterByKey, key)) {
+      const value = parameter.value as Readonly<Record<string, unknown>>
+      if (value.quantityKind !== undefined) {
+        throw new CadModelError(`${parameterPath}.value.quantityKind is derived from Material catalog key ${key}.`)
+      }
+      if (value.axes !== undefined) {
+        throw new CadModelError(`${parameterPath}.value.axes is forbidden for a Material property.`)
+      }
+      const invalidField = Object.keys(value).find((field) => ![
+        'dtype',
+        'referenceUnit',
+        'referenceBasis',
+        'description',
+        'minimum',
+        'maximum',
+        'exclusiveMinimum',
+        'exclusiveMaximum',
+      ].includes(field))
+      if (invalidField !== undefined) {
+        throw new CadModelError(`${parameterPath}.value.${invalidField} is not allowed for a Material property.`)
+      }
+      if (value.dtype !== 'float64') {
+        throw new CadModelError(`${parameterPath}.value.dtype must be float64.`)
+      }
+      const quantityKind = materialParameterByKey[key as MaterialPropertyKey].quantity_kind
+      assertQuantitySpec({
+        quantityKind,
+        referenceUnit: value.referenceUnit,
+        ...(value.referenceBasis === undefined ? {} : { referenceBasis: value.referenceBasis }),
+      }, `${parameterPath}.value`)
+      assertBounds(value as SolverNumericBounds, `${parameterPath}.value`)
+      return
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(materialModelByKey, key)) {
+      throw new CadModelError(`${parameterPath} is not a registered Material catalog key.`)
+    }
+    const definition = materialModelByKey[key as MaterialModelKey]
+    const value = parameter.value as Readonly<Record<string, unknown>>
+    if (value.kind !== 'sampled_relation' || !isRecord(value.input) || !isRecord(value.output)) {
+      throw new CadModelError(`${parameterPath}.value must be a sampled_relation spec.`)
+    }
+    const invalidField = Object.keys(value).find((field) => !['kind', 'input', 'output'].includes(field))
+    const invalidInputField = Object.keys(value.input).find((field) => (
+      !['referenceUnit', 'referenceBasis'].includes(field)
+    ))
+    const invalidOutputField = Object.keys(value.output).find((field) => (
+      !['referenceUnit', 'referenceBasis'].includes(field)
+    ))
+    if (invalidField !== undefined || invalidInputField !== undefined || invalidOutputField !== undefined) {
+      const fieldPath = invalidField !== undefined
+        ? invalidField
+        : invalidInputField !== undefined
+          ? `input.${invalidInputField}`
+          : `output.${invalidOutputField}`
+      throw new CadModelError(`${parameterPath}.value.${fieldPath} is not allowed for a Material relation.`)
+    }
+    assertQuantitySpec({
+      quantityKind: definition.input.quantity_kind,
+      referenceUnit: value.input.referenceUnit,
+      ...(value.input.referenceBasis === undefined ? {} : { referenceBasis: value.input.referenceBasis }),
+    }, `${parameterPath}.value.input`)
+    assertQuantitySpec({
+      quantityKind: definition.output.quantity_kind,
+      referenceUnit: value.output.referenceUnit,
+      ...(value.output.referenceBasis === undefined ? {} : { referenceBasis: value.output.referenceBasis }),
+    }, `${parameterPath}.value.output`)
+    if (
+      definition.shared_basis
+      && JSON.stringify(value.input.referenceBasis) !== JSON.stringify(value.output.referenceBasis)
+    ) {
+      throw new CadModelError(`${parameterPath}.value input and output referenceBasis must match.`)
+    }
+  })
+}
+
 export function assertSolverSpec(spec: SolverSpec) {
   if (!isRecord(spec)) throw new CadModelError('Solver spec must be an object.')
   assertNonEmpty(spec.name, 'Solver spec name')
@@ -274,7 +369,7 @@ export function assertSolverSpec(spec: SolverSpec) {
     }
     const targetMethod = spec.methods[category].find((method) => method.methodId === material.target.methodId)
     if (!targetMethod) throw new CadModelError(`${path}.target references an unknown methodId.`)
-    assertParameterSpecs(material.parameters, `${path}.parameters`)
+    assertMaterialParameterSpecs(material.parameters, `${path}.parameters`)
   })
 }
 
@@ -591,6 +686,60 @@ function validateParameters(
   })
 }
 
+function validateMaterialParameters(
+  values: Readonly<Record<string, unknown>>,
+  specs: SolverMaterialParameterMap,
+  path: string,
+  documentType: SolverValidationIssue['documentType'],
+  issues: SolverValidationIssue[],
+) {
+  Object.entries(specs).forEach(([key, spec]) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) {
+      if (spec.required !== false) addIssue(issues, documentType, `${path}.${key}`, 'is required.')
+      return
+    }
+    if (Object.prototype.hasOwnProperty.call(materialParameterByKey, key)) {
+      const quantityKind = materialParameterByKey[key as MaterialPropertyKey].quantity_kind
+      validateValue(values[key], {
+        ...spec.value,
+        quantityKind,
+      } as SolverValueSpec, `${path}.${key}`, documentType, issues)
+      return
+    }
+
+    const modelKey = key as MaterialModelKey
+    const definition = materialModelByKey[modelKey]
+    const valuePath = `${path}.${key}`
+    if (!isRecord(values[key])) {
+      addIssue(issues, documentType, valuePath, 'must be a sampled relation.')
+      return
+    }
+    try {
+      const relation = normalizeMaterialSampledRelation(modelKey, values[key], valuePath)
+      const relationSpec = spec.value as Readonly<{
+        input: Readonly<{ referenceBasis?: unknown }>
+        output: Readonly<{ referenceBasis?: unknown }>
+      }>
+      if (JSON.stringify(relation.input.basis) !== JSON.stringify(relationSpec.input.referenceBasis)) {
+        addIssue(issues, documentType, `${valuePath}.input.basis`, 'must match the solver referenceBasis.')
+      }
+      if (JSON.stringify(relation.output.basis) !== JSON.stringify(relationSpec.output.referenceBasis)) {
+        addIssue(issues, documentType, `${valuePath}.output.basis`, 'must match the solver referenceBasis.')
+      }
+      if (relation.input.values.length < definition.minimum_samples) {
+        addIssue(issues, documentType, valuePath, `must contain at least ${definition.minimum_samples} samples.`)
+      }
+    } catch (error) {
+      addIssue(
+        issues,
+        documentType,
+        valuePath,
+        error instanceof Error ? error.message : 'must be a valid sampled relation.',
+      )
+    }
+  })
+}
+
 function ruleList(rules: EvaluatedExperimentRules, category: SolverRuleCategory) {
   return rules[category] as readonly (ExperimentRule | RecordedDataRule)[]
 }
@@ -720,7 +869,13 @@ function validateMaterial(
       addIssue(issues, method.target.source, path, `is required for Material role ${material.role}.`)
       return
     }
-    validateParameters(part.material.variables, material.parameters, `${path}.variables`, method.target.source, issues)
+    validateMaterialParameters(
+      part.material.variables,
+      material.parameters,
+      `${path}.variables`,
+      method.target.source,
+      issues,
+    )
   })
 }
 

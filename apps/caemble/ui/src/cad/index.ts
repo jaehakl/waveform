@@ -49,10 +49,13 @@ export type {
   GeometryAttributes,
   IntegerDataDType,
   MaterialDataValueDescriptor,
+  MaterialQuantitySeries,
+  MaterialSampledRelation,
   MaterialVariable,
   MaterialVariables,
   MatrixValue,
   NonFloatDataDType,
+  NormalizedMaterialVariables,
   QuantityKindDomain,
   QuantityKindName,
   QuantityKindNameForDomain,
@@ -75,6 +78,16 @@ export type {
 } from './model/core'
 export type { UcumUnit } from './model/units'
 export type { Rotation, Tensor, Vars, Vec3 } from './model/types'
+export type {
+  MaterialCatalogKey,
+  MaterialModelDefinition,
+  MaterialModelDefinitionFor,
+  MaterialModelKey,
+  MaterialPropertyDefinition,
+  MaterialPropertyDefinitionFor,
+  MaterialPropertyKey,
+  MaterialPropertyQuantityKind,
+} from '../material/data'
 export {
   CAD_SOURCE_API_VERSION,
   CAD_SOURCE_FORMAT_VERSION,

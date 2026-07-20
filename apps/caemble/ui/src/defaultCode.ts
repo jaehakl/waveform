@@ -27,12 +27,11 @@ export default structure({
       notchSize={vars.notchSize}
       materials={[
         new Material('Copper', 'reference', {
-          electricalConductivity: {
+          'electrical.conductivity': {
             dtype: 'float64',
             value: Mat(vars.electricalConductivity),
             errorRate: 0.001,
             unit: 'S.m-1',
-            quantityKind: 'electromagnetism.ElectricConductivity',
           },
           color: '#d97706',
         }),

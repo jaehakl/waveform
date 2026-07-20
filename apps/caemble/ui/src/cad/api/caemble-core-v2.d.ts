@@ -1,4 +1,4 @@
-// @caemble/core/v2 declaration version: 2.1.0
+// @caemble/core/v2 declaration version: 0.0.0
 export {
   Mat,
   Material,
@@ -29,6 +29,10 @@ export type {
   Geometry,
   GeometryAttributes,
   MaterialDataValueDescriptor,
+  MaterialCatalogKey,
+  MaterialModelKey,
+  MaterialPropertyKey,
+  MaterialSampledRelation,
   MaterialVariables,
   MatrixValue,
   QuantityKindDomain,
@@ -56,6 +60,7 @@ import type {
   ExperimentParameters,
   ExperimentRule,
   ExperimentTarget,
+  MaterialDataValueDescriptor,
   RecordedDataRule,
   RecordedDataResultAxis,
   SolverParameters,
@@ -102,18 +107,6 @@ type Float64Parameter<QuantityKind extends string> = Readonly<{
   basis?: never
 }>
 
-export type MaterialFloat64Parameter<QuantityKind extends string> = Float64Parameter<QuantityKind> & Readonly<{
-  errorRate: number
-}>
-
-type TensorFloat64Parameter<QuantityKind extends string> = Omit<Float64Parameter<QuantityKind>, 'basis'> & Readonly<{
-  basis?: CartesianBasis
-}>
-
-type MaterialTensorFloat64Parameter<QuantityKind extends string> = TensorFloat64Parameter<QuantityKind> & Readonly<{
-  errorRate: number
-}>
-
 type Int32Parameter<Value extends number | readonly unknown[] = number> = Readonly<{
   dtype: 'int32'
   value: Value
@@ -149,7 +142,7 @@ export type DcCurrentDensityInitializationsRule =
     'dc.voxel-grid',
     `structure.geometry.${string}`,
     Readonly<{
-        gridShape: Int32Parameter<readonly [number, number, number]>
+        'gridShape': Int32Parameter<readonly [number, number, number]>
       }>
   >
 
@@ -158,14 +151,14 @@ export type DcCurrentDensityBoundaryConditionsRule =
     'dc.source-potential',
     `structure.surface.${string}`,
     Readonly<{
-        voltage: Float64Parameter<'electromagnetism.Voltage'>
+        'voltage': Float64Parameter<'electromagnetism.Voltage'>
       }>
   >
   | SolverRule<
     'dc.reference-potential',
     `structure.surface.${string}`,
     Readonly<{
-        voltage: Float64Parameter<'electromagnetism.Voltage'>
+        'voltage': Float64Parameter<'electromagnetism.Voltage'>
       }>
   >
 
@@ -174,7 +167,7 @@ export type DcCurrentDensityRecordedDataRule =
     'dc.current-density',
     `structure.geometry.${string}`,
     Readonly<{
-        crossSectionPosition: Float64Parameter<'DimensionlessRatio'>
+        'crossSectionPosition': Float64Parameter<'DimensionlessRatio'>
       }>
   > & Readonly<{ result: Readonly<{
       dtype: 'float64'
@@ -187,7 +180,7 @@ export type DcCurrentDensityRecordedDataRule =
     'dc.total-current',
     `structure.geometry.${string}`,
     Readonly<{
-        crossSectionPosition: Float64Parameter<'DimensionlessRatio'>
+        'crossSectionPosition': Float64Parameter<'DimensionlessRatio'>
       }>
   > & Readonly<{ result: Readonly<{
       dtype: 'float64'
@@ -198,16 +191,16 @@ export type DcCurrentDensityRecordedDataRule =
     }> }>
 
 export type DcCurrentDensityConductorMaterialVariables = Readonly<{
-    electricalConductivity: MaterialTensorFloat64Parameter<'electromagnetism.ElectricConductivity'>
+    'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>
   }>
 
 export type DcCurrentDensityOptions<Schema extends VarsSchemaDefinition> = StructureDefinitionOptions<Schema> & Readonly<{
   solver: Readonly<{
     name: 'dc-current-density'
-    version: '2.0.0'
+    version: '0.0.0'
     parameters: (context: ModelContext<Schema>) => Readonly<{
-          relativeTolerance: Float64Parameter<'DimensionlessRatio'>
-          maxIterations: number | Int32Parameter
+          'relativeTolerance': Float64Parameter<'DimensionlessRatio'>
+          'maxIterations': number | Int32Parameter
         }>
   }>
   initializations?: (context: ModelContext<Schema>) => readonly DcCurrentDensityInitializationsRule[]

@@ -1,15 +1,21 @@
-import type { MaterialVariable, MaterialVariables } from './descriptor'
+import {
+  materialModelByKey,
+  materialParameterByKey,
+  type MaterialModelKey,
+  type MaterialPropertyKey,
+} from '../../material/data'
+import type { MaterialVariables, NormalizedMaterialVariables } from './descriptor'
 import { CadModelError } from './errors'
 import {
   isPlainObject,
   normalizeMaterialDataValueDescriptor,
-  normalizeRawScalar,
+  normalizeMaterialSampledRelation,
 } from './core'
 
 export class Material {
   readonly symbol: string
   readonly version?: string
-  readonly variables: MaterialVariables
+  readonly variables: NormalizedMaterialVariables
 
   constructor(symbol: string)
   constructor(symbol: string, variables: MaterialVariables)
@@ -36,13 +42,25 @@ export class Material {
     if (!isPlainObject(rawVariables)) {
       throw new CadModelError(`Material ${symbol} variables must be a plain object.`)
     }
-    const normalizedVariables: Record<string, MaterialVariable> = {}
+    const normalizedVariables: Record<string, unknown> = {}
     Object.entries(rawVariables).forEach(([key, value]) => {
       if (!key.trim()) throw new CadModelError(`Material ${symbol} variable names must not be empty.`)
       const path = `Material ${symbol} variables.${key}`
-      normalizedVariables[key] = isPlainObject(value)
-        ? normalizeMaterialDataValueDescriptor(value, path)
-        : normalizeRawScalar(value, path)
+      if (key === 'color') {
+        normalizedVariables.color = value
+      } else if (Object.prototype.hasOwnProperty.call(materialParameterByKey, key)) {
+        if (!isPlainObject(value)) throw new CadModelError(`${path} must be a Material property descriptor.`)
+        normalizedVariables[key] = normalizeMaterialDataValueDescriptor(
+          key as MaterialPropertyKey,
+          value,
+          path,
+        )
+      } else if (Object.prototype.hasOwnProperty.call(materialModelByKey, key)) {
+        if (!isPlainObject(value)) throw new CadModelError(`${path} must be a sampled relation.`)
+        normalizedVariables[key] = normalizeMaterialSampledRelation(key as MaterialModelKey, value, path)
+      } else {
+        throw new CadModelError(`${path} is not a registered Material catalog key.`)
+      }
     })
     if (normalizedVariables.color !== undefined) {
       if (typeof normalizedVariables.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(normalizedVariables.color)) {
@@ -52,6 +70,6 @@ export class Material {
     }
     this.symbol = symbol.trim()
     if (version !== undefined) this.version = version
-    this.variables = Object.freeze(normalizedVariables)
+    this.variables = Object.freeze(normalizedVariables) as NormalizedMaterialVariables
   }
 }

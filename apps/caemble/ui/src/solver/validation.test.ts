@@ -22,12 +22,11 @@ function validInput(): SolverPreflightInput {
           material: {
             symbol: 'Copper',
             variables: {
-              electricalConductivity: {
+              'electrical.conductivity': {
                 dtype: 'float64',
                 value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
                 unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
               },
-              futureMaterialParameter: 'preserved',
             },
           },
         }],
@@ -72,7 +71,7 @@ function validInput(): SolverPreflightInput {
       },
       solver: {
         name: 'dc-current-density',
-        version: '2.0.0',
+        version: '0.0.0',
         parameters: {
           relativeTolerance: {
             dtype: 'float64', value: 0.000001,
@@ -161,14 +160,13 @@ function moduleFor(spec: SolverSpec): SolverModule {
 }
 
 describe('Solver spec validation', () => {
-  it('accepts applicable units and preserves undeclared solver, method, and Material parameters', () => {
+  it('accepts applicable units and preserves undeclared solver and method parameters', () => {
     const input = validInput()
     const result = validateSolverContract(dcCurrentDensitySpec, input)
 
     expect(result).toMatchObject({ complete: true, issues: [] })
     expect(input.experiment.solver.parameters.futureSolverParameter).toBe('preserved')
     expect(input.experiment.rules.initializations[0].parameters.futureMethodParameter).toBe(true)
-    expect(input.structure?.scene.parts[0].material?.variables.futureMaterialParameter).toBe('preserved')
   })
 
   it('validates Experiment-only requirements before a Structure is available', () => {
@@ -210,7 +208,7 @@ describe('Solver spec validation', () => {
     })
     mutable.experiment.rules.boundaryConditions[0].parameters.voltage.quantityKind = 'Length'
     mutable.experiment.rules.recordedData[0].result.axes = [{ name: 'only one axis' }]
-    mutable.structure.scene.parts[0].material!.variables.electricalConductivity = {
+    mutable.structure.scene.parts[0].material!.variables['electrical.conductivity'] = {
       dtype: 'float64',
       value: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
       unit: 'V', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
@@ -239,23 +237,77 @@ describe('Solver spec validation', () => {
 
   it('requires tensor bases to match the solver reference basis exactly', () => {
     const rotated = structuredClone(validInput()) as SolverPreflightInput
-    const conductivity = rotated.structure!.scene.parts[0].material!.variables
-      .electricalConductivity as unknown as { basis: number[][] }
+    const conductivity = rotated.structure!.scene.parts[0].material!
+      .variables['electrical.conductivity'] as unknown as { basis: number[][] }
     conductivity.basis = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
 
     expect(validateSolverContract(dcCurrentDensitySpec, rotated).issues).toContainEqual(expect.objectContaining({
       documentType: 'structure',
-      path: 'structure.parts.conductor.material.variables.electricalConductivity.basis',
+      path: 'structure.parts.conductor.material.variables.electrical.conductivity.basis',
       message: 'must exactly match the solver referenceBasis.',
     }))
 
     const missing = structuredClone(validInput()) as SolverPreflightInput
-    delete (missing.structure!.scene.parts[0].material!.variables
-      .electricalConductivity as unknown as { basis?: unknown }).basis
+    delete (missing.structure!.scene.parts[0].material!
+      .variables['electrical.conductivity'] as unknown as { basis?: unknown }).basis
     expect(validateSolverContract(dcCurrentDensitySpec, missing).issues).toContainEqual(expect.objectContaining({
-      path: 'structure.parts.conductor.material.variables.electricalConductivity.basis',
+      path: 'structure.parts.conductor.material.variables.electrical.conductivity.basis',
       message: 'must exactly match the solver referenceBasis.',
     }))
+  })
+
+  it('derives sampled-relation quantities from the model catalog', () => {
+    const spec = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{ parameters: Record<string, unknown> }>
+    }
+    spec.materials[0].parameters = {
+      'model.magnetic_hysteresis.b_h_curve': {
+        description: 'B-H relation.',
+        value: {
+          kind: 'sampled_relation',
+          input: { referenceUnit: 'A.m-1', referenceBasis: identityCartesianBasis },
+          output: { referenceUnit: 'T', referenceBasis: identityCartesianBasis },
+        },
+      },
+    }
+    expect(() => new SolverRegistry([moduleFor(spec as unknown as SolverSpec)])).not.toThrow()
+
+    const input = structuredClone(validInput()) as SolverPreflightInput
+    const variables = input.structure!.scene.parts[0].material!.variables as Record<string, unknown>
+    variables['model.magnetic_hysteresis.b_h_curve'] = {
+      kind: 'sampled_relation',
+      input: {
+        unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]], basis: identityCartesianBasis,
+      },
+      output: {
+        unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]], basis: identityCartesianBasis,
+      },
+    }
+    expect(validateSolverContract(spec as unknown as SolverSpec, input).issues).toEqual([])
+
+    ;(variables['model.magnetic_hysteresis.b_h_curve'] as {
+      output: { basis: number[][] }
+    }).output.basis = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
+    expect(validateSolverContract(spec as unknown as SolverSpec, input).issues).toContainEqual(
+      expect.objectContaining({
+        path: 'structure.parts.conductor.material.variables.model.magnetic_hysteresis.b_h_curve',
+        message: expect.stringContaining('input and output must use the same Cartesian basis'),
+      }),
+    )
+
+    const scalarBasis = structuredClone(spec) as typeof spec
+    scalarBasis.materials[0].parameters = {
+      'model.sorption.isotherm': {
+        description: 'Sorption relation.',
+        value: {
+          kind: 'sampled_relation',
+          input: { referenceUnit: '%', referenceBasis: identityCartesianBasis },
+          output: { referenceUnit: '{fraction}' },
+        },
+      },
+    }
+    expect(() => new SolverRegistry([moduleFor(scalarBasis as unknown as SolverSpec)]))
+      .toThrow('referenceBasis is forbidden for scalar Quantity Kind thermodynamics.RelativeHumidity')
   })
 
   it('validates and deeply freezes registered specs', () => {
@@ -281,11 +333,37 @@ describe('Solver spec validation', () => {
       .toThrow('has no applicable UCUM units')
 
     const missingReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
-      materials: Array<{ parameters: { electricalConductivity: { value: { referenceBasis?: unknown } } } }>
+      materials: Array<{ parameters: { 'electrical.conductivity': { value: { referenceBasis?: unknown } } } }>
     }
-    delete missingReferenceBasis.materials[0].parameters.electricalConductivity.value.referenceBasis
+    delete missingReferenceBasis.materials[0].parameters['electrical.conductivity'].value.referenceBasis
     expect(() => new SolverRegistry([moduleFor(missingReferenceBasis as unknown as SolverSpec)]))
       .toThrow('referenceBasis must contain exactly three Cartesian basis vectors')
+
+    const localMaterialKey = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{ parameters: Record<string, unknown> }>
+    }
+    localMaterialKey.materials[0].parameters.electricalConductivity =
+      localMaterialKey.materials[0].parameters['electrical.conductivity']
+    delete localMaterialKey.materials[0].parameters['electrical.conductivity']
+    expect(() => new SolverRegistry([moduleFor(localMaterialKey as unknown as SolverSpec)]))
+      .toThrow('is not a registered Material catalog key')
+
+    const duplicateQuantityKind = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{
+        parameters: { 'electrical.conductivity': { value: { quantityKind?: string } } }
+      }>
+    }
+    duplicateQuantityKind.materials[0].parameters['electrical.conductivity'].value.quantityKind =
+      'electromagnetism.ElectricConductivity'
+    expect(() => new SolverRegistry([moduleFor(duplicateQuantityKind as unknown as SolverSpec)]))
+      .toThrow('quantityKind is derived from Material catalog key electrical.conductivity')
+
+    const materialAxes = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{ parameters: { 'electrical.conductivity': { value: { axes?: unknown[] } } } }>
+    }
+    materialAxes.materials[0].parameters['electrical.conductivity'].value.axes = [{ length: 1 }]
+    expect(() => new SolverRegistry([moduleFor(materialAxes as unknown as SolverSpec)]))
+      .toThrow('axes is forbidden for a Material property')
 
     const scalarReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
       parameters: { relativeTolerance: { value: { referenceBasis?: unknown } } }

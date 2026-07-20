@@ -3,7 +3,14 @@ import { CadModelError } from './errors'
 import {
   getQuantityKindComponentShape,
   normalizeQuantityMetadata,
+  type QuantityKindName,
 } from '../../quantitykind/runtime'
+import {
+  materialModelByKey,
+  materialParameterByKey,
+  type MaterialModelKey,
+  type MaterialPropertyKey,
+} from '../../material/data'
 import { createRandom } from './vars'
 import { Structure } from './structure'
 import { Experiment } from './experiment'
@@ -17,9 +24,10 @@ import type {
   ExperimentRule,
   ExperimentTarget,
   FloatDataDType,
-  MaterialDataValueDescriptor,
+  MaterialSampledRelation,
   RecordedDataResult,
   RecordedDataRule,
+  ResolvedMaterialDataValueDescriptor,
   ResolvedExperimentSolver,
   ResolvedMaterialVariables,
   ScalarValue,
@@ -49,16 +57,20 @@ export type {
   FloatDataDType,
   IntegerDataDType,
   MaterialDataValueDescriptor,
+  MaterialQuantitySeries,
+  MaterialSampledRelation,
   MaterialVariable,
   MaterialVariables,
   MatrixValue,
   NonFloatDataDType,
+  NormalizedMaterialVariables,
   RecordedData,
   RecordedDataAxis,
   RecordedDataResult,
   RecordedDataResultAxis,
   RecordedDataRule,
   RecordedDataTensor,
+  ResolvedMaterialDataValueDescriptor,
   ResolvedExperimentSolver,
   ResolvedMaterialVariables,
   ScalarValue,
@@ -383,42 +395,93 @@ export function normalizeDataValueDescriptor(
 }
 
 export function normalizeMaterialDataValueDescriptor(
+  key: MaterialPropertyKey,
   value: Record<string, unknown>,
   path: string,
-): MaterialDataValueDescriptor {
+): ResolvedMaterialDataValueDescriptor {
   assertNoLegacyDataKeys(value, path)
   const dtype = value.dtype
-  if (typeof dtype !== 'string' || !dataDTypes.has(dtype as DataDType)) {
-    throw new CadModelError(`${path}.dtype must be a supported data dtype.`)
+  if (typeof dtype !== 'string' || !isFloatDType(dtype as DataDType)) {
+    throw new CadModelError(`${path}.dtype must be a supported float dtype.`)
   }
-  const float = isFloatDType(dtype as DataDType)
-  const descriptorKeys = ['dtype', 'value']
-  if (Object.prototype.hasOwnProperty.call(value, 'axes')) descriptorKeys.push('axes')
-  if (Object.prototype.hasOwnProperty.call(value, 'unit')) descriptorKeys.push('unit')
-  if (Object.prototype.hasOwnProperty.call(value, 'quantityKind')) descriptorKeys.push('quantityKind')
+  const descriptorKeys = ['dtype', 'value', 'unit', 'errorRate']
   if (Object.prototype.hasOwnProperty.call(value, 'basis')) descriptorKeys.push('basis')
-  if (Object.prototype.hasOwnProperty.call(value, 'errorRate')) descriptorKeys.push('errorRate')
   assertDescriptorKeys(value, descriptorKeys, path)
-  if (float && !Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
-    throw new CadModelError(`${path}.errorRate is required for a float Material descriptor.`)
-  }
-  if (!float && Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
-    throw new CadModelError(`${path}.errorRate is allowed only for a float Material descriptor.`)
-  }
-  if (float && (
+  if (
     typeof value.errorRate !== 'number'
     || !Number.isFinite(value.errorRate)
     || value.errorRate < 0
     || value.errorRate >= 1
-  )) {
+  ) {
     throw new CadModelError(`${path}.errorRate must be a finite number in [0, 1).`)
   }
-  const { storageShape, ...schema } = normalizeDataSchema(value, path)
+  const quantityKind = materialParameterByKey[key].quantity_kind
+  const { storageShape, ...schema } = normalizeDataSchema({
+    ...value,
+    quantityKind,
+  }, path)
   return Object.freeze({
     ...schema,
     value: normalizeDataValue(value.value, storageShape, schema.dtype, `${path}.value`),
-    ...(float ? { errorRate: value.errorRate as number } : {}),
-  }) as MaterialDataValueDescriptor
+    errorRate: value.errorRate,
+  }) as ResolvedMaterialDataValueDescriptor
+}
+
+function normalizeMaterialQuantitySeries(
+  value: unknown,
+  quantityKind: QuantityKindName,
+  path: string,
+) {
+  if (!isPlainObject(value)) throw new CadModelError(`${path} must be a quantity series.`)
+  const allowedKeys = ['unit', 'values']
+  if (Object.prototype.hasOwnProperty.call(value, 'basis')) allowedKeys.push('basis')
+  assertDescriptorKeys(value, allowedKeys, path)
+  if (!Array.isArray(value.values)) throw new CadModelError(`${path}.values must be an array.`)
+  const metadata = normalizeQuantityMetadata({ ...value, quantityKind }, path)
+  const componentShape = getQuantityKindComponentShape(quantityKind)
+  const values = Object.freeze(value.values.map((sample, index) => normalizeDataValue(
+    sample,
+    componentShape,
+    'float64',
+    `${path}.values[${index}]`,
+  )))
+  return Object.freeze({
+    unit: metadata.unit,
+    values,
+    ...(metadata.basis === undefined ? {} : { basis: metadata.basis }),
+  })
+}
+
+export function normalizeMaterialSampledRelation(
+  key: MaterialModelKey,
+  value: Record<string, unknown>,
+  path: string,
+): MaterialSampledRelation {
+  assertDescriptorKeys(value, ['kind', 'input', 'output'], path)
+  if (value.kind !== 'sampled_relation') {
+    throw new CadModelError(`${path}.kind must be sampled_relation.`)
+  }
+  const definition = materialModelByKey[key]
+  const input = normalizeMaterialQuantitySeries(
+    value.input,
+    definition.input.quantity_kind,
+    `${path}.input`,
+  )
+  const output = normalizeMaterialQuantitySeries(
+    value.output,
+    definition.output.quantity_kind,
+    `${path}.output`,
+  )
+  if (input.values.length < definition.minimum_samples) {
+    throw new CadModelError(`${path} must contain at least ${definition.minimum_samples} samples.`)
+  }
+  if (input.values.length !== output.values.length) {
+    throw new CadModelError(`${path} input and output must contain the same number of samples.`)
+  }
+  if (definition.shared_basis && JSON.stringify(input.basis) !== JSON.stringify(output.basis)) {
+    throw new CadModelError(`${path} input and output must use the same Cartesian basis.`)
+  }
+  return Object.freeze({ kind: 'sampled_relation', input, output }) as MaterialSampledRelation
 }
 
 function normalizeExperimentParameter(value: unknown, path: string): ExperimentParameter {
@@ -744,15 +807,16 @@ function applyMaterialErrorMultiplier(
 }
 
 export function resolveMaterialVariables(material: Material): ResolvedMaterialVariables {
-  const resolved: Record<string, ScalarValue | DataValueDescriptor> = {}
+  const resolved: Record<string, unknown> = {}
 
   Object.entries(material.variables).forEach(([key, value]) => {
     const path = `Material ${material.symbol} variables.${key}`
     if (isPlainObject(value)
+      && 'dtype' in value
       && typeof value.dtype === 'string'
       && isFloatDType(value.dtype as DataDType)
       && Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
-      const parameter = value as MaterialDataValueDescriptor & {
+      const parameter = value as ResolvedMaterialDataValueDescriptor & {
         dtype: FloatDataDType
         errorRate: number
       }
@@ -761,7 +825,6 @@ export function resolveMaterialVariables(material: Material): ResolvedMaterialVa
         : 1 - parameter.errorRate + 2 * parameter.errorRate * activeMaterialRandom()
       resolved[key] = Object.freeze({
         dtype: parameter.dtype,
-        ...(parameter.axes === undefined ? {} : { axes: parameter.axes }),
         unit: parameter.unit,
         quantityKind: parameter.quantityKind,
         ...(parameter.basis === undefined ? {} : { basis: parameter.basis }),
@@ -778,7 +841,7 @@ export function resolveMaterialVariables(material: Material): ResolvedMaterialVa
     resolved[key] = value
   })
 
-  return Object.freeze(resolved)
+  return Object.freeze(resolved) as ResolvedMaterialVariables
 }
 
 export const vars = new Proxy<Record<string, Tensor>>(

@@ -9,6 +9,13 @@ import type {
   QuantityKindName,
   ScalarQuantityKindName,
 } from '../quantitykind/runtime'
+import type {
+  MaterialCatalogKey,
+  MaterialModelDefinitionFor,
+  MaterialModelKey,
+  MaterialPropertyKey,
+  MaterialPropertyQuantityKind,
+} from '../material/data'
 
 export type SolverRuleCategory = 'initializations' | 'boundaryConditions' | 'recordedData'
 
@@ -70,6 +77,46 @@ export type SolverParameterSpec = Readonly<{
   value: SolverValueSpec
 }>
 
+type SolverMaterialBasisSpec<Name extends QuantityKindName> =
+  Name extends ScalarQuantityKindName
+    ? Readonly<{ referenceBasis?: never }>
+    : Readonly<{ referenceBasis: CartesianBasis }>
+
+export type SolverMaterialPropertyValueSpec<Key extends MaterialPropertyKey> = Readonly<{
+  dtype: 'float64'
+  referenceUnit: UcumUnit
+  axes?: never
+  quantityKind?: never
+  description?: string
+}> & SolverMaterialBasisSpec<MaterialPropertyQuantityKind<Key>> & SolverNumericBounds
+
+type SolverMaterialModelInputQuantityKind<Key extends MaterialModelKey> =
+  MaterialModelDefinitionFor<Key>['input']['quantity_kind']
+type SolverMaterialModelOutputQuantityKind<Key extends MaterialModelKey> =
+  MaterialModelDefinitionFor<Key>['output']['quantity_kind']
+
+export type SolverMaterialRelationValueSpec<Key extends MaterialModelKey> = Readonly<{
+  kind: 'sampled_relation'
+  input: Readonly<{ referenceUnit: UcumUnit }>
+    & SolverMaterialBasisSpec<SolverMaterialModelInputQuantityKind<Key>>
+  output: Readonly<{ referenceUnit: UcumUnit }>
+    & SolverMaterialBasisSpec<SolverMaterialModelOutputQuantityKind<Key>>
+}>
+
+export type SolverMaterialParameterSpec<Key extends MaterialCatalogKey> = Readonly<{
+  description: string
+  required?: boolean
+  value: Key extends MaterialPropertyKey
+    ? SolverMaterialPropertyValueSpec<Key>
+    : Key extends MaterialModelKey
+      ? SolverMaterialRelationValueSpec<Key>
+      : never
+}>
+
+export type SolverMaterialParameterMap = Readonly<Partial<{
+  [Key in MaterialCatalogKey]: SolverMaterialParameterSpec<Key>
+}>>
+
 export type SolverTargetSpec = Readonly<{
   source: 'structure' | 'experiment'
   kind: 'geometry' | 'surface'
@@ -96,7 +143,7 @@ export type SolverMaterialSpec = Readonly<{
     category: SolverRuleCategory
     methodId: string
   }>
-  parameters: Readonly<Record<string, SolverParameterSpec>>
+  parameters: SolverMaterialParameterMap
 }>
 
 export type SolverSpec = Readonly<{

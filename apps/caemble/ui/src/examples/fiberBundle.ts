@@ -109,12 +109,11 @@ export default structure({
         turns={vars.turns}
         materials={[
           new Polymer('Tapered Fiber', {
-            density: {
+            'general.mass_density': {
               dtype: 'float64',
               value: vars.density,
               errorRate: 0,
               unit: 'g.cm-3',
-              quantityKind: 'MassDensity',
             },
             color: '#7c3aed',
           }),
