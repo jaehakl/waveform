@@ -72,6 +72,7 @@ type PointGeometry = Readonly<{
 }>
 
 export type ViewerMode = 'geometry' | 'material-grid' | 'results'
+type CameraView = 'default' | 'x' | 'y' | 'z'
 type MaterialGridStatus = 'idle' | 'calculating' | 'ready' | 'error'
 
 type MaterialGridSnapshot = Readonly<{
@@ -106,6 +107,7 @@ type ViewerToolbarProps = {
   mode: ViewerMode
   onApplySpacing: () => void
   onChangeSpacing: (value: string) => void
+  onSetCameraView: (view: CameraView) => void
   onSelectMode: (mode: ViewerMode) => void
   onToggleSource?: (documentType: CadDocumentType) => void
   spacingDraft: string
@@ -115,6 +117,12 @@ type ViewerToolbarProps = {
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
+const cameraViewDirections = {
+  default: [1, 1, 1],
+  x: [1, 0, 0],
+  y: [0, 1, 0],
+  z: [0, 0, 1],
+} as const
 const solverCompatibilityLabels = Object.freeze({
   unavailable: 'Unavailable',
   checking: 'Checking',
@@ -190,6 +198,7 @@ export function ViewerToolbar({
   mode,
   onApplySpacing,
   onChangeSpacing,
+  onSetCameraView,
   onSelectMode,
   onToggleSource,
   spacingDraft,
@@ -277,6 +286,22 @@ export function ViewerToolbar({
           </button>
         ) : null}
       </div>
+
+      {mode !== 'results' ? (
+        <div aria-label="Camera views" className="flex items-center gap-1 border-l border-slate-200 pl-3">
+          {(['default', 'x', 'y', 'z'] as const).map((view) => (
+            <button
+              aria-label={`Set ${view} camera view`}
+              className="min-w-7 rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:text-slate-950"
+              key={view}
+              type="button"
+              onClick={() => onSetCameraView(view)}
+            >
+              {view === 'default' ? 'Default' : view.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {onToggleSource && mode !== 'results' ? (
         <div aria-label="Viewer sources" className="flex items-center gap-1 border-l border-slate-200 pl-3">
@@ -437,7 +462,7 @@ export function ViewerToolbar({
           )}
           {simulation.compatibility.status === 'incompatible' ? (
             <div
-              className="w-full max-w-3xl text-right text-[10px] leading-4 text-amber-800"
+              className="max-h-16 w-full max-w-3xl overflow-auto text-right text-[10px] leading-4 text-amber-800"
               id="simulation-compatibility-message"
               role="status"
             >
@@ -447,7 +472,7 @@ export function ViewerToolbar({
             </div>
           ) : null}
           {simulation.process.error ? (
-            <div className="w-full text-right text-[10px] text-rose-600" role="alert">
+            <div className="max-h-16 w-full overflow-auto text-right text-[10px] text-rose-600" role="alert">
               {simulation.process.error}
             </div>
           ) : null}
@@ -508,7 +533,12 @@ function JscadViewer({
   const gridSnapshotRef = useRef<MaterialGridSnapshot | null>(null)
   const gridWorkerRef = useRef<Worker | null>(null)
   const lastFittedPartsRef = useRef<CadScenePart[] | null>(null)
-  const lastPointRef = useRef<{ button: number; x: number; y: number } | null>(null)
+  const lastPointRef = useRef<{
+    button: 0 | 2
+    pointerId: number
+    x: number
+    y: number
+  } | null>(null)
   const lastRenderedModeRef = useRef<ViewerMode | null>(null)
   const optionsRef = useRef<RendererOptions | null>(null)
   const pointEntityRef = useRef<RendererEntity>({
@@ -554,6 +584,19 @@ function JscadViewer({
     const perspectiveCamera = renderer.cameras.perspective
     const orbit = renderer.controls.orbit
     const camera = Object.assign({}, perspectiveCamera.defaults)
+    const initialPosition = camera.position as number[]
+    const initialTarget = camera.target as number[]
+    const initialDistance = Math.hypot(
+      initialPosition[0] - initialTarget[0],
+      initialPosition[1] - initialTarget[1],
+      initialPosition[2] - initialTarget[2],
+    )
+    const defaultDirectionLength = Math.sqrt(3)
+    camera.position = cameraViewDirections.default.map(
+      (component) => (component / defaultDirectionLength) * initialDistance,
+    )
+    camera.target = [0, 0, 0]
+    camera.up = [0, 0, 1]
     const controls = Object.assign({}, orbit.defaults, {
       autoRotate: { enabled: false, speed: 1 },
       userControl: {
@@ -593,6 +636,24 @@ function JscadViewer({
       renderRef.current(optionsRef.current)
     }
 
+    const wheelHandler = (event: WheelEvent) => {
+      event.preventDefault()
+      event.stopPropagation()
+
+      const controlChange = orbit.zoom(
+        { camera, controls, speed: 0.12 },
+        event.deltaY > 0 ? 1 : -1,
+      )
+      Object.assign(camera, controlChange.camera)
+      Object.assign(controls, controlChange.controls)
+
+      const updated = orbit.update({ camera, controls })
+      Object.assign(camera, updated.camera)
+      Object.assign(controls, updated.controls)
+      perspectiveCamera.update(camera, camera)
+      renderScene()
+    }
+
     const resize = () => {
       const parent = canvas.parentElement
       const rect = parent?.getBoundingClientRect()
@@ -614,10 +675,12 @@ function JscadViewer({
     }
 
     const resizeObserver = new ResizeObserver(resize)
+    canvas.addEventListener('wheel', wheelHandler, { passive: false })
     if (canvas.parentElement) resizeObserver.observe(canvas.parentElement)
     resize()
 
     return () => {
+      canvas.removeEventListener('wheel', wheelHandler)
       resizeObserver.disconnect()
       renderRef.current = null
       optionsRef.current = null
@@ -828,8 +891,44 @@ function JscadViewer({
     setGridApplyVersion((current) => current + 1)
   }
 
+  const setCameraView = (view: CameraView) => {
+    if (!cameraRef.current || !controlsRef.current) return
+
+    const position = cameraRef.current.position as number[]
+    const target = cameraRef.current.target as number[]
+    const currentDistance = Math.hypot(
+      position[0] - target[0],
+      position[1] - target[1],
+      position[2] - target[2],
+    )
+    const fallbackPosition = renderer.cameras.perspective.defaults.position as number[]
+    const fallbackTarget = renderer.cameras.perspective.defaults.target as number[]
+    const fallbackDistance = Math.hypot(
+      fallbackPosition[0] - fallbackTarget[0],
+      fallbackPosition[1] - fallbackTarget[1],
+      fallbackPosition[2] - fallbackTarget[2],
+    )
+    const distance = Number.isFinite(currentDistance) && currentDistance > 0
+      ? currentDistance
+      : fallbackDistance
+    const direction = cameraViewDirections[view]
+    const directionLength = Math.hypot(...direction)
+
+    Object.assign(cameraRef.current, {
+      position: direction.map((component) => (component / directionLength) * distance),
+      target: [0, 0, 0],
+      up: view === 'z' ? [0, 1, 0] : [0, 0, 1],
+    })
+    Object.assign(controlsRef.current, {
+      phiDelta: 0,
+      scale: 1,
+      thetaDelta: 0,
+    })
+    renderWithControls()
+  }
+
   return (
-    <div className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50">
+    <div className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50 lg:min-h-0">
       <ViewerToolbar
         availableSources={availableSources}
         gridError={gridError}
@@ -843,6 +942,7 @@ function JscadViewer({
         simulation={simulation}
         onApplySpacing={applySpacing}
         onChangeSpacing={setSpacingDraft}
+        onSetCameraView={setCameraView}
         onSelectMode={setViewerMode}
         onToggleSource={onToggleSource}
         visibleSources={visibleSources}
@@ -856,24 +956,43 @@ function JscadViewer({
       >
         <canvas
           ref={canvasRef}
-          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full cursor-grab active:cursor-grabbing`}
+          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full touch-none cursor-grab active:cursor-grabbing`}
           data-viewer-canvas="true"
           onContextMenu={(event) => event.preventDefault()}
           onPointerDown={(event) => {
+            if (event.button !== 0 && event.button !== 2) return
+
+            event.preventDefault()
             event.currentTarget.setPointerCapture(event.pointerId)
-            lastPointRef.current = { button: event.button, x: event.clientX, y: event.clientY }
+            lastPointRef.current = {
+              button: event.button,
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+            }
           }}
           onPointerMove={(event) => {
             const lastPoint = lastPointRef.current
-            if (!lastPoint || !cameraRef.current || !controlsRef.current) return
+            if (!lastPoint || lastPoint.pointerId !== event.pointerId) return
 
+            const pressedButton = lastPoint.button === 2 ? 2 : 1
+            if ((event.buttons & pressedButton) === 0) {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId)
+              }
+              lastPointRef.current = null
+              return
+            }
+            if (!cameraRef.current || !controlsRef.current) return
+
+            event.preventDefault()
             const dx = event.clientX - lastPoint.x
             const dy = event.clientY - lastPoint.y
             const controlChange =
               lastPoint.button === 2
                 ? renderer.controls.orbit.pan(
-                    { camera: cameraRef.current, controls: controlsRef.current, speed: 0.002 },
-                    [dx, dy],
+                    { camera: cameraRef.current, controls: controlsRef.current, speed: 1 },
+                    [-dx, dy],
                   )
                 : renderer.controls.orbit.rotate(
                     { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
@@ -886,21 +1005,26 @@ function JscadViewer({
             renderWithControls()
           }}
           onPointerUp={(event) => {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-            lastPointRef.current = null
-          }}
-          onWheel={(event) => {
-            if (!cameraRef.current || !controlsRef.current) return
+            if (lastPointRef.current?.pointerId !== event.pointerId) return
 
             event.preventDefault()
-            const controlChange = renderer.controls.orbit.zoom(
-              { camera: cameraRef.current, controls: controlsRef.current, speed: 0.12 },
-              event.deltaY > 0 ? 1 : -1,
-            )
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+            lastPointRef.current = null
+          }}
+          onPointerCancel={(event) => {
+            if (lastPointRef.current?.pointerId !== event.pointerId) return
 
-            Object.assign(cameraRef.current, controlChange.camera)
-            Object.assign(controlsRef.current, controlChange.controls)
-            renderWithControls()
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+            lastPointRef.current = null
+          }}
+          onLostPointerCapture={(event) => {
+            if (lastPointRef.current?.pointerId === event.pointerId) {
+              lastPointRef.current = null
+            }
           }}
         />
 

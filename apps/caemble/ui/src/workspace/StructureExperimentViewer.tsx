@@ -98,7 +98,7 @@ export function StructureExperimentViewer({
     return (
       <section
         aria-label="Structure and Experiment workspace"
-        className="grid h-full min-h-[360px] place-items-center bg-slate-50 px-6 py-16 text-center"
+        className="grid h-full min-h-[360px] place-items-center bg-slate-50 px-6 py-16 text-center lg:min-h-0 lg:overflow-hidden"
       >
         <div>
           <h2 className="text-base font-semibold text-slate-800">No modeling source</h2>
@@ -111,7 +111,7 @@ export function StructureExperimentViewer({
   return (
     <section
       aria-label="Structure and Experiment workspace"
-      className="flex h-full min-h-[360px] min-w-0 flex-col bg-white"
+      className="flex h-full min-h-[360px] min-w-0 flex-col bg-white lg:min-h-0 lg:overflow-hidden"
     >
       <div className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3">
         <div

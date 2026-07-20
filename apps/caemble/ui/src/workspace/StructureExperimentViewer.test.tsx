@@ -79,6 +79,8 @@ describe('StructureExperimentViewer', () => {
     expect(markup).toContain('id="structure-source-panel" role="tabpanel"')
     expect(markup).toContain('id="experiment-tree-panel" role="tabpanel"')
     expect(markup).not.toContain('data-viewer-canvas="true"')
+    expect(markup).toContain('min-h-[360px] min-w-0 flex-col')
+    expect(markup).toContain('lg:min-h-0 lg:overflow-hidden')
   })
 
   it('hides the missing document tabs and selects the first available source', () => {

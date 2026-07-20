@@ -37,6 +37,9 @@ describe('App workspace', () => {
     expect(markup).toContain('Solver unavailable')
     expect(markup).toContain('aria-label="Solver compatibility: unavailable"')
     expect(markup).toMatch(/<button[^>]*aria-label="Run simulation"[^>]*disabled/)
+    expect(markup).toContain('lg:h-dvh lg:min-h-0 lg:overflow-hidden')
+    expect(markup).toContain('lg:h-full lg:overflow-hidden lg:grid-cols-')
+    expect(markup).toContain('min-h-[360px] min-w-0 border-b')
   })
 
   it('normalizes old and unknown hashes to Viewer and keeps the independent Experiment example', () => {

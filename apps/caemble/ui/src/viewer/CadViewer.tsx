@@ -73,7 +73,10 @@ export function CadViewer({
   )
 
   return (
-    <section aria-label="3D CAD Viewer" className="h-full min-h-[360px] min-w-0">
+    <section
+      aria-label="3D CAD Viewer"
+      className="h-full min-h-[360px] min-w-0 lg:min-h-0 lg:overflow-hidden"
+    >
       <JscadViewer
         availableSources={content.availableSources}
         emptyMessage={content.emptyMessage}

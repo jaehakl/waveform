@@ -36,6 +36,7 @@ describe('CadViewer', () => {
     expect(markup).toContain('aria-label="3D CAD Viewer"')
     expect(markup).toMatch(/<button[^>]*aria-label="Toggle structure"[^>]*aria-pressed="true"/)
     expect(markup).toMatch(/<button[^>]*aria-label="Toggle experiment"[^>]*aria-pressed="true"/)
+    expect(markup).toContain('min-h-[360px] min-w-0 lg:min-h-0 lg:overflow-hidden')
   })
 
   it('disables a missing source toggle', () => {

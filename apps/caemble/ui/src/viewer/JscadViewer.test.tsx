@@ -30,6 +30,11 @@ describe('JscadViewer modes', () => {
     expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="viewer-geometry-tab"[^>]*role="tab"[^>]*tabindex="0"/)
     expect(markup).toMatch(/<button[^>]*aria-selected="false"[^>]*id="viewer-material-grid-tab"[^>]*role="tab"[^>]*tabindex="-1"/)
     expect(markup).toMatch(/aria-labelledby="viewer-geometry-tab"[^>]*id="viewer-render-panel"[^>]*role="tabpanel"/)
+    expect(markup).toContain('aria-label="Camera views"')
+    expect(markup).toContain('aria-label="Set default camera view"')
+    expect(markup).toContain('aria-label="Set x camera view"')
+    expect(markup).toContain('aria-label="Set y camera view"')
+    expect(markup).toContain('aria-label="Set z camera view"')
     expect(markup).not.toContain('id="material-grid-spacing"')
   })
 
@@ -51,6 +56,7 @@ describe('JscadViewer modes', () => {
         spacingError={null}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
@@ -74,6 +80,7 @@ describe('JscadViewer modes', () => {
         spacingError="Enter a positive finite spacing value."
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
@@ -95,6 +102,7 @@ describe('JscadViewer modes', () => {
         visibleSources={['structure']}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
         onToggleSource={() => undefined}
       />,
@@ -118,6 +126,7 @@ describe('JscadViewer modes', () => {
         visibleSources={['structure', 'experiment']}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
         onToggleSource={() => undefined}
       />,
@@ -125,6 +134,7 @@ describe('JscadViewer modes', () => {
 
     expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="viewer-results-tab"/)
     expect(markup).not.toContain('aria-label="Viewer sources"')
+    expect(markup).not.toContain('aria-label="Camera views"')
     expect(markup).not.toContain('id="material-grid-spacing"')
   })
 
@@ -148,6 +158,7 @@ describe('JscadViewer modes', () => {
         }}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
@@ -184,6 +195,7 @@ describe('JscadViewer modes', () => {
           }}
           onApplySpacing={() => undefined}
           onChangeSpacing={() => undefined}
+          onSetCameraView={() => undefined}
           onSelectMode={() => undefined}
         />,
       )
@@ -221,6 +233,7 @@ describe('JscadViewer modes', () => {
         }}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
@@ -228,6 +241,7 @@ describe('JscadViewer modes', () => {
     expect(markup).toContain('aria-label="Solver compatibility: incompatible"')
     expect(markup).toContain('>Incompatible · 1</span>')
     expect(markup).toContain('id="simulation-compatibility-message" role="status"')
+    expect(markup).toContain('max-h-16 w-full max-w-3xl overflow-auto')
     expect(markup).toContain('references missing structure.geometry.conductor.')
     expect(markup).toContain('See Solver Spec.')
     expect(markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]).toMatch(
@@ -263,6 +277,7 @@ describe('JscadViewer modes', () => {
         }}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
@@ -296,11 +311,13 @@ describe('JscadViewer modes', () => {
         }}
         onApplySpacing={() => undefined}
         onChangeSpacing={() => undefined}
+        onSetCameraView={() => undefined}
         onSelectMode={() => undefined}
       />,
     )
     expect(failedMarkup).toContain('aria-label="Simulation status: failed"')
     expect(failedMarkup).toContain('role="alert">Material conductivity is missing.</div>')
+    expect(failedMarkup).toContain('max-h-16 w-full overflow-auto')
     expect(failedMarkup).toContain('aria-label="Run simulation"')
   })
 
