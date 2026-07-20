@@ -16,6 +16,7 @@ import {
   componentShapeForTensorOrder,
   normalizeQuantityMetadata,
   transformQuantityComponents,
+  transformQuantityValue,
 } from './runtime'
 
 const addedBaseNames = new Set([
@@ -33,6 +34,7 @@ const addedBaseNames = new Set([
   'ThermalResistancePerArea',
   'ElasticComplianceTensor',
   'ElasticStiffnessTensor',
+  'StressTensor',
 ])
 
 function assertCompileTimeContracts() {
@@ -50,14 +52,14 @@ function assertCompileTimeContracts() {
 void assertCompileTimeContracts
 
 describe('QuantityKind', () => {
-  it('contains exactly 1,233 unique definitions split across the fixed physical domains', () => {
+  it('contains exactly 1,216 unique concrete definitions split across the fixed physical domains', () => {
     const entries = Object.entries(quantityKindData)
     const baseNames = entries.map(([name, entry]) => (
       entry.domain === 'general' ? name : name.slice(entry.domain.length + 1)
     ))
 
-    expect(entries).toHaveLength(1_233)
-    expect(new Set(baseNames)).toHaveLength(1_233)
+    expect(entries).toHaveLength(1_216)
+    expect(new Set(baseNames)).toHaveLength(1_216)
     expect(quantityKindDomains).toEqual([
       'general',
       'geometry',
@@ -80,6 +82,28 @@ describe('QuantityKind', () => {
     ])
     expect(Object.isFrozen(quantityKindDomains)).toBe(true)
     expect(Object.isFrozen(quantityKindData)).toBe(true)
+    for (const removedName of [
+      'Capacity',
+      'LineicQuantity',
+      'PressureBasedQuantity',
+      'Unknown',
+      'economicsOperations.Asset',
+      'informationComputing.StochasticProcess',
+      'mechanics.GeneralizedCoordinate',
+      'mechanics.GeneralizedForce',
+      'mechanics.GeneralizedMomentum',
+      'mechanics.GeneralizedVelocity',
+      'thermodynamics.TemperatureBasedQuantity',
+      'lifeSciences.VisionThresholds',
+      'lifeSciences.GustatoryThreshold',
+      'lifeSciences.TouchThresholds',
+      'informationComputing.SignalDetectionThreshold',
+      'earthSpace.PressureBurningRateConstant',
+      'electromagnetism.MotorConstant',
+      'optics.PlanckFunction',
+    ]) {
+      expect(Object.prototype.hasOwnProperty.call(quantityKindData, removedName)).toBe(false)
+    }
 
     for (const [name, entry] of entries) {
       const baseName = entry.domain === 'general' ? name : name.slice(entry.domain.length + 1)
@@ -93,20 +117,20 @@ describe('QuantityKind', () => {
     }
 
     const preservedBaseNames = baseNames.filter((name) => !addedBaseNames.has(name)).sort()
-    expect(preservedBaseNames).toHaveLength(1_219)
+    expect(preservedBaseNames).toHaveLength(1_201)
     const preservedNameChecksum = [...preservedBaseNames.join('\n')].reduce(
       (hash, character) => Math.imul(hash ^ character.charCodeAt(0), 16_777_619) >>> 0,
       2_166_136_261,
     )
-    expect(preservedNameChecksum).toBe(552_131_150)
-    expect(baseNames.filter((name) => addedBaseNames.has(name))).toHaveLength(14)
+    expect(preservedNameChecksum).toBe(3_464_130_834)
+    expect(baseNames.filter((name) => addedBaseNames.has(name))).toHaveLength(15)
   })
 
   it('exposes one flat API with physical-domain and domain-name types', () => {
     const entries = Object.values(QuantityKind)
 
-    expect(entries).toHaveLength(1_233)
-    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_233)
+    expect(entries).toHaveLength(1_216)
+    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_216)
     for (const [name, entry] of Object.entries(QuantityKind)) expect(entry.name).toBe(name)
     expect(QuantityKind['mechanics.CENTER-OF-MASS'].name).toBe('mechanics.CENTER-OF-MASS')
     expect(Object.isFrozen(QuantityKind)).toBe(true)
@@ -125,14 +149,15 @@ describe('QuantityKind', () => {
     expectTypeOf(QuantityKind.Length).toMatchTypeOf<QuantityKindDefinition<'Length'>>()
     expectTypeOf(QuantityKind['mechanics.Stress'].domain()).toEqualTypeOf<'mechanics'>()
     expectTypeOf<QuantityKindDomain>().toEqualTypeOf<(typeof quantityKindDomains)[number]>()
-    expectTypeOf<ApplicableUnit<'fluidDynamics.APIGravity'>>().toEqualTypeOf<never>()
+    expectTypeOf<ApplicableUnit<'fluidDynamics.APIGravity'>>().toEqualTypeOf<'1'>()
   })
 
   it('preserves representative scalar, vector, and matrix orders', () => {
     expect(QuantityKind.Length.componentShape()).toEqual([])
     expect(QuantityKind['mechanics.Force'].componentShape()).toEqual([3])
     expect(QuantityKind['electromagnetism.ElectricConductivity'].componentShape()).toEqual([3, 3])
-    expect(QuantityKind['mechanics.Stress'].tensorOrder()).toBe(2)
+    expect(QuantityKind['mechanics.Stress'].tensorOrder()).toBe(0)
+    expect(QuantityKind['mechanics.StressTensor'].componentShape()).toEqual([3, 3])
     expect(QuantityKind['mechanics.Strain'].tensorOrder()).toBe(2)
     expect(QuantityKind['electromagnetism.ElectricQuadrupoleMoment'].tensorOrder()).toBe(2)
     expect(QuantityKind.AngularFrequency.tensorOrder()).toBe(0)
@@ -235,8 +260,8 @@ describe('QuantityKind', () => {
   it('returns canonical descriptions with normalized whitespace and preserves missing values', () => {
     const descriptions = Object.values(QuantityKind).map((entry) => entry.description())
 
-    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_021)
-    expect(descriptions.filter((description) => description === undefined)).toHaveLength(212)
+    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_009)
+    expect(descriptions.filter((description) => description === undefined)).toHaveLength(207)
     expect(QuantityKind['informationComputing.AbsoluteTypographicMeasurement'].description())
       .toBeUndefined()
     expect(QuantityKind['acoustics.AcousticImpedance'].description())
@@ -255,10 +280,10 @@ describe('QuantityKind', () => {
     const withUnits = entries.filter((entry) => entry.applicableUnits().length > 0)
     const unitEntryCount = entries.reduce((sum, entry) => sum + entry.applicableUnits().length, 0)
 
-    expect(withUnits).toHaveLength(836)
-    expect(entries.length - withUnits.length).toBe(397)
-    expect(unitEntryCount).toBe(10_491)
-    expect(QuantityKind['fluidDynamics.APIGravity'].applicableUnits()).toEqual([])
+    expect(withUnits).toHaveLength(1_216)
+    expect(entries.length - withUnits.length).toBe(0)
+    expect(unitEntryCount).toBe(10_971)
+    expect(QuantityKind['fluidDynamics.APIGravity'].applicableUnits()).toEqual(['1'])
 
     for (const entry of entries) {
       const units = entry.applicableUnits()
@@ -267,6 +292,7 @@ describe('QuantityKind', () => {
       for (const unit of units) {
         expect(() => ucum.validate(unit)).not.toThrow()
         expect(() => ucum.canonical(1, unit)).not.toThrow()
+        expect(() => ucum.convert(1, units[0], unit)).not.toThrow()
       }
     }
   })
@@ -303,6 +329,60 @@ describe('QuantityKind', () => {
     )).toThrow('zero-preserving unit transform')
   })
 
+  it('rotates rank-1 through rank-4 Cartesian tensors while converting units and reverses exactly', () => {
+    const rotatedBasis = [
+      [0, 1, 0],
+      [-1, 0, 0],
+      [0, 0, 1],
+    ] as const
+    const axisTensor = (order: number): unknown => (
+      order === 0
+        ? 1
+        : Object.freeze([axisTensor(order - 1), ...Array.from({ length: 2 }, () => (
+          order === 1 ? 0 : zeroTensor(order - 1)
+        ))])
+    )
+    const zeroTensor = (order: number): unknown => (
+      order === 0 ? 0 : Object.freeze(Array.from({ length: 3 }, () => zeroTensor(order - 1)))
+    )
+    const cases = [
+      { order: 1, from: 'N', to: 'kN', scale: -1e-3 },
+      { order: 2, from: 'S.cm-1', to: 'S.m-1', scale: 100 },
+      { order: 3, from: 'C.N-1', to: 'pC.N-1', scale: -1e12 },
+      { order: 4, from: 'Pa', to: 'MPa', scale: 1e-6 },
+    ] as const
+
+    for (const { order, from, to, scale } of cases) {
+      const source = axisTensor(order)
+      const transformed = transformQuantityValue(
+        source,
+        componentShapeForTensorOrder(order),
+        { unit: from, basis: identityCartesianBasis },
+        { unit: to, basis: rotatedBasis },
+      ) as readonly unknown[]
+      let component: unknown = transformed
+      for (let depth = 0; depth < order; depth += 1) {
+        component = (component as readonly unknown[])[1]
+      }
+      expect(component).toBeCloseTo(scale)
+      expect(transformQuantityValue(
+        transformed,
+        componentShapeForTensorOrder(order),
+        { unit: to, basis: rotatedBasis },
+        { unit: from, basis: identityCartesianBasis },
+      )).toEqual(source)
+      expect(Object.isFrozen(transformed)).toBe(true)
+    }
+
+    expect(transformQuantityValue(0, [], { unit: 'Cel' }, { unit: 'K' })).toBeCloseTo(273.15)
+    expect(() => transformQuantityValue(
+      1,
+      [],
+      { unit: '1', basis: identityCartesianBasis },
+      { unit: '1' },
+    )).toThrow('basis is forbidden for a scalar quantity')
+  })
+
   it('rejects non-finite values, foreign units, and incompatible applicable units', () => {
     expect(() => QuantityKind.Length.transform(Number.NaN, 'mm', 'm')).toThrow(CadModelError)
     expect(() => QuantityKind.Length.transform(
@@ -317,8 +397,8 @@ describe('QuantityKind', () => {
     )).toThrow('does not include target UCUM unit s')
     expect(() => QuantityKind['kinematics.AngularAcceleration'].transform(
       [1, 1, 1],
-      '{#}.s-2',
+      's-2' as unknown as ApplicableUnit<'kinematics.AngularAcceleration'>,
       'rad.s-2',
-    )).toThrow(CadModelError)
+    )).toThrow('does not include source UCUM unit')
   })
 })

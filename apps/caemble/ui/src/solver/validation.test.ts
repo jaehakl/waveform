@@ -235,24 +235,20 @@ describe('Solver spec validation', () => {
     expect(registry.preflight(unknown).issues[0].message).toContain('No solver module is registered')
   })
 
-  it('requires tensor bases to match the solver reference basis exactly', () => {
+  it('accepts any valid tensor basis for controller-side rotation', () => {
     const rotated = structuredClone(validInput()) as SolverPreflightInput
     const conductivity = rotated.structure!.scene.parts[0].material!
       .variables['electrical.conductivity'] as unknown as { basis: number[][] }
     conductivity.basis = [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
 
-    expect(validateSolverContract(dcCurrentDensitySpec, rotated).issues).toContainEqual(expect.objectContaining({
-      documentType: 'structure',
-      path: 'structure.parts.conductor.material.variables.electrical.conductivity.basis',
-      message: 'must exactly match the solver referenceBasis.',
-    }))
+    expect(validateSolverContract(dcCurrentDensitySpec, rotated).issues).toEqual([])
 
     const missing = structuredClone(validInput()) as SolverPreflightInput
     delete (missing.structure!.scene.parts[0].material!
       .variables['electrical.conductivity'] as unknown as { basis?: unknown }).basis
     expect(validateSolverContract(dcCurrentDensitySpec, missing).issues).toContainEqual(expect.objectContaining({
       path: 'structure.parts.conductor.material.variables.electrical.conductivity.basis',
-      message: 'must exactly match the solver referenceBasis.',
+      message: 'must be a valid Cartesian basis.',
     }))
   })
 
@@ -324,13 +320,19 @@ describe('Solver spec validation', () => {
     expect(() => new SolverRegistry([moduleFor(invalidUnit as unknown as SolverSpec)]))
       .toThrow('is not applicable')
 
-    const emptyQuantityKind = structuredClone(dcCurrentDensitySpec) as unknown as {
-      parameters: { relativeTolerance: { value: { quantityKind: string; referenceUnit: string } } }
+    const inapplicableLengthUnit = structuredClone(dcCurrentDensitySpec) as unknown as {
+      referenceLengthUnit: string
     }
-    emptyQuantityKind.parameters.relativeTolerance.value.quantityKind = 'fluidDynamics.APIGravity'
-    emptyQuantityKind.parameters.relativeTolerance.value.referenceUnit = '1'
-    expect(() => new SolverRegistry([moduleFor(emptyQuantityKind as unknown as SolverSpec)]))
-      .toThrow('has no applicable UCUM units')
+    inapplicableLengthUnit.referenceLengthUnit = 's'
+    expect(() => new SolverRegistry([moduleFor(inapplicableLengthUnit as unknown as SolverSpec)]))
+      .toThrow('is not applicable to Length')
+
+    const missingLengthUnit = structuredClone(dcCurrentDensitySpec) as unknown as {
+      referenceLengthUnit?: string
+    }
+    delete missingLengthUnit.referenceLengthUnit
+    expect(() => new SolverRegistry([moduleFor(missingLengthUnit as unknown as SolverSpec)]))
+      .toThrow('must be a non-empty UCUM code')
 
     const missingReferenceBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
       materials: Array<{ parameters: { 'electrical.conductivity': { value: { referenceBasis?: unknown } } } }>
@@ -338,6 +340,37 @@ describe('Solver spec validation', () => {
     delete missingReferenceBasis.materials[0].parameters['electrical.conductivity'].value.referenceBasis
     expect(() => new SolverRegistry([moduleFor(missingReferenceBasis as unknown as SolverSpec)]))
       .toThrow('referenceBasis must contain exactly three Cartesian basis vectors')
+
+    const conflictingMaterialBasis = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{
+        role: string
+        parameters: {
+          'electrical.conductivity': { value: { referenceBasis: number[][] } }
+        }
+      }>
+    }
+    const secondRole = structuredClone(conflictingMaterialBasis.materials[0])
+    secondRole.role = 'rotated conductor'
+    secondRole.parameters['electrical.conductivity'].value.referenceBasis =
+      [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]
+    conflictingMaterialBasis.materials.push(secondRole)
+    expect(() => new SolverRegistry([moduleFor(conflictingMaterialBasis as unknown as SolverSpec)]))
+      .toThrow('must use one referenceBasis per Solver spec')
+
+    const conflictingMaterialUnit = structuredClone(dcCurrentDensitySpec) as unknown as {
+      materials: Array<{
+        role: string
+        parameters: {
+          'electrical.conductivity': { value: { referenceUnit: string } }
+        }
+      }>
+    }
+    const centimeterRole = structuredClone(conflictingMaterialUnit.materials[0])
+    centimeterRole.role = 'centimeter conductor'
+    centimeterRole.parameters['electrical.conductivity'].value.referenceUnit = 'S.cm-1'
+    conflictingMaterialUnit.materials.push(centimeterRole)
+    expect(() => new SolverRegistry([moduleFor(conflictingMaterialUnit as unknown as SolverSpec)]))
+      .toThrow('must use one referenceUnit per Solver spec')
 
     const localMaterialKey = structuredClone(dcCurrentDensitySpec) as unknown as {
       materials: Array<{ parameters: Record<string, unknown> }>

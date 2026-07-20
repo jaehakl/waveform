@@ -9,9 +9,7 @@ import {
   type ExperimentRule,
   type RecordedDataRule,
 } from '../../../cad/model/core'
-import { convertUcumValue } from '../../../cad/model/units'
 import type { Vec3 } from '../../../cad/model/types'
-import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 import type { SolverModuleInput } from '../../types'
 
 const maximumVoxelCount = 250_000
@@ -148,7 +146,7 @@ function planarSurface(part: CadScenePart, surface: CadSceneSurface) {
 }
 
 function voltage(rule: ExperimentRule) {
-  return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`, 'V')
+  return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`)
 }
 
 function isFloatValue(value: unknown): value is DataValueDescriptor & { value: number } {
@@ -158,11 +156,11 @@ function isFloatValue(value: unknown): value is DataValueDescriptor & { value: n
     && 'value' in value && typeof value.value === 'number'
 }
 
-function floatParameter(value: unknown, name: string, unit: string | undefined) {
+function floatParameter(value: unknown, name: string) {
   if (!isFloatValue(value) || !Number.isFinite(value.value)) {
     throw new CadModelError(`${name} must be a finite float dtype descriptor.`)
   }
-  return convertUcumValue(value.value, value.unit, unit, name)
+  return value.value
 }
 
 function gridShapeParameter(value: unknown) {
@@ -177,7 +175,6 @@ function crossSectionPosition(rule: RecordedDataRule) {
   return floatParameter(
     rule.parameters.crossSectionPosition,
     `${rule.methodId} parameters.crossSectionPosition`,
-    undefined,
   )
 }
 
@@ -200,13 +197,6 @@ function isotropicConductivity(value: unknown) {
   if (descriptor.axes !== undefined) {
     throw new CadModelError(`${path}.axes must be omitted for one conductivity tensor.`)
   }
-  if (JSON.stringify(descriptor.basis) !== JSON.stringify(identityCartesianBasis)) {
-    throw new CadModelError(`${path}.basis must exactly match the global identity basis.`)
-  }
-  if (typeof descriptor.unit !== 'string') {
-    throw new CadModelError(`${path}.unit must be an applicable ElectricConductivity unit.`)
-  }
-  const unit = descriptor.unit
   if (!Array.isArray(descriptor.value) || descriptor.value.length !== 3) {
     throw new CadModelError(`${path}.value must have component shape [3,3].`)
   }
@@ -218,7 +208,7 @@ function isotropicConductivity(value: unknown) {
       if (typeof component !== 'number' || !Number.isFinite(component)) {
         throw new CadModelError(`${path}.value[${rowIndex}][${columnIndex}] must be finite.`)
       }
-      return convertUcumValue(component, unit, 'S/m', path)
+      return component
     })
   })
   const diagonal = [matrix[0][0], matrix[1][1], matrix[2][2]]
@@ -559,7 +549,6 @@ function crossSectionResult(
   frame: ReturnType<typeof createFrame>,
   spacings: readonly [number, number, number],
   crossSectionPosition: number,
-  sceneLengthToMeters: number,
   conductivity: number,
   sourceVoltage: number,
   referenceVoltage: number,
@@ -574,14 +563,14 @@ function crossSectionResult(
         const rightGlobal = globalIndex(0, j, k, shape)
         if (!occupancy[rightGlobal]) return 0
         const currentDensity = 2 * conductivity * (sourceVoltage - solution[activeIndex[rightGlobal]])
-          / (axialSpacing * sceneLengthToMeters)
+          / axialSpacing
         return Object.is(currentDensity, -0) ? 0 : currentDensity
       }
       if (faceIndex === axialCount) {
         const leftGlobal = globalIndex(axialCount - 1, j, k, shape)
         if (!occupancy[leftGlobal]) return 0
         const currentDensity = 2 * conductivity * (solution[activeIndex[leftGlobal]] - referenceVoltage)
-          / (axialSpacing * sceneLengthToMeters)
+          / axialSpacing
         return Object.is(currentDensity, -0) ? 0 : currentDensity
       }
       const leftGlobal = globalIndex(faceIndex - 1, j, k, shape)
@@ -590,19 +579,19 @@ function crossSectionResult(
       const left = activeIndex[leftGlobal]
       const right = activeIndex[rightGlobal]
       const currentDensity = conductivity * (solution[left] - solution[right])
-        / (axialSpacing * sceneLengthToMeters)
+        / axialSpacing
       return Object.is(currentDensity, -0) ? 0 : currentDensity
     })
   })
   const totalCurrent = Math.abs(axialValues.reduce((sum, row) => (
     sum + row.reduce((rowSum, value) => rowSum + value, 0)
-  ), 0) * uSpacing * vSpacing * sceneLengthToMeters ** 2)
+  ), 0) * uSpacing * vSpacing)
   const uTicks = Array.from({ length: uCount }, (_value, j) => (
-    (frame.minimumU + (j + 0.5) * uSpacing) * sceneLengthToMeters
+    frame.minimumU + (j + 0.5) * uSpacing
   ))
   const vTicks = Array.from({ length: vCount }, (_value, row) => {
     const k = vCount - row - 1
-    return (frame.minimumV + (k + 0.5) * vSpacing) * sceneLengthToMeters
+    return frame.minimumV + (k + 0.5) * vSpacing
   })
   const values = axialValues.map((row) => row.map((value) => scale(frame.axis, value)))
   return { totalCurrent, uTicks, values, vTicks }
@@ -610,7 +599,7 @@ function crossSectionResult(
 
 export async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
   const { parameters } = input.experiment.solver
-  const relativeTolerance = floatParameter(parameters.relativeTolerance, 'dc-current-density relativeTolerance', undefined)
+  const relativeTolerance = floatParameter(parameters.relativeTolerance, 'dc-current-density relativeTolerance')
   const maxIterations = parameters.maxIterations as number
   const gridRule = ruleFor(input.experiment.rules.initializations, 'dc.voxel-grid')
   const sourceRule = ruleFor(input.experiment.rules.boundaryConditions, 'dc.source-potential')
@@ -655,14 +644,8 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     throw new CadModelError('DC source and reference potentials must target different terminal surfaces.')
   }
 
-  const conductivitySi = isotropicConductivity(
+  const conductivity = isotropicConductivity(
     conductor.material!.variables['electrical.conductivity'],
-  )
-  const sceneLengthToMeters = convertUcumValue(
-    1,
-    input.structure.scene.lengthUnit,
-    'm',
-    'DC Structure lengthUnit',
   )
 
   const sourceSurface = planarSurface(source.part, source.surface)
@@ -688,26 +671,20 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     frame,
     [grid.axialSpacing, grid.uSpacing, grid.vSpacing],
     densityCrossSectionPosition,
-    sceneLengthToMeters,
-    conductivitySi,
+    conductivity,
     sourceVoltage,
     referenceVoltage,
   )
 
-  const densityScale = convertUcumValue(1, 'A/m2', densityRule.result.unit, 'Current density result unit')
-  const totalCurrentScale = convertUcumValue(1, 'A', totalCurrentRule.result.unit, 'Total current result unit')
-  const vScale = convertUcumValue(1, 'm', densityRule.result.axes?.[0].unit, 'Current density v-axis unit')
-  const uScale = convertUcumValue(1, 'm', densityRule.result.axes?.[1].unit, 'Current density u-axis unit')
-
   return {
     [densityRule.label]: {
-      value: result.values.map((row) => row.map((vector) => vector.map((value) => value * densityScale))),
+      value: result.values,
       axes: [
-        { ticks: result.vTicks.map((tick) => tick * vScale) },
-        { ticks: result.uTicks.map((tick) => tick * uScale) },
+        { ticks: result.vTicks },
+        { ticks: result.uTicks },
       ],
     },
-    [totalCurrentRule.label]: { value: result.totalCurrent * totalCurrentScale },
+    [totalCurrentRule.label]: { value: result.totalCurrent },
   }
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { measurements } from '@jscad/modeling'
 import { h } from '../cad/evaluation/jsx'
 import {
   Material,
@@ -83,15 +84,20 @@ function createPair(name = 'test-solver', version = '1.0.0') {
   }
 }
 
-function valueModule(solve?: SolverModule['solve']): SolverModule {
+function valueModule(
+  solve?: SolverModule['solve'],
+  name = 'test-solver',
+  referenceUnit: '{fraction}' | '%' = '{fraction}',
+): SolverModule {
   const spec = Object.freeze({
-    name: 'test-solver',
+    name,
     version: '1.0.0',
     description: 'Test solver contract.',
+    referenceLengthUnit: 'm',
     parameters: {
       scale: {
         description: 'Result scale.',
-        value: { dtype: 'float64', quantityKind: 'DimensionlessRatio', referenceUnit: '{fraction}' },
+        value: { dtype: 'float64', quantityKind: 'DimensionlessRatio', referenceUnit },
       },
     },
     materials: [],
@@ -115,7 +121,7 @@ function valueModule(solve?: SolverModule['solve']): SolverModule {
         result: {
           dtype: 'float64',
           quantityKind: 'DimensionlessRatio',
-          referenceUnit: '{fraction}',
+          referenceUnit,
         },
       }],
     },
@@ -132,15 +138,24 @@ describe('SolverController', () => {
   it('dispatches the exact preview snapshots and publishes process states', async () => {
     const { structureSnapshot, experimentSnapshot } = createPair()
     const previewScene = structureSnapshot.scene
+    const originalStructureSnapshot = JSON.stringify(structureSnapshot)
     const states: string[] = []
     const controller = new SolverController([valueModule(async (input) => {
+      expect(Object.isFrozen(input)).toBe(true)
+      expect(Object.isFrozen(input.structure)).toBe(true)
+      expect(Object.isFrozen(input.structure.scene)).toBe(true)
+      expect(Object.isFrozen(input.structure.scene.parts)).toBe(true)
+      expect(Object.isFrozen(input.structure.scene.parts[0].geometry)).toBe(true)
+      expect(Object.isFrozen(input.structure.scene.parts[0].material?.variables)).toBe(true)
       expect(input.structure).not.toHaveProperty('model')
       expect(input.experiment).not.toHaveProperty('model')
       expect(input.structure.provenance.sourceHash).toBe('1'.repeat(64))
       expect(input.experiment.provenance.sourceHash).toBe('2'.repeat(64))
       expect(input.structure.scene.geometryGroups[0].geometryIds).toEqual(['conductor'])
-      expect(input.structure.scene.lengthUnit).toBe('mm')
-      expect(input.experiment.scene.lengthUnit).toBe('mm')
+      expect(input.structure.scene.lengthUnit).toBe('m')
+      expect(input.experiment.scene.lengthUnit).toBe('m')
+      const bounds = measurements.measureBoundingBox(input.structure.scene.parts[0].geometry as never)
+      expect(bounds[1][0] - bounds[0][0]).toBeCloseTo(0.012, 12)
       expect(input.structure.scene.parts[0].material?.variables).toEqual(
         previewScene.parts[0].material?.variables,
       )
@@ -163,6 +178,37 @@ describe('SolverController', () => {
     })
     expect(states).toEqual(['idle', 'preparing', 'running', 'succeeded'])
     expect(controller.getProcess()).toMatchObject({ status: 'succeeded', error: null })
+    expect(structureSnapshot.scene.lengthUnit).toBe('mm')
+    expect(JSON.stringify(structureSnapshot)).toBe(originalStructureSnapshot)
+  })
+
+  it('converts the same authoring value to each solver spec reference unit', async () => {
+    const fractionPair = createPair('solver-fraction')
+    const percentPair = createPair('solver-percent')
+    let fractionInput: unknown
+    let percentInput: unknown
+    const fractionSolver = valueModule(async (input) => {
+      fractionInput = input.experiment.solver.parameters.scale
+      return { Value: { value: 5 } }
+    }, 'solver-fraction', '{fraction}')
+    const percentSolver = valueModule(async (input) => {
+      percentInput = input.experiment.solver.parameters.scale
+      return { Value: { value: 500 } }
+    }, 'solver-percent', '%')
+
+    const fractionResult = await new SolverController([fractionSolver]).run(
+      fractionPair.structureSnapshot,
+      fractionPair.experimentSnapshot,
+    )
+    const percentResult = await new SolverController([percentSolver]).run(
+      percentPair.structureSnapshot,
+      percentPair.experimentSnapshot,
+    )
+
+    expect(fractionInput).toMatchObject({ value: 5, unit: '{fraction}' })
+    expect(percentInput).toMatchObject({ value: 500, unit: '%' })
+    expect(fractionResult.Value.value).toBe(5)
+    expect(percentResult.Value.value).toBe(5)
   })
 
   it('rejects duplicate and unsupported exact solver identities', async () => {

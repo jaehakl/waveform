@@ -150,6 +150,7 @@ export type SolverSpec = Readonly<{
   name: string
   version: string
   description: string
+  referenceLengthUnit: UcumUnit
   parameters: Readonly<Record<string, SolverParameterSpec>>
   materials: readonly SolverMaterialSpec[]
   methods: Readonly<Record<SolverRuleCategory, readonly SolverMethodSpec[]>>

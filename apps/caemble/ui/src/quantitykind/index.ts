@@ -14,9 +14,12 @@ export type {
   QuantityKindNameForDomain,
   QuantityKindTensorOrder,
   QuantityMetadata,
+  QuantityValueReference,
   ScalarQuantityKindName,
   TensorQuantityKindName,
 } from './runtime'
+
+export { transformQuantityValue } from './runtime'
 
 export const QuantityKind = Object.freeze(Object.fromEntries(
   (Object.keys(quantityKindData) as QuantityKindName[]).map((name) => [name, new QuantityKindEntry(name)]),

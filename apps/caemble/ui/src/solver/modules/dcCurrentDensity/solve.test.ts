@@ -8,17 +8,27 @@ import { evaluateDocumentEntry } from '../../../cad/execution/userModule'
 import { serializeEvaluatedDocumentSnapshotV2 } from '../../../cad/execution/snapshot'
 import type { Rotation, Vec3 } from '../../../cad/model/types'
 import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
+import type { CartesianBasis } from '../../../quantitykind/runtime'
 import { SolverController } from '../../controller'
+import type { SolverModule } from '../../types'
 import { dcCurrentDensitySolver } from '.'
+
+const rotatedCartesianBasis = Object.freeze([
+  Object.freeze([0, 1, 0]),
+  Object.freeze([-1, 0, 0]),
+  Object.freeze([0, 0, 1]),
+]) as CartesianBasis
 
 function createDcPair(options: {
   axisUnit?: string | null
   conductivity?: number | readonly (readonly number[])[] | null
+  conductivityBasis?: CartesianBasis
   conductivityUnit?: string | null
   conductorRotation?: Rotation
   conductorSize?: Vec3
   cutter?: Readonly<{ position: Vec3; size: Vec3 }>
   densityCrossSectionPosition?: unknown
+  densityBasis?: CartesianBasis
   densityTarget?: string
   densityUnit?: string | null
   gridDescriptorOverrides?: Readonly<Record<string, unknown>>
@@ -44,6 +54,7 @@ function createDcPair(options: {
   const {
     axisUnit = 'm',
     conductivity = 5.96e7,
+    conductivityBasis = identityCartesianBasis,
     conductivityUnit = 'S.m-1',
     conductorRotation,
     conductorSize = [100, 5, 5],
@@ -52,6 +63,7 @@ function createDcPair(options: {
       dtype: 'float64', value: 0.5,
       unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     },
+    densityBasis = identityCartesianBasis,
     densityTarget = 'structure.geometry.conductor',
     densityUnit = 'A.m-2',
     gridDescriptorOverrides = {},
@@ -103,7 +115,7 @@ function createDcPair(options: {
             ? {}
             : {
                 unit: conductivityUnit,
-                basis: identityCartesianBasis,
+                basis: conductivityBasis,
               }),
         },
         color: '#d97706',
@@ -191,7 +203,7 @@ function createDcPair(options: {
                 : {
                     unit: densityUnit,
                     quantityKind: 'electromagnetism.ElectricCurrentDensity',
-                    basis: identityCartesianBasis,
+                    basis: densityBasis,
                   }),
               axes: [{ length: 3, name: 'component', ticks: ['x', 'y', 'z'] }],
             }
@@ -202,7 +214,7 @@ function createDcPair(options: {
                 : {
                     unit: densityUnit,
                     quantityKind: 'electromagnetism.ElectricCurrentDensity',
-                    basis: identityCartesianBasis,
+                    basis: densityBasis,
                   }),
               axes: [
                 {
@@ -306,6 +318,7 @@ describe('dc-current-density@0.0.0', () => {
       axisUnit: 'mm',
       conductivity: 5.96e5,
       conductivityUnit: 'S.cm-1',
+      densityBasis: rotatedCartesianBasis,
       densityUnit: 'A.mm-2',
       sourceVoltage: 1000,
       sourceVoltageUnit: 'uV',
@@ -318,6 +331,11 @@ describe('dc-current-density@0.0.0', () => {
     const vTicks = result['Current density'].axes?.[0].ticks as number[]
 
     expect(heatmap.flat().every((value) => Math.abs(Math.hypot(...value) - 0.596) < 1e-9)).toBe(true)
+    expect(heatmap.flat().every((value) => (
+      Math.abs(value[0]) < 1e-12
+      && Math.abs(value[1] + 0.596) < 1e-9
+      && Math.abs(value[2]) < 1e-12
+    ))).toBe(true)
     expect(Math.max(...vTicks.map(Math.abs))).toBeLessThan(2.6)
     expect(result['Total current'].value).toBeCloseTo(14900, 7)
 
@@ -326,6 +344,47 @@ describe('dc-current-density@0.0.0', () => {
       structureLengthUnit: 'cm',
     }))
     expect(centimeters['Total current'].value).toBeCloseTo(14.9, 9)
+  })
+
+  it('passes conductivity to the solver in its declared unit and Cartesian basis', async () => {
+    const snapshots = evaluatePair(createDcPair({
+      conductivity: [[1, 0, 0], [0, 2, 0], [0, 0, 3]],
+      conductivityBasis: rotatedCartesianBasis,
+      conductivityUnit: 'S.cm-1',
+    }))
+    let receivedConductivity: unknown
+    const inspectingSolver: SolverModule = {
+      spec: dcCurrentDensitySolver.spec,
+      solve: async (input) => {
+        receivedConductivity = input.structure.scene.parts[0].material
+          ?.variables['electrical.conductivity']
+        return {
+          'Current density': {
+            value: [[[0, 0, 0]]],
+            axes: [{ ticks: [0] }, { ticks: [0] }],
+          },
+          'Total current': { value: 0 },
+        }
+      },
+    }
+
+    await new SolverController([inspectingSolver]).run(
+      snapshots.structureSnapshot,
+      snapshots.experimentSnapshot,
+    )
+
+    const transformed = receivedConductivity as {
+      unit: string
+      basis: CartesianBasis
+      value: readonly (readonly number[])[]
+    }
+    expect(transformed.unit).toBe('S.m-1')
+    expect(transformed.basis).toEqual(identityCartesianBasis)
+    expect(transformed.value[0]).toEqual([200, 0, 0])
+    expect(transformed.value[1]).toEqual([0, 100, 0])
+    expect(transformed.value[2][0]).toBe(0)
+    expect(transformed.value[2][1]).toBe(0)
+    expect(transformed.value[2][2]).toBeCloseTo(300, 12)
   })
 
   it('returns a 41 by 41 SI heatmap with notch zeros and current crowding', async () => {

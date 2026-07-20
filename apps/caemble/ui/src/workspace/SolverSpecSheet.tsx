@@ -279,7 +279,10 @@ export default function SolverSpecSheet({ compatibility, solver, spec }: SolverS
           <header className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-base font-semibold text-slate-900">{spec.name}@{spec.version}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{spec.description}</p>
-            <p className="mt-2 text-xs text-slate-500">Undeclared parameter keys are accepted and preserved.</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Scene reference length <code>{spec.referenceLengthUnit}</code>
+              {' · '}undeclared parameter keys are accepted, preserved, and not transformed.
+            </p>
           </header>
 
           <section className="mt-5">

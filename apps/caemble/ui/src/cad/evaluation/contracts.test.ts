@@ -83,7 +83,7 @@ describe('CAD registry contracts', () => {
     const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])]
       .map((match) => match[1])
 
-    expect(declarationNames).toHaveLength(1_233)
+    expect(declarationNames).toHaveLength(1_216)
     expect(declarationNames.sort()).toEqual(Object.keys(QuantityKind).sort())
 
     const domainDeclaration = coreDeclarations.match(

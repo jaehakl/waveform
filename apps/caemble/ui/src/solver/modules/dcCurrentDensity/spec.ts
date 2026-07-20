@@ -36,6 +36,7 @@ export const dcCurrentDensitySpec = Object.freeze({
   name: 'dc-current-density',
   version: '0.0.0',
   description: 'Solves steady-state electric potential, current density, and total current in one homogeneous conductor.',
+  referenceLengthUnit: 'm',
   parameters: {
     relativeTolerance: {
       description: 'Relative convergence tolerance for the preconditioned conjugate-gradient solve.',

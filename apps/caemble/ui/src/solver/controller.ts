@@ -11,6 +11,7 @@ import type {
   SolverProcessListener,
   SolverProcessStatus,
 } from './types'
+import { restoreAuthoringRecordedData, transformSolverInput } from './transform'
 import { assertValidSolverContract } from './validation'
 
 const idleProcess: SolverProcess = Object.freeze({
@@ -150,14 +151,23 @@ export class SolverController {
         )
       }
       assertValidSolverContract(module.spec, input)
+      const solverInput = transformSolverInput(input, module.spec)
 
       this.updateProcess('running', { runId, solver, startedAt })
       const rawResult = await withAbort(
-        Promise.resolve().then(() => module.solve(input, abortController.signal)),
+        Promise.resolve().then(() => module.solve(solverInput, abortController.signal)),
         abortController.signal,
       )
       throwIfAborted(abortController.signal)
-      const result = normalizeRecordedData(input.experiment.rules.recordedData, rawResult)
+      const solverResult = normalizeRecordedData(
+        solverInput.experiment.rules.recordedData,
+        rawResult,
+      )
+      const result = restoreAuthoringRecordedData(
+        solverResult,
+        solverInput.experiment.rules.recordedData,
+        input.experiment.rules.recordedData,
+      )
       this.active = null
       this.updateProcess('succeeded', {
         runId,

@@ -20,6 +20,7 @@ export const mySolverSpec = {
   name: 'my-solver',
   version: '1.0.0',
   description: 'Human-readable solver description.',
+  referenceLengthUnit: 'm',
   parameters: {},
   materials: [],
   methods: {
@@ -41,7 +42,7 @@ The spec must contain only structured-cloneable data. Do not store functions, cl
 
 Solver, method, and Material parameter maps declare the keys consumed by that solver version. Entries are required unless `required: false` is stated. A declared value is validated whenever it is present.
 
-Undeclared parameter keys are intentionally accepted and preserved. This permits one Experiment source to carry parameters for several compatible solver versions. Every value still passes the core model normalizer, so undeclared float descriptors must also contain a valid `quantityKind` and an exact applicable UCUM `unit`.
+Undeclared parameter keys are intentionally accepted and preserved. This permits one Experiment source to carry parameters for several compatible solver versions. Every value still passes the core model normalizer, so undeclared float descriptors must also contain a valid `quantityKind` and an exact applicable UCUM `unit`. The controller does not transform undeclared values, and solver implementations must not consume them as part of their contract.
 
 Every leaf spec declares a `dtype`, optional non-empty `axes`, and dtype-appropriate constraints. Supported dtypes are `bool`, `string`, signed/unsigned 8/16/32/64-bit integers, and float16/32/64. Use numeric bounds for public numeric limits and string constraints for string values. Raw booleans, strings, and safe integers are accepted as shorthand when they match the declared dtype; explicit values always use `{ dtype, value, axes?, ... }`. Array, object, and null leaves are not part of the parameter contract.
 
@@ -58,9 +59,13 @@ Every float descriptor, float result, and unit-bearing axis in the external cont
 }
 ```
 
-`quantityKind` must be a `QuantityKindName`. `referenceUnit` must appear exactly in that Quantity Kind's `applicableUnits`; a Quantity Kind with an empty list cannot be used. The reference unit documents the solver's comparison/working unit and is used for range checks. It does not restrict callers to that unit: every applicable unit is accepted and the solver remains responsible for converting consumed values component by component.
+`quantityKind` must be a `QuantityKindName`. `referenceUnit` must appear exactly in that Quantity Kind's non-empty `applicableUnits` and must be convertible to every accepted authoring unit. It is the unit the solver receives and produces for that value. There is no global canonical unit: each solver version declares its own working units in its spec, and the controller performs the conversion before invoking `solve`.
 
-Every order-1 or higher quantity spec additionally declares `referenceBasis`, a finite orthonormal right-handed `CartesianBasis`. An omitted caller basis is normalized to the identity Cartesian basis; the resulting basis must match `referenceBasis` element for element because solver validation does not rotate components automatically. Scalar Quantity Kinds forbid a basis. Tensor unit conversions must be zero-preserving linear conversions, while affine conversions are rejected.
+Every order-1 or higher quantity spec additionally declares `referenceBasis`, a finite orthonormal right-handed `CartesianBasis`. A basis is `[e0, e1, e2]`, with each unit axis expressed in global Cartesian coordinates. The controller rotates every tensor index from the authoring basis to `referenceBasis`; recorded results are rotated back to the basis requested by the Experiment. Scalar Quantity Kinds forbid a basis. Tensor unit conversions must be zero-preserving linear conversions, while scalar conversions may be affine.
+
+The required top-level `referenceLengthUnit` declares the working length unit for both Structure and Experiment scenes. The controller creates a new solver input, uniformly scales all scene geometry to this unit, replaces each scene's `lengthUnit`, and freezes the input without mutating the evaluated snapshots.
+
+RecordedData specs use the same rule: their result `referenceUnit`/`referenceBasis` and every physical axis `referenceUnit` describe exactly what `solve` must return. The controller validates that solver-facing result first, then converts values, tensor bases, and numeric axis ticks back to the units and bases requested by the Experiment and validates the author-facing result again.
 
 Do not accept equivalent UCUM spellings that are absent from the applicable list. For example, use the catalog's `S.m-1` spelling for `electromagnetism.ElectricConductivity`, not `S/m`.
 
@@ -76,11 +81,12 @@ Keep external contract checks in `spec.ts`: required parameters, value kinds/ran
 
 - The module uses a folder and exports `{ spec, solve }`.
 - `name@version` is unique and all descriptions are non-empty.
+- `referenceLengthUnit` is an applicable `Length` unit and the solve implementation treats scene geometry as that unit.
 - Every external float quantity has an exact Quantity Kind and applicable reference unit.
-- Tensor quantities declare an exact reference basis and component shape; value-array axes declare their own lengths, while scalar quantities declare no basis.
+- Tensor quantities declare a valid reference basis and component shape; value-array axes declare their own lengths, while scalar quantities declare no basis.
 - Required and optional keys are intentional; undeclared keys are never read accidentally.
 - Every method has occurrence and target constraints, and every RecordedData method has a result schema.
 - Material requirements are attached to the method target that identifies their role.
-- Spec tests cover missing required keys, extra-key compatibility, bad quantities, method/cardinality, target/result, and Material errors.
-- Solve tests cover physical constraints, cancellation, numerical behavior, and result normalization.
+- Spec tests cover missing required keys, extra-key compatibility, bad quantities, method/cardinality, target/result, Material errors, and conflicting Material target units or bases.
+- Solve/controller tests cover geometry scaling, unit and basis conversion, result restoration, physical constraints, cancellation, numerical behavior, and result normalization.
 - `npm test`, `npm run lint`, and `npm run build` pass.

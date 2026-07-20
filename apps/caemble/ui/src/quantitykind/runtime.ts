@@ -49,6 +49,11 @@ export type TensorQuantityKindName = Exclude<QuantityKindName, ScalarQuantityKin
 
 export type CartesianBasis = readonly [Vec3, Vec3, Vec3]
 
+export type QuantityValueReference = Readonly<{
+  unit: UcumUnit
+  basis?: CartesianBasis
+}>
+
 export function componentShapeForTensorOrder(order: number, path = 'Tensor order'): readonly 3[] {
   if (!Number.isSafeInteger(order) || order < 0) {
     throw new CadModelError(`${path} must be a non-negative safe integer.`)
@@ -140,6 +145,83 @@ export function transformQuantityComponents(
   }
 
   return transformComponent(value, 0, `${path} value`)
+}
+
+export function transformQuantityValue(
+  value: unknown,
+  componentShape: readonly 3[],
+  source: QuantityValueReference,
+  target: QuantityValueReference,
+  path = 'Quantity value transform',
+): unknown {
+  if (componentShape.some((length) => length !== 3)) {
+    throw new CadModelError(`${path} component shape must contain only Cartesian dimensions of 3.`)
+  }
+  if (componentShape.length === 0) {
+    if (source.basis !== undefined || target.basis !== undefined) {
+      throw new CadModelError(`${path} basis is forbidden for a scalar quantity.`)
+    }
+    return transformQuantityComponents(value, componentShape, source.unit, target.unit, path)
+  }
+
+  const sourceBasis = source.basis === undefined
+    ? identityCartesianBasis
+    : normalizeCartesianBasis(source.basis, `${path} source basis`)
+  const targetBasis = target.basis === undefined
+    ? identityCartesianBasis
+    : normalizeCartesianBasis(target.basis, `${path} target basis`)
+  const converted = transformQuantityComponents(
+    value,
+    componentShape,
+    source.unit,
+    target.unit,
+    path,
+  )
+  const rotation = targetBasis.map((targetAxis) => Object.freeze(sourceBasis.map(
+    (sourceAxis) => targetAxis[0] * sourceAxis[0]
+      + targetAxis[1] * sourceAxis[1]
+      + targetAxis[2] * sourceAxis[2],
+  )))
+
+  const componentAt = (indices: readonly number[]) => {
+    let component = converted
+    for (const index of indices) component = (component as readonly unknown[])[index]
+    return component as number
+  }
+  const buildTargetComponents = (
+    targetIndices: readonly number[],
+    depth: number,
+  ): unknown => {
+    if (depth < componentShape.length) {
+      return Object.freeze([0, 1, 2].map((index) => buildTargetComponents(
+        [...targetIndices, index],
+        depth + 1,
+      )))
+    }
+
+    let total = 0
+    const sumSourceComponents = (
+      sourceIndices: readonly number[],
+      sourceDepth: number,
+      weight: number,
+    ) => {
+      if (sourceDepth === componentShape.length) {
+        total += weight * componentAt(sourceIndices)
+        return
+      }
+      for (let index = 0; index < 3; index += 1) {
+        sumSourceComponents(
+          [...sourceIndices, index],
+          sourceDepth + 1,
+          weight * rotation[targetIndices[sourceDepth]][index],
+        )
+      }
+    }
+    sumSourceComponents([], 0, 1)
+    return total
+  }
+
+  return buildTargetComponents([], 0)
 }
 
 type QuantityBasisMetadata<Name extends QuantityKindName> =
@@ -272,11 +354,11 @@ export class QuantityKindEntry<Name extends QuantityKindName>
       throw new CadModelError(`QuantityKind ${this.name} does not include target UCUM unit ${toUnit}.`)
     }
 
-    return transformQuantityComponents(
+    return transformQuantityValue(
       value,
       this.componentShape(),
-      fromUnit,
-      toUnit,
+      { unit: fromUnit },
+      { unit: toUnit },
       `QuantityKind ${this.name} transform`,
     ) as QuantityKindComponentValue<Name>
   }

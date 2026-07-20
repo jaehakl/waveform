@@ -102,6 +102,16 @@ function assertQuantitySpec(
     throw new CadModelError(`${path}.referenceUnit ${unit} is not applicable to ${quantityKind}.`)
   }
   const tensorOrder = QuantityKind[quantityKind].tensorOrder()
+  try {
+    if (tensorOrder > 0 && convertUcumValue(0, unit, applicableUnits[0], path) !== 0) {
+      throw new CadModelError(`${path}.referenceUnit must preserve zero for tensor components.`)
+    }
+    convertUcumValue(1, unit, applicableUnits[0], path)
+  } catch {
+    throw new CadModelError(
+      `${path}.referenceUnit ${unit} cannot be converted within Quantity Kind ${quantityKind}.`,
+    )
+  }
   if (scalarOnly && tensorOrder > 0) {
     throw new CadModelError(`${path}.quantityKind ${quantityKind} must have tensor order 0.`)
   }
@@ -321,6 +331,10 @@ export function assertSolverSpec(spec: SolverSpec) {
   assertNonEmpty(spec.name, 'Solver spec name')
   assertNonEmpty(spec.version, 'Solver spec version')
   assertNonEmpty(spec.description, 'Solver spec description')
+  assertQuantitySpec({
+    quantityKind: 'Length',
+    referenceUnit: spec.referenceLengthUnit,
+  }, 'Solver spec referenceLengthUnit', true)
   assertParameterSpecs(spec.parameters, 'Solver spec parameters')
 
   const methods = new Map<string, SolverRuleCategory>()
@@ -356,6 +370,28 @@ export function assertSolverSpec(spec: SolverSpec) {
 
   if (!Array.isArray(spec.materials)) throw new CadModelError('Solver spec materials must be an array.')
   const roles = new Set<string>()
+  const materialReferenceBases = new Map<string, Readonly<{ basis: string; path: string }>>()
+  const materialReferenceUnits = new Map<string, Readonly<{ unit: string; path: string }>>()
+  const assertConsistentMaterialUnit = (key: string, unit: string, path: string) => {
+    const previous = materialReferenceUnits.get(key)
+    if (previous && previous.unit !== unit) {
+      throw new CadModelError(
+        `${path} conflicts with ${previous.path}; Material key ${key} must use one referenceUnit per Solver spec.`,
+      )
+    }
+    materialReferenceUnits.set(key, Object.freeze({ unit, path }))
+  }
+  const assertConsistentMaterialBasis = (key: string, basis: unknown, path: string) => {
+    if (basis === undefined) return
+    const normalized = JSON.stringify(normalizeCartesianBasis(basis, path))
+    const previous = materialReferenceBases.get(key)
+    if (previous && previous.basis !== normalized) {
+      throw new CadModelError(
+        `${path} conflicts with ${previous.path}; Material key ${key} must use one referenceBasis per Solver spec.`,
+      )
+    }
+    materialReferenceBases.set(key, Object.freeze({ basis: normalized, path }))
+  }
   const materials: readonly SolverMaterialSpec[] = spec.materials
   materials.forEach((material, index) => {
     const path = `Solver spec materials[${index}]`
@@ -370,6 +406,45 @@ export function assertSolverSpec(spec: SolverSpec) {
     const targetMethod = spec.methods[category].find((method) => method.methodId === material.target.methodId)
     if (!targetMethod) throw new CadModelError(`${path}.target references an unknown methodId.`)
     assertMaterialParameterSpecs(material.parameters, `${path}.parameters`)
+    Object.entries(material.parameters).forEach(([key, parameter]) => {
+      if (Object.prototype.hasOwnProperty.call(materialParameterByKey, key)) {
+        assertConsistentMaterialUnit(
+          key,
+          (parameter.value as Readonly<{ referenceUnit: string }>).referenceUnit,
+          `${path}.parameters.${key}.value.referenceUnit`,
+        )
+        assertConsistentMaterialBasis(
+          key,
+          (parameter.value as Readonly<{ referenceBasis?: unknown }>).referenceBasis,
+          `${path}.parameters.${key}.value.referenceBasis`,
+        )
+        return
+      }
+      const relation = parameter.value as Readonly<{
+        input: Readonly<{ referenceUnit: string; referenceBasis?: unknown }>
+        output: Readonly<{ referenceUnit: string; referenceBasis?: unknown }>
+      }>
+      assertConsistentMaterialUnit(
+        `${key}.input`,
+        relation.input.referenceUnit,
+        `${path}.parameters.${key}.value.input.referenceUnit`,
+      )
+      assertConsistentMaterialUnit(
+        `${key}.output`,
+        relation.output.referenceUnit,
+        `${path}.parameters.${key}.value.output.referenceUnit`,
+      )
+      assertConsistentMaterialBasis(
+        `${key}.input`,
+        relation.input.referenceBasis,
+        `${path}.parameters.${key}.value.input.referenceBasis`,
+      )
+      assertConsistentMaterialBasis(
+        `${key}.output`,
+        relation.output.referenceBasis,
+        `${path}.parameters.${key}.value.output.referenceBasis`,
+      )
+    })
   })
 }
 
@@ -439,9 +514,13 @@ function quantityValue(
       addIssue(issues, documentType, `${path}.basis`, 'is forbidden for a scalar Quantity Kind.')
       return undefined
     }
-  } else if (JSON.stringify(value.basis) !== JSON.stringify(spec.referenceBasis)) {
-    addIssue(issues, documentType, `${path}.basis`, 'must exactly match the solver referenceBasis.')
-    return undefined
+  } else {
+    try {
+      normalizeCartesianBasis(value.basis, `${path}.basis`)
+    } catch {
+      addIssue(issues, documentType, `${path}.basis`, 'must be a valid Cartesian basis.')
+      return undefined
+    }
   }
   if (typeof value.value !== 'number' || !Number.isFinite(value.value)) return undefined
   try {
@@ -481,16 +560,38 @@ function validateAxis(
   if (actualName !== expectedName) {
     addIssue(issues, documentType, `${path}.name`, `must be ${expectedName}.`)
   }
-  if (spec.ticks !== undefined && JSON.stringify(value.ticks) !== JSON.stringify(spec.ticks)) {
-    addIssue(issues, documentType, `${path}.ticks`, `must be ${JSON.stringify(spec.ticks)}.`)
-  }
   if (spec.quantityKind === undefined) {
+    if (spec.ticks !== undefined && JSON.stringify(value.ticks) !== JSON.stringify(spec.ticks)) {
+      addIssue(issues, documentType, `${path}.ticks`, `must be ${JSON.stringify(spec.ticks)}.`)
+    }
     if (value.quantityKind !== undefined || value.unit !== undefined) {
       addIssue(issues, documentType, path, 'must be unitless.')
     }
     return
   }
   quantityValue({ ...value, value: 0 }, spec, path, documentType, issues)
+  if (spec.ticks !== undefined && Array.isArray(value.ticks) && typeof value.unit === 'string') {
+    let convertedTicks: readonly (number | string)[] = []
+    try {
+      convertedTicks = value.ticks.map((tick, index) => (
+        typeof tick === 'number'
+          ? convertUcumValue(tick, value.unit as string, spec.referenceUnit, `${path}.ticks[${index}]`)
+          : tick
+      ))
+    } catch {
+      addIssue(issues, documentType, `${path}.ticks`, 'cannot be converted to solver reference ticks.')
+      return
+    }
+    const matches = convertedTicks.length === spec.ticks.length
+      && convertedTicks.every((tick, index) => {
+        const expected = spec.ticks![index]
+        if (typeof tick !== 'number' || typeof expected !== 'number') return tick === expected
+        return Math.abs(tick - expected) <= 1e-12 * Math.max(1, Math.abs(tick), Math.abs(expected))
+      })
+    if (!matches) {
+      addIssue(issues, documentType, `${path}.ticks`, `must transform to ${JSON.stringify(spec.ticks)}.`)
+    }
+  }
 }
 
 function dataLeaves(
@@ -716,16 +817,6 @@ function validateMaterialParameters(
     }
     try {
       const relation = normalizeMaterialSampledRelation(modelKey, values[key], valuePath)
-      const relationSpec = spec.value as Readonly<{
-        input: Readonly<{ referenceBasis?: unknown }>
-        output: Readonly<{ referenceBasis?: unknown }>
-      }>
-      if (JSON.stringify(relation.input.basis) !== JSON.stringify(relationSpec.input.referenceBasis)) {
-        addIssue(issues, documentType, `${valuePath}.input.basis`, 'must match the solver referenceBasis.')
-      }
-      if (JSON.stringify(relation.output.basis) !== JSON.stringify(relationSpec.output.referenceBasis)) {
-        addIssue(issues, documentType, `${valuePath}.output.basis`, 'must match the solver referenceBasis.')
-      }
       if (relation.input.values.length < definition.minimum_samples) {
         addIssue(issues, documentType, valuePath, `must contain at least ${definition.minimum_samples} samples.`)
       }

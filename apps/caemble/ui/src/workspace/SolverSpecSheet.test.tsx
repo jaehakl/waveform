@@ -27,7 +27,8 @@ describe('SolverSpecSheet', () => {
     expect(markup).toContain('dc.current-density')
     expect(markup).toContain('electromagnetism.ElectricCurrentDensity')
     expect(markup).toContain('applicable units')
-    expect(markup).toContain('Undeclared parameter keys are accepted and preserved.')
+    expect(markup).toContain('Scene reference length')
+    expect(markup).toContain('undeclared parameter keys are accepted, preserved, and not transformed.')
   })
 
   it('renders an unavailable state for an unregistered identity', () => {

@@ -451,7 +451,7 @@ describe('Experiment and Setup', () => {
       { dtype: 'float64', value: 1, unit: 'not-a-unit', quantityKind: 'electromagnetism.Voltage' },
       { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'NotAQuantityKind' },
       { dtype: 'float64', value: 1, unit: 'm', quantityKind: 'electromagnetism.Voltage' },
-      { dtype: 'float64', value: 1, unit: '1', quantityKind: 'fluidDynamics.APIGravity' },
+      { dtype: 'float64', value: 1, unit: '{fraction}', quantityKind: 'fluidDynamics.APIGravity' },
     ].forEach((parameter) => {
       expect(() => evaluateParameter(parameter)).toThrow(CadModelError)
     })
