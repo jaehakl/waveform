@@ -30,7 +30,7 @@ function createSnapshots() {
           value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
           errorRate: 0,
           unit: 'S.m-1',
-          quantityKind: 'ElectricConductivity',
+          quantityKind: 'electromagnetism.ElectricConductivity',
         },
       })],
     }),
@@ -67,12 +67,12 @@ function createSnapshots() {
       target: ['structure.surface.sourceTerminal'],
       label: 'Source',
       methodId: 'dc.source-potential',
-      parameters: { voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' } },
+      parameters: { voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
     }, {
       target: ['structure.surface.referenceTerminal'],
       label: 'Reference',
       methodId: 'dc.reference-potential',
-      parameters: { voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' } },
+      parameters: { voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
     }],
     recordedData: () => [{
       target: ['structure.geometry.conductor'],
@@ -85,7 +85,7 @@ function createSnapshots() {
         },
       },
       result: {
-        dtype: 'float64', unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
+        dtype: 'float64', unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity',
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -101,7 +101,7 @@ function createSnapshots() {
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
         },
       },
-      result: { dtype: 'float64', unit: 'A', quantityKind: 'ElectricCurrent' },
+      result: { dtype: 'float64', unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent' },
     }],
   })
   return {

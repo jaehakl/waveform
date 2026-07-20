@@ -103,7 +103,7 @@ function createDcPair(options: {
             ? {}
             : {
                 unit: conductivityUnit,
-                quantityKind: 'ElectricConductivity',
+                quantityKind: 'electromagnetism.ElectricConductivity',
                 basis: identityCartesianBasis,
               }),
         },
@@ -158,7 +158,7 @@ function createDcPair(options: {
             value: sourceVoltage,
             ...(sourceVoltageUnit === null
               ? {}
-              : { unit: sourceVoltageUnit, quantityKind: 'Voltage' }),
+              : { unit: sourceVoltageUnit, quantityKind: 'electromagnetism.Voltage' }),
           },
         },
       },
@@ -172,7 +172,7 @@ function createDcPair(options: {
             value: referenceVoltage,
             ...(referenceVoltageUnit === null
               ? {}
-              : { unit: referenceVoltageUnit, quantityKind: 'Voltage' }),
+              : { unit: referenceVoltageUnit, quantityKind: 'electromagnetism.Voltage' }),
           },
         },
       },
@@ -192,7 +192,7 @@ function createDcPair(options: {
                 ? {}
                 : {
                     unit: densityUnit,
-                    quantityKind: 'ElectricCurrentDensity',
+                    quantityKind: 'electromagnetism.ElectricCurrentDensity',
                     basis: identityCartesianBasis,
                   }),
               axes: [{ length: 3, name: 'component', ticks: ['x', 'y', 'z'] }],
@@ -203,7 +203,7 @@ function createDcPair(options: {
                 ? {}
                 : {
                     unit: densityUnit,
-                    quantityKind: 'ElectricCurrentDensity',
+                    quantityKind: 'electromagnetism.ElectricCurrentDensity',
                     basis: identityCartesianBasis,
                   }),
               axes: [
@@ -229,7 +229,7 @@ function createDcPair(options: {
           dtype: 'float64',
           ...(totalCurrentUnit === null
             ? {}
-            : { unit: totalCurrentUnit, quantityKind: 'ElectricCurrent' }),
+            : { unit: totalCurrentUnit, quantityKind: 'electromagnetism.ElectricCurrent' }),
         },
       },
     ] as never,
@@ -460,7 +460,7 @@ describe('dc-current-density@2.0.0', () => {
       'is not applicable to Quantity Kind Length',
     )
     await expect(runPair(createDcPair({ totalCurrentUnit: 'V' }))).rejects.toThrow(
-      'is not applicable to Quantity Kind ElectricCurrent',
+      'is not applicable to Quantity Kind electromagnetism.ElectricCurrent',
     )
     await expect(runPair(createDcPair({ totalCurrentUnit: null }))).rejects.toThrow(
       'must specify both unit and quantityKind for a float dtype',
@@ -535,7 +535,7 @@ describe('dc-current-density@2.0.0', () => {
     )
     await expect(runPair(createDcPair({
       densityCrossSectionPosition: {
-        dtype: 'float64', value: 0.5, unit: 'V', quantityKind: 'Voltage',
+        dtype: 'float64', value: 0.5, unit: 'V', quantityKind: 'electromagnetism.Voltage',
       },
     }))).rejects.toThrow('must be DimensionlessRatio')
   })
@@ -557,7 +557,7 @@ describe('dc-current-density@2.0.0', () => {
             electricalConductivity: {
               dtype: 'float64',
               value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]], errorRate: 0,
-              unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
+              unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
             },
           })],
         }),

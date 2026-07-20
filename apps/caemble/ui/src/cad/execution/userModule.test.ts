@@ -79,7 +79,7 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain(
       "{ name: 'cross-section u', unit: 'm', quantityKind: 'Length' }",
     )
-    expect(defaultExperimentCode).toContain("quantityKind: 'ElectricCurrent'")
+    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrent'")
     expect(defaultExperimentCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
     expect(defaultExperimentCode).toContain('export default experiment({')
@@ -134,13 +134,13 @@ describe('compiled user module execution', () => {
       'dc.reference-potential',
     ])
     expect(experimentRules?.boundaryConditions.map((rule) => rule.parameters.voltage)).toEqual([
-      { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
-      { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+      { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' },
+      { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'electromagnetism.Voltage' },
     ])
     expect(experimentRules?.recordedData[0].result).toEqual({
       dtype: 'float64',
       unit: 'A.m-2',
-      quantityKind: 'ElectricCurrentDensity',
+      quantityKind: 'electromagnetism.ElectricCurrentDensity',
       basis: identityCartesianBasis,
       axes: [
         { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
@@ -166,7 +166,7 @@ describe('compiled user module execution', () => {
     expect(experimentRules?.recordedData[1].result).toEqual({
       dtype: 'float64',
       unit: 'A',
-      quantityKind: 'ElectricCurrent',
+      quantityKind: 'electromagnetism.ElectricCurrent',
     })
     expect(scene.tree).toMatchObject({ key: 'experiment', label: 'Experiment' })
     expect(scene.parts).toHaveLength(2)
@@ -181,7 +181,7 @@ describe('compiled user module execution', () => {
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
     expect(defaultCode).toContain("new Material('Copper', 'reference'")
     expect(defaultCode).toContain("unit: 'S.m-1'")
-    expect(defaultCode).toContain("quantityKind: 'ElectricConductivity'")
+    expect(defaultCode).toContain("quantityKind: 'electromagnetism.ElectricConductivity'")
     expect(defaultCode).toContain('value: Mat(vars.electricalConductivity)')
     expect(defaultCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultCode).toContain('errorRate: 0.001')
@@ -211,7 +211,7 @@ describe('compiled user module execution', () => {
             dtype: 'float64',
             value: expect.any(Array),
             unit: 'S.m-1',
-            quantityKind: 'ElectricConductivity',
+            quantityKind: 'electromagnetism.ElectricConductivity',
             basis: identityCartesianBasis,
           },
           color: '#d97706',

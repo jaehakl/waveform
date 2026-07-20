@@ -25,7 +25,7 @@ function validInput(): SolverPreflightInput {
               electricalConductivity: {
                 dtype: 'float64',
                 value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
-                unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
+                unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
               },
               futureMaterialParameter: 'preserved',
             },
@@ -102,7 +102,7 @@ function validInput(): SolverPreflightInput {
             label: 'Source',
             methodId: 'dc.source-potential',
             parameters: {
-              voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+              voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' },
             },
           },
           {
@@ -110,7 +110,7 @@ function validInput(): SolverPreflightInput {
             label: 'Reference',
             methodId: 'dc.reference-potential',
             parameters: {
-              voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'Voltage' },
+              voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'electromagnetism.Voltage' },
             },
           },
         ],
@@ -127,7 +127,7 @@ function validInput(): SolverPreflightInput {
             },
             result: {
               dtype: 'float64',
-              unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
+              unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity',
               basis: identityCartesianBasis,
               axes: [
                 { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
@@ -147,7 +147,7 @@ function validInput(): SolverPreflightInput {
             },
             result: {
               dtype: 'float64',
-              unit: 'A', quantityKind: 'ElectricCurrent',
+              unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent',
             },
           },
         ],
@@ -213,12 +213,12 @@ describe('Solver spec validation', () => {
     mutable.structure.scene.parts[0].material!.variables.electricalConductivity = {
       dtype: 'float64',
       value: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-      unit: 'V', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
+      unit: 'V', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
     }
 
     const messages = validateSolverContract(dcCurrentDensitySpec, input).issues.map((issue) => issue.message)
     expect(messages.some((message) => message.includes('is not registered'))).toBe(true)
-    expect(messages.some((message) => message.includes('must be Voltage'))).toBe(true)
+    expect(messages.some((message) => message.includes('must be electromagnetism.Voltage'))).toBe(true)
     expect(messages.some((message) => message.includes('must contain 2 axes'))).toBe(true)
     expect(messages.some((message) => message.includes('is not applicable'))).toBe(true)
   })
@@ -275,7 +275,7 @@ describe('Solver spec validation', () => {
     const emptyQuantityKind = structuredClone(dcCurrentDensitySpec) as unknown as {
       parameters: { relativeTolerance: { value: { quantityKind: string; referenceUnit: string } } }
     }
-    emptyQuantityKind.parameters.relativeTolerance.value.quantityKind = 'APIGravity'
+    emptyQuantityKind.parameters.relativeTolerance.value.quantityKind = 'fluidDynamics.APIGravity'
     emptyQuantityKind.parameters.relativeTolerance.value.referenceUnit = '1'
     expect(() => new SolverRegistry([moduleFor(emptyQuantityKind as unknown as SolverSpec)]))
       .toThrow('has no applicable UCUM units')

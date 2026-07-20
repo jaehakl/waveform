@@ -13,11 +13,11 @@ const rules: EvaluatedExperimentRules = {
       ratio: {
         dtype: 'float64', value: 0.25, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
       },
-      voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' },
+      voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' },
       profile: {
         dtype: 'float32',
         unit: 'V',
-        quantityKind: 'Voltage',
+        quantityKind: 'electromagnetism.Voltage',
         axes: [
           { length: 1, name: 'batch', ticks: ['sample'] },
           { length: 2, name: 'position', ticks: [0, 0.5], unit: 'm', quantityKind: 'Length' },
@@ -45,7 +45,7 @@ const rules: EvaluatedExperimentRules = {
       parameters: { interval: 10 },
       result: {
         dtype: 'float32', axes: [{ name: 'time' }],
-        unit: 'V', quantityKind: 'Voltage',
+        unit: 'V', quantityKind: 'electromagnetism.Voltage',
       },
     },
   ],
@@ -61,7 +61,7 @@ const active = experiment({ lengthUnit: 'mm',
       profile: {
         dtype: 'float32',
         unit: 'V',
-        quantityKind: 'Voltage',
+        quantityKind: 'electromagnetism.Voltage',
         axes: [
           { length: 1, name: 'batch', ticks: ['sample'] },
           { length: 2, name: 'position', ticks: [0, 0.5], unit: 'm', quantityKind: 'Length' },
@@ -96,7 +96,7 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('Initial profile')
     expect(markup).toContain('field.initialize')
     expect(markup).toContain('profile')
-    expect(markup).toContain('float32 · axes 1 × 2 · order 0 · components [] · Voltage · V')
+    expect(markup).toContain('float32 · axes 1 × 2 · order 0 · components [] · electromagnetism.Voltage · V')
     expect(markup).toContain('aria-label="Initial profile profile axes"')
     expect(markup).toContain('batch')
     expect(markup).toContain('sample')
@@ -114,7 +114,7 @@ describe('ExperimentalParameters', () => {
     expect(markup).toContain('>ratio</code>')
     expect(markup).toContain('0.25 · float64 · DimensionlessRatio · {fraction}')
     expect(markup).toContain('>voltage</code>')
-    expect(markup).toContain('1 · float64 · Voltage · mV')
+    expect(markup).toContain('1 · float64 · electromagnetism.Voltage · mV')
     expect(markup).not.toContain('Result value')
     expect(markup.match(/<textarea/g)).toHaveLength(1)
   })

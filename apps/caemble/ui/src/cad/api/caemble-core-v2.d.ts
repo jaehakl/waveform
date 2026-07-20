@@ -1,4 +1,4 @@
-// @caemble/core/v2 declaration version: 2.0.2
+// @caemble/core/v2 declaration version: 2.1.0
 export {
   Mat,
   Material,
@@ -31,7 +31,9 @@ export type {
   MaterialDataValueDescriptor,
   MaterialVariables,
   MatrixValue,
+  QuantityKindDomain,
   QuantityKindName,
+  QuantityKindNameForDomain,
   RecordedDataResult,
   RecordedDataResultAxis,
   RecordedDataRule,
@@ -156,14 +158,14 @@ export type DcCurrentDensityBoundaryConditionsRule =
     'dc.source-potential',
     `structure.surface.${string}`,
     Readonly<{
-        voltage: Float64Parameter<'Voltage'>
+        voltage: Float64Parameter<'electromagnetism.Voltage'>
       }>
   >
   | SolverRule<
     'dc.reference-potential',
     `structure.surface.${string}`,
     Readonly<{
-        voltage: Float64Parameter<'Voltage'>
+        voltage: Float64Parameter<'electromagnetism.Voltage'>
       }>
   >
 
@@ -177,7 +179,7 @@ export type DcCurrentDensityRecordedDataRule =
   > & Readonly<{ result: Readonly<{
       dtype: 'float64'
       unit: UcumUnit
-      quantityKind: 'ElectricCurrentDensity'
+      quantityKind: 'electromagnetism.ElectricCurrentDensity'
       basis?: CartesianBasis
       axes: readonly [RecordedDataResultAxis, RecordedDataResultAxis]
     }> }>
@@ -190,13 +192,13 @@ export type DcCurrentDensityRecordedDataRule =
   > & Readonly<{ result: Readonly<{
       dtype: 'float64'
       unit: UcumUnit
-      quantityKind: 'ElectricCurrent'
+      quantityKind: 'electromagnetism.ElectricCurrent'
       basis?: never
       axes?: readonly RecordedDataResultAxis[]
     }> }>
 
 export type DcCurrentDensityConductorMaterialVariables = Readonly<{
-    electricalConductivity: MaterialTensorFloat64Parameter<'ElectricConductivity'>
+    electricalConductivity: MaterialTensorFloat64Parameter<'electromagnetism.ElectricConductivity'>
   }>
 
 export type DcCurrentDensityOptions<Schema extends VarsSchemaDefinition> = StructureDefinitionOptions<Schema> & Readonly<{

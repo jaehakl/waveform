@@ -334,7 +334,7 @@ describe('JscadViewer modes', () => {
           parameters: {},
           result: {
             dtype: 'float64',
-            unit: 'A', quantityKind: 'ElectricCurrent',
+            unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent',
           },
         }]}
         selected={null}

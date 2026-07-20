@@ -64,7 +64,7 @@ export const dcCurrentDensitySpec = Object.freeze({
           description: 'Positive isotropic electrical-conductivity tensor σI in the global identity basis.',
           value: {
             dtype: 'float64',
-            quantityKind: 'ElectricConductivity',
+            quantityKind: 'electromagnetism.ElectricConductivity',
             referenceUnit: 'S.m-1',
             referenceBasis: identityCartesianBasis,
           },
@@ -102,7 +102,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: {
           voltage: {
             description: 'Source terminal electric potential.',
-            value: { dtype: 'float64', quantityKind: 'Voltage', referenceUnit: 'V' },
+            value: { dtype: 'float64', quantityKind: 'electromagnetism.Voltage', referenceUnit: 'V' },
           },
         },
       },
@@ -115,7 +115,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: {
           voltage: {
             description: 'Reference terminal electric potential.',
-            value: { dtype: 'float64', quantityKind: 'Voltage', referenceUnit: 'V' },
+            value: { dtype: 'float64', quantityKind: 'electromagnetism.Voltage', referenceUnit: 'V' },
           },
         },
       },
@@ -130,7 +130,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: { crossSectionPosition },
         result: {
           dtype: 'float64',
-          quantityKind: 'ElectricCurrentDensity',
+          quantityKind: 'electromagnetism.ElectricCurrentDensity',
           referenceUnit: 'A.m-2',
           referenceBasis: identityCartesianBasis,
           axes: [
@@ -148,7 +148,7 @@ export const dcCurrentDensitySpec = Object.freeze({
         parameters: { crossSectionPosition },
         result: {
           dtype: 'float64',
-          quantityKind: 'ElectricCurrent',
+          quantityKind: 'electromagnetism.ElectricCurrent',
           referenceUnit: 'A',
         },
       },

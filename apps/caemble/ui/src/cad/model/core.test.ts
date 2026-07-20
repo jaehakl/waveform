@@ -35,11 +35,11 @@ function assertQuantityMetadataTypes() {
   }
   const vectorData: DataValueDescriptor = {
     dtype: 'float64', value: [1, 2, 3],
-    unit: 'N', quantityKind: 'Force', basis: identityCartesianBasis,
+    unit: 'N', quantityKind: 'mechanics.Force', basis: identityCartesianBasis,
   }
   const vectorWithoutBasis: DataValueDescriptor = {
     dtype: 'float64', value: [1, 2, 3],
-    unit: 'N', quantityKind: 'Force',
+    unit: 'N', quantityKind: 'mechanics.Force',
   }
   // @ts-expect-error unknown Quantity Kind names must be rejected
   const unknownQuantityKind: QuantityKindName = 'NotAQuantityKind'
@@ -301,13 +301,13 @@ describe('Experiment and Setup', () => {
               dtype: 'float64',
               value: vars.initialValue as number,
               unit: 'V',
-              quantityKind: 'Voltage',
+              quantityKind: 'electromagnetism.Voltage',
             },
             profile: {
               dtype: 'float32',
               axes: [{ length: 2 }, { length: 2 }],
               unit: 'V',
-              quantityKind: 'Voltage',
+              quantityKind: 'electromagnetism.Voltage',
               value: profile,
             },
           },
@@ -354,13 +354,13 @@ describe('Experiment and Setup', () => {
       label: 'Shared label',
       methodId: 'field.apply',
       parameters: {
-        initialValue: { dtype: 'float64', value: 0.75, unit: 'V', quantityKind: 'Voltage' },
+        initialValue: { dtype: 'float64', value: 0.75, unit: 'V', quantityKind: 'electromagnetism.Voltage' },
       },
     })
     expect(rules.initializations[0].parameters.profile).toEqual({
       dtype: 'float32',
       unit: 'V',
-      quantityKind: 'Voltage',
+      quantityKind: 'electromagnetism.Voltage',
       axes: [
         { length: 2, name: 'axis 0', ticks: [0, 1] },
         { length: 2, name: 'axis 1', ticks: [0, 1] },
@@ -429,8 +429,8 @@ describe('Experiment and Setup', () => {
     })).toEqual({
       dtype: 'float64', value: 4, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
     })
-    expect(evaluateParameter({ dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage' })).toEqual({
-      dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'Voltage',
+    expect(evaluateParameter({ dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' })).toEqual({
+      dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage',
     })
 
     ;[
@@ -448,10 +448,10 @@ describe('Experiment and Setup', () => {
       { dtype: 'int64', value: 1.5 },
       { dtype: 'float64', value: Number.NEGATIVE_INFINITY, unit: '{fraction}', quantityKind: 'DimensionlessRatio' },
       { dtype: 'float64', value: 1 },
-      { dtype: 'float64', value: 1, unit: 'not-a-unit', quantityKind: 'Voltage' },
+      { dtype: 'float64', value: 1, unit: 'not-a-unit', quantityKind: 'electromagnetism.Voltage' },
       { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'NotAQuantityKind' },
-      { dtype: 'float64', value: 1, unit: 'm', quantityKind: 'Voltage' },
-      { dtype: 'float64', value: 1, unit: '1', quantityKind: 'APIGravity' },
+      { dtype: 'float64', value: 1, unit: 'm', quantityKind: 'electromagnetism.Voltage' },
+      { dtype: 'float64', value: 1, unit: '1', quantityKind: 'fluidDynamics.APIGravity' },
     ].forEach((parameter) => {
       expect(() => evaluateParameter(parameter)).toThrow(CadModelError)
     })
@@ -551,7 +551,7 @@ describe('Experiment and Setup', () => {
             dtype: 'float32',
             axes: [{ name: 'time' }, { length: 2, name: 'component', ticks: ['a', 'b'] }],
             unit: 'V',
-            quantityKind: 'Voltage',
+            quantityKind: 'electromagnetism.Voltage',
           },
         },
         {
@@ -560,7 +560,7 @@ describe('Experiment and Setup', () => {
           methodId: 'record.vector',
           parameters: {},
           result: {
-            dtype: 'float64', unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity',
+            dtype: 'float64', unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity',
           },
         },
       ],
@@ -673,14 +673,14 @@ describe('Material and global vars', () => {
     const vector = normalizeDataValueDescriptor({
       dtype: 'float64',
       unit: 'A.m-2',
-      quantityKind: 'ElectricCurrentDensity',
+      quantityKind: 'electromagnetism.ElectricCurrentDensity',
       value: [1, 2, 3],
     })
     const matrixSamples = normalizeDataValueDescriptor({
       dtype: 'float64',
       axes: [{ length: 2 }],
       unit: 'S.m-1',
-      quantityKind: 'ElectricConductivity',
+      quantityKind: 'electromagnetism.ElectricConductivity',
       value: [
         [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
         [[2, 0, 0], [0, 2, 0], [0, 0, 2]],
@@ -696,27 +696,27 @@ describe('Material and global vars', () => {
 
     expect(normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', value: [1, 2, 3],
+      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', value: [1, 2, 3],
     }).basis).toEqual(identityCartesianBasis)
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: identityCartesianBasis,
+      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', basis: identityCartesianBasis,
       value: 1,
     })).toThrow('actual shape []; expected shape [3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64', axes: [{ length: 2 }],
-      unit: 'A.m-2', quantityKind: 'ElectricCurrentDensity', basis: identityCartesianBasis,
+      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', basis: identityCartesianBasis,
       value: [[1, 2, 3], [4, 5]],
     })).toThrow('actual shape [2, ragged [3] | [2]]; expected shape [2,3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'S.m-1', quantityKind: 'ElectricConductivity', basis: identityCartesianBasis,
+      unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
       value: [[1, 0, 0], [0, 1, 0]],
     })).toThrow('expected shape [3,3]')
     expect(() => normalizeDataValueDescriptor({
       dtype: 'float64',
-      unit: 'V', quantityKind: 'Voltage', basis: identityCartesianBasis, value: 1,
-    })).toThrow('basis is not allowed for scalar Quantity Kind Voltage')
+      unit: 'V', quantityKind: 'electromagnetism.Voltage', basis: identityCartesianBasis, value: 1,
+    })).toThrow('basis is not allowed for scalar Quantity Kind electromagnetism.Voltage')
   })
 
   it('accepts basis tolerance but rejects non-finite, non-orthogonal, and left-handed bases', () => {
@@ -724,7 +724,7 @@ describe('Material and global vars', () => {
     const descriptor = {
       dtype: 'float64',
       unit: 'N',
-      quantityKind: 'Force',
+      quantityKind: 'mechanics.Force',
       value: [1, 2, 3],
     }
     expect(normalizeDataValueDescriptor({
@@ -764,36 +764,36 @@ describe('Material and global vars', () => {
 
   it('rejects every legacy descriptor field with a dtype/axes migration error', () => {
     expect(() => normalizeDataValueDescriptor({
-      type: 'tensor', dtype: 'float64', unit: 'V', quantityKind: 'Voltage', value: 1,
+      type: 'tensor', dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: 1,
     })).toThrow('.type is obsolete in the dtype/axes contract; use dtype')
     expect(() => normalizeDataValueDescriptor({
-      shape: [1], dtype: 'float64', unit: 'V', quantityKind: 'Voltage', value: [1],
+      shape: [1], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
     })).toThrow('.shape is obsolete in the dtype/axes contract; move every outer dimension to axes with a length')
     expect(() => normalizeDataValueDescriptor({
       dimension: 1, dtype: 'float64', axes: [{ length: 1 }],
-      unit: 'V', quantityKind: 'Voltage', value: [1],
+      unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
     })).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
     expect(() => normalizeDataValueDescriptor({
       sampleDimension: 1, dtype: 'float64', axes: [{ length: 1 }],
-      unit: 'V', quantityKind: 'Voltage', value: [1],
+      unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
     } as never)).toThrow('.sampleDimension is obsolete in the dtype/axes contract')
     expect(() => normalizeDataValueDescriptor({
-      sampleShape: [1], dtype: 'float64', unit: 'V', quantityKind: 'Voltage', value: [1],
+      sampleShape: [1], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
     } as never)).toThrow('.sampleShape is obsolete in the dtype/axes contract')
     expect(() => normalizeDataValueDescriptor({
-      sampleAxes: [{}], dtype: 'float64', unit: 'V', quantityKind: 'Voltage', value: [1],
+      sampleAxes: [{}], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
     } as never)).toThrow('.sampleAxes is obsolete in the dtype/axes contract; use axes')
     expect(() => new Material('Legacy', {
       field: {
         dimension: 1, dtype: 'float64', axes: [{ length: 1 }], value: [1], errorRate: 0,
-        unit: 'V', quantityKind: 'Voltage',
+        unit: 'V', quantityKind: 'electromagnetism.Voltage',
       } as never,
     })).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
   })
 
   it('normalizes required top-level Material float error rates and preserves other values', () => {
     const material = new Material('Measured', {
-      scalar: { dtype: 'float64', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'Voltage' },
+      scalar: { dtype: 'float64', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'electromagnetism.Voltage' },
       field: {
         dtype: 'float32',
         axes: [
@@ -801,7 +801,7 @@ describe('Material and global vars', () => {
           { length: 2, name: 'column', ticks: ['a', 'b'] },
         ],
         unit: 'V',
-        quantityKind: 'Voltage',
+        quantityKind: 'electromagnetism.Voltage',
         value: [[1.5, -2]],
         errorRate: 0.1,
       },
@@ -810,11 +810,11 @@ describe('Material and global vars', () => {
     })
 
     expect(material.variables).toMatchObject({
-      scalar: { dtype: 'float64', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'Voltage' },
+      scalar: { dtype: 'float64', value: 10, errorRate: 0.2, unit: 'V', quantityKind: 'electromagnetism.Voltage' },
       field: {
         dtype: 'float32',
         unit: 'V',
-        quantityKind: 'Voltage',
+        quantityKind: 'electromagnetism.Voltage',
         value: [[1.5, -2]],
         errorRate: 0.1,
       },
@@ -870,7 +870,7 @@ describe('Material and global vars', () => {
       .mockReturnValue(0.25)
     try {
       const material = new Material('Variable', {
-        scalar: { dtype: 'float64', value: 100, errorRate: 0.1, unit: 'V', quantityKind: 'Voltage' },
+        scalar: { dtype: 'float64', value: 100, errorRate: 0.1, unit: 'V', quantityKind: 'electromagnetism.Voltage' },
         fixed: {
           dtype: 'float64', value: 25, errorRate: 0,
           unit: '{fraction}', quantityKind: 'DimensionlessRatio',
@@ -902,7 +902,7 @@ describe('Material and global vars', () => {
       const setupReplay = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
 
       expect(direct.scalar).toEqual({
-        dtype: 'float64', value: 100, unit: 'V', quantityKind: 'Voltage',
+        dtype: 'float64', value: 100, unit: 'V', quantityKind: 'electromagnetism.Voltage',
       })
       expect(first).toEqual(replay)
       expect(setupFirst).toEqual(setupReplay)
@@ -1001,13 +1001,13 @@ describe('Material and global vars', () => {
     expect(() => new Material('Core', {
       conductivity: {
         dtype: 'float64', value: 1.5, errorRate: 0,
-        unit: 'S/m', quantityKind: 'ElectricConductivity',
+        unit: 'S/m', quantityKind: 'electromagnetism.ElectricConductivity',
       } as never,
-    })).toThrow('S/m is not applicable to Quantity Kind ElectricConductivity')
+    })).toThrow('S/m is not applicable to Quantity Kind electromagnetism.ElectricConductivity')
     expect(() => new Material('Core', {
       conductivity: {
         dtype: 'float64', value: 1.5, errorRate: 0,
-        unit: 'S.m-1', quantityKind: 'ElectricConductivity',
+        unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity',
       } as never,
     })).toThrow('actual shape []; expected shape [3,3]')
     expect(() => new Material('Core', {

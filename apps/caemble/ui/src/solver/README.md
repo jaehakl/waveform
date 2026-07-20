@@ -45,7 +45,7 @@ Undeclared parameter keys are intentionally accepted and preserved. This permits
 
 Every leaf spec declares a `dtype`, optional non-empty `axes`, and dtype-appropriate constraints. Supported dtypes are `bool`, `string`, signed/unsigned 8/16/32/64-bit integers, and float16/32/64. Use numeric bounds for public numeric limits and string constraints for string values. Raw booleans, strings, and safe integers are accepted as shorthand when they match the declared dtype; explicit values always use `{ dtype, value, axes?, ... }`. Array, object, and null leaves are not part of the parameter contract.
 
-Declared axes and physical components are separate. A fixed axis requires a positive safe-integer `length`; omitted names and ticks normalize to `axis n` and zero-based indices, and explicit `ticks.length` must equal `length`. Omitting `axes` means one Quantity value, while `axes: []` is invalid. Every QUDT Quantity Kind has an exhaustive Caemble tensor order, whose component shape is `[3]` repeated by that order. Stored value shape is therefore the declared axis lengths followed by `componentShape`. A single vector or matrix omits `axes` and stores its complete component value.
+Declared axes and physical components are separate. A fixed axis requires a positive safe-integer `length`; omitted names and ticks normalize to `axis n` and zero-based indices, and explicit `ticks.length` must equal `length`. Omitting `axes` means one Quantity value, while `axes: []` is invalid. Every Quantity Kind has an explicit physical domain and exhaustive tensor order, whose component shape is `[3]` repeated by that order. Stored value shape is therefore the declared axis lengths followed by `componentShape`. A single vector or matrix omits `axes` and stores its complete component value.
 
 ## Quantities
 
@@ -53,7 +53,7 @@ Every float descriptor, float result, and unit-bearing axis in the external cont
 
 ```ts
 {
-  quantityKind: 'Voltage',
+  quantityKind: 'electromagnetism.Voltage',
   referenceUnit: 'V',
 }
 ```
@@ -62,7 +62,7 @@ Every float descriptor, float result, and unit-bearing axis in the external cont
 
 Every order-1 or higher quantity spec additionally declares `referenceBasis`, a finite orthonormal right-handed `CartesianBasis`. An omitted caller basis is normalized to the identity Cartesian basis; the resulting basis must match `referenceBasis` element for element because solver validation does not rotate components automatically. Scalar Quantity Kinds forbid a basis. Tensor unit conversions must be zero-preserving linear conversions, while affine conversions are rejected.
 
-Do not accept equivalent UCUM spellings that are absent from the applicable list. For example, use QUDT's `S.m-1` spelling for `ElectricConductivity`, not `S/m`.
+Do not accept equivalent UCUM spellings that are absent from the applicable list. For example, use the catalog's `S.m-1` spelling for `electromagnetism.ElectricConductivity`, not `S/m`.
 
 ## Methods, targets, and Materials
 

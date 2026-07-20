@@ -19,9 +19,9 @@ function rule(
 ): RecordedDataRule {
   const quantityMetadata = dtype.startsWith('float')
     ? unit === 'A'
-      ? { unit, quantityKind: 'ElectricCurrent' as const }
+      ? { unit, quantityKind: 'electromagnetism.ElectricCurrent' as const }
       : unit === 'A.m-2'
-        ? { unit, quantityKind: 'ElectricCurrentDensity' as const, basis: identityCartesianBasis }
+        ? { unit, quantityKind: 'electromagnetism.ElectricCurrentDensity' as const, basis: identityCartesianBasis }
         : { unit: '{fraction}', quantityKind: 'DimensionlessRatio' as const }
     : {}
   return {
@@ -94,7 +94,7 @@ describe('RecordedDataResults', () => {
       result: {
         dtype: 'float32',
         unit: 'A',
-        quantityKind: 'ElectricCurrent',
+        quantityKind: 'electromagnetism.ElectricCurrent',
         axes: [{ length: 3, name: 'position', ticks: [0, 0.5, 1], unit: 'm', quantityKind: 'Length' }],
       },
     }

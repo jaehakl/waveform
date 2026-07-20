@@ -68,7 +68,9 @@ export type {
 export type { UcumUnit } from './units'
 export type {
   CartesianBasis,
+  QuantityKindDomain,
   QuantityKindName,
+  QuantityKindNameForDomain,
   QuantityMetadata,
   ScalarQuantityKindName,
   TensorQuantityKindName,

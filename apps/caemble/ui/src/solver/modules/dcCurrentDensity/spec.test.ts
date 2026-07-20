@@ -13,7 +13,7 @@ describe('dc-current-density spec', () => {
     })
     expect(dcCurrentDensitySpec.parameters).not.toHaveProperty('conductivityVariable')
     expect(dcCurrentDensitySpec.materials[0].parameters.electricalConductivity.value).toMatchObject({
-      quantityKind: 'ElectricConductivity',
+      quantityKind: 'electromagnetism.ElectricConductivity',
       referenceUnit: 'S.m-1',
       dtype: 'float64',
       referenceBasis: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
@@ -37,7 +37,7 @@ describe('dc-current-density spec', () => {
     })
     expect(dcCurrentDensitySpec.methods.initializations[0].parameters.gridShape.value).not.toHaveProperty('shape')
     expect(dcCurrentDensitySpec.methods.recordedData[0].result).toMatchObject({
-      quantityKind: 'ElectricCurrentDensity',
+      quantityKind: 'electromagnetism.ElectricCurrentDensity',
       referenceUnit: 'A.m-2',
       referenceBasis: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
       axes: [
@@ -46,7 +46,7 @@ describe('dc-current-density spec', () => {
       ],
     })
     expect(dcCurrentDensitySpec.methods.recordedData[1].result).toMatchObject({
-      quantityKind: 'ElectricCurrent',
+      quantityKind: 'electromagnetism.ElectricCurrent',
       referenceUnit: 'A',
     })
   })

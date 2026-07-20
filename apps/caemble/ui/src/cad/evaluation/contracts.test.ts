@@ -5,6 +5,7 @@ import monacoSetupSource from '../../editor/monacoSetup.ts?raw'
 import { cadElementCatalog } from '../catalog'
 import * as cadFacade from '../index'
 import { QuantityKind } from '../../quantitykind'
+import { quantityKindDomains } from '../../quantitykind/data'
 import * as quantityKindFacade from '../../quantitykind'
 import { cadElementDefinitions, createCadElementRegistry } from './registry'
 import type { CadElementDefinition } from './types'
@@ -77,13 +78,20 @@ describe('CAD registry contracts', () => {
 
   it('keeps the Monaco QuantityKindName union synchronized with the generated facade', () => {
     const declaration = coreDeclarations.match(
-      /export type QuantityKindName =([\s\S]*?)export type TensorQuantityKindName/,
+      /export type QuantityKindName =([\s\S]*?)export type QuantityKindDomain/,
     )?.[1]
     const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])]
       .map((match) => match[1])
 
-    expect(declarationNames).toHaveLength(1_219)
+    expect(declarationNames).toHaveLength(1_231)
     expect(declarationNames.sort()).toEqual(Object.keys(QuantityKind).sort())
+
+    const domainDeclaration = coreDeclarations.match(
+      /export type QuantityKindDomain =([\s\S]*?)export type QuantityKindNameForDomain/,
+    )?.[1]
+    const declarationDomains = [...(domainDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])]
+      .map((match) => match[1])
+    expect(declarationDomains).toEqual(quantityKindDomains)
 
     const tensorDeclaration = coreDeclarations.match(
       /export type TensorQuantityKindName =([\s\S]*?)export type ScalarQuantityKindName/,

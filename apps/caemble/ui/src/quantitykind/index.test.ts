@@ -1,66 +1,221 @@
 import { createUcumService } from '@fhir-toolkit/ucum'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { CadModelError } from '../cad/model/errors'
-import { quantityKindData } from './data'
+import { identityCartesianBasis } from './identityBasis'
+import { quantityKindData, quantityKindDomains } from './data'
 import {
   QuantityKind,
   type ApplicableUnit,
+  type QuantityKindComponentValue,
   type QuantityKindDefinition,
+  type QuantityKindDomain,
+  type QuantityKindName,
+  type QuantityKindNameForDomain,
 } from './index'
 import {
   componentShapeForTensorOrder,
+  normalizeQuantityMetadata,
   transformQuantityComponents,
 } from './runtime'
 
-function assertCompileTimeUnitTypes() {
+const addedBaseNames = new Set([
+  'CapacitancePerArea',
+  'ElectricPotentialPerTemperature',
+  'FlowResistivity',
+  'PiezoelectricChargeCoefficient',
+  'PiezoelectricVoltageCoefficient',
+  'PiezoelectricStressCoefficient',
+  'PyroelectricCoefficient',
+  'PiezoresistiveCoefficient',
+  'ElectrostrictionCoefficient',
+  'MagnetoelectricCoefficient',
+  'StiffnessPerArea',
+  'ThermalResistancePerArea',
+])
+
+function assertCompileTimeContracts() {
   // @ts-expect-error seconds are not an applicable Length unit
   QuantityKind.Length.transform(1, 's', 'm')
+  // @ts-expect-error domain-specific legacy names are not QuantityKind names
+  const legacyName: QuantityKindName = 'Stress'
+  // @ts-expect-error domain-specific legacy properties are absent
+  QuantityKind.Stress.tensorOrder()
+  const mechanicsName: QuantityKindNameForDomain<'mechanics'> = 'mechanics.Stress'
+  // @ts-expect-error a general QuantityKind is not owned by mechanics
+  const wrongDomain: QuantityKindNameForDomain<'mechanics'> = 'Length'
+  void [legacyName, mechanicsName, wrongDomain]
 }
-void assertCompileTimeUnitTypes
+void assertCompileTimeContracts
 
 describe('QuantityKind', () => {
-  it('has one explicit, frozen tensor order for every QUDT 3.4 name', () => {
-    const entries = Object.values(quantityKindData)
+  it('contains exactly 1,231 unique definitions split across the fixed physical domains', () => {
+    const entries = Object.entries(quantityKindData)
+    const baseNames = entries.map(([name, entry]) => (
+      entry.domain === 'general' ? name : name.slice(entry.domain.length + 1)
+    ))
 
-    expect(entries).toHaveLength(1_219)
+    expect(entries).toHaveLength(1_231)
+    expect(new Set(baseNames)).toHaveLength(1_231)
+    expect(quantityKindDomains).toEqual([
+      'general',
+      'geometry',
+      'kinematics',
+      'mechanics',
+      'fluidDynamics',
+      'thermodynamics',
+      'transport',
+      'electromagnetism',
+      'coupledPhenomena',
+      'optics',
+      'acoustics',
+      'chemistry',
+      'materials',
+      'atomicNuclear',
+      'lifeSciences',
+      'earthSpace',
+      'informationComputing',
+      'economicsOperations',
+    ])
+    expect(Object.isFrozen(quantityKindDomains)).toBe(true)
     expect(Object.isFrozen(quantityKindData)).toBe(true)
-    for (const entry of entries) {
+
+    for (const [name, entry] of entries) {
+      const baseName = entry.domain === 'general' ? name : name.slice(entry.domain.length + 1)
+      const expectedName = entry.domain === 'general' ? baseName : `${entry.domain}.${baseName}`
+      expect(name).toBe(expectedName)
       expect(Object.isFrozen(entry)).toBe(true)
-      expect(Object.prototype.hasOwnProperty.call(entry, 'tensorOrder')).toBe(true)
+      expect(Object.isFrozen(entry.applicableUnits)).toBe(true)
       expect(Number.isSafeInteger(entry.tensorOrder)).toBe(true)
       expect(entry.tensorOrder).toBeGreaterThanOrEqual(0)
-      expect(entry.tensorOrder).toBeLessThanOrEqual(2)
+      expect(entry.tensorOrder).toBeLessThanOrEqual(4)
     }
+
+    const preservedBaseNames = baseNames.filter((name) => !addedBaseNames.has(name)).sort()
+    expect(preservedBaseNames).toHaveLength(1_219)
+    const preservedNameChecksum = [...preservedBaseNames.join('\n')].reduce(
+      (hash, character) => Math.imul(hash ^ character.charCodeAt(0), 16_777_619) >>> 0,
+      2_166_136_261,
+    )
+    expect(preservedNameChecksum).toBe(552_131_150)
+    expect(baseNames.filter((name) => addedBaseNames.has(name))).toHaveLength(12)
   })
 
-  it('fixes representative and text-ambiguous scalar, vector, and matrix orders', () => {
-    expect(QuantityKind.Length.tensorOrder()).toBe(0)
+  it('exposes one flat API with physical-domain and domain-name types', () => {
+    const entries = Object.values(QuantityKind)
+
+    expect(entries).toHaveLength(1_231)
+    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_231)
+    for (const [name, entry] of Object.entries(QuantityKind)) expect(entry.name).toBe(name)
+    expect(QuantityKind['mechanics.CENTER-OF-MASS'].name).toBe('mechanics.CENTER-OF-MASS')
+    expect(Object.isFrozen(QuantityKind)).toBe(true)
+    expect(Object.isFrozen(QuantityKind.Length)).toBe(true)
+    expect(QuantityKind.Length.domain()).toBe('general')
+    expect(QuantityKind['mechanics.Stress'].domain()).toBe('mechanics')
+    expect(Object.prototype.hasOwnProperty.call(QuantityKind, 'Stress')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(QuantityKind, 'ElectricConductivity')).toBe(false)
+    expect(() => normalizeQuantityMetadata({ unit: 'Pa', quantityKind: 'Stress' }, 'Legacy stress'))
+      .toThrow('must be a known Quantity Kind name')
+    expect(() => normalizeQuantityMetadata({
+      unit: 'S.m-1',
+      quantityKind: 'ElectricConductivity',
+    }, 'Legacy conductivity')).toThrow('must be a known Quantity Kind name')
+
+    expectTypeOf(QuantityKind.Length).toMatchTypeOf<QuantityKindDefinition<'Length'>>()
+    expectTypeOf(QuantityKind['mechanics.Stress'].domain()).toEqualTypeOf<'mechanics'>()
+    expectTypeOf<QuantityKindDomain>().toEqualTypeOf<(typeof quantityKindDomains)[number]>()
+    expectTypeOf<ApplicableUnit<'fluidDynamics.APIGravity'>>().toEqualTypeOf<never>()
+  })
+
+  it('preserves representative scalar, vector, and matrix orders', () => {
     expect(QuantityKind.Length.componentShape()).toEqual([])
-    expect(QuantityKind.Force.tensorOrder()).toBe(1)
-    expect(QuantityKind.Force.componentShape()).toEqual([3])
-    expect(QuantityKind.ElectricConductivity.tensorOrder()).toBe(2)
-    expect(QuantityKind.ElectricConductivity.componentShape()).toEqual([3, 3])
-    expect(QuantityKind.Stress.tensorOrder()).toBe(2)
-    expect(QuantityKind.Strain.tensorOrder()).toBe(2)
-    expect(QuantityKind.ElectricQuadrupoleMoment.tensorOrder()).toBe(2)
-
+    expect(QuantityKind['mechanics.Force'].componentShape()).toEqual([3])
+    expect(QuantityKind['electromagnetism.ElectricConductivity'].componentShape()).toEqual([3, 3])
+    expect(QuantityKind['mechanics.Stress'].tensorOrder()).toBe(2)
+    expect(QuantityKind['mechanics.Strain'].tensorOrder()).toBe(2)
+    expect(QuantityKind['electromagnetism.ElectricQuadrupoleMoment'].tensorOrder()).toBe(2)
     expect(QuantityKind.AngularFrequency.tensorOrder()).toBe(0)
-    expect(QuantityKind.BendingMomentOfForce.tensorOrder()).toBe(0)
-    expect(QuantityKind.HorizontalVelocity.tensorOrder()).toBe(0)
-    expect(QuantityKind.MaxOperatingThrust.tensorOrder()).toBe(0)
-    expect(QuantityKind.ParticleCurrent.tensorOrder()).toBe(0)
+    expect(QuantityKind['mechanics.BendingMomentOfForce'].tensorOrder()).toBe(0)
+    expect(QuantityKind['earthSpace.HorizontalVelocity'].tensorOrder()).toBe(0)
+    expect(QuantityKind['atomicNuclear.ParticleCurrent'].tensorOrder()).toBe(0)
     expect(QuantityKind.Pressure.tensorOrder()).toBe(0)
-    expect(QuantityKind.RotationalVelocity.tensorOrder()).toBe(0)
-    expect(QuantityKind.Tilt.tensorOrder()).toBe(0)
-    expect(QuantityKind.VolumeStrain.tensorOrder()).toBe(0)
+    expect(QuantityKind['geometry.Tilt'].tensorOrder()).toBe(0)
 
-    expectTypeOf(QuantityKind.Length.tensorOrder()).toEqualTypeOf<0>()
-    expectTypeOf(QuantityKind.Force.tensorOrder()).toEqualTypeOf<1>()
-    expectTypeOf(QuantityKind.ElectricConductivity.tensorOrder()).toEqualTypeOf<2>()
-    expectTypeOf(QuantityKind.Force.componentShape()).toEqualTypeOf<readonly [3]>()
-    expectTypeOf(QuantityKind.ElectricConductivity.componentShape())
+    expectTypeOf(QuantityKind['mechanics.Force'].componentShape())
+      .toEqualTypeOf<readonly [3]>()
+    expectTypeOf(QuantityKind['electromagnetism.ElectricConductivity'].componentShape())
       .toEqualTypeOf<readonly [3, 3]>()
-    expect(Object.isFrozen(QuantityKind.Force.componentShape())).toBe(true)
+  })
+
+  it('supports the new scalar and rank-1 through rank-4 definitions without Voigt contraction', () => {
+    expect(QuantityKind['electromagnetism.CapacitancePerArea'].componentShape()).toEqual([])
+    expect(QuantityKind['acoustics.FlowResistivity'].componentShape()).toEqual([])
+    expect(QuantityKind['mechanics.StiffnessPerArea'].componentShape()).toEqual([])
+    expect(QuantityKind['thermodynamics.ThermalResistancePerArea'].componentShape()).toEqual([])
+    expect(QuantityKind['coupledPhenomena.PyroelectricCoefficient'].componentShape()).toEqual([3])
+    expect(QuantityKind['coupledPhenomena.MagnetoelectricCoefficient'].componentShape()).toEqual([3, 3])
+    expect(QuantityKind['coupledPhenomena.PiezoelectricChargeCoefficient'].componentShape())
+      .toEqual([3, 3, 3])
+    expect(QuantityKind['coupledPhenomena.PiezoelectricVoltageCoefficient'].componentShape())
+      .toEqual([3, 3, 3])
+    expect(QuantityKind['coupledPhenomena.PiezoelectricStressCoefficient'].componentShape())
+      .toEqual([3, 3, 3])
+    expect(QuantityKind['coupledPhenomena.PiezoresistiveCoefficient'].componentShape())
+      .toEqual([3, 3, 3, 3])
+    expect(QuantityKind['coupledPhenomena.ElectrostrictionCoefficient'].componentShape())
+      .toEqual([3, 3, 3, 3])
+
+    const expectedUnits = {
+      'electromagnetism.CapacitancePerArea': ['F.m-2', 'mF.m-2', 'uF.cm-2', 'uF.m-2', 'nF.cm-2', 'nF.m-2', 'pF.cm-2', 'pF.m-2'],
+      'acoustics.FlowResistivity': ['Pa.s.m-2', 'kPa.s.m-2', 'N.s.m-4', 'kN.s.m-4'],
+      'mechanics.StiffnessPerArea': ['N.m-3', 'kN.m-3', 'MN.m-3', 'N.mm-3', 'kN.mm-3'],
+      'thermodynamics.ThermalResistancePerArea': ['[degF].h.[ft_i]2.[Btu_IT]-1', '[degF].h.[ft_i]2.[Btu_th]-1', '[ft_i]2.h.[degF].[Btu_IT]-1', 'm2.h.Cel.kcal_IT-1', 'm2.K.W-1'],
+      'coupledPhenomena.ElectricPotentialPerTemperature': ['V.K-1', 'mV.K-1', 'uV.K-1'],
+      'coupledPhenomena.PiezoelectricChargeCoefficient': ['C.N-1', 'mC.N-1', 'uC.N-1', 'nC.N-1', 'pC.N-1', 'm.V-1', 'um.V-1', 'nm.V-1', 'pm.V-1'],
+      'coupledPhenomena.PiezoelectricVoltageCoefficient': ['V.m.N-1', 'mV.m.N-1', 'V.mm.N-1', 'm2.C-1', 'cm2.C-1', 'mm2.C-1'],
+      'coupledPhenomena.PiezoelectricStressCoefficient': ['C.m-2', 'mC.m-2', 'uC.m-2', 'N.V-1.m-1', 'N.kV-1.mm-1'],
+      'coupledPhenomena.PyroelectricCoefficient': ['C.m-2.K-1', 'mC.m-2.K-1', 'uC.m-2.K-1', 'nC.m-2.K-1'],
+      'coupledPhenomena.PiezoresistiveCoefficient': ['Pa-1', 'kPa-1', 'MPa-1', 'GPa-1'],
+      'coupledPhenomena.ElectrostrictionCoefficient': ['m2.V-2', 'cm2.kV-2', 'mm2.kV-2'],
+      'coupledPhenomena.MagnetoelectricCoefficient': ['s.m-1', 'ms.m-1', 'us.m-1', 'ns.m-1', 'ps.m-1'],
+    } as const
+    for (const [name, units] of Object.entries(expectedUnits)) {
+      expect(QuantityKind[name as keyof typeof expectedUnits].applicableUnits()).toEqual(units)
+    }
+    expect(QuantityKind['thermodynamics.ThermalResistancePerArea'].applicableUnits())
+      .toEqual(QuantityKind['thermodynamics.ThermalInsulance'].applicableUnits())
+
+    expectTypeOf(QuantityKind['coupledPhenomena.PiezoelectricChargeCoefficient'].componentShape())
+      .toEqualTypeOf<readonly [3, 3, 3]>()
+    expectTypeOf(QuantityKind['coupledPhenomena.PiezoresistiveCoefficient'].componentShape())
+      .toEqualTypeOf<readonly [3, 3, 3, 3]>()
+  })
+
+  it('recursively converts high-rank components and preserves type inference and basis metadata', () => {
+    const value = [
+      [[1, 0, 0], [0, 0, 0], [0, 0, 0]],
+      [[0, 0, 0], [0, 2, 0], [0, 0, 0]],
+      [[0, 0, 0], [0, 0, 0], [0, 0, 3]],
+    ] as const
+    const transformed = QuantityKind['coupledPhenomena.PiezoelectricChargeCoefficient'].transform(
+      value,
+      'C.N-1',
+      'pC.N-1',
+    )
+    expect(transformed[0][0][0]).toBeCloseTo(1e12)
+    expect(transformed[1][1][1]).toBeCloseTo(2e12)
+    expect(transformed[2][2][2]).toBeCloseTo(3e12)
+    expect(Object.isFrozen(transformed[0][0])).toBe(true)
+    expectTypeOf(transformed).toEqualTypeOf<
+      QuantityKindComponentValue<'coupledPhenomena.PiezoelectricChargeCoefficient'>
+    >()
+
+    const metadata = normalizeQuantityMetadata({
+      unit: 'Pa-1',
+      quantityKind: 'coupledPhenomena.PiezoresistiveCoefficient',
+      basis: identityCartesianBasis,
+    }, 'Piezoresistive coefficient')
+    expect(metadata.basis).toEqual(identityCartesianBasis)
+    expect(Object.isFrozen(metadata.basis)).toBe(true)
   })
 
   it('builds arbitrary non-negative component orders without a scalar fallback', () => {
@@ -71,29 +226,15 @@ describe('QuantityKind', () => {
     expect(() => componentShapeForTensorOrder(1.5)).toThrow('non-negative safe integer')
   })
 
-  it('exposes every source name, including deprecated and non-identifier names', () => {
-    const entries = Object.values(QuantityKind)
-
-    expect(entries).toHaveLength(1_219)
-    expect(new Set(entries.map(({ name }) => name))).toHaveLength(1_219)
-    for (const [name, entry] of Object.entries(QuantityKind)) expect(entry.name).toBe(name)
-    expect(QuantityKind['CENTER-OF-MASS'].name).toBe('CENTER-OF-MASS')
-    expect(entries.filter(({ name }) => !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name))).toHaveLength(39)
-    expect(Object.isFrozen(QuantityKind)).toBe(true)
-    expect(Object.isFrozen(QuantityKind.Length)).toBe(true)
-
-    expectTypeOf(QuantityKind.Length).toMatchTypeOf<QuantityKindDefinition<'Length'>>()
-    expectTypeOf<ApplicableUnit<'APIGravity'>>().toEqualTypeOf<never>()
-  })
-
   it('returns canonical descriptions with normalized whitespace and preserves missing values', () => {
-    const entries = Object.values(QuantityKind)
-    const descriptions = entries.map((entry) => entry.description())
+    const descriptions = Object.values(QuantityKind).map((entry) => entry.description())
 
-    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_007)
+    expect(descriptions.filter((description) => description !== undefined)).toHaveLength(1_019)
     expect(descriptions.filter((description) => description === undefined)).toHaveLength(212)
-    expect(QuantityKind.AbsoluteTypographicMeasurement.description()).toBeUndefined()
-    expect(QuantityKind.AcousticImpedance.description()).toContain('$\\textit{Acoustic Impedance}$')
+    expect(QuantityKind['informationComputing.AbsoluteTypographicMeasurement'].description())
+      .toBeUndefined()
+    expect(QuantityKind['acoustics.AcousticImpedance'].description())
+      .toContain('$\\textit{Acoustic Impedance}$')
     for (const description of descriptions) {
       if (description !== undefined) {
         expect(description).toBe(description.trim())
@@ -108,10 +249,10 @@ describe('QuantityKind', () => {
     const withUnits = entries.filter((entry) => entry.applicableUnits().length > 0)
     const unitEntryCount = entries.reduce((sum, entry) => sum + entry.applicableUnits().length, 0)
 
-    expect(withUnits).toHaveLength(820)
+    expect(withUnits).toHaveLength(832)
     expect(entries.length - withUnits.length).toBe(399)
-    expect(unitEntryCount).toBe(10_405)
-    expect(QuantityKind.APIGravity.applicableUnits()).toEqual([])
+    expect(unitEntryCount).toBe(10_466)
+    expect(QuantityKind['fluidDynamics.APIGravity'].applicableUnits()).toEqual([])
 
     for (const entry of entries) {
       const units = entry.applicableUnits()
@@ -126,16 +267,16 @@ describe('QuantityKind', () => {
 
   it('transforms linear and affine applicable units', () => {
     expect(QuantityKind.Length.transform(1_000, 'mm', 'm')).toBeCloseTo(1)
-    expect(QuantityKind.Temperature.transform(0, 'Cel', 'K')).toBeCloseTo(273.15)
+    expect(QuantityKind['thermodynamics.Temperature'].transform(0, 'Cel', 'K')).toBeCloseTo(273.15)
   })
 
-  it('recursively converts every vector and matrix component and rejects affine tensor conversions', () => {
-    const vector = QuantityKind.ElectricCurrentDensity.transform(
+  it('recursively converts vector and matrix components and rejects affine tensor conversions', () => {
+    const vector = QuantityKind['electromagnetism.ElectricCurrentDensity'].transform(
       [1, 2, 3],
       'A.cm-2',
       'A.m-2',
     )
-    const matrix = QuantityKind.ElectricConductivity.transform(
+    const matrix = QuantityKind['electromagnetism.ElectricConductivity'].transform(
       [[1, 0, 0], [0, 2, 0], [0, 0, 3]],
       'S.cm-1',
       'S.m-1',
@@ -168,7 +309,7 @@ describe('QuantityKind', () => {
       'm',
       's' as unknown as ApplicableUnit<'Length'>,
     )).toThrow('does not include target UCUM unit s')
-    expect(() => QuantityKind.AngularAcceleration.transform(
+    expect(() => QuantityKind['kinematics.AngularAcceleration'].transform(
       [1, 1, 1],
       '{#}.s-2',
       'rad.s-2',

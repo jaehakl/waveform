@@ -25,7 +25,7 @@ describe('SolverSpecSheet', () => {
     expect(markup).toContain('electricalConductivity')
     expect(markup).toContain('dc.voxel-grid')
     expect(markup).toContain('dc.current-density')
-    expect(markup).toContain('ElectricCurrentDensity')
+    expect(markup).toContain('electromagnetism.ElectricCurrentDensity')
     expect(markup).toContain('applicable units')
     expect(markup).toContain('Undeclared parameter keys are accepted and preserved.')
   })

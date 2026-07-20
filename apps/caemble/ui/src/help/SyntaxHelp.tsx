@@ -74,7 +74,10 @@ function SyntaxHelp() {
                 Floating-point values use{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
                   {'{ dtype: \'float64\', value, unit, quantityKind, basis? }'}
-                </code>. Quantity Kind names are selected from the QUDT vocabulary exposed by autocomplete. Units
+                </code>. Quantity Kind names are selected from Caemble&apos;s physical-domain catalog exposed by
+                autocomplete. Domain-neutral names such as <code className="rounded bg-white px-1 py-0.5 text-xs">Length</code>{' '}
+                are unqualified; domain-specific names use forms such as{' '}
+                <code className="rounded bg-white px-1 py-0.5 text-xs">electromagnetism.ElectricCurrent</code>. Units
                 follow the official UCUM grammar and must exactly match one of that Quantity Kind&apos;s applicable
                 codes. Equivalent but differently spelled expressions are rejected. Use codes such as{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">A.m-2</code>,{' '}
@@ -225,7 +228,7 @@ function SyntaxHelp() {
                   {'{ dtype, value, axes?, unit?, quantityKind?, basis? }'}
                 </code>{' '}
                 where omitting axes means one Quantity value and a non-empty axes array arranges Quantity values.
-                All 1,219 QUDT 3.4 Quantity Kinds have an explicit Caemble tensor order with no inferred fallback.
+                All Quantity Kinds have an explicit physical domain and tensor order with no inferred fallback.
                 Each order contributes a trailing [3] per component index, so storage is always axis lengths
                 followed by componentShape. Dtypes
                 are bool, string, signed or unsigned 8/16/32/64-bit integers, or float16/32/64; 64-bit integers are
@@ -244,7 +247,7 @@ function SyntaxHelp() {
                 Every recorded-data rule also declares a{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">result</code> schema. A scalar output uses{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">
-                  {'{ dtype: \'float64\', unit: \'A\', quantityKind: \'ElectricCurrent\' }'}
+                  {'{ dtype: \'float64\', unit: \'A\', quantityKind: \'electromagnetism.ElectricCurrent\' }'}
                 </code>. RecordedData result axes alone may omit{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">length</code> to be dynamic. A dynamic axis
                 may declare its name and paired unit/quantityKind metadata but must omit source ticks; its length and
@@ -270,7 +273,7 @@ function SyntaxHelp() {
                 The default Structure is a fixed <code className="rounded bg-white px-1 py-0.5 text-xs">[100, 12, 10] mm</code>{' '}
                 copper bar with a randomized corner-notch size from <code className="rounded bg-white px-1 py-0.5 text-xs">[20, 4, 5]</code>{' '}
                 through <code className="rounded bg-white px-1 py-0.5 text-xs">[40, 6, 7]</code>, <code className="rounded bg-white px-1 py-0.5 text-xs">electricalConductivity =
-                σI = 5.96e7 S.m-1 (ElectricConductivity)</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
+                σI = 5.96e7 S.m-1 (electromagnetism.ElectricConductivity)</code>, and named -X/+X terminal surfaces. Its Experiment selects{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc-current-density@2.0.0</code>. A{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">dc.voxel-grid</code> initialization owns the
                 editable int32 <code className="rounded bg-white px-1 py-0.5 text-xs">gridShape = [100, 41, 41]</code>{' '}
@@ -289,7 +292,7 @@ function SyntaxHelp() {
                 Dirichlet terminals and insulating conditions elsewhere, and solves it with Jacobi-preconditioned
                 conjugate gradient. The source-to-reference current density is returned in global Cartesian components as a float64{' '}
                 <code className="rounded bg-white px-1 py-0.5 text-xs">[41,41,3]</code> payload declared as{' '}
-                <code className="rounded bg-white px-1 py-0.5 text-xs">A.m-2 / ElectricCurrentDensity</code>, with
+                <code className="rounded bg-white px-1 py-0.5 text-xs">A.m-2 / electromagnetism.ElectricCurrentDensity</code>, with
                 u/v axes declared as <code className="rounded bg-white px-1 py-0.5 text-xs">m / Length</code>;
                 exterior and notch cells are zero. Applicable alternative result/axis units are converted before
                 publishing. Total current is the

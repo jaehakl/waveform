@@ -32,7 +32,7 @@ export default structure({
             value: Mat(vars.electricalConductivity),
             errorRate: 0.001,
             unit: 'S.m-1',
-            quantityKind: 'ElectricConductivity',
+            quantityKind: 'electromagnetism.ElectricConductivity',
           },
           color: '#d97706',
         }),

@@ -8,6 +8,12 @@ type QuantityKindData = typeof quantityKindData
 
 export type QuantityKindName = keyof QuantityKindData
 
+export type QuantityKindDomain = QuantityKindData[QuantityKindName]['domain']
+
+export type QuantityKindNameForDomain<Domain extends QuantityKindDomain> = {
+  [Name in QuantityKindName]: QuantityKindData[Name]['domain'] extends Domain ? Name : never
+}[QuantityKindName]
+
 export type QuantityKindTensorOrder<Name extends QuantityKindName> =
   QuantityKindData[Name]['tensorOrder']
 
@@ -153,6 +159,7 @@ export type ApplicableUnit<Name extends QuantityKindName> =
 
 export interface QuantityKindDefinition<Name extends QuantityKindName> {
   readonly name: Name
+  domain(): QuantityKindData[Name]['domain']
   description(): string | undefined
   applicableUnits(): QuantityKindData[Name]['applicableUnits']
   tensorOrder(): QuantityKindTensorOrder<Name>
@@ -234,6 +241,10 @@ export class QuantityKindEntry<Name extends QuantityKindName>
 
   description(): string | undefined {
     return quantityKindData[this.name].description
+  }
+
+  domain(): QuantityKindData[Name]['domain'] {
+    return quantityKindData[this.name].domain
   }
 
   applicableUnits(): QuantityKindData[Name]['applicableUnits'] {

@@ -54,7 +54,7 @@ describe('App workspace', () => {
     expect(defaultExperimentCode).not.toContain('lengthScaleToMeters')
     expect(defaultExperimentCode).not.toContain('conductivityVariable')
     expect(defaultExperimentCode).toContain("unit: 'A.m-2'")
-    expect(defaultExperimentCode).toContain("quantityKind: 'ElectricCurrentDensity'")
+    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrentDensity'")
     expect(defaultExperimentCode).toContain("methodId: 'dc.source-potential'")
     expect(defaultExperimentCode).toContain("methodId: 'dc.reference-potential'")
     expect(defaultExperimentCode).toContain('recordedData: () => [')

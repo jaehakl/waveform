@@ -73,7 +73,7 @@ export default experiment({
           dtype: 'float64',
           value: vars.sourceVoltage,
           unit: 'mV',
-          quantityKind: 'Voltage',
+          quantityKind: 'electromagnetism.Voltage',
         },
       },
     },
@@ -86,7 +86,7 @@ export default experiment({
           dtype: 'float64',
           value: vars.referenceVoltage,
           unit: 'mV',
-          quantityKind: 'Voltage',
+          quantityKind: 'electromagnetism.Voltage',
         },
       },
     },
@@ -107,7 +107,7 @@ export default experiment({
       result: {
         dtype: 'float64',
         unit: 'A.m-2',
-        quantityKind: 'ElectricCurrentDensity',
+        quantityKind: 'electromagnetism.ElectricCurrentDensity',
         axes: [
           { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
           { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
@@ -129,7 +129,7 @@ export default experiment({
       result: {
         dtype: 'float64',
         unit: 'A',
-        quantityKind: 'ElectricCurrent',
+        quantityKind: 'electromagnetism.ElectricCurrent',
       },
     },
   ],

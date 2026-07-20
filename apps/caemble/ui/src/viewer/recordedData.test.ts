@@ -61,8 +61,8 @@ describe('CadViewer recordedData normalization', () => {
   })
 
   it('lists the source unit first and removes incompatible Quantity Kind alternatives', () => {
-    const currentUnits = recordedDisplayUnitOptions('ElectricCurrent', 'A')
-    const angularUnits = recordedDisplayUnitOptions('AngularAcceleration', '{#}.s-2')
+    const currentUnits = recordedDisplayUnitOptions('electromagnetism.ElectricCurrent', 'A')
+    const angularUnits = recordedDisplayUnitOptions('kinematics.AngularAcceleration', '{#}.s-2')
 
     expect(currentUnits[0]).toBe('A')
     expect(currentUnits).toContain('mA')
@@ -108,7 +108,7 @@ describe('CadViewer recordedData normalization', () => {
       result: {
         dtype: 'float64',
         unit: 'A.m-2',
-        quantityKind: 'ElectricCurrentDensity',
+        quantityKind: 'electromagnetism.ElectricCurrentDensity',
         basis: identityCartesianBasis,
         axes: [{ name: 'position' }],
       },
