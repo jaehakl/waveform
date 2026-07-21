@@ -196,3 +196,42 @@ Do not place cookies, credentials, user data, service-worker scope, analytics, o
 - Preview evaluation: 3 seconds by default; explicit 10- and 30-second heavy modes.
 - Snapshot binary payload: 128 MiB, with finite-value, depth, node-count, and protocol-size checks.
 - The included DC current-density solver is a bounded browser implementation, not a production multiphysics backend.
+
+
+
+
+
+
+## DB Tables
+
+Material
+- general_qualifiers
+
+MaterialQualifier
+- material_id
+
+Geometry
+- embeddings
+
+Structure
+- embeddings
+
+Experiment
+- embeddings
+
+Sample
+- fk_structure_id
+
+Setup
+- fk_experiment_id
+
+Measurement
+- fk_sample_id
+- fk_setup_id
+
+RecordedData
+- fk_measurement_id
+
+DesignerModel
+PredictorModel
+- 모델은 Structure + Experiment 의존
