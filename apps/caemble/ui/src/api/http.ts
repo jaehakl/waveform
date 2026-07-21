@@ -1,63 +1,61 @@
-// YOU MUST OPEN ALL FRONTEND SOURCE FILES with UTF-8 ENCODING to READ KOREAN CHARACTERS CORRECTLY.
+export const API_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || '/api').replace(/\/+$/, '')
 
-import axios from 'axios';
+export type HttpMethod = 'get' | 'post' | 'delete'
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-export const API_URL = apiBaseUrl.replace(/\/+$/, '') || '/api';
+export class ApiError extends Error {
+  readonly body: unknown
+  readonly status: number
 
-type HttpMethod = 'get' | 'post' | 'delete';
-
-const apiClient = axios.create({
-  baseURL: API_URL,
-  withCredentials: true,
-});
-
-let refreshPromise: Promise<void> | null = null;
-
-function getResponseStatus(error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('response' in error)) {
-    return undefined;
+  constructor(status: number, message: string, body: unknown) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.body = body
   }
+}
 
-  const response = (error as { response?: { status?: unknown } }).response;
-  return typeof response?.status === 'number' ? response.status : undefined;
+let refreshPromise: Promise<void> | null = null
+
+async function responseBody(response: Response) {
+  if (response.status === 204) return undefined
+  const contentType = response.headers.get('content-type') ?? ''
+  if (contentType.includes('application/json')) return response.json()
+  const text = await response.text()
+  return text || undefined
 }
 
 async function send<T>(method: HttpMethod, url: string, data?: unknown): Promise<T> {
-  const response = await apiClient.request<T>({
-    method,
-    url,
-    ...(data === undefined ? {} : { data }),
-  });
-
-  return response.data;
+  const response = await fetch(`${API_URL}${url}`, {
+    method: method.toUpperCase(),
+    credentials: 'include',
+    headers: data === undefined ? undefined : { 'content-type': 'application/json' },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  })
+  const body = await responseBody(response)
+  if (!response.ok) {
+    const detail = typeof body === 'object' && body !== null && 'detail' in body
+      ? String(body.detail)
+      : `API 요청에 실패했습니다. (${response.status})`
+    throw new ApiError(response.status, detail, body)
+  }
+  return body as T
 }
 
 async function refreshAuth() {
-  if (!refreshPromise) {
-    refreshPromise = send<{ ok: true }>('get', '/auth/refresh')
-      .then(() => undefined)
-      .finally(() => {
-        refreshPromise = null;
-      });
-  }
-
-  await refreshPromise;
+  refreshPromise ??= send<{ ok: true }>('get', '/auth/refresh')
+    .then(() => undefined)
+    .finally(() => {
+      refreshPromise = null
+    })
+  await refreshPromise
 }
 
-export async function request<T>(
-  method: HttpMethod,
-  url: string,
-  data?: unknown,
-): Promise<T> {
+export async function request<T>(method: HttpMethod, url: string, data?: unknown): Promise<T> {
   try {
-    return await send<T>(method, url, data);
+    return await send<T>(method, url, data)
   } catch (error) {
-    if (url === '/auth/refresh' || getResponseStatus(error) !== 401) {
-      throw error;
-    }
-
-    await refreshAuth();
-    return send<T>(method, url, data);
+    if (!(error instanceof ApiError) || error.status !== 401 || url === '/auth/refresh') throw error
+    await refreshAuth()
+    return send<T>(method, url, data)
   }
 }

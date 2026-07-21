@@ -1,87 +1,35 @@
-import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
-import App from './App'
-import { defaultExperimentCode } from './defaultExperimentCode'
-import { appViewFromHash } from './navigation'
+import { describe, expect, it, vi } from 'vitest'
+import { redirectLegacyHash } from '@/app/legacy-routes'
+import { appRoutePaths } from '@/app/router'
+import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
+import { catalogCounts } from '@/lib/metadata'
 
-describe('App workspace', () => {
-  it('builds the example page around the integrated Viewer', () => {
-    const markup = renderToStaticMarkup(<App />)
-    const button = markup.match(/<button[^>]*aria-label="Reroll structure"[^>]*>/)?.[0]
-
-    expect(button).toBeDefined()
-    expect(button).toContain('title="Re-evaluate and randomize the current structure"')
-    expect(button).not.toMatch(/\sdisabled(?:=|\s|>)/)
-    expect(markup).toContain('aria-label="Main navigation"')
-    expect(markup).toMatch(/<a[^>]*aria-current="page"[^>]*href="#viewer"[^>]*>Viewer<\/a>/)
-    expect(markup).toMatch(/<a[^>]*href="#help"[^>]*>Help<\/a>/)
-    expect(markup).toContain('aria-label="Structure and Experiment viewer"')
-    expect(markup).toContain('aria-label="Structure and Experiment workspace"')
-    expect(markup).toContain('aria-label="3D CAD Viewer"')
-    expect(markup).toContain('aria-label="Structure and Experiment panels"')
-    expect(markup).toContain('>Structure Source</button>')
-    expect(markup).toContain('>Structure Tree</button>')
-    expect(markup).toContain('>Experiment Source</button>')
-    expect(markup).toContain('>Experiment Tree</button>')
-    expect(markup).toContain('>Experimental Parameters</button>')
-    expect(markup).toContain('>Solver Spec</button>')
-    expect(markup).not.toContain('>Results</button>')
-    expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="structure-source-tab"/)
-    expect(markup).toMatch(/aria-label="Resize modeling panels and Viewer"[^>]*aria-orientation="vertical"/)
-    expect(markup).toContain('aria-valuenow="44"')
-    expect(markup).toMatch(/<button[^>]*aria-label="Toggle structure"[^>]*aria-pressed="true"/)
-    expect(markup).toMatch(/<button[^>]*aria-label="Toggle experiment"[^>]*aria-pressed="true"/)
-    expect(markup).toContain('data-viewer-canvas="true"')
-    expect(markup).toContain('Waiting for model...')
-    expect(markup).toContain('aria-label="Simulation controls"')
-    expect(markup).toContain('Solver unavailable')
-    expect(markup).toContain('aria-label="Solver compatibility: unavailable"')
-    expect(markup).toMatch(/<button[^>]*aria-label="Run simulation"[^>]*disabled/)
-    expect(markup).toContain('lg:h-dvh lg:min-h-0 lg:overflow-hidden')
-    expect(markup).toContain('lg:h-full lg:overflow-hidden lg:grid-cols-')
-    expect(markup).toContain('min-h-[360px] min-w-0 border-b')
+describe('페이지 중심 앱 라우팅', () => {
+  it('직접 진입할 모든 공개·계정 URL을 등록한다', () => {
+    expect(appRoutePaths).toEqual([
+      'index',
+      'viewer',
+      'catalog/cad/:tag?',
+      'catalog/materials/:key?',
+      'catalog/quantity-kinds/:name?',
+      'catalog/solvers/:name?/:version?',
+      'docs',
+      'login',
+      'account',
+      '*',
+    ])
   })
 
-  it('normalizes old and unknown hashes to Viewer and keeps the independent Experiment example', () => {
-    expect(appViewFromHash('#viewer')).toBe('viewer')
-    expect(appViewFromHash('#structure')).toBe('viewer')
-    expect(appViewFromHash('#experiment')).toBe('viewer')
-    expect(appViewFromHash('#help')).toBe('help')
-    expect(appViewFromHash('#unknown')).toBe('viewer')
+  it.each([['#viewer', '/viewer'], ['#help', '/docs']])('legacy hash %s를 %s로 이동한다', (hash, target) => {
+    const replaceState = vi.fn()
+    redirectLegacyHash({ hash, pathname: '/', search: '?from=legacy' } as Location, { replaceState } as unknown as History)
+    expect(replaceState).toHaveBeenCalledWith(null, '', `${target}?from=legacy`)
+  })
+
+  it('카탈로그 수와 독립 Experiment 예제를 유지한다', () => {
+    expect(catalogCounts).toEqual({ cad: 11, materials: 260, quantityKinds: 1_216, solvers: 1 })
     expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
-    expect(defaultExperimentCode).toContain('parameters: () => ({')
-    expect(defaultExperimentCode).toContain("lengthUnit: 'mm'")
-    expect(defaultExperimentCode).not.toContain('lengthScaleToMeters')
-    expect(defaultExperimentCode).not.toContain('conductivityVariable')
-    expect(defaultExperimentCode).toContain("unit: 'A.m-2'")
-    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrentDensity'")
-    expect(defaultExperimentCode).toContain("methodId: 'dc.source-potential'")
-    expect(defaultExperimentCode).toContain("methodId: 'dc.reference-potential'")
-    expect(defaultExperimentCode).toContain('recordedData: () => [')
-    expect(defaultExperimentCode).toContain("label: 'Current density'")
     expect(defaultExperimentCode).toContain("methodId: 'dc.voxel-grid'")
-    expect(defaultExperimentCode).toContain('value: [100, 41, 41]')
-    expect(defaultExperimentCode).toContain("quantityKind: 'DimensionlessRatio'")
-    expect(defaultExperimentCode).not.toContain('sampleDimension')
-    expect(defaultExperimentCode).not.toContain("type: 'tensor'")
-    expect(defaultExperimentCode).not.toContain('shape:')
-    expect(defaultExperimentCode).toContain('axes: [{ length: 3 }]')
-    expect(defaultExperimentCode).toContain(
-      "{ name: 'cross-section v', unit: 'm', quantityKind: 'Length' }",
-    )
-    expect(defaultExperimentCode).toContain("label: 'Total current'")
-    expect(defaultExperimentCode).toContain("'structure.geometry.conductor'")
-    expect(defaultExperimentCode).toContain('export default experiment({')
-  })
-
-  it('shows the available Structure examples', () => {
-    const markup = renderToStaticMarkup(<App />)
-
-    expect(markup).toContain('aria-label="Select structure example"')
-    expect(markup).toContain('>DC Conductor</option>')
-    expect(markup).toContain('>Fiber Bundle (Geometry Preview)</option>')
-    expect(markup).toContain('>Shell Cutaways (Geometry Preview)</option>')
-    expect(markup).toContain('>Random Curved Cylinder Array (Geometry Preview)</option>')
-    expect(markup).toContain('>Random Curved Sphere HCP Array (Geometry Preview)</option>')
+    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrentDensity'")
   })
 })

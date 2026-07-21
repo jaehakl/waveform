@@ -10,21 +10,15 @@ from user_auth.routes import router as auth_router
 def server():
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # When service starts.
-        await start()
-
+        app.state.progress = 0
+        print("service is started.")
         yield
-
-        # When service is stopped.
-        shutdown()
+        print("service is stopped.")
 
     app = FastAPI(lifespan=lifespan)
+    app.include_router(auth_router)
 
-    origins = [
-        "http://localhost",
-        "http://localhost:5173",
-        settings.app_base_url,
-    ]
+    origins = sorted({settings.app_base_url, *settings.allowed_app_origins})
 
     app.add_middleware(
         CORSMiddleware,
@@ -34,14 +28,5 @@ def server():
         allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
         allow_headers=["*"],
     )
-
-    async def start():
-        app.state.progress = 0
-        app.include_router(auth_router)
-
-        print("service is started.")
-
-    def shutdown():
-        print("service is stopped.")
 
     return app

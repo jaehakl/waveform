@@ -1,341 +1,446 @@
-// YOU MUST OPEN ALL FRONTEND SOURCE FILES with UTF-8 ENCODING to READ KOREAN CHARACTERS CORRECTLY.
+import { z } from 'zod'
+import { API_URL, request } from './http'
 
-import { API_URL, request } from './http';
-import type {
-  DesignerModelRecord,
-  ExperimentRecord,
-  GeometryRecord,
-  GetListRequest,
-  GetListResponse,
-  GpsAccessTokenData,
-  MaterialNameRecord,
-  MaterialParameterQualifierRecord,
-  MaterialParameterRecord,
-  MaterialRecord,
-  MeasurementRecord,
-  PredictorModelRecord,
-  RecordedDataRecord,
-  SampleRecord,
-  SetupRecord,
-  StructureRecord,
-  UpsertResponse,
-  UserData,
-} from './types';
+const getListRequestSchema = z.object({
+  scope: z.enum(['visible', 'mine', 'public']).optional(),
+  offset: z.number().int().nonnegative(),
+  limit: z.number().int().nonnegative().nullable(),
+  selected_ids: z.array(z.number().int()),
+  search_text: z.string().nullable(),
+  text_filter: z.record(z.string(), z.array(z.string())),
+  filter: z.record(z.string(), z.array(z.unknown())),
+  sort: z.tuple([z.string(), z.enum(['asc', 'desc'])]).nullable(),
+  random: z.boolean().optional(),
+})
 
-export { API_URL };
+const upsertResponseSchema = z.object({
+  id: z.number().int(),
+  fk_not_found: z.record(z.string(), z.array(z.number().int())).nullable().optional(),
+})
+const gpsAccessTokenSchema = z.object({ gps_access_token: z.string().nullable() })
+const logoutResponseSchema = z.object({ ok: z.literal(true) })
+const deleteResponseSchema = z.null()
 
-export function startGoogleLogin() {
-  const returnTo = window.location.href;
-  window.location.href = `${API_URL}/auth/google/start?return_to=${encodeURIComponent(returnTo)}`;
-}
-
-export async function logout() {
-  await request<{ ok: true }>('post', '/auth/logout');
-}
-
-export function getGpsAccessToken() {
-  return request<GpsAccessTokenData>('get', '/auth/gps-access-token');
-}
-
-export function updateGpsAccessToken(gpsAccessToken: string | null) {
-  return request<GpsAccessTokenData>('post', '/auth/gps-access-token', {
-    gps_access_token: gpsAccessToken,
-  });
-}
+export type GetListRequest = z.infer<typeof getListRequestSchema>
+export type UpsertResponse = z.infer<typeof upsertResponseSchema>
+export type GpsAccessTokenData = z.infer<typeof gpsAccessTokenSchema>
+export type GetListResponse<TItem> = { items: TItem[]; total: number }
 
 export const dbTables = {
   User: {
-    label: '사용자',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      email: { label: '이메일', type: 'text' },
-      display_name: { label: '이름', type: 'text' },
-      picture_url: { label: '프로필 이미지', type: 'text' },
-      is_active: { label: '활성', type: 'boolean' },
-      roles: { label: '권한', type: 'list' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+    rowSchema: z.object({
+      id: z.string(),
+      email: z.string().email().nullable().optional(),
+      display_name: z.string().nullable().optional(),
+      picture_url: z.string().url().nullable().optional(),
+      is_active: z.boolean().nullable().optional(),
+      roles: z.array(z.string()),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+    }),
+    async fetchMe() {
+      return this.rowSchema.parse(await request<unknown>('get', '/auth/me'))
     },
-    fetchMe: async () => {
-      try {
-        return await request<UserData>('get', '/auth/me');
-      } catch {
-        return null;
-      }
+    async getAllUsersAdmin(limit: number, offset: number) {
+      return z
+        .array(this.rowSchema)
+        .parse(
+          await request<unknown>(
+            'get',
+            `/user_admin/get_all_users/${encodeURIComponent(String(limit))}/${encodeURIComponent(String(offset))}`,
+          ),
+        )
     },
-    getAllUsersAdmin: (limit: number, offset: number) =>
-      request<UserData[]>(
-        'get',
-        `/user_admin/get_all_users/${encodeURIComponent(String(limit))}/${encodeURIComponent(String(offset))}`,
-      ),
-    deleteUserAdmin: (id: string) =>
-      request<boolean>('get', `/user_admin/delete/${encodeURIComponent(id)}`),
-    getUserSummaryAdmin: (userId: string) =>
-      request<UserData | null>('get', `/user_data/summary/admin/${encodeURIComponent(userId)}`),
-    getUserSummaryUser: () =>
-      request<UserData | null>('get', '/user_data/summary/user'),
+    async deleteUserAdmin(id: string) {
+      return z.boolean().parse(await request<unknown>('get', `/user_admin/delete/${encodeURIComponent(id)}`))
+    },
+    async getUserSummaryAdmin(userId: string) {
+      return this.rowSchema
+        .nullable()
+        .parse(await request<unknown>('get', `/user_data/summary/admin/${encodeURIComponent(userId)}`))
+    },
+    async getUserSummaryUser() {
+      return this.rowSchema.nullable().parse(await request<unknown>('get', '/user_data/summary/user'))
+    },
   },
 
   Material: {
-    label: '재료',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      inchi: { label: 'InChI', type: 'text' },
-      description: { label: '설명', type: 'text' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      inchi: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/material/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<MaterialRecord>>('post', '/material/list', listRequest),
-    upsertRow: (items: MaterialRecord[]) =>
-      request<UpsertResponse[]>('post', '/material/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/material/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/material/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/material/', payload))
+    },
   },
 
   MaterialName: {
-    label: '재료명',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      material_id: { label: '재료', type: 'fk', targetTable: 'Material', required: true },
-      name: { label: '이름', type: 'text', required: true },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      material_id: z.number().int(),
+      name: z.string(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/material_name/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<MaterialNameRecord>>('post', '/material_name/list', listRequest),
-    upsertRow: (items: MaterialNameRecord[]) =>
-      request<UpsertResponse[]>('post', '/material_name/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/material_name/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/material_name/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/material_name/', payload))
+    },
   },
 
   MaterialParameter: {
-    label: '재료 파라미터',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      material_id: { label: '재료', type: 'fk', targetTable: 'Material', required: true },
-      name: { label: '이름', type: 'text', required: true },
-      value: { label: '값', type: 'json', required: true },
-      source: { label: '출처', type: 'text' },
-      version: { label: '버전', type: 'text' },
-      description: { label: '설명', type: 'text' },
-      temperature: { label: '온도', type: 'number' },
-      pressure: { label: '압력', type: 'number' },
-      frequency: { label: '주파수', type: 'number' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      material_id: z.number().int(),
+      name: z.string(),
+      value: z.unknown().nullable(),
+      source: z.string().nullable().optional(),
+      version: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+      temperature: z.number().nullable().optional(),
+      pressure: z.number().nullable().optional(),
+      frequency: z.number().nullable().optional(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/material_parameter/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<MaterialParameterRecord>>('post', '/material_parameter/list', listRequest),
-    upsertRow: (items: MaterialParameterRecord[]) =>
-      request<UpsertResponse[]>('post', '/material_parameter/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/material_parameter/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/material_parameter/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/material_parameter/', payload))
+    },
   },
 
   MaterialParameterQualifier: {
-    label: '파라미터 한정자',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      material_parameter_id: { label: '재료 파라미터', type: 'fk', targetTable: 'MaterialParameter', required: true },
-      name: { label: '이름', type: 'text', required: true },
-      value: { label: '값', type: 'number', required: true },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      material_parameter_id: z.number().int(),
+      name: z.string(),
+      value: z.number(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/material_parameter_qualifier/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<MaterialParameterQualifierRecord>>('post', '/material_parameter_qualifier/list', listRequest),
-    upsertRow: (items: MaterialParameterQualifierRecord[]) =>
-      request<UpsertResponse[]>('post', '/material_parameter_qualifier/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/material_parameter_qualifier/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z
+        .array(upsertResponseSchema)
+        .parse(await request<unknown>('post', '/material_parameter_qualifier/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/material_parameter_qualifier/', payload))
+    },
   },
 
   Geometry: {
-    label: '지오메트리',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      parent_id: { label: '부모', type: 'fk', targetTable: 'Geometry' },
-      name: { label: '이름', type: 'text', required: true },
-      description: { label: '설명', type: 'text' },
-      code: { label: '코드', type: 'text', required: true },
-      code_embedding: { label: '코드 임베딩', type: 'list' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      parent_id: z.number().int().nullable().optional(),
+      name: z.string(),
+      description: z.string().nullable().optional(),
+      code: z.string(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/geometry/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<GeometryRecord>>('post', '/geometry/list', listRequest),
-    upsertRow: (items: GeometryRecord[]) =>
-      request<UpsertResponse[]>('post', '/geometry/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/geometry/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/geometry/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/geometry/', payload))
+    },
   },
 
   Structure: {
-    label: '구조',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      parent_id: { label: '부모', type: 'fk', targetTable: 'Structure' },
-      name: { label: '이름', type: 'text', required: true },
-      description: { label: '설명', type: 'text' },
-      code: { label: '코드', type: 'text', required: true },
-      code_embedding: { label: '코드 임베딩', type: 'list' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      parent_id: z.number().int().nullable().optional(),
+      name: z.string(),
+      description: z.string().nullable().optional(),
+      code: z.string(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/structure/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<StructureRecord>>('post', '/structure/list', listRequest),
-    upsertRow: (items: StructureRecord[]) =>
-      request<UpsertResponse[]>('post', '/structure/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/structure/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/structure/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/structure/', payload))
+    },
   },
 
   Experiment: {
-    label: '실험',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      parent_id: { label: '부모', type: 'fk', targetTable: 'Experiment' },
-      name: { label: '이름', type: 'text', required: true },
-      description: { label: '설명', type: 'text' },
-      code: { label: '코드', type: 'text', required: true },
-      code_embedding: { label: '코드 임베딩', type: 'list' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      parent_id: z.number().int().nullable().optional(),
+      name: z.string(),
+      description: z.string().nullable().optional(),
+      code: z.string(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/experiment/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<ExperimentRecord>>('post', '/experiment/list', listRequest),
-    upsertRow: (items: ExperimentRecord[]) =>
-      request<UpsertResponse[]>('post', '/experiment/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/experiment/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/experiment/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/experiment/', payload))
+    },
   },
 
   Sample: {
-    label: '시료',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
-      vars: { label: '변수', type: 'json', required: true },
-      material_parameters: { label: '재료 파라미터', type: 'json', required: true },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      structure_id: z.number().int(),
+      vars: z.record(z.string(), z.unknown()),
+      material_parameters: z.record(z.string(), z.unknown()),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/sample/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<SampleRecord>>('post', '/sample/list', listRequest),
-    upsertRow: (items: SampleRecord[]) =>
-      request<UpsertResponse[]>('post', '/sample/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/sample/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/sample/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/sample/', payload))
+    },
   },
 
   Setup: {
-    label: '설정',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
-      vars: { label: '변수', type: 'json', required: true },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      experiment_id: z.number().int(),
+      vars: z.record(z.string(), z.unknown()),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/setup/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<SetupRecord>>('post', '/setup/list', listRequest),
-    upsertRow: (items: SetupRecord[]) =>
-      request<UpsertResponse[]>('post', '/setup/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/setup/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/setup/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/setup/', payload))
+    },
   },
 
   Measurement: {
-    label: '측정',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      sample_id: { label: '시료', type: 'fk', targetTable: 'Sample', required: true },
-      setup_id: { label: '설정', type: 'fk', targetTable: 'Setup', required: true },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      sample_id: z.number().int(),
+      setup_id: z.number().int(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/measurement/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<MeasurementRecord>>('post', '/measurement/list', listRequest),
-    upsertRow: (items: MeasurementRecord[]) =>
-      request<UpsertResponse[]>('post', '/measurement/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/measurement/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/measurement/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/measurement/', payload))
+    },
   },
 
   RecordedData: {
-    label: '기록 데이터',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      measurement_id: { label: '측정', type: 'fk', targetTable: 'Measurement', required: true },
-      name: { label: '이름', type: 'text', required: true },
-      quantity_kind: { label: 'Quantity Kind', type: 'text', required: true },
-      tensor_order: { label: 'Tensor Order', type: 'number', required: true },
-      dtype: { label: '데이터 타입', type: 'text', required: true },
-      data: { label: '데이터', type: 'json' },
-      data_url: { label: '데이터 URL', type: 'text' },
-      file_size: { label: '파일 크기', type: 'number' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      measurement_id: z.number().int(),
+      name: z.string(),
+      quantity_kind: z.string(),
+      tensor_order: z.number().int(),
+      dtype: z.string(),
+      data: z.unknown().nullable().optional(),
+      data_url: z.string().nullable().optional(),
+      file_size: z.number().int().nullable().optional(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/recorded_data/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<RecordedDataRecord>>('post', '/recorded_data/list', listRequest),
-    upsertRow: (items: RecordedDataRecord[]) =>
-      request<UpsertResponse[]>('post', '/recorded_data/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/recorded_data/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/recorded_data/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/recorded_data/', payload))
+    },
   },
 
   DesignerModel: {
-    label: '설계 모델',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
-      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
-      model_url: { label: '모델 URL', type: 'text' },
-      file_size: { label: '파일 크기', type: 'number' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      structure_id: z.number().int(),
+      experiment_id: z.number().int(),
+      model_url: z.string().nullable().optional(),
+      file_size: z.number().int().nullable().optional(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/designer_model/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<DesignerModelRecord>>('post', '/designer_model/list', listRequest),
-    upsertRow: (items: DesignerModelRecord[]) =>
-      request<UpsertResponse[]>('post', '/designer_model/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/designer_model/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/designer_model/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/designer_model/', payload))
+    },
   },
 
   PredictorModel: {
-    label: '예측 모델',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      user_id: { label: '사용자', type: 'text', readOnly: true },
-      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
-      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
-      model_url: { label: '모델 URL', type: 'text' },
-      file_size: { label: '파일 크기', type: 'number' },
+    rowSchema: z.object({
+      id: z.number().int().optional(),
+      created_at: z.string().nullable().optional(),
+      updated_at: z.string().nullable().optional(),
+      user_id: z.string().nullable().optional(),
+      structure_id: z.number().int(),
+      experiment_id: z.number().int(),
+      model_url: z.string().nullable().optional(),
+      file_size: z.number().int().nullable().optional(),
+    }),
+    async listRows(listRequest: GetListRequest = getListRequest()) {
+      const payload = getListRequestSchema.parse(listRequest)
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/predictor_model/list', payload))
     },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<PredictorModelRecord>>('post', '/predictor_model/list', listRequest),
-    upsertRow: (items: PredictorModelRecord[]) =>
-      request<UpsertResponse[]>('post', '/predictor_model/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/predictor_model/', ids).then(() => undefined),
+    async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
+      const payload = z.array(this.rowSchema).parse(items)
+      return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/predictor_model/upsert', payload))
+    },
+    async deleteRows(ids: readonly number[]) {
+      const payload = z.array(z.number().int()).parse(ids)
+      deleteResponseSchema.parse(await request<unknown>('delete', '/predictor_model/', payload))
+    },
   },
-};
+} as const
 
-export type DbTableName = keyof typeof dbTables;
+export { API_URL }
+
+export function googleLoginUrl(returnTo = window.location.href) {
+  return `${API_URL}/auth/google/start?return_to=${encodeURIComponent(returnTo)}`
+}
+
+export function startGoogleLogin(returnTo?: string) {
+  window.location.assign(googleLoginUrl(returnTo))
+}
+
+export async function logout() {
+  return logoutResponseSchema.parse(await request<unknown>('post', '/auth/logout'))
+}
+
+export async function getGpsAccessToken() {
+  return gpsAccessTokenSchema.parse(await request<unknown>('get', '/auth/gps-access-token'))
+}
+
+export async function updateGpsAccessToken(gpsAccessToken: string | null) {
+  const payload = gpsAccessTokenSchema.parse({ gps_access_token: gpsAccessToken })
+  return gpsAccessTokenSchema.parse(await request<unknown>('post', '/auth/gps-access-token', payload))
+}
+
+export function getListRequest(
+  scope: NonNullable<GetListRequest['scope']> = 'visible',
+  selectedIds: number[] = [],
+): GetListRequest {
+  return getListRequestSchema.parse({
+    scope,
+    offset: 0,
+    limit: 24,
+    selected_ids: selectedIds,
+    search_text: null,
+    text_filter: {},
+    filter: {},
+    sort: ['updated_at', 'desc'],
+  })
+}
+
+export type DbTableName = keyof typeof dbTables
+export type DbTableRecord<TTable extends DbTableName> = z.infer<(typeof dbTables)[TTable]['rowSchema']>

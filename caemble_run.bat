@@ -1,22 +1,13 @@
 @echo off
-setlocal
+REM 백엔드 실행 (새 창)
+cd ./apps/caemble/api
+start cmd /k "call run.bat"
+cd ../../..
 
-cd /d "%~dp0apps\caemble\ui"
+REM 프론트엔드 실행 (새 창)
+cd ./apps/caemble/ui 
+start cmd /k "call run.bat"
+cd ../../..
 
-if not exist node_modules (
-  echo Installing caemble UI dependencies...
-  call npm install
-  if errorlevel 1 goto fail
-)
 
-call npm run dev
-if errorlevel 1 goto fail
-goto end
 
-:fail
-echo.
-echo Failed to start caemble UI.
-pause
-
-:end
-endlocal

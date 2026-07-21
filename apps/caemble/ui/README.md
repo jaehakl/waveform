@@ -1,6 +1,17 @@
 # Caemble UI
 
-Caemble is a browser Structure/Experiment authoring workspace. TSX is the source of truth; previews and solvers consume immutable v2 snapshots produced by an isolated runner.
+Caemble UI는 React 19, React Router Data Mode, Tailwind CSS v4로 구성된 페이지 중심 웹앱이다. 홈과 읽기 전용 카탈로그, 문서는 공개되어 있고 계정 및 Viewer 저장 기능만 Google OAuth 로그인이 필요하다. TSX는 Structure/Experiment 정의의 source of truth이며 preview와 solver는 격리된 runner가 만든 immutable v2 snapshot을 사용한다.
+
+주요 URL은 `/`, `/viewer`, `/catalog/cad`, `/catalog/materials`, `/catalog/quantity-kinds`, `/catalog/solvers`, `/docs`, `/login`, `/account`다. 기존 `/#viewer`와 `/#help`는 각각 `/viewer`, `/docs`로 이동한다.
+
+코드 구조는 다음 경계를 따른다.
+
+- `src/app`: provider, router, App Shell
+- `src/pages`: URL 단위 페이지와 페이지 소유 상태
+- `src/features`: 인증과 Viewer workspace/editor/persistence
+- `src/components`: 앱 공통 컴포넌트와 소유 UI primitives
+- `src/api`: native fetch, Zod 응답 검증, endpoint 계약
+- `src/lib/cad`, `src/lib/material`, `src/lib/quantitykind`, `src/lib/solver`: 독립 Code-to-CAD 라이브러리
 
 ## Development
 
@@ -10,7 +21,13 @@ npm run dev
 npm test
 npm run lint
 npm run build
+npm run build-storybook
+npm run test:e2e
 ```
+
+`npm run dev`는 앱을 `http://127.0.0.1:5173`, 격리 runner를 `http://127.0.0.1:5174`에서 함께 실행한다. runner 서버는 `runner.html`을 Vite HTML 변환 없이 제공하며 HMR과 React Refresh를 주입하지 않는다. 따라서 개발 환경도 운영과 동일하게 별도 origin, `connect-src 'none'` CSP, sandboxed iframe 계약을 사용한다. 커스텀 포트를 쓸 때는 앱과 runner를 인접 포트로 실행하거나 `VITE_CAEMBLE_HOST_ORIGIN`과 `VITE_CAEMBLE_RUNNER_ORIGIN`을 모두 지정한다.
+
+앱 개발 서버의 `/api`는 `http://127.0.0.1:8000`으로 proxy되며 prefix가 제거된다. 운영 reverse proxy도 같은 계약을 사용한다. 기본 설정은 `VITE_API_BASE_URL=/api`이고, 요청에는 HttpOnly access/refresh 쿠키를 위해 항상 credentials가 포함된다.
 
 Generated CAD contracts are checked by every production build:
 
@@ -19,9 +36,9 @@ npm run generate:cad-api
 npm run check:generated
 ```
 
-The generator reads the CAD element registry, Quantity Kind data, registered `SolverSpec` objects, and `src/cad/api/authoring-manifest.json`. It generates the element catalog/registry, JSX intrinsic types, solver authoring types, Quantity Kind unions/facade, and pinned API versions. Commit all generated changes. CI should run `npm run check:generated`; a non-empty regeneration diff is an error.
+The generator reads the CAD element registry, Quantity Kind data, registered `SolverSpec` objects, and `src/lib/cad/api/authoring-manifest.json`. It generates the element catalog/registry, JSX intrinsic types, solver authoring types, Quantity Kind unions/facade, and pinned API versions. Commit all generated changes. CI should run `npm run check:generated`; a non-empty regeneration diff is an error.
 
-`src/cad/model/core.ts` remains an internal application facade and is never exposed to Source code. Vars, descriptor contracts, Material construction, Structure, and Experiment live in focused `vars.ts`, `descriptor.ts`, `material.ts`, `structure.ts`, and `experiment.ts` modules; new runtime code should import the focused module when it does not need the facade.
+`src/lib/cad/model/core.ts` remains an internal application facade and is never exposed to Source code. Vars, descriptor contracts, Material construction, Structure, and Experiment live in focused `vars.ts`, `descriptor.ts`, `material.ts`, `structure.ts`, and `experiment.ts` modules; new runtime code should import the focused module when it does not need the facade.
 
 ## TSX v2 source format
 
@@ -40,9 +57,7 @@ export default structure({
       max: [100, 100, 100],
     },
   },
-  geometry: ({ vars }) => (
-    <box id="conductor" size={vars.conductorSize} />
-  ),
+  geometry: ({ vars }) => <box id="conductor" size={vars.conductorSize} />,
   geometryGroup: {
     conductor: ['conductor'],
   },
@@ -109,7 +124,7 @@ The editor maintains two Monaco models and one active editor instance. Monaco co
 
 ## Evaluation isolation
 
-Production evaluation uses a hidden iframe served from a separate origin. The host and runner exchange one schema-validated request through a nonce-bound `MessageChannel`. The runner creates a disposable Worker for each evaluation and terminates it after success, failure, cancellation, or timeout.
+Development and production evaluation use a hidden iframe served from a separate origin. The host and runner exchange one schema-validated request through a nonce-bound `MessageChannel`. The runner creates a disposable Worker for each evaluation and terminates it after success, failure, cancellation, or timeout. The iframe keeps `sandbox="allow-scripts allow-same-origin"` so its Worker can run, while the distinct runner origin prevents it from acquiring host privileges.
 
 The runner boundary provides the security controls:
 
@@ -174,6 +189,12 @@ VITE_CAEMBLE_RUNNER_ORIGIN=https://cad-runner.example.com
 
 Deploy the complete `dist` output to both origins, or otherwise ensure the runner origin serves `runner.html` and every hashed asset it references from the same build. `VITE_CAEMBLE_RUNNER_ORIGIN` is mandatory in production and must differ from the host origin.
 
+The production-origin smoke test builds once with fixed test origins and serves that same `dist` from two preview servers:
+
+```bash
+npm run test:e2e:production
+```
+
 Recommended runner headers are provided in `public/_headers`:
 
 ```text
@@ -196,6 +217,3 @@ Do not place cookies, credentials, user data, service-worker scope, analytics, o
 - Preview evaluation: 3 seconds by default; explicit 10- and 30-second heavy modes.
 - Snapshot binary payload: 128 MiB, with finite-value, depth, node-count, and protocol-size checks.
 - The included DC current-density solver is a bounded browser implementation, not a production multiphysics backend.
-
-
-

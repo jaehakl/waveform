@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, List, Optional, TypeVar
 
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -179,19 +180,28 @@ def build_scope_clause(
     user: Any | None,
     *,
     write: bool,
+    read_scope: str = "visible",
 ) -> Any | None:
-    if is_admin_user(user):
-        return None
-
     relationships, _, owner_column = _scope_parts(spec)
     if write:
+        if is_admin_user(user):
+            return None
         if user is None:
             return owner_column.is_not(None) & owner_column.is_(None)
         clause = owner_column == user.id
-    elif user is None:
-        clause = owner_column.is_(None)
     else:
-        clause = or_(owner_column.is_(None), owner_column == user.id)
+        if read_scope == "mine":
+            if user is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required for mine scope.")
+            clause = owner_column == user.id
+        elif read_scope == "public":
+            clause = owner_column.is_(None)
+        elif is_admin_user(user):
+            return None
+        elif user is None:
+            clause = owner_column.is_(None)
+        else:
+            clause = or_(owner_column.is_(None), owner_column == user.id)
 
     for relationship_attr in reversed(relationships):
         clause = relationship_attr.has(clause)

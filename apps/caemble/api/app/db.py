@@ -202,7 +202,11 @@ class Geometry(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(768),
+        nullable=True,
+        deferred=True,
+    )
 
     user: Mapped[Optional["User"]] = relationship("User", back_populates="geometries")
     parent: Mapped[Optional["Geometry"]] = relationship(
@@ -232,7 +236,11 @@ class Structure(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(768),
+        nullable=True,
+        deferred=True,
+    )
 
     user: Mapped[Optional["User"]] = relationship("User", back_populates="structures")
     parent: Mapped[Optional["Structure"]] = relationship(
@@ -277,7 +285,11 @@ class Experiment(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(
+        Vector(768),
+        nullable=True,
+        deferred=True,
+    )
 
     user: Mapped[Optional["User"]] = relationship("User", back_populates="experiments")
     parent: Mapped[Optional["Experiment"]] = relationship(

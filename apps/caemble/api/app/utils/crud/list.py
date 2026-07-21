@@ -472,7 +472,12 @@ async def get_list_response(
     *,
     user: Any | None = None,
 ) -> GetListResponseBase:
-    scope_clause = build_scope_clause(spec, user, write=False)
+    scope_clause = build_scope_clause(
+        spec,
+        user,
+        write=False,
+        read_scope=getattr(request, "scope", "visible"),
+    )
     scoped_base_clause = _combine_clauses(and_, (base_clause, scope_clause))
     where_clause = build_list_where_clause(request, spec, scoped_base_clause)
     total = await get_list_total(db, spec, where_clause)

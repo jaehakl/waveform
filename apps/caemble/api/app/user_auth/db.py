@@ -41,7 +41,7 @@ class TimestampMixin:
 
 class User(TimestampMixin, Base):
     __tablename__ = "users"
-    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=uuid.uuid4)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     email: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     __table_args__ = (Index("uq_users_email_lower", func.lower(email), unique=True),)
     email_verified_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
@@ -90,7 +90,7 @@ class Session(Base):
         Index("idx_sessions_user_id", "user_id"),
         UniqueConstraint("session_id_hash", name="uq_sessions_session_id_hash"),
     )
-    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=uuid.uuid4)
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     session_id_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)  # store only hash
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

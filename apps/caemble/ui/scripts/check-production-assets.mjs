@@ -6,10 +6,11 @@ import { gzipSync } from 'node:zlib'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'dist')
 const assets = path.join(dist, 'assets')
-const [indexHtml, packageJson, authoringManifest] = await Promise.all([
+const [indexHtml, packageJson, authoringManifest, runnerHeaders] = await Promise.all([
   readFile(path.join(dist, 'index.html'), 'utf8'),
   readFile(path.join(root, 'package.json'), 'utf8').then(JSON.parse),
-  readFile(path.join(root, 'src/cad/api/authoring-manifest.json'), 'utf8').then(JSON.parse),
+  readFile(path.join(root, 'src/lib/cad/api/authoring-manifest.json'), 'utf8').then(JSON.parse),
+  readFile(path.join(root, 'public/_headers'), 'utf8'),
 ])
 
 if (!/^\d+\.\d+\.\d+$/.test(packageJson.dependencies['monaco-editor'])) {
@@ -21,10 +22,23 @@ if (!/^\d+\.\d+\.\d+$/.test(authoringManifest.coreV2DeclarationVersion)) {
 
 const assetNames = await readdir(assets)
 const textFiles = ['index.html', 'runner.html', ...assetNames.filter((name) => /\.(?:css|js)$/.test(name))]
-const contents = new Map(await Promise.all(textFiles.map(async (name) => {
-  const filePath = name.endsWith('.html') ? path.join(dist, name) : path.join(assets, name)
-  return [name, await readFile(filePath, 'utf8')]
-})))
+const contents = new Map(
+  await Promise.all(
+    textFiles.map(async (name) => {
+      const filePath = name.endsWith('.html') ? path.join(dist, name) : path.join(assets, name)
+      return [name, await readFile(filePath, 'utf8')]
+    }),
+  ),
+)
+const runnerHtml = contents.get('runner.html')
+const runnerCsp =
+  "default-src 'none'; script-src 'self' 'unsafe-eval'; worker-src 'self'; connect-src 'none'; img-src 'none'; style-src 'none'; base-uri 'none'; form-action 'none'"
+if (!runnerHtml?.includes(runnerCsp) || !runnerHeaders.includes(runnerCsp)) {
+  throw new Error('Runner HTML and deployment headers must preserve the isolated runner CSP.')
+}
+if (runnerHtml.includes('@vite/client') || runnerHtml.includes('react-refresh')) {
+  throw new Error('The production runner HTML contains development client code.')
+}
 
 for (const [name, source] of contents) {
   if (/cdn\.jsdelivr\.net|esbuild(?:-wasm)?\.wasm|plotly/i.test(source)) {
@@ -45,9 +59,7 @@ if (dataCopies.length !== 1 || dataCopies[0][0] !== quantityAsset) {
   throw new Error('QuantityKind data must exist only in its versioned shared asset.')
 }
 
-const initialAssetNames = new Set(
-  [...indexHtml.matchAll(/(?:src|href)="\/assets\/([^"]+)"/g)].map((match) => match[1]),
-)
+const initialAssetNames = new Set([...indexHtml.matchAll(/(?:src|href)="\/assets\/([^"]+)"/g)].map((match) => match[1]))
 initialAssetNames.add(quantityAsset)
 if ([...initialAssetNames].some((name) => /monaco|editor\.api|tsMode|\.worker/i.test(name))) {
   throw new Error('Monaco must not be referenced by the initial HTML entry.')

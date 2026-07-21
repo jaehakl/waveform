@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import EmailStr, Field, field_serializer
@@ -35,6 +35,7 @@ class GpsAccessTokenData(BaseModel):
 
 
 class GetListRequestBase(BaseModel):
+    scope: Literal["visible", "mine", "public"] = "visible"
     offset: Optional[int] = 0
     limit: Optional[int] = None
     selected_ids: Optional[List[int]] = None
@@ -98,7 +99,6 @@ class CodeEntityBase(OwnedTimestampFields):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     code: str = Field(..., min_length=1)
-    code_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
 
 
 class GeometryBase(CodeEntityBase):

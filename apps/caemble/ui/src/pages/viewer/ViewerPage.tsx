@@ -1,0 +1,302 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { toast } from 'sonner'
+import { useAuth } from '@/features/auth/use-auth'
+import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
+import { ViewerPersistenceBar } from '@/features/viewer/persistence/ViewerPersistenceBar'
+import { createSampleRecord, createSetupRecord } from '@/features/viewer/persistence/contracts'
+import CadViewer from '@/features/viewer/viewer/CadViewer'
+import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
+import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
+import { dbTables, getListRequest } from '@/api'
+import {
+  cadEntrySource,
+  createCadSourceDocumentV2,
+  updateCadEntrySource,
+  type CadDocumentType,
+  type Vars,
+} from '@/lib/cad'
+import { defaultCode } from '@/lib/defaultCode'
+import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
+import { caembleExamples } from '@/lib/examples'
+
+const defaultWorkspaceLeftPercent = 44
+
+function clampWorkspaceLeftPercent(percent: number, workspaceWidth: number) {
+  const minimum = Math.max(25, (360 / workspaceWidth) * 100)
+  const maximum = Math.min(75, ((workspaceWidth - 320) / workspaceWidth) * 100)
+  return Math.min(maximum, Math.max(minimum, percent))
+}
+
+function positiveId(value: string | null) {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+export function ViewerPage() {
+  const auth = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [structure, setStructure] = useState(() => createCadSourceDocumentV2('structure', defaultCode))
+  const [experiment, setExperiment] = useState(() => createCadSourceDocumentV2('experiment', defaultExperimentCode))
+  const [structureVars, setStructureVars] = useState<Readonly<Vars> | undefined>()
+  const [experimentVars, setExperimentVars] = useState<Readonly<Vars> | undefined>()
+  const [activeDocumentType, setActiveDocumentType] = useState<CadDocumentType>('structure')
+  const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
+  const [selectedStructureId, setSelectedStructureId] = useState<number | null>(null)
+  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null)
+  const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null)
+  const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null)
+  const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
+  const [savedExperimentCode, setSavedExperimentCode] = useState<string | null>(null)
+  const [definitionDialog, setDefinitionDialog] = useState<'experiment' | 'structure' | null>(null)
+  const initializedFromUrl = useRef(false)
+  const workspaceRef = useRef<HTMLDivElement | null>(null)
+
+  const mineRequest = getListRequest('mine')
+  const structuresQuery = useQuery({ queryKey: ['work', 'structures'], queryFn: () => dbTables.Structure.listRows(mineRequest), enabled: auth.isAuthenticated })
+  const samplesQuery = useQuery({ queryKey: ['work', 'samples'], queryFn: () => dbTables.Sample.listRows(mineRequest), enabled: auth.isAuthenticated })
+  const experimentsQuery = useQuery({ queryKey: ['work', 'experiments'], queryFn: () => dbTables.Experiment.listRows(mineRequest), enabled: auth.isAuthenticated })
+  const setupsQuery = useQuery({ queryKey: ['work', 'setups'], queryFn: () => dbTables.Setup.listRows(mineRequest), enabled: auth.isAuthenticated })
+  const structures = useMemo(() => structuresQuery.data?.items ?? [], [structuresQuery.data?.items])
+  const samples = useMemo(() => samplesQuery.data?.items ?? [], [samplesQuery.data?.items])
+  const experiments = useMemo(() => experimentsQuery.data?.items ?? [], [experimentsQuery.data?.items])
+  const setups = useMemo(() => setupsQuery.data?.items ?? [], [setupsQuery.data?.items])
+
+  const updateDeepLink = useCallback((updates: Partial<Record<'experiment' | 'sample' | 'setup' | 'structure', number | null>>) => {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      Object.entries(updates).forEach(([key, value]) => value ? next.set(key, String(value)) : next.delete(key))
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const clearSampleSelection = useCallback(() => {
+    setSelectedSampleId(null)
+    setStructureVars(undefined)
+    updateDeepLink({ sample: null })
+  }, [updateDeepLink])
+  const clearSetupSelection = useCallback(() => {
+    setSelectedSetupId(null)
+    setExperimentVars(undefined)
+    updateDeepLink({ setup: null })
+  }, [updateDeepLink])
+  const handleStructureChange = useCallback((document: typeof structure) => {
+    setStructure(document)
+    clearSampleSelection()
+  }, [clearSampleSelection])
+  const handleExperimentChange = useCallback((document: typeof experiment) => {
+    setExperiment(document)
+    clearSetupSelection()
+  }, [clearSetupSelection])
+
+  const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
+    structure,
+    experiment,
+    handleStructureChange,
+    handleExperimentChange,
+    structureVars,
+    experimentVars,
+  )
+
+  const fetchStructure = useCallback(async (id: number) => {
+    const local = structures.find((row) => row.id === id)
+    return local ?? (await dbTables.Structure.listRows(getListRequest('visible', [id]))).items[0]
+  }, [structures])
+  const fetchExperiment = useCallback(async (id: number) => {
+    const local = experiments.find((row) => row.id === id)
+    return local ?? (await dbTables.Experiment.listRows(getListRequest('visible', [id]))).items[0]
+  }, [experiments])
+  const fetchSample = useCallback(async (id: number) => {
+    const local = samples.find((row) => row.id === id)
+    return local ?? (await dbTables.Sample.listRows(getListRequest('visible', [id]))).items[0]
+  }, [samples])
+  const fetchSetup = useCallback(async (id: number) => {
+    const local = setups.find((row) => row.id === id)
+    return local ?? (await dbTables.Setup.listRows(getListRequest('visible', [id]))).items[0]
+  }, [setups])
+
+  const loadStructure = useCallback(async (id: number) => {
+    const record = await fetchStructure(id)
+    if (!record) throw new Error('Structure를 찾을 수 없습니다.')
+    setStructure(createCadSourceDocumentV2('structure', record.code))
+    setStructureVars(undefined)
+    setSelectedStructureId(id)
+    setSelectedSampleId(null)
+    setSavedStructureCode(record.code)
+    updateDeepLink({ structure: id, sample: null })
+  }, [fetchStructure, updateDeepLink])
+  const loadExperiment = useCallback(async (id: number) => {
+    const record = await fetchExperiment(id)
+    if (!record) throw new Error('Experiment를 찾을 수 없습니다.')
+    setExperiment(createCadSourceDocumentV2('experiment', record.code))
+    setExperimentVars(undefined)
+    setSelectedExperimentId(id)
+    setSelectedSetupId(null)
+    setSavedExperimentCode(record.code)
+    updateDeepLink({ experiment: id, setup: null })
+  }, [fetchExperiment, updateDeepLink])
+  const loadSample = useCallback(async (id: number) => {
+    const sample = await fetchSample(id)
+    if (!sample) throw new Error('Sample을 찾을 수 없습니다.')
+    const parent = await fetchStructure(sample.structure_id)
+    if (!parent) throw new Error('Sample의 부모 Structure를 찾을 수 없습니다.')
+    setStructure(createCadSourceDocumentV2('structure', parent.code))
+    setStructureVars(sample.vars as Readonly<Vars>)
+    setSelectedStructureId(sample.structure_id)
+    setSelectedSampleId(id)
+    setSavedStructureCode(parent.code)
+    updateDeepLink({ structure: sample.structure_id, sample: id })
+  }, [fetchSample, fetchStructure, updateDeepLink])
+  const loadSetup = useCallback(async (id: number) => {
+    const setup = await fetchSetup(id)
+    if (!setup) throw new Error('Setup을 찾을 수 없습니다.')
+    const parent = await fetchExperiment(setup.experiment_id)
+    if (!parent) throw new Error('Setup의 부모 Experiment를 찾을 수 없습니다.')
+    setExperiment(createCadSourceDocumentV2('experiment', parent.code))
+    setExperimentVars(setup.vars as Readonly<Vars>)
+    setSelectedExperimentId(setup.experiment_id)
+    setSelectedSetupId(id)
+    setSavedExperimentCode(parent.code)
+    updateDeepLink({ experiment: setup.experiment_id, setup: id })
+  }, [fetchExperiment, fetchSetup, updateDeepLink])
+
+  useEffect(() => {
+    if (initializedFromUrl.current) return
+    initializedFromUrl.current = true
+    const sampleId = positiveId(searchParams.get('sample'))
+    const setupId = positiveId(searchParams.get('setup'))
+    const structureId = positiveId(searchParams.get('structure'))
+    const experimentId = positiveId(searchParams.get('experiment'))
+    const tasks = [
+      sampleId ? loadSample(sampleId) : structureId ? loadStructure(structureId) : Promise.resolve(),
+      setupId ? loadSetup(setupId) : experimentId ? loadExperiment(experimentId) : Promise.resolve(),
+    ]
+    void Promise.all(tasks).catch((error: unknown) => toast.error(error instanceof Error ? error.message : '딥 링크를 불러오지 못했습니다.'))
+  }, [loadExperiment, loadSample, loadSetup, loadStructure, searchParams])
+
+  const definitionMutation = useMutation({
+    mutationFn: async ({ kind, values }: { kind: 'experiment' | 'structure'; values: DefinitionFormValues }) => {
+      if (kind === 'structure') {
+        const code = cadEntrySource(structure)
+        const [result] = await dbTables.Structure.upsertRow([{ ...(selectedStructureId ? { id: selectedStructureId } : {}), name: values.name, description: values.description || null, code }])
+        return { code, id: result.id, kind }
+      }
+      const code = cadEntrySource(experiment)
+      const [result] = await dbTables.Experiment.upsertRow([{ ...(selectedExperimentId ? { id: selectedExperimentId } : {}), name: values.name, description: values.description || null, code }])
+      return { code, id: result.id, kind }
+    },
+    onSuccess: ({ code, id, kind }) => {
+      if (kind === 'structure') { setSelectedStructureId(id); setSavedStructureCode(code); updateDeepLink({ structure: id }) }
+      else { setSelectedExperimentId(id); setSavedExperimentCode(code); updateDeepLink({ experiment: id }) }
+      setDefinitionDialog(null)
+      void queryClient.invalidateQueries({ queryKey: ['work', `${kind}s`] })
+      toast.success(`${kind === 'structure' ? 'Structure' : 'Experiment'} 정의를 저장했습니다.`)
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '정의를 저장하지 못했습니다.'),
+  })
+
+  const realizationMutation = useMutation({
+    mutationFn: async (kind: 'sample' | 'setup') => {
+      if (kind === 'sample') {
+        if (!selectedStructureId || !structureDocument.variables || savedStructureCode !== cadEntrySource(structure) || structureDocument.status !== 'Ready') throw new Error('저장된 Structure와 Ready 평가가 필요합니다.')
+        const [result] = await dbTables.Sample.upsertRow([createSampleRecord(selectedStructureId, structureDocument.variables)])
+        return { id: result.id, kind }
+      }
+      if (!selectedExperimentId || !experimentDocument.variables || savedExperimentCode !== cadEntrySource(experiment) || experimentDocument.status !== 'Ready') throw new Error('저장된 Experiment와 Ready 평가가 필요합니다.')
+      const [result] = await dbTables.Setup.upsertRow([createSetupRecord(selectedExperimentId, experimentDocument.variables)])
+      return { id: result.id, kind }
+    },
+    onSuccess: ({ id, kind }) => {
+      if (kind === 'sample') { setSelectedSampleId(id); updateDeepLink({ sample: id }); void queryClient.invalidateQueries({ queryKey: ['work', 'samples'] }) }
+      else { setSelectedSetupId(id); updateDeepLink({ setup: id }); void queryClient.invalidateQueries({ queryKey: ['work', 'setups'] }) }
+      toast.success(`${kind === 'sample' ? 'Sample' : 'Setup'} 실현값을 저장했습니다.`)
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : '실현값을 저장하지 못했습니다.'),
+  })
+
+  const requireLogin = () => {
+    if (auth.isAuthenticated) return true
+    navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
+    return false
+  }
+  const openDefinitionDialog = (kind: 'experiment' | 'structure') => {
+    if (requireLogin()) setDefinitionDialog(kind)
+  }
+  const saveRealization = (kind: 'sample' | 'setup') => {
+    if (requireLogin()) realizationMutation.mutate(kind)
+  }
+
+  const selectedStructure = structures.find((row) => row.id === selectedStructureId)
+  const selectedExperiment = experiments.find((row) => row.id === selectedExperimentId)
+  const selectedExample = caembleExamples.find((example) => example.code === cadEntrySource(structure))
+  const structureViewerDocument = useMemo(() => ({ scene: structureDocument.scene, sceneHash: structureDocument.sceneHash, variables: structureDocument.variables }), [structureDocument.scene, structureDocument.sceneHash, structureDocument.variables])
+  const experimentViewerDocument = useMemo(() => ({ experimentRules: experimentDocument.experimentRules, scene: experimentDocument.scene, sceneHash: experimentDocument.sceneHash, variables: experimentDocument.variables }), [experimentDocument.experimentRules, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables])
+  const activeDocument = activeDocumentType === 'structure' ? structureDocument : experimentDocument
+  const viewerSelection = useMemo(() => activeDocument.selection ? { documentType: activeDocumentType, selection: activeDocument.selection } : null, [activeDocument.selection, activeDocumentType])
+  const handleRenderStart = useCallback((sources: readonly CadDocumentType[]) => { if (sources.includes('structure')) structureDocument.handleRenderStart(); if (sources.includes('experiment')) experimentDocument.handleRenderStart() }, [experimentDocument, structureDocument])
+  const handleRenderEnd = useCallback((sources: readonly CadDocumentType[]) => { if (sources.includes('structure')) structureDocument.handleRenderEnd(); if (sources.includes('experiment')) experimentDocument.handleRenderEnd() }, [experimentDocument, structureDocument])
+  const handleRenderError = useCallback((message: string, sources: readonly CadDocumentType[]) => { if (sources.includes('structure')) structureDocument.handleRenderError(message); if (sources.includes('experiment')) experimentDocument.handleRenderError(message) }, [experimentDocument, structureDocument])
+  const sampleUnavailableReason = !selectedStructureId
+    ? 'Structure 정의를 먼저 저장하세요.'
+    : savedStructureCode !== cadEntrySource(structure)
+      ? '변경된 Structure 정의를 먼저 저장하세요.'
+      : structureDocument.status !== 'Ready'
+        ? `Structure 평가 상태가 ${structureDocument.status}입니다.`
+        : !structureDocument.variables
+          ? '평가된 Structure vars가 없습니다.'
+          : null
+  const setupUnavailableReason = !selectedExperimentId
+    ? 'Experiment 정의를 먼저 저장하세요.'
+    : savedExperimentCode !== cadEntrySource(experiment)
+      ? '변경된 Experiment 정의를 먼저 저장하세요.'
+      : experimentDocument.status !== 'Ready'
+        ? `Experiment 평가 상태가 ${experimentDocument.status}입니다.`
+        : !experimentDocument.variables
+          ? '평가된 Experiment vars가 없습니다.'
+          : null
+  const sampleReady = !auth.isAuthenticated || sampleUnavailableReason === null
+  const setupReady = !auth.isAuthenticated || setupUnavailableReason === null
+
+  return (
+    <section aria-label="Code-to-CAD Viewer 페이지" className="flex h-full min-h-0 flex-col overflow-auto lg:overflow-hidden">
+      <ViewerPersistenceBar
+        currentExampleId={selectedExample?.id ?? ''}
+        experiments={experiments}
+        onExampleChange={(id) => { const example = caembleExamples.find((item) => item.id === id); if (!example) return; setStructure((current) => updateCadEntrySource(current, example.code)); setSelectedStructureId(null); setSavedStructureCode(null); clearSampleSelection(); updateDeepLink({ structure: null }) }}
+        onLoadExperiment={(id) => void loadExperiment(id).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Experiment를 열지 못했습니다.'))}
+        onLoadSample={(id) => void loadSample(id).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Sample을 열지 못했습니다.'))}
+        onLoadSetup={(id) => void loadSetup(id).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Setup을 열지 못했습니다.'))}
+        onLoadStructure={(id) => void loadStructure(id).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Structure를 열지 못했습니다.'))}
+        onSaveExperiment={() => openDefinitionDialog('experiment')}
+        onSaveSample={() => saveRealization('sample')}
+        onSaveSetup={() => saveRealization('setup')}
+        onSaveStructure={() => openDefinitionDialog('structure')}
+        realizationPending={realizationMutation.isPending}
+        sampleReady={sampleReady}
+        sampleUnavailableReason={sampleUnavailableReason}
+        samples={samples}
+        selectedExperimentId={selectedExperimentId}
+        selectedSampleId={selectedSampleId}
+        selectedSetupId={selectedSetupId}
+        selectedStructureId={selectedStructureId}
+        setupReady={setupReady}
+        setupUnavailableReason={setupUnavailableReason}
+        setups={setups}
+        structures={structures}
+      />
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:h-full lg:overflow-hidden lg:grid-cols-[minmax(360px,var(--workspace-left-width))_5px_minmax(0,1fr)]" ref={workspaceRef} style={{ '--workspace-left-width': `${workspaceLeftPercent}%` } as CSSProperties}>
+        <div className="min-h-[360px] min-w-0 border-b lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0"><StructureExperimentViewer activeDocumentType={activeDocumentType} experiment={experiment} experimentDocument={experimentDocument} solverCompatibility={simulation.compatibility} structure={structure} structureDocument={structureDocument} onActiveDocumentTypeChange={setActiveDocumentType} /></div>
+        <div aria-label="모델링 패널과 Viewer 크기 조절" aria-orientation="vertical" aria-valuemax={75} aria-valuemin={25} aria-valuenow={Math.round(workspaceLeftPercent)} className="group hidden cursor-col-resize touch-none items-stretch justify-center bg-muted outline-none hover:bg-neutral-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring lg:flex" role="separator" tabIndex={0} onDoubleClick={() => setWorkspaceLeftPercent(defaultWorkspaceLeftPercent)} onKeyDown={(event) => { if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return; const width = workspaceRef.current?.getBoundingClientRect().width; if (!width) return; event.preventDefault(); setWorkspaceLeftPercent((current) => clampWorkspaceLeftPercent(current + (event.key === 'ArrowLeft' ? -2 : 2), width)) }} onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)} onPointerMove={(event) => { if (!event.currentTarget.hasPointerCapture(event.pointerId)) return; const bounds = workspaceRef.current?.getBoundingClientRect(); if (bounds) setWorkspaceLeftPercent(clampWorkspaceLeftPercent(((event.clientX - bounds.left) / bounds.width) * 100, bounds.width)) }} onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}><span className="w-px bg-border group-hover:bg-neutral-400" /></div>
+        <CadViewer experiment={experimentViewerDocument} recordedData={simulation.recordedData} selected={viewerSelection} simulation={{ canRun: simulation.canRun, cancel: simulation.cancel, compatibility: simulation.compatibility, process: simulation.process, run: simulation.run, solver: experimentDocument.solver, stale: simulation.stale }} structure={structureViewerDocument} onRenderEnd={handleRenderEnd} onRenderError={handleRenderError} onRenderStart={handleRenderStart} />
+      </div>
+      <SaveDefinitionDialog defaults={{ name: selectedStructure?.name ?? '새 Structure', description: selectedStructure?.description ?? '' }} kind="Structure" onOpenChange={(open) => setDefinitionDialog(open ? 'structure' : null)} onSubmit={async (values) => { await definitionMutation.mutateAsync({ kind: 'structure', values }) }} open={definitionDialog === 'structure'} pending={definitionMutation.isPending} />
+      <SaveDefinitionDialog defaults={{ name: selectedExperiment?.name ?? '새 Experiment', description: selectedExperiment?.description ?? '' }} kind="Experiment" onOpenChange={(open) => setDefinitionDialog(open ? 'experiment' : null)} onSubmit={async (values) => { await definitionMutation.mutateAsync({ kind: 'experiment', values }) }} open={definitionDialog === 'experiment'} pending={definitionMutation.isPending} />
+    </section>
+  )
+}
+
+export const Component = ViewerPage
