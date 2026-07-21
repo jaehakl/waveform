@@ -2,12 +2,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from db import Base, engine
 
 from settings import settings
 from user_auth.routes import router as auth_router
-
-
 
 
 def server():
@@ -26,14 +23,14 @@ def server():
     origins = [
         "http://localhost",
         "http://localhost:5173",
-        settings.app_base_url
+        settings.app_base_url,
     ]
 
     app.add_middleware(
         CORSMiddleware,
         allow_credentials=True,
         allow_origins=origins,
-        #allow_origin_regex="https://.*\.onigiri\.kr",
+        # allow_origin_regex="https://.*\.onigiri\.kr",
         allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
         allow_headers=["*"],
     )

@@ -54,9 +54,18 @@ class User(TimestampMixin, Base):
     user_roles: Mapped[List["UserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan", lazy="selectin")
     auth_audits: Mapped[List["AuthAudit"]] = relationship(back_populates="user", lazy="selectin")
     api_keys: Mapped[List["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    user_jp_word_skills: Mapped[List["UserJpWordSkill"]] = relationship(back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    user_texts: Mapped[List["UserText"]] = relationship(back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    error_reports: Mapped[List["ErrorReport"]] = relationship(back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    materials: Mapped[List["Material"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    material_names: Mapped[List["MaterialName"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    material_parameters: Mapped[List["MaterialParameter"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    geometries: Mapped[List["Geometry"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    structures: Mapped[List["Structure"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    experiments: Mapped[List["Experiment"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    samples: Mapped[List["Sample"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    setups: Mapped[List["Setup"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    measurements: Mapped[List["Measurement"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    recorded_data: Mapped[List["RecordedData"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    designer_models: Mapped[List["DesignerModel"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    predictor_models: Mapped[List["PredictorModel"]] = relationship(back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     
 
 class Identity(TimestampMixin, Base):

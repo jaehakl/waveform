@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db import Audio, Image
-from utils.aws_s3 import delete_object
 from utils.datetime_utils import parse_api_datetime_to_utc
 
 
@@ -25,12 +23,13 @@ ComputedFieldConfig = tuple[ComputedFieldSpec, ...]
 class CrudSpec(Generic[ModelT, SchemaT]):
     model: type[ModelT]
     schema: type[SchemaT]
+    scope_path: tuple[str, ...] = field(default_factory=tuple)
+    tree_parent_field: str | None = None
     relation_aliases: Mapping[str, str] = field(default_factory=dict)
     computed_fields: Mapping[str, ComputedFieldConfig] = field(default_factory=dict)
     search_aliases: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     count_sort_fields: Mapping[str, str] = field(default_factory=dict)
-    presigned_fields: tuple[str, ...] = field(default_factory=tuple)
-    read_only_fields: tuple[str, ...] = field(default_factory=tuple)
+    read_only_fields: tuple[str, ...] = ("created_at", "updated_at")
     preserve_unset_fields: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -42,12 +41,6 @@ class RelationValueSpec:
     exclude_self: bool = False
 
 
-FILE_REFERENCE_COLUMNS = (
-    Image.object_key,
-    Audio.object_key,
-)
-
-
 def computed(*path: str, attr: str = "id", exclude_self: bool = False) -> ComputedFieldConfig:
     return ((tuple(path), attr, exclude_self),)
 
@@ -57,12 +50,19 @@ def normalize_int_ids(values: Optional[Iterable[Any]], *, sort: bool = False) ->
     seen_ids: set[int] = set()
 
     for value in values or []:
-        if not isinstance(value, int) or value in seen_ids:
+        if not isinstance(value, int) or isinstance(value, bool) or value in seen_ids:
             continue
         seen_ids.add(value)
         normalized_ids.append(value)
 
     return sorted(normalized_ids) if sort else normalized_ids
+
+
+def is_admin_user(user: Any | None) -> bool:
+    return bool(
+        user
+        and any(getattr(role, "value", role) == "admin" for role in (user.roles or []))
+    )
 
 
 def get_model_column_python_type(model: type[Any], field_name: str) -> Any | None:
@@ -115,7 +115,7 @@ def get_relation_fields(spec: CrudSpec[Any, Any]) -> list[tuple[str, str, type[A
             continue
 
         relationship_attr = get_relationship_attr(spec.model, attr_name)
-        if relationship_attr is None:
+        if relationship_attr is None or not relationship_attr.property.uselist:
             continue
 
         relation_fields.append((field_name, attr_name, relationship_attr.property.mapper.class_))
@@ -158,16 +158,58 @@ def build_load_options(
     return tuple(load_options)
 
 
-async def cleanup_orphaned_object_keys(
+def _scope_parts(spec: CrudSpec[Any, Any]) -> tuple[list[Any], type[Any], Any]:
+    relationships: list[Any] = []
+    current_model = spec.model
+    for attr_name in spec.scope_path:
+        relationship_attr = get_relationship_attr(current_model, attr_name)
+        if relationship_attr is None or relationship_attr.property.uselist:
+            raise RuntimeError(f"Invalid CRUD scope path: {'.'.join(spec.scope_path)}")
+        relationships.append(relationship_attr)
+        current_model = relationship_attr.property.mapper.class_
+
+    owner_column = current_model.__table__.columns.get("user_id")
+    if owner_column is None:
+        raise RuntimeError(f"CRUD model {spec.model.__name__} has no ownership scope.")
+    return relationships, current_model, owner_column
+
+
+def build_scope_clause(
+    spec: CrudSpec[Any, Any],
+    user: Any | None,
+    *,
+    write: bool,
+) -> Any | None:
+    if is_admin_user(user):
+        return None
+
+    relationships, _, owner_column = _scope_parts(spec)
+    if write:
+        if user is None:
+            return owner_column.is_not(None) & owner_column.is_(None)
+        clause = owner_column == user.id
+    elif user is None:
+        clause = owner_column.is_(None)
+    else:
+        clause = or_(owner_column.is_(None), owner_column == user.id)
+
+    for relationship_attr in reversed(relationships):
+        clause = relationship_attr.has(clause)
+    return clause
+
+
+async def get_scope_owner_ids(
     db: AsyncSession,
-    object_keys: Sequence[str | None],
-) -> None:
-    for object_key in {key for key in object_keys if key}:
-        is_referenced = False
-        for column in FILE_REFERENCE_COLUMNS:
-            stmt = select(func.count()).select_from(column.class_).where(column == object_key)
-            if (await db.execute(stmt)).scalar_one():
-                is_referenced = True
-                break
-        if not is_referenced:
-            delete_object(object_key)
+    spec: CrudSpec[Any, Any],
+    ids: Iterable[int],
+) -> dict[int, str | None]:
+    normalized_ids = normalize_int_ids(ids, sort=True)
+    if not normalized_ids:
+        return {}
+
+    relationships, _, owner_column = _scope_parts(spec)
+    stmt = select(spec.model.id, owner_column.label("owner_id")).select_from(spec.model)
+    for relationship_attr in relationships:
+        stmt = stmt.join(relationship_attr)
+    stmt = stmt.where(spec.model.id.in_(normalized_ids))
+    return {row.id: row.owner_id for row in (await db.execute(stmt)).all()}

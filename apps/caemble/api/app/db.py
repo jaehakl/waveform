@@ -1,10 +1,23 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, MetaData, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Text,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -16,6 +29,10 @@ def make_async_db_url(url: str) -> str:
         return url
     if url.startswith("postgresql+asyncpg://"):
         return url
+    if url.startswith("postgresql+psycopg://"):
+        return url.replace("postgresql+psycopg://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql+psycopg2://"):
+        return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
     if url.startswith("postgresql://"):
         return url.replace("postgresql://", "postgresql+asyncpg://", 1)
     if url.startswith("postgres://"):
@@ -48,12 +65,12 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
-    created_at: Mapped[DateTime] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    updated_at: Mapped[DateTime] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -61,101 +78,414 @@ class TimestampMixin:
     )
 
 
-class Example(TimestampMixin, Base):
-    __tablename__ = "examples"
+class Material(TimestampMixin, Base):
+    __tablename__ = "materials"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    jp_text: Mapped[str] = mapped_column(Text, nullable=False)
-    kr_text: Mapped[str] = mapped_column(Text, nullable=False)
-    context: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    negative_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    prompt_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True, deferred=True)
-    context_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True, deferred=True)
-    text_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True, deferred=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    inchi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    jp_words: Mapped[List["JpWord"]] = relationship("JpWord",secondary="jp_word_examples",back_populates="examples",lazy="selectin",)
-    audios: Mapped[List["Audio"]] = relationship("Audio",back_populates="example",cascade="all, delete-orphan",)
-    error_reports: Mapped[List["ErrorReport"]] = relationship("ErrorReport",back_populates="example",cascade="all, delete-orphan",)
-
-
-class JpWord(TimestampMixin, Base):
-    __tablename__ = "jp_words"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    lemma_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
-    lemma: Mapped[str] = mapped_column(Text, nullable=False)
-    kr_mean: Mapped[str] = mapped_column(Text, nullable=False)
-
-    examples: Mapped[List["Example"]] = relationship("Example",secondary="jp_word_examples",back_populates="jp_words",lazy="selectin",)
-    user_word_skills: Mapped[List["UserJpWordSkill"]] = relationship("UserJpWordSkill",back_populates="word",cascade="all, delete-orphan",)
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="materials")
+    names: Mapped[List["MaterialName"]] = relationship(
+        back_populates="material",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    parameters: Mapped[List["MaterialParameter"]] = relationship(
+        back_populates="material",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
-class ExampleJpWord(TimestampMixin, Base):
-    __tablename__ = "jp_word_examples"
-
-    example_id: Mapped[int] = mapped_column(Integer,ForeignKey("examples.id", ondelete="CASCADE"),primary_key=True,)
-    jp_word_id: Mapped[int] = mapped_column(Integer,ForeignKey("jp_words.id", ondelete="CASCADE"),primary_key=True,)
-
-
-class Image(TimestampMixin, Base):
-    __tablename__ = "images"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    negative_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    prompt_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True, deferred=True)
-    object_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-
-class Audio(TimestampMixin, Base):
-    __tablename__ = "audios"
+class MaterialName(TimestampMixin, Base):
+    __tablename__ = "material_names"
+    __table_args__ = (
+        Index(
+            "uq_material_names_public_name",
+            "name",
+            unique=True,
+            postgresql_where=text("user_id IS NULL"),
+        ),
+        Index(
+            "uq_material_names_user_name",
+            "user_id",
+            "name",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    example_id: Mapped[int] = mapped_column(Integer, ForeignKey("examples.id", ondelete="CASCADE"), nullable=False)
-    speaker: Mapped[str] = mapped_column(Text, nullable=False)
-    object_key: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    material_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("materials.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
 
-    example: Mapped["Example"] = relationship("Example", back_populates="audios", lazy="selectin")
-
-
-class UserJpWordSkill(TimestampMixin, Base):
-    __tablename__ = "user_jp_word_skills"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    word_id: Mapped[int] = mapped_column(Integer, ForeignKey("jp_words.id", ondelete="CASCADE"), nullable=False)
-    reading: Mapped[int] = mapped_column(Integer, default=0)
-    listening: Mapped[int] = mapped_column(Integer, default=0)
-    speaking: Mapped[int] = mapped_column(Integer, default=0)
-
-    word: Mapped["JpWord"] = relationship("JpWord", back_populates="user_word_skills")
-    user: Mapped["User"] = relationship("User", back_populates="user_jp_word_skills")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="material_names")
+    material: Mapped["Material"] = relationship(back_populates="names")
 
 
-class UserText(TimestampMixin, Base):
-    __tablename__ = "user_texts"
+class MaterialParameter(TimestampMixin, Base):
+    __tablename__ = "material_parameters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    tags: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True, deferred=True)
-    youtube_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    material_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("materials.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    version: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    temperature: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    pressure: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    frequency: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="user_texts")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="material_parameters")
+    material: Mapped["Material"] = relationship(back_populates="parameters")
+    qualifiers: Mapped[List["MaterialParameterQualifier"]] = relationship(
+        back_populates="material_parameter",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
-class ErrorReport(TimestampMixin, Base):
-    __tablename__ = "error_reports"
+class MaterialParameterQualifier(TimestampMixin, Base):
+    __tablename__ = "material_parameter_qualifiers"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    example_id: Mapped[int] = mapped_column(Integer, ForeignKey("examples.id", ondelete="CASCADE"), nullable=False)
-    error_type: Mapped[str] = mapped_column(Text, nullable=False)
-    error_description: Mapped[str] = mapped_column(Text, nullable=False)
-    is_resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    material_parameter_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("material_parameters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
 
-    user: Mapped["User"] = relationship("User", back_populates="error_reports", lazy="selectin")
-    example: Mapped["Example"] = relationship("Example", back_populates="error_reports", lazy="selectin")
+    material_parameter: Mapped["MaterialParameter"] = relationship(back_populates="qualifiers")
+
+
+class Geometry(TimestampMixin, Base):
+    __tablename__ = "geometries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("geometries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="geometries")
+    parent: Mapped[Optional["Geometry"]] = relationship(
+        remote_side="Geometry.id",
+        back_populates="children",
+    )
+    children: Mapped[List["Geometry"]] = relationship(
+        back_populates="parent",
+        passive_deletes=True,
+    )
+
+
+class Structure(TimestampMixin, Base):
+    __tablename__ = "structures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("structures.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="structures")
+    parent: Mapped[Optional["Structure"]] = relationship(
+        remote_side="Structure.id",
+        back_populates="children",
+    )
+    children: Mapped[List["Structure"]] = relationship(
+        back_populates="parent",
+        passive_deletes=True,
+    )
+    samples: Mapped[List["Sample"]] = relationship(
+        back_populates="structure",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    designer_models: Mapped[List["DesignerModel"]] = relationship(
+        back_populates="structure",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    predictor_models: Mapped[List["PredictorModel"]] = relationship(
+        back_populates="structure",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class Experiment(TimestampMixin, Base):
+    __tablename__ = "experiments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("experiments.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    code_embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(768), nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="experiments")
+    parent: Mapped[Optional["Experiment"]] = relationship(
+        remote_side="Experiment.id",
+        back_populates="children",
+    )
+    children: Mapped[List["Experiment"]] = relationship(
+        back_populates="parent",
+        passive_deletes=True,
+    )
+    setups: Mapped[List["Setup"]] = relationship(
+        back_populates="experiment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    designer_models: Mapped[List["DesignerModel"]] = relationship(
+        back_populates="experiment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    predictor_models: Mapped[List["PredictorModel"]] = relationship(
+        back_populates="experiment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class Sample(TimestampMixin, Base):
+    __tablename__ = "samples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    structure_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("structures.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vars: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+    material_parameters: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="samples")
+    structure: Mapped["Structure"] = relationship(back_populates="samples")
+    measurements: Mapped[List["Measurement"]] = relationship(
+        back_populates="sample",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class Setup(TimestampMixin, Base):
+    __tablename__ = "setups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    experiment_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("experiments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    vars: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="setups")
+    experiment: Mapped["Experiment"] = relationship(back_populates="setups")
+    measurements: Mapped[List["Measurement"]] = relationship(
+        back_populates="setup",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class Measurement(TimestampMixin, Base):
+    __tablename__ = "measurements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    sample_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("samples.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    setup_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("setups.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="measurements")
+    sample: Mapped["Sample"] = relationship(back_populates="measurements")
+    setup: Mapped["Setup"] = relationship(back_populates="measurements")
+    recorded_data: Mapped[List["RecordedData"]] = relationship(
+        back_populates="measurement",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class RecordedData(TimestampMixin, Base):
+    __tablename__ = "recorded_data"
+    __table_args__ = (
+        CheckConstraint("tensor_order >= 0", name="tensor_order_nonnegative"),
+        CheckConstraint("file_size IS NULL OR file_size >= 0", name="file_size_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    measurement_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("measurements.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    quantity_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    tensor_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    dtype: Mapped[str] = mapped_column(Text, nullable=False)
+    data: Mapped[Optional[Any]] = mapped_column(JSONB, nullable=True)
+    data_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="recorded_data")
+    measurement: Mapped["Measurement"] = relationship(back_populates="recorded_data")
+
+
+class DesignerModel(TimestampMixin, Base):
+    __tablename__ = "designer_models"
+    __table_args__ = (
+        CheckConstraint("file_size IS NULL OR file_size >= 0", name="file_size_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    structure_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("structures.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    experiment_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("experiments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    model_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="designer_models")
+    structure: Mapped["Structure"] = relationship(back_populates="designer_models")
+    experiment: Mapped["Experiment"] = relationship(back_populates="designer_models")
+
+
+class PredictorModel(TimestampMixin, Base):
+    __tablename__ = "predictor_models"
+    __table_args__ = (
+        CheckConstraint("file_size IS NULL OR file_size >= 0", name="file_size_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[str]] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    structure_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("structures.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    experiment_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("experiments.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    model_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="predictor_models")
+    structure: Mapped["Structure"] = relationship(back_populates="predictor_models")
+    experiment: Mapped["Experiment"] = relationship(back_populates="predictor_models")

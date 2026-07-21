@@ -1,28 +1,37 @@
 from initserver import server
 from routers import (
-    audio,
-    creator_helpers,
-    error_report,
-    example,
+    designer_model,
+    experiment,
+    geometry,
     gps_access_token,
-    image,
-    jp_word,
-    text_analysis,
-    user_jp_word_skill,
-    user_text,
+    material,
+    material_name,
+    material_parameter,
+    material_parameter_qualifier,
+    measurement,
+    predictor_model,
+    recorded_data,
+    sample,
+    setup,
+    structure,
     users,
 )
 
+
 app = server()
 
-app.include_router(example.router)
+app.include_router(material.router)
+app.include_router(material_name.router)
+app.include_router(material_parameter.router)
+app.include_router(material_parameter_qualifier.router)
+app.include_router(geometry.router)
+app.include_router(structure.router)
+app.include_router(experiment.router)
+app.include_router(sample.router)
+app.include_router(setup.router)
+app.include_router(measurement.router)
+app.include_router(recorded_data.router)
+app.include_router(designer_model.router)
+app.include_router(predictor_model.router)
 app.include_router(gps_access_token.router)
-app.include_router(jp_word.router)
-app.include_router(image.router)
-app.include_router(creator_helpers.router)
-app.include_router(audio.router)
-app.include_router(user_jp_word_skill.router)
-app.include_router(user_text.router)
-app.include_router(error_report.router)
 app.include_router(users.router)
-app.include_router(text_analysis.router)

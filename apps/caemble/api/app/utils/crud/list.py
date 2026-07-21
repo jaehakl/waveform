@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from models import GetListResponseBase
-from utils.aws_s3 import presign_get_url
 from utils.datetime_utils import db_datetime_to_utc, parse_api_datetime_to_utc
 from utils.crud.common import (
     CrudSpec,
     RelationValueSpec,
+    build_scope_clause,
     get_model_column_python_type,
     get_relation_attr_name,
     get_relation_fields,
@@ -457,8 +457,6 @@ async def serialize_list_entities(
                 and isinstance(field_value, datetime)
             ):
                 field_value = db_datetime_to_utc(field_value)
-            if field_name in spec.presigned_fields and isinstance(field_value, str) and field_value:
-                field_value = presign_get_url(field_value)
             item_data[field_name] = field_value
 
         items.append(spec.schema.model_validate(item_data))
@@ -471,8 +469,12 @@ async def get_list_response(
     request: Any,
     spec: CrudSpec[Any, Any],
     base_clause: Any | None = None,
+    *,
+    user: Any | None = None,
 ) -> GetListResponseBase:
-    where_clause = build_list_where_clause(request, spec, base_clause)
+    scope_clause = build_scope_clause(spec, user, write=False)
+    scoped_base_clause = _combine_clauses(and_, (base_clause, scope_clause))
+    where_clause = build_list_where_clause(request, spec, scoped_base_clause)
     total = await get_list_total(db, spec, where_clause)
     entities = await _get_entities(db, request, spec, where_clause)
     items = await serialize_list_entities(db, entities, spec)

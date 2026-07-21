@@ -1,1 +1,1 @@
-"""FastAPI router modules for Neo learning endpoints."""
+"""FastAPI router modules for Caemble."""

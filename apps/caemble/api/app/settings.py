@@ -1,6 +1,7 @@
 import os
-from pydantic import BaseModel
+
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -24,17 +25,9 @@ class Settings(BaseModel):
     JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALG: str = "HS256"
     ACCESS_TTL_SEC: int = 1200
-    REFRESH_TTL_SEC: int = 60*60*24*14
+    REFRESH_TTL_SEC: int = 60 * 60 * 24 * 14
     COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN", "")
     SECURE_COOKIES: bool = env_bool("SECURE_COOKIES", True)
 
-    # AWS
-    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
-    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-    AWS_REGION: str = os.getenv("AWS_REGION", "ap-northeast-2")
-    S3_BUCKET: str = os.getenv("S3_BUCKET", "")
-    S3_ENDPOINT_URL: str = os.getenv("S3_ENDPOINT_URL", "")
-    CDN_URL: str = os.getenv("CDN_URL", "")
-    MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "20"))
 
 settings = Settings()

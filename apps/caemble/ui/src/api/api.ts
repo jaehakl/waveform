@@ -2,27 +2,24 @@
 
 import { API_URL, request } from './http';
 import type {
-  AnalyzeJapaneseTextResponse,
-  AnalyzeJapaneseTextSkills,
-  AudioRecord,
-  ErrorReportRecord,
-  ExampleContextPlayResponse,
-  ExampleRecord,
-  ExampleSortSimilarRecord,
-  GpsAccessTokenData,
+  DesignerModelRecord,
+  ExperimentRecord,
+  GeometryRecord,
   GetListRequest,
   GetListResponse,
-  ImagePromptSimilarityResponse,
-  ImageRecord,
-  JpWordRecord,
-  SimilarityResult,
-  SyncExampleJpWordsRequest,
-  SyncExampleJpWordsResponse,
-  AutoFlowSeedResponse,
+  GpsAccessTokenData,
+  MaterialNameRecord,
+  MaterialParameterQualifierRecord,
+  MaterialParameterRecord,
+  MaterialRecord,
+  MeasurementRecord,
+  PredictorModelRecord,
+  RecordedDataRecord,
+  SampleRecord,
+  SetupRecord,
+  StructureRecord,
   UpsertResponse,
   UserData,
-  UserJpWordSkillRecord,
-  UserTextRecord,
 } from './types';
 
 export { API_URL };
@@ -44,22 +41,6 @@ export function updateGpsAccessToken(gpsAccessToken: string | null) {
   return request<GpsAccessTokenData>('post', '/auth/gps-access-token', {
     gps_access_token: gpsAccessToken,
   });
-}
-
-function buildUpsertFormData(
-  payload: unknown,
-  files: Record<string, File | null | undefined> = {},
-) {
-  const formData = new FormData();
-  formData.append('payload', JSON.stringify(payload));
-
-  Object.entries(files).forEach(([field, file]) => {
-    if (file) {
-      formData.append(field, file, file.name);
-    }
-  });
-
-  return formData;
 }
 
 export const dbTables = {
@@ -95,214 +76,265 @@ export const dbTables = {
       request<UserData | null>('get', '/user_data/summary/user'),
   },
 
-  Example: {
-    label: '예문',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      jp_text: { label: '일본어', type: 'text', required: true },
-      kr_text: { label: '한국어', type: 'text', required: true },
-      context: { label: '기존 일본어 문장', type: 'text' },
-      prompt: { label: '프롬프트', type: 'text' },
-      negative_prompt: { label: '네거티브 프롬프트', type: 'text' },
-      jp_words: { label: '단어', type: 'list-fk', targetTable: 'JpWord', linkType: 'secondary' },
-      audios: { label: '오디오', type: 'list-fk', targetTable: 'Audio', linkType: 'children', readOnly: true },
-      error_reports: { label: '오류 제보', type: 'list-fk', targetTable: 'ErrorReport', linkType: 'children', readOnly: true },
-    },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<ExampleRecord>>('post', '/example/list', listRequest),
-    contextPlay: (
-      exampleId: number,
-      skills?: AnalyzeJapaneseTextSkills,
-    ) =>
-      request<ExampleContextPlayResponse>('post', '/example/context-play', {
-        example_id: exampleId,
-        ...(skills ? { skills } : {}),
-      }),
-    upsertRow: (items: ExampleRecord[]) =>
-      request<UpsertResponse[]>('post', '/example/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/example/', ids).then(() => undefined),
-  },
-
-  JpWord: {
-    label: '일본어 단어',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      lemma_id: { label: 'Lemma ID', type: 'number', required: true },
-      lemma: { label: 'Lemma', type: 'text', required: true },
-      kr_mean: { label: '뜻', type: 'text', required: true },
-      examples: { label: '예문', type: 'list-fk', targetTable: 'Example', linkType: 'secondary' },
-      user_word_skills: { label: '숙련도', type: 'list-fk', targetTable: 'UserJpWordSkill', linkType: 'children', readOnly: true },
-    },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<JpWordRecord>>('post', '/jp_word/list', listRequest),
-    listRowsWithProns: (listRequest: GetListRequest) =>
-      request<GetListResponse<JpWordRecord>>('post', '/jp_word/list-with-prons', listRequest),
-    upsertRow: (items: JpWordRecord[]) =>
-      request<UpsertResponse[]>('post', '/jp_word/upsert', items),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/jp_word/', ids).then(() => undefined),
-    analyzeJapaneseText: (
-      text: string,
-      skills?: AnalyzeJapaneseTextSkills,
-    ) =>
-      request<AnalyzeJapaneseTextResponse>('post', '/text/analyze/jp', {
-        text,
-        ...(skills ? { skills } : {}),
-      }),
-  },
-
-  Image: {
-    label: '이미지',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      prompt: { label: '프롬프트', type: 'text' },
-      negative_prompt: { label: '네거티브 프롬프트', type: 'text' },
-      object_key: { label: '파일', type: 'image' },
-    },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<ImageRecord>>('post', '/image/list', listRequest),
-    findClosestByExample: (exampleIds: number[]) =>
-      request<Record<number, SimilarityResult>>(
-        'post',
-        '/image/closest-by-example',
-        exampleIds,
-      ),
-    findSimilarByImage: (imageId: number, limit: number) =>
-      request<ImagePromptSimilarityResponse>('post', '/image/similar-by-image', {
-        image_id: imageId,
-        limit,
-      }),
-    upsertRow: (items: ImageRecord[]) =>
-      request<UpsertResponse[]>('post', '/image/upsert', items),
-    upsertFormRow: (item: ImageRecord, files: Record<string, File | null | undefined> = {}) =>
-      request<UpsertResponse>('post', '/image/upsert-form', buildUpsertFormData(item, files)),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/image/', ids).then(() => undefined),
-  },
-
-  CreatorHelpers: {
-    label: '생성 도구',
-    hidden: true,
-    columns: {},
-    listExampleRowsSortSimilar: (listRequest: GetListRequest) =>
-      request<GetListResponse<ExampleSortSimilarRecord>>(
-        'post',
-        '/creator-helpers/example-list-sort-similar',
-        listRequest,
-      ),
-    findSimilarExamplesByEmbedding: (embedding: number[], topN = 10) =>
-      request<SimilarityResult[]>('post', '/creator-helpers/similar-examples-by-embedding', {
-        embedding,
-        top_n: topN,
-      }),
-    findSimilarExamplesByContextEmbedding: (embedding: number[], topN = 10) =>
-      request<SimilarityResult[]>('post', '/creator-helpers/similar-examples-by-context-embedding', {
-        embedding,
-        top_n: topN,
-      }),
-    findSimilarImagesByPromptEmbedding: (embedding: number[], topN = 10) =>
-      request<SimilarityResult[]>('post', '/creator-helpers/similar-images-by-prompt-embedding', {
-        embedding,
-        top_n: topN,
-      }),
-    syncExampleJpWords: (syncRequest?: SyncExampleJpWordsRequest) =>
-      request<SyncExampleJpWordsResponse>(
-        'post',
-        '/creator-helpers/sync-example-jp-words',
-        syncRequest,
-      ),
-    popAutoFlowSeed: () =>
-      request<AutoFlowSeedResponse>(
-        'post',
-        '/creator-helpers/auto-flow-seed',
-      ),
-  },
-
-  Audio: {
-    label: '오디오',
-    columns: {
-      id: { label: 'ID', type: 'id' },
-      created_at: { label: '생성일', type: 'datetime', readOnly: true },
-      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
-      example_id: { label: '예문', type: 'fk', targetTable: 'Example', required: true },
-      speaker: { label: '화자', type: 'text', required: true },
-      object_key: { label: '파일', type: 'file' },
-    },
-    listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<AudioRecord>>('post', '/audio/list', listRequest),
-    upsertRow: (items: AudioRecord[]) =>
-      request<UpsertResponse[]>('post', '/audio/upsert', items),
-    upsertFormRow: (item: AudioRecord, files: Record<string, File | null | undefined> = {}) =>
-      request<UpsertResponse>('post', '/audio/upsert-form', buildUpsertFormData(item, files)),
-    deleteRows: (ids: number[]) =>
-      request<null>('delete', '/audio/', ids).then(() => undefined),
-  },
-
-  UserJpWordSkill: {
-    label: '단어 숙련도',
+  Material: {
+    label: '재료',
     columns: {
       id: { label: 'ID', type: 'id' },
       created_at: { label: '생성일', type: 'datetime', readOnly: true },
       updated_at: { label: '수정일', type: 'datetime', readOnly: true },
       user_id: { label: '사용자', type: 'text', readOnly: true },
-      word_id: { label: '단어', type: 'fk', targetTable: 'JpWord', required: true },
-      reading: { label: '읽기', type: 'number', required: true },
-      listening: { label: '듣기', type: 'number', required: true },
-      speaking: { label: '말하기', type: 'number', required: true },
+      inchi: { label: 'InChI', type: 'text' },
+      description: { label: '설명', type: 'text' },
     },
     listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<UserJpWordSkillRecord>>('post', '/user_jp_word_skill/list', listRequest),
-    upsertRow: (items: UserJpWordSkillRecord[]) =>
-      request<UpsertResponse[]>('post', '/user_jp_word_skill/upsert', items),
+      request<GetListResponse<MaterialRecord>>('post', '/material/list', listRequest),
+    upsertRow: (items: MaterialRecord[]) =>
+      request<UpsertResponse[]>('post', '/material/upsert', items),
     deleteRows: (ids: number[]) =>
-      request<null>('delete', '/user_jp_word_skill/', ids).then(() => undefined),
+      request<null>('delete', '/material/', ids).then(() => undefined),
   },
 
-  UserText: {
-    label: '사용자 텍스트',
+  MaterialName: {
+    label: '재료명',
     columns: {
       id: { label: 'ID', type: 'id' },
       created_at: { label: '생성일', type: 'datetime', readOnly: true },
       updated_at: { label: '수정일', type: 'datetime', readOnly: true },
       user_id: { label: '사용자', type: 'text', readOnly: true },
-      title: { label: '제목', type: 'text', required: true },
-      text: { label: '본문', type: 'text', required: true },
-      tags: { label: '태그', type: 'text', required: true },
-      youtube_url: { label: 'YouTube URL', type: 'text' },
+      material_id: { label: '재료', type: 'fk', targetTable: 'Material', required: true },
+      name: { label: '이름', type: 'text', required: true },
     },
     listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<UserTextRecord>>('post', '/user_text/list', listRequest),
-    upsertRow: (items: UserTextRecord[]) =>
-      request<UpsertResponse[]>('post', '/user_text/upsert', items),
+      request<GetListResponse<MaterialNameRecord>>('post', '/material_name/list', listRequest),
+    upsertRow: (items: MaterialNameRecord[]) =>
+      request<UpsertResponse[]>('post', '/material_name/upsert', items),
     deleteRows: (ids: number[]) =>
-      request<null>('delete', '/user_text/', ids).then(() => undefined),
+      request<null>('delete', '/material_name/', ids).then(() => undefined),
   },
 
-  ErrorReport: {
-    label: '오류 제보',
+  MaterialParameter: {
+    label: '재료 파라미터',
     columns: {
       id: { label: 'ID', type: 'id' },
       created_at: { label: '생성일', type: 'datetime', readOnly: true },
       updated_at: { label: '수정일', type: 'datetime', readOnly: true },
       user_id: { label: '사용자', type: 'text', readOnly: true },
-      example_id: { label: '예문', type: 'fk', targetTable: 'Example', required: true },
-      error_type: { label: '유형', type: 'text', required: true },
-      error_description: { label: '내용', type: 'text', required: true },
-      is_resolved: { label: '해결됨', type: 'boolean', required: true },
+      material_id: { label: '재료', type: 'fk', targetTable: 'Material', required: true },
+      name: { label: '이름', type: 'text', required: true },
+      value: { label: '값', type: 'json', required: true },
+      source: { label: '출처', type: 'text' },
+      version: { label: '버전', type: 'text' },
+      description: { label: '설명', type: 'text' },
+      temperature: { label: '온도', type: 'number' },
+      pressure: { label: '압력', type: 'number' },
+      frequency: { label: '주파수', type: 'number' },
     },
     listRows: (listRequest: GetListRequest) =>
-      request<GetListResponse<ErrorReportRecord>>('post', '/error_report/list', listRequest),
-    upsertRow: (items: ErrorReportRecord[]) =>
-      request<UpsertResponse[]>('post', '/error_report/upsert', items),
+      request<GetListResponse<MaterialParameterRecord>>('post', '/material_parameter/list', listRequest),
+    upsertRow: (items: MaterialParameterRecord[]) =>
+      request<UpsertResponse[]>('post', '/material_parameter/upsert', items),
     deleteRows: (ids: number[]) =>
-      request<null>('delete', '/error_report/', ids).then(() => undefined),
+      request<null>('delete', '/material_parameter/', ids).then(() => undefined),
+  },
+
+  MaterialParameterQualifier: {
+    label: '파라미터 한정자',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      material_parameter_id: { label: '재료 파라미터', type: 'fk', targetTable: 'MaterialParameter', required: true },
+      name: { label: '이름', type: 'text', required: true },
+      value: { label: '값', type: 'number', required: true },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<MaterialParameterQualifierRecord>>('post', '/material_parameter_qualifier/list', listRequest),
+    upsertRow: (items: MaterialParameterQualifierRecord[]) =>
+      request<UpsertResponse[]>('post', '/material_parameter_qualifier/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/material_parameter_qualifier/', ids).then(() => undefined),
+  },
+
+  Geometry: {
+    label: '지오메트리',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      parent_id: { label: '부모', type: 'fk', targetTable: 'Geometry' },
+      name: { label: '이름', type: 'text', required: true },
+      description: { label: '설명', type: 'text' },
+      code: { label: '코드', type: 'text', required: true },
+      code_embedding: { label: '코드 임베딩', type: 'list' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<GeometryRecord>>('post', '/geometry/list', listRequest),
+    upsertRow: (items: GeometryRecord[]) =>
+      request<UpsertResponse[]>('post', '/geometry/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/geometry/', ids).then(() => undefined),
+  },
+
+  Structure: {
+    label: '구조',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      parent_id: { label: '부모', type: 'fk', targetTable: 'Structure' },
+      name: { label: '이름', type: 'text', required: true },
+      description: { label: '설명', type: 'text' },
+      code: { label: '코드', type: 'text', required: true },
+      code_embedding: { label: '코드 임베딩', type: 'list' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<StructureRecord>>('post', '/structure/list', listRequest),
+    upsertRow: (items: StructureRecord[]) =>
+      request<UpsertResponse[]>('post', '/structure/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/structure/', ids).then(() => undefined),
+  },
+
+  Experiment: {
+    label: '실험',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      parent_id: { label: '부모', type: 'fk', targetTable: 'Experiment' },
+      name: { label: '이름', type: 'text', required: true },
+      description: { label: '설명', type: 'text' },
+      code: { label: '코드', type: 'text', required: true },
+      code_embedding: { label: '코드 임베딩', type: 'list' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<ExperimentRecord>>('post', '/experiment/list', listRequest),
+    upsertRow: (items: ExperimentRecord[]) =>
+      request<UpsertResponse[]>('post', '/experiment/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/experiment/', ids).then(() => undefined),
+  },
+
+  Sample: {
+    label: '시료',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
+      vars: { label: '변수', type: 'json', required: true },
+      material_parameters: { label: '재료 파라미터', type: 'json', required: true },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<SampleRecord>>('post', '/sample/list', listRequest),
+    upsertRow: (items: SampleRecord[]) =>
+      request<UpsertResponse[]>('post', '/sample/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/sample/', ids).then(() => undefined),
+  },
+
+  Setup: {
+    label: '설정',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
+      vars: { label: '변수', type: 'json', required: true },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<SetupRecord>>('post', '/setup/list', listRequest),
+    upsertRow: (items: SetupRecord[]) =>
+      request<UpsertResponse[]>('post', '/setup/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/setup/', ids).then(() => undefined),
+  },
+
+  Measurement: {
+    label: '측정',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      sample_id: { label: '시료', type: 'fk', targetTable: 'Sample', required: true },
+      setup_id: { label: '설정', type: 'fk', targetTable: 'Setup', required: true },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<MeasurementRecord>>('post', '/measurement/list', listRequest),
+    upsertRow: (items: MeasurementRecord[]) =>
+      request<UpsertResponse[]>('post', '/measurement/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/measurement/', ids).then(() => undefined),
+  },
+
+  RecordedData: {
+    label: '기록 데이터',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      measurement_id: { label: '측정', type: 'fk', targetTable: 'Measurement', required: true },
+      name: { label: '이름', type: 'text', required: true },
+      quantity_kind: { label: 'Quantity Kind', type: 'text', required: true },
+      tensor_order: { label: 'Tensor Order', type: 'number', required: true },
+      dtype: { label: '데이터 타입', type: 'text', required: true },
+      data: { label: '데이터', type: 'json' },
+      data_url: { label: '데이터 URL', type: 'text' },
+      file_size: { label: '파일 크기', type: 'number' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<RecordedDataRecord>>('post', '/recorded_data/list', listRequest),
+    upsertRow: (items: RecordedDataRecord[]) =>
+      request<UpsertResponse[]>('post', '/recorded_data/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/recorded_data/', ids).then(() => undefined),
+  },
+
+  DesignerModel: {
+    label: '설계 모델',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
+      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
+      model_url: { label: '모델 URL', type: 'text' },
+      file_size: { label: '파일 크기', type: 'number' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<DesignerModelRecord>>('post', '/designer_model/list', listRequest),
+    upsertRow: (items: DesignerModelRecord[]) =>
+      request<UpsertResponse[]>('post', '/designer_model/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/designer_model/', ids).then(() => undefined),
+  },
+
+  PredictorModel: {
+    label: '예측 모델',
+    columns: {
+      id: { label: 'ID', type: 'id' },
+      created_at: { label: '생성일', type: 'datetime', readOnly: true },
+      updated_at: { label: '수정일', type: 'datetime', readOnly: true },
+      user_id: { label: '사용자', type: 'text', readOnly: true },
+      structure_id: { label: '구조', type: 'fk', targetTable: 'Structure', required: true },
+      experiment_id: { label: '실험', type: 'fk', targetTable: 'Experiment', required: true },
+      model_url: { label: '모델 URL', type: 'text' },
+      file_size: { label: '파일 크기', type: 'number' },
+    },
+    listRows: (listRequest: GetListRequest) =>
+      request<GetListResponse<PredictorModelRecord>>('post', '/predictor_model/list', listRequest),
+    upsertRow: (items: PredictorModelRecord[]) =>
+      request<UpsertResponse[]>('post', '/predictor_model/upsert', items),
+    deleteRows: (ids: number[]) =>
+      request<null>('delete', '/predictor_model/', ids).then(() => undefined),
   },
 };
 

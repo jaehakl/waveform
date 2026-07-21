@@ -2,13 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import (
-    BaseModel as PydanticBaseModel,
-    EmailStr,
-    Field,
-    field_serializer,
-    model_validator,
-)
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import EmailStr, Field, field_serializer
 
 from utils.datetime_utils import serialize_datetime_utc
 
@@ -55,21 +50,9 @@ class GetListResponseBase(BaseModel):
     items: List[Any]
 
 
-class ExampleListRequest(GetListRequestBase):
-    require_prompt_embedding: bool = False
-
-
 class UpsertResponseBase(BaseModel):
     id: int
     fk_not_found: Optional[Dict[str, List[int]]] = None
-
-
-class CopyResponseBase(BaseModel):
-    db_table: str
-    source_ids: List[int]
-    copied_ids: List[int]
-    not_found_ids: List[int]
-    copied_ids_by_table: Dict[str, List[int]]
 
 
 class TimestampFields(BaseModel):
@@ -78,141 +61,95 @@ class TimestampFields(BaseModel):
     updated_at: Optional[datetime] = None
 
 
-class ExampleBase(TimestampFields):
-    jp_text: str
-    kr_text: str
-    context: Optional[str] = None
-    prompt: Optional[str] = None
-    negative_prompt: Optional[str] = None
-    jp_words: Optional[List[int]] = None
-    audios: Optional[List[int]] = None
-    error_reports: Optional[List[int]] = None
-
-
-class ExampleContextPlayRequest(BaseModel):
-    example_id: int
-    skills: Optional[Any] = None
-
-
-class ExampleContextPlayResponse(BaseModel):
-    example: ExampleBase
-    image_url: Optional[str] = None
-    audio_urls: List[str]
-    analysis: Dict[str, Any]
-    similar_examples: List[ExampleBase]
-
-
-class ExampleUpsert(ExampleBase):
-    context_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
-    text_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
-    prompt_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
-
-
-class EmbeddingSimilarityRequest(BaseModel):
-    embedding: List[float] = Field(..., min_length=768, max_length=768)
-    top_n: int = Field(default=10, ge=1, le=100)
-
-
-class SimilarityResult(BaseModel):
-    id: int
-    score: float
-
-
-class ExampleSortSimilarItem(ExampleBase):
-    similar_prompt_image: Optional[SimilarityResult] = None
-    similar_context_text_example: Optional[SimilarityResult] = None
-    similar_text_context_example: Optional[SimilarityResult] = None
-
-
-class ExampleSortSimilarListResponse(BaseModel):
-    total: int
-    items: List[ExampleSortSimilarItem]
-
-
-class SyncExampleJpWordsRequest(BaseModel):
-    start_id: int = Field(..., ge=1)
-    end_id: int = Field(..., ge=1)
-    limit: int = Field(default=100, ge=1, le=100)
-
-    @model_validator(mode="after")
-    def validate_range(self):
-        if self.start_id > self.end_id:
-            raise ValueError("start_id must be less than or equal to end_id")
-        return self
-
-
-class SyncExampleJpWordsResponse(BaseModel):
-    examples_checked: int
-    examples_updated: int
-    jp_words_added: int
-    lemma_ids_without_jp_word: List[int]
-    last_example_id: Optional[int] = None
-    next_start_id: Optional[int] = None
-
-
-class AutoFlowSeedResponse(BaseModel):
-    source_sentence: str
-    seed_word: str
-
-
-class JpWordBase(TimestampFields):
-    lemma_id: int
-    lemma: str
-    kr_mean: str
-    examples: Optional[List[int]] = None
-    user_word_skills: Optional[List[int]] = None
-
-
-class ImageBase(TimestampFields):
-    prompt: Optional[str] = None
-    negative_prompt: Optional[str] = None
-    object_key: Optional[str] = None
-
-
-class ImageUpsert(ImageBase):
-    prompt_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
-
-
-class ImagePromptSimilarityRequest(BaseModel):
-    image_id: int
-    limit: int = Field(..., ge=1, le=100)
-
-
-class ImagePromptSimilarityResponse(BaseModel):
-    similar_image_ids: List[int]
-    similar_example_ids: List[int]
-
-
-class AudioBase(TimestampFields):
-    example_id: int
-    speaker: str
-    object_key: Optional[str] = None
-
-
-class UserJpWordSkillBase(TimestampFields):
+class OwnedTimestampFields(TimestampFields):
     user_id: Optional[str] = None
-    word_id: int
-    reading: int = 0
-    listening: int = 0
-    speaking: int = 0
 
 
-class UserTextBase(TimestampFields):
-    user_id: Optional[str] = None
-    title: str
-    text: str
-    tags: str
-    youtube_url: Optional[str] = None
+class MaterialBase(OwnedTimestampFields):
+    inchi: Optional[str] = None
+    description: Optional[str] = None
 
 
-class ErrorReportBase(TimestampFields):
-    user_id: Optional[str] = None
-    example_id: int
-    error_type: str
-    error_description: str
-    is_resolved: bool = False
+class MaterialNameBase(OwnedTimestampFields):
+    material_id: int
+    name: str = Field(..., min_length=1)
 
 
-class TextAnalyzeJpRequest(BaseModel):
-    text: str = Field(..., min_length=1)
-    skills: Optional[Any] = None
+class MaterialParameterBase(OwnedTimestampFields):
+    material_id: int
+    name: str = Field(..., min_length=1)
+    value: Any
+    source: Optional[str] = None
+    version: Optional[str] = None
+    description: Optional[str] = None
+    temperature: Optional[float] = None
+    pressure: Optional[float] = None
+    frequency: Optional[float] = None
+
+
+class MaterialParameterQualifierBase(TimestampFields):
+    material_parameter_id: int
+    name: str = Field(..., min_length=1)
+    value: float
+
+
+class CodeEntityBase(OwnedTimestampFields):
+    parent_id: Optional[int] = None
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    code: str = Field(..., min_length=1)
+    code_embedding: Optional[List[float]] = Field(default=None, min_length=768, max_length=768)
+
+
+class GeometryBase(CodeEntityBase):
+    pass
+
+
+class StructureBase(CodeEntityBase):
+    pass
+
+
+class ExperimentBase(CodeEntityBase):
+    pass
+
+
+class SampleBase(OwnedTimestampFields):
+    structure_id: int
+    vars: Dict[str, Any] = Field(default_factory=dict)
+    material_parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SetupBase(OwnedTimestampFields):
+    experiment_id: int
+    vars: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MeasurementBase(OwnedTimestampFields):
+    sample_id: int
+    setup_id: int
+
+
+class RecordedDataBase(OwnedTimestampFields):
+    measurement_id: int
+    name: str = Field(..., min_length=1)
+    quantity_kind: str = Field(..., min_length=1)
+    tensor_order: int = Field(..., ge=0)
+    dtype: str = Field(..., min_length=1)
+    data: Any = None
+    data_url: Optional[str] = None
+    file_size: Optional[int] = Field(default=None, ge=0)
+
+
+class ModelArtifactBase(OwnedTimestampFields):
+    structure_id: int
+    experiment_id: int
+    model_url: Optional[str] = None
+    file_size: Optional[int] = Field(default=None, ge=0)
+
+
+class DesignerModelBase(ModelArtifactBase):
+    pass
+
+
+class PredictorModelBase(ModelArtifactBase):
+    pass
