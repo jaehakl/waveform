@@ -119,6 +119,7 @@ function AccountMenu() {
 function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/viewer')) return 'Code-to-CAD Viewer'
+  if (pathname.startsWith('/structures')) return 'Structures'
   if (pathname.startsWith('/materials')) return 'Materials'
   if (pathname.startsWith('/catalog/cad')) return 'Geometry'
   if (pathname.startsWith('/catalog/materials')) return 'Material Catalog'
@@ -136,7 +137,7 @@ export function AppShell() {
   const navigation = useNavigation()
   const pendingPathname = navigation.location?.pathname
   const displayedPathname = pendingPathname ?? location.pathname
-  const viewer = displayedPathname === '/viewer'
+  const workspace = displayedPathname === '/viewer' || displayedPathname === '/structures'
   const segments = location.pathname.split('/').filter(Boolean)
   const pendingSegments = pendingPathname?.split('/').filter(Boolean)
   const pendingCatalog =
@@ -183,7 +184,7 @@ export function AppShell() {
         </header>
         <main
           aria-busy={pendingCatalog}
-          className={cn('relative min-h-0 flex-1', viewer ? 'overflow-hidden' : 'overflow-y-auto bg-muted/25')}
+          className={cn('relative min-h-0 flex-1', workspace ? 'overflow-hidden' : 'overflow-y-auto bg-muted/25')}
         >
           {pendingCatalog ? (
             <div className="absolute inset-0 z-10 overflow-y-auto bg-muted/25" data-pending-route={pendingPathname}>

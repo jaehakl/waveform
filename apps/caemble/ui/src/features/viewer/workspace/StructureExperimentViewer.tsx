@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { cadEntrySource, type CadDocumentType, type CadSourceDocumentV2 } from '@/lib/cad'
 import CadEditor from '../editor/CadEditor'
 import ExperimentalParameters from './ExperimentalParameters'
@@ -14,12 +14,14 @@ export type StructureExperimentViewerProps = {
   structureDocument: CadDocumentController
   experimentDocument: CadDocumentController
   solverCompatibility: SolverCompatibility
+  structureLineage?: ReactNode
   onActiveDocumentTypeChange: (documentType: CadDocumentType) => void
 }
 
 const workspaceTabs = [
   { id: 'structure-source', documentType: 'structure', panel: 'source', label: 'Structure Source' },
   { id: 'structure-tree', documentType: 'structure', panel: 'tree', label: 'Structure Tree' },
+  { id: 'structure-lineage', documentType: 'structure', panel: 'lineage', label: '족보 보기' },
   { id: 'experiment-source', documentType: 'experiment', panel: 'source', label: 'Experiment Source' },
   { id: 'experiment-tree', documentType: 'experiment', panel: 'tree', label: 'Experiment Tree' },
   {
@@ -54,10 +56,15 @@ export function StructureExperimentViewer({
   solverCompatibility,
   structure,
   structureDocument,
+  structureLineage,
 }: StructureExperimentViewerProps) {
   const hasStructure = structure !== null && structure !== undefined
   const hasExperiment = experiment !== null && experiment !== undefined
-  const availableTabs = workspaceTabs.filter((tab) => (tab.documentType === 'structure' ? hasStructure : hasExperiment))
+  const availableTabs = workspaceTabs.filter(
+    (tab) =>
+      (tab.documentType === 'structure' ? hasStructure : hasExperiment) &&
+      (tab.panel !== 'lineage' || structureLineage !== undefined),
+  )
   const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(() =>
     activeDocumentType === 'experiment' && hasExperiment
       ? 'experiment-source'
@@ -183,7 +190,9 @@ export function StructureExperimentViewer({
               key={tab.id}
               role="tabpanel"
             >
-              {selectedTab !== tab.id ? null : tab.panel === 'source' ? (
+              {selectedTab !== tab.id ? null : tab.panel === 'lineage' ? (
+                structureLineage
+              ) : tab.panel === 'source' ? (
                 <CadEditor
                   diagnostics={document.diagnostics.filter(
                     (diagnostic) => diagnostic.file === sourceDocument?.entryFile,

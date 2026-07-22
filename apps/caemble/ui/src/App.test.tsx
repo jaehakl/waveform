@@ -9,6 +9,7 @@ describe('페이지 중심 앱 라우팅', () => {
     expect(appRoutePaths).toEqual([
       'index',
       'viewer',
+      'structures',
       'materials',
       'materials/:materialId',
       'catalog/cad/:tag?',

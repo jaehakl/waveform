@@ -135,3 +135,39 @@ async def test_generic_upsert_rejects_code_changes_and_save_rejects_stale_hash(
         baseSemanticHash="1" * 64,
     ))
     assert stale.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_structure_delete_reparents_children_to_closest_surviving_ancestor(
+    client,
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "JWT_SECRET", "test-jwt-secret-at-least-32-bytes-long")
+    owner = await create_user(db_session)
+    headers = auth_headers(owner)
+    root = Structure(name="Root", code="root", user_id=owner.id)
+    db_session.add(root)
+    await db_session.flush()
+    middle = Structure(name="Middle", code="middle", user_id=owner.id, parent_id=root.id)
+    db_session.add(middle)
+    await db_session.flush()
+    leaf = Structure(name="Leaf", code="leaf", user_id=owner.id, parent_id=middle.id)
+    db_session.add(leaf)
+    await db_session.flush()
+    child = Structure(name="Child", code="child", user_id=owner.id, parent_id=leaf.id)
+    db_session.add(child)
+    await db_session.commit()
+
+    response = await client.request(
+        "DELETE",
+        "/structure/",
+        headers=headers,
+        json=[middle.id, leaf.id],
+    )
+
+    assert response.status_code == 200
+    await db_session.refresh(child)
+    assert child.parent_id == root.id
+    assert await db_session.get(Structure, middle.id) is None
+    assert await db_session.get(Structure, leaf.id) is None

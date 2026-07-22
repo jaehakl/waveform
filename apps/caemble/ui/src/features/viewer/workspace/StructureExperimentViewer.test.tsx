@@ -15,11 +15,13 @@ function ViewerHarness({
   experiment,
   preflightIssues = [],
   structure,
+  structureLineage,
 }: {
   activeDocumentType: CadDocumentType | null
   experiment?: string | null
   preflightIssues?: readonly SolverValidationIssue[]
   structure?: string | null
+  structureLineage?: React.ReactNode
 }) {
   const structureSourceDocument = structure == null
     ? structure
@@ -53,6 +55,7 @@ function ViewerHarness({
         : { status: 'incompatible', issues: preflightIssues }}
       structure={structureSourceDocument}
       structureDocument={visibleStructureDocument}
+      structureLineage={structureLineage}
       onActiveDocumentTypeChange={() => undefined}
     />
   )
@@ -100,6 +103,19 @@ describe('StructureExperimentViewer', () => {
       'Solver Spec',
     ])
     expect(experimentMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="experiment-source-tab"/)
+  })
+
+  it('adds the optional Structure lineage tab without changing the default workspace', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerHarness
+        activeDocumentType="structure"
+        structure="structure source"
+        structureLineage={<div>Lineage content</div>}
+      />,
+    )
+
+    expect(tabLabels(markup)).toEqual(['Structure Source', 'Structure Tree', '족보 보기'])
+    expect(markup).toContain('id="structure-lineage-panel" role="tabpanel"')
   })
 
   it('renders an empty state only for nullish sources', () => {

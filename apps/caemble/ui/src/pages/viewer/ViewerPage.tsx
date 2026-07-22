@@ -6,16 +6,15 @@ import { useAuth } from '@/features/auth/use-auth'
 import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
 import { ViewerPersistenceBar } from '@/features/viewer/persistence/ViewerPersistenceBar'
 import { createSampleRecord, createSetupRecord } from '@/features/viewer/persistence/contracts'
+import { resolveDocumentMaterials } from '@/features/viewer/persistence/resolveMaterials'
+import { saveCadDefinition } from '@/features/viewer/persistence/saveDefinition'
 import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
 import { dbTables, getListRequest } from '@/api'
 import {
   cadEntrySource,
-  cadSemanticHash,
   createCadSourceDocumentV2,
-  deserializeCadScene,
-  rawCodeHash,
   updateCadEntrySource,
   type CadDocumentType,
   type EvaluatedDocumentSnapshotV2,
@@ -24,12 +23,7 @@ import {
 import { defaultCode } from '@/lib/defaultCode'
 import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
 import { caembleExamples } from '@/lib/examples'
-import {
-  readFrozenMaterialParameters,
-  resolveMaterialParameters,
-  sourceOnlyMaterialParameters,
-  type MaterialResolution,
-} from '@/lib/material'
+import type { MaterialResolution } from '@/lib/material'
 
 const defaultWorkspaceLeftPercent = 44
 
@@ -136,54 +130,11 @@ export function ViewerPage() {
   )
 
   const resolveMaterials = useCallback(
-    async (snapshot: EvaluatedDocumentSnapshotV2): Promise<MaterialResolution> => {
-      const scene = deserializeCadScene(snapshot.scene)
-      const materials = scene.parts.flatMap((part) => (part.material ? [part.material] : []))
-      const stored = snapshot.kind === 'structure' ? structureMaterialSnapshot : experimentMaterialSnapshot
-      if (stored !== null) {
-        if (
-          typeof stored === 'object' &&
-          stored !== null &&
-          !Array.isArray(stored) &&
-          Object.keys(stored).length === 0
-        ) {
-          return sourceOnlyMaterialParameters(materials)
-        }
-        const frozen = readFrozenMaterialParameters(stored)
-        if (!frozen)
-          throw new Error(
-            `저장된 ${snapshot.kind === 'structure' ? 'Sample' : 'Setup'} Material snapshot이 올바르지 않습니다.`,
-          )
-        return Object.freeze({ materialParameters: frozen, warnings: Object.freeze([]) })
-      }
-      const materialNames = [...new Set(materials.map((material) => material.name))]
-      if (materialNames.length === 0) return resolveMaterialParameters([], [], [])
-      const nameRequest = {
-        ...getListRequest('visible'),
-        limit: null,
-        filter: { name: materialNames },
-      }
-      const names = (await dbTables.MaterialName.listRows(nameRequest)).items
-      const materialIds = [...new Set(names.map((row) => row.material_id))]
-      if (materialIds.length === 0) return resolveMaterialParameters(materials, names, [], { seed: snapshot.seed })
-      const request = {
-        ...getListRequest('visible'),
-        limit: null,
-        filter: { id: materialIds },
-      }
-      const [databaseMaterials, parameters] = await Promise.all([
-        dbTables.Material.listRows(request),
-        dbTables.MaterialParameter.listRows({
-          ...getListRequest('visible'),
-          limit: null,
-          filter: { material_id: materialIds },
-        }),
-      ])
-      return resolveMaterialParameters(materials, names, parameters.items, {
-        materials: databaseMaterials.items,
-        seed: snapshot.seed,
-      })
-    },
+    (snapshot: EvaluatedDocumentSnapshotV2): Promise<MaterialResolution> =>
+      resolveDocumentMaterials(
+        snapshot,
+        snapshot.kind === 'structure' ? structureMaterialSnapshot : experimentMaterialSnapshot,
+      ),
     [experimentMaterialSnapshot, structureMaterialSnapshot],
   )
 
@@ -304,51 +255,14 @@ export function ViewerPage() {
   }, [loadExperiment, loadSample, loadSetup, loadStructure, searchParams])
 
   const definitionMutation = useMutation({
-    mutationFn: async ({ kind, values }: { kind: 'experiment' | 'structure'; values: DefinitionFormValues }) => {
-      const document = kind === 'structure' ? structure : experiment
-      const selectedId = kind === 'structure' ? selectedStructureId : selectedExperimentId
-      const savedCode = kind === 'structure' ? savedStructureCode : savedExperimentCode
-      if (selectedId && savedCode === null) throw new Error('저장 기준 source를 찾을 수 없습니다.')
-      const code = cadEntrySource(document)
-      if (savedCode === code) {
-        const unchangedHash = await rawCodeHash(code)
-        const payload = {
-          ...(selectedId ? { id: selectedId } : {}),
-          name: values.name,
-          description: values.description || null,
-          code,
-          rawCodeHash: unchangedHash,
-          semanticHash: unchangedHash,
-          semanticHashVersion: 1 as const,
-          ...(selectedId ? { baseRawCodeHash: unchangedHash } : {}),
-        }
-        const result =
-          kind === 'structure' ? await dbTables.Structure.save(payload) : await dbTables.Experiment.save(payload)
-        return { action: result.action, code, id: result.id, kind }
-      }
-      const baseDocument =
-        savedCode === null ? null : createCadSourceDocumentV2(kind, savedCode, document.realizationSeed)
-      const [nextRawHash, semanticHash, baseRawHash, baseSemanticHash] = await Promise.all([
-        rawCodeHash(code),
-        cadSemanticHash(document),
-        savedCode === null ? Promise.resolve(undefined) : rawCodeHash(savedCode),
-        baseDocument === null ? Promise.resolve(undefined) : cadSemanticHash(baseDocument),
-      ])
-      const payload = {
-        ...(selectedId ? { id: selectedId } : {}),
-        name: values.name,
-        description: values.description || null,
-        code,
-        rawCodeHash: nextRawHash,
-        semanticHash,
-        semanticHashVersion: 1 as const,
-        ...(baseRawHash ? { baseRawCodeHash: baseRawHash } : {}),
-        ...(baseSemanticHash ? { baseSemanticHash } : {}),
-      }
-      const result =
-        kind === 'structure' ? await dbTables.Structure.save(payload) : await dbTables.Experiment.save(payload)
-      return { action: result.action, code, id: result.id, kind }
-    },
+    mutationFn: ({ kind, values }: { kind: 'experiment' | 'structure'; values: DefinitionFormValues }) =>
+      saveCadDefinition({
+        document: kind === 'structure' ? structure : experiment,
+        kind,
+        savedCode: kind === 'structure' ? savedStructureCode : savedExperimentCode,
+        selectedId: kind === 'structure' ? selectedStructureId : selectedExperimentId,
+        values,
+      }),
     onSuccess: ({ action, code, id, kind }) => {
       if (kind === 'structure') {
         setSelectedStructureId(id)

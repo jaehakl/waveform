@@ -1,0 +1,780 @@
+import type { ColumnDef } from '@tanstack/react-table'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  Code2,
+  Eye,
+  GitBranch,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router'
+import { toast } from 'sonner'
+import { dbTables, getListRequest, type StructureRecord, type UserData } from '@/api'
+import { DataTable } from '@/components/DataTable'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { useAuth } from '@/features/auth/use-auth'
+import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
+import { resolveDocumentMaterials } from '@/features/viewer/persistence/resolveMaterials'
+import { saveCadDefinition } from '@/features/viewer/persistence/saveDefinition'
+import CadViewer from '@/features/viewer/viewer/CadViewer'
+import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
+import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
+import {
+  cadEntrySource,
+  createCadSourceDocumentV2,
+  type CadDocumentType,
+  type CadSourceDocumentV2,
+  type EvaluatedDocumentSnapshotV2,
+} from '@/lib/cad'
+
+type StructureRow = StructureRecord & { id: number }
+
+const defaultWorkspaceLeftPercent = 44
+
+function positiveId(value: string | null) {
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function compareStructures(left: StructureRow, right: StructureRow) {
+  const updatedDifference = Date.parse(right.updated_at ?? '') - Date.parse(left.updated_at ?? '')
+  return Number.isNaN(updatedDifference) || updatedDifference === 0 ? right.id - left.id : updatedDifference
+}
+
+function canManageStructure(row: StructureRow, user: UserData | null) {
+  return Boolean(user && (user.roles.includes('admin') || row.user_id === user.id))
+}
+
+function clampWorkspaceLeftPercent(percent: number, workspaceWidth: number) {
+  const minimum = Math.max(25, (360 / workspaceWidth) * 100)
+  const maximum = Math.min(75, ((workspaceWidth - 320) / workspaceWidth) * 100)
+  return Math.min(maximum, Math.max(minimum, percent))
+}
+
+function LineageNode({
+  canManage,
+  childrenByParent,
+  depth,
+  onDelete,
+  onNavigate,
+  row,
+  selectedId,
+}: {
+  canManage: (row: StructureRow) => boolean
+  childrenByParent: ReadonlyMap<number, readonly StructureRow[]>
+  depth: number
+  onDelete: (row: StructureRow) => void
+  onNavigate: (row: StructureRow) => void
+  row: StructureRow
+  selectedId: number
+}) {
+  const children = childrenByParent.get(row.id) ?? []
+  return (
+    <li>
+      <div
+        className={`flex items-center gap-2 border-b px-2 py-2 ${row.id === selectedId ? 'bg-orange-50' : 'hover:bg-muted/50'}`}
+        style={{ paddingLeft: `${depth * 18 + 8}px` }}
+      >
+        <button className="min-w-0 flex-1 text-left" type="button" onClick={() => onNavigate(row)}>
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium">{row.name}</span>
+            {depth === 0 ? <Badge>root</Badge> : null}
+            {children.length === 0 ? <Badge>leaf</Badge> : null}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {row.description || `Structure #${row.id}`}
+          </span>
+        </button>
+        {canManage(row) ? (
+          <Button
+            aria-label={`${row.name} 삭제`}
+            className="text-destructive hover:text-destructive"
+            size="icon"
+            title="Structure 삭제"
+            variant="ghost"
+            onClick={() => onDelete(row)}
+          >
+            <Trash2 />
+          </Button>
+        ) : null}
+      </div>
+      {children.length > 0 ? (
+        <ul>
+          {children.map((child) => (
+            <LineageNode
+              canManage={canManage}
+              childrenByParent={childrenByParent}
+              depth={depth + 1}
+              key={child.id}
+              onDelete={onDelete}
+              onNavigate={onNavigate}
+              row={child}
+              selectedId={selectedId}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  )
+}
+
+function StructureLineage({
+  canManage,
+  onDelete,
+  onNavigate,
+  rows,
+  selected,
+}: {
+  canManage: (row: StructureRow) => boolean
+  onDelete: (row: StructureRow) => void
+  onNavigate: (row: StructureRow) => void
+  rows: readonly StructureRow[]
+  selected: StructureRow
+}) {
+  const { childrenByParent, root } = useMemo(() => {
+    const byId = new Map(rows.map((row) => [row.id, row]))
+    const children = new Map<number, StructureRow[]>()
+    rows.forEach((row) => {
+      if (row.parent_id == null || !byId.has(row.parent_id)) return
+      const siblings = children.get(row.parent_id) ?? []
+      siblings.push(row)
+      children.set(row.parent_id, siblings)
+    })
+    children.forEach((siblings) => siblings.sort(compareStructures))
+
+    let lineageRoot = selected
+    const visited = new Set<number>()
+    while (lineageRoot.parent_id != null && byId.has(lineageRoot.parent_id) && !visited.has(lineageRoot.id)) {
+      visited.add(lineageRoot.id)
+      lineageRoot = byId.get(lineageRoot.parent_id)!
+    }
+    return { childrenByParent: children, root: lineageRoot }
+  }, [rows, selected])
+
+  return (
+    <div className="h-full overflow-auto bg-background">
+      <div className="border-b bg-muted/20 px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <GitBranch className="size-4 text-primary" />
+          전체 계보
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">보이는 root부터 모든 후손을 표시합니다.</p>
+      </div>
+      <ul>
+        <LineageNode
+          canManage={canManage}
+          childrenByParent={childrenByParent}
+          depth={0}
+          onDelete={onDelete}
+          onNavigate={onNavigate}
+          row={root}
+          selectedId={selected.id}
+        />
+      </ul>
+    </div>
+  )
+}
+
+export function StructurePage() {
+  const auth = useAuth()
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [query, setQuery] = useState('')
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [structure, setStructure] = useState<CadSourceDocumentV2 | null>(null)
+  const [selectedStructureId, setSelectedStructureId] = useState<number | null>(null)
+  const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
+  const [metadataTarget, setMetadataTarget] = useState<StructureRow | null>(null)
+  const [metadataName, setMetadataName] = useState('')
+  const [metadataDescription, setMetadataDescription] = useState('')
+  const [saveMode, setSaveMode] = useState<'root' | 'save' | null>(null)
+  const [pendingNavigation, setPendingNavigation] = useState<StructureRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<StructureRow | null>(null)
+  const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
+  const initializedFromUrl = useRef(false)
+  const workspaceRef = useRef<HTMLDivElement | null>(null)
+
+  const visibleRequest = useMemo(() => ({ ...getListRequest('visible'), limit: null }), [])
+  const structuresQuery = useQuery({
+    queryKey: ['structures', 'visible'],
+    queryFn: () => dbTables.Structure.listRows(visibleRequest),
+  })
+  const rows = useMemo(
+    () =>
+      (structuresQuery.data?.items ?? [])
+        .filter((row): row is StructureRow => row.id !== undefined)
+        .sort(compareStructures),
+    [structuresQuery.data?.items],
+  )
+  const selectedStructure = rows.find((row) => row.id === selectedStructureId) ?? null
+  const canManage = useCallback((row: StructureRow) => canManageStructure(row, auth.user), [auth.user])
+  const selectedManageable = Boolean(selectedStructure && canManage(selectedStructure))
+  const dirty = Boolean(
+    structure && savedStructureCode !== null && cadEntrySource(structure) !== savedStructureCode,
+  )
+
+  const leafRows = useMemo(() => {
+    const visibleIds = new Set(rows.map((row) => row.id))
+    const parentIds = new Set(
+      rows.flatMap((row) => (row.parent_id != null && visibleIds.has(row.parent_id) ? [row.parent_id] : [])),
+    )
+    const needle = query.trim().toLocaleLowerCase()
+    return rows.filter(
+      (row) =>
+        !parentIds.has(row.id) &&
+        (!needle || [row.name, row.description ?? ''].some((value) => value.toLocaleLowerCase().includes(needle))),
+    )
+  }, [query, rows])
+
+  const updateDeepLink = useCallback(
+    (id: number | null) => {
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          if (id) next.set('structure', String(id))
+          else next.delete('structure')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  const applyStructure = useCallback(
+    (row: StructureRow) => {
+      setStructure(createCadSourceDocumentV2('structure', row.code))
+      setSelectedStructureId(row.id)
+      setSavedStructureCode(row.code)
+      updateDeepLink(row.id)
+    },
+    [updateDeepLink],
+  )
+
+  const clearStructure = useCallback(() => {
+    setStructure(null)
+    setSelectedStructureId(null)
+    setSavedStructureCode(null)
+    setEditorOpen(false)
+    updateDeepLink(null)
+  }, [updateDeepLink])
+
+  useEffect(() => {
+    if (initializedFromUrl.current || !structuresQuery.isSuccess) return
+    initializedFromUrl.current = true
+    const rawId = searchParams.get('structure')
+    if (rawId === null) return
+    const id = positiveId(rawId)
+    const row = id === null ? null : rows.find((item) => item.id === id)
+    if (!row) {
+      toast.error('Structure를 찾을 수 없습니다.')
+      updateDeepLink(null)
+      return
+    }
+    applyStructure(row)
+  }, [applyStructure, rows, searchParams, structuresQuery.isSuccess, updateDeepLink])
+
+  const resolveMaterials = useCallback(
+    (snapshot: EvaluatedDocumentSnapshotV2) => resolveDocumentMaterials(snapshot, null),
+    [],
+  )
+  const handleStructureChange = useCallback((document: CadSourceDocumentV2) => setStructure(document), [])
+  const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
+    structure,
+    null,
+    auth.isAuthenticated ? handleStructureChange : undefined,
+    undefined,
+    undefined,
+    undefined,
+    resolveMaterials,
+  )
+
+  const invalidateStructures = useCallback(
+    async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['structures'] }),
+        queryClient.invalidateQueries({ queryKey: ['work', 'structures'] }),
+      ])
+    },
+    [queryClient],
+  )
+
+  const metadataMutation = useMutation({
+    mutationFn: ({ description, name, row }: { description: string; name: string; row: StructureRow }) =>
+      dbTables.Structure.upsertRow([
+        {
+          id: row.id,
+          user_id: row.user_id,
+          parent_id: row.parent_id,
+          name: name.trim(),
+          description: description.trim() || null,
+          code: row.code,
+        },
+      ]),
+    onSuccess: async () => {
+      setMetadataTarget(null)
+      await invalidateStructures()
+      toast.success('Structure 정보를 저장했습니다.')
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Structure 정보를 저장하지 못했습니다.'),
+  })
+
+  const definitionMutation = useMutation({
+    mutationFn: ({ forceRoot, values }: { forceRoot: boolean; values: DefinitionFormValues }) => {
+      if (!structure) throw new Error('저장할 Structure source가 없습니다.')
+      if (!auth.isAuthenticated) throw new Error('로그인이 필요합니다.')
+      if (!forceRoot && (!selectedStructure || !canManage(selectedStructure))) {
+        throw new Error('이 Structure를 수정할 권한이 없습니다.')
+      }
+      return saveCadDefinition({
+        document: structure,
+        forceRoot,
+        kind: 'structure',
+        savedCode: savedStructureCode,
+        selectedId: selectedStructureId,
+        values,
+      })
+    },
+    onSuccess: async ({ action, code, id }, { forceRoot }) => {
+      setSelectedStructureId(id)
+      setSavedStructureCode(code)
+      updateDeepLink(id)
+      setSaveMode(null)
+      await invalidateStructures()
+      toast.success(
+        forceRoot
+          ? '현재 Structure를 새 root로 저장했습니다.'
+          : action === 'forked'
+            ? '구조 변경을 새 child Structure로 저장했습니다.'
+            : 'Structure를 저장했습니다.',
+      )
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure를 저장하지 못했습니다.'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (row: StructureRow) => {
+      await dbTables.Structure.deleteRows([row.id])
+      return row
+    },
+    onSuccess: async (deleted) => {
+      const fallback =
+        deleted.parent_id == null
+          ? rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ?? null
+          : rows.find((row) => row.id === deleted.parent_id) ??
+            rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ??
+            null
+      setDeleteTarget(null)
+      if (selectedStructureId === deleted.id) {
+        if (fallback) applyStructure(fallback)
+        else clearStructure()
+      }
+      await invalidateStructures()
+      toast.success('Structure를 삭제하고 기존 child의 계보를 재연결했습니다.')
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure를 삭제하지 못했습니다.'),
+  })
+
+  const requestNavigation = useCallback(
+    (row: StructureRow, rerollWhenSelected: boolean) => {
+      if (row.id === selectedStructureId) {
+        if (rerollWhenSelected) structureDocument.handleReroll()
+        return
+      }
+      if (dirty) {
+        setPendingNavigation(row)
+        return
+      }
+      applyStructure(row)
+    },
+    [applyStructure, dirty, selectedStructureId, structureDocument],
+  )
+
+  const openMetadata = useCallback((row: StructureRow) => {
+    setMetadataTarget(row)
+    setMetadataName(row.name)
+    setMetadataDescription(row.description ?? '')
+  }, [])
+
+  const columns = useMemo<ColumnDef<StructureRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <div className="min-w-40">
+            <p className="font-medium">{row.original.name}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Structure #{row.original.id}</p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'description',
+        header: 'Description',
+        cell: ({ row }) => (
+          <p className="line-clamp-2 max-w-xl text-sm text-muted-foreground">{row.original.description || '—'}</p>
+        ),
+      },
+      {
+        id: 'actions',
+        header: '',
+        cell: ({ row }) => {
+          const editable = canManage(row.original)
+          return (
+            <Button
+              aria-label={`${row.original.name} ${editable ? '정보 편집' : '정보 보기'}`}
+              size="icon"
+              title={editable ? '이름과 설명 편집' : '이름과 설명 보기'}
+              variant="ghost"
+              onClick={(event) => {
+                event.stopPropagation()
+                openMetadata(row.original)
+              }}
+            >
+              {editable ? <Pencil /> : <Eye />}
+            </Button>
+          )
+        },
+      },
+    ],
+    [canManage, openMetadata],
+  )
+
+  const structureViewerDocument = useMemo(
+    () =>
+      structure
+        ? {
+            scene: structureDocument.scene,
+            sceneHash: structureDocument.sceneHash,
+            variables: structureDocument.variables,
+          }
+        : null,
+    [structure, structureDocument.scene, structureDocument.sceneHash, structureDocument.variables],
+  )
+  const viewerSelection = useMemo(
+    () =>
+      structureDocument.selection
+        ? { documentType: 'structure' as const, selection: structureDocument.selection }
+        : null,
+    [structureDocument.selection],
+  )
+  const handleRenderStart = useCallback(
+    (sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderStart()
+    },
+    [structureDocument],
+  )
+  const handleRenderEnd = useCallback(
+    (sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderEnd()
+    },
+    [structureDocument],
+  )
+  const handleRenderError = useCallback(
+    (message: string, sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderError(message)
+    },
+    [structureDocument],
+  )
+
+  const saveDefaults = {
+    name: selectedStructure?.name ?? '새 Structure',
+    description: selectedStructure?.description ?? '',
+  }
+  const metadataEditable = Boolean(metadataTarget && canManage(metadataTarget))
+
+  return (
+    <section aria-label="Structure 관리 페이지" className="flex h-full min-h-0 flex-col overflow-auto lg:overflow-hidden">
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 lg:h-full lg:grid-cols-[minmax(360px,var(--workspace-left-width))_5px_minmax(0,1fr)] lg:overflow-hidden"
+        ref={workspaceRef}
+        style={{ '--workspace-left-width': `${workspaceLeftPercent}%` } as CSSProperties}
+      >
+        <div className="min-h-[420px] min-w-0 border-b lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0">
+          {editorOpen && structure && selectedStructureId ? (
+            <div className="flex h-full min-h-0 flex-col bg-background">
+              <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
+                <Button size="sm" variant="ghost" onClick={() => setEditorOpen(false)}>
+                  <ArrowLeft />
+                  목록
+                </Button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">
+                    {selectedStructure?.name ?? `Structure #${selectedStructureId}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{dirty ? '저장되지 않은 코드 변경이 있습니다.' : '저장된 코드와 일치합니다.'}</p>
+                </div>
+                {selectedManageable ? (
+                  <Button size="sm" variant="outline" onClick={() => setSaveMode('save')}>
+                    Structure 저장
+                  </Button>
+                ) : null}
+                {auth.isAuthenticated ? (
+                  <Button size="sm" onClick={() => setSaveMode('root')}>
+                    <Plus />
+                    새 root로 저장
+                  </Button>
+                ) : null}
+              </div>
+              <div className="min-h-0 flex-1">
+                <StructureExperimentViewer
+                  activeDocumentType="structure"
+                  experiment={null}
+                  experimentDocument={experimentDocument}
+                  solverCompatibility={simulation.compatibility}
+                  structure={structure}
+                  structureDocument={structureDocument}
+                  structureLineage={
+                    selectedStructure ? (
+                      <StructureLineage
+                        canManage={canManage}
+                        rows={rows}
+                        selected={selectedStructure}
+                        onDelete={setDeleteTarget}
+                        onNavigate={(row) => requestNavigation(row, false)}
+                      />
+                    ) : null
+                  }
+                  onActiveDocumentTypeChange={() => undefined}
+                />
+              </div>
+            </div>
+          ) : (
+            <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 shadow-none">
+              <div className="border-b bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-semibold">Structure</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {leafRows.length.toLocaleString()} leaf / {rows.length.toLocaleString()} visible
+                    </p>
+                  </div>
+                  <Button disabled={!selectedStructureId} size="sm" onClick={() => setEditorOpen(true)}>
+                    <Code2 />
+                    코드 에디터 열기
+                  </Button>
+                </div>
+                <div className="relative mt-4">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label="Structure 검색"
+                    className="pl-9"
+                    placeholder="이름 또는 설명 검색"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                {structuresQuery.isLoading ? (
+                  <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <LoaderCircle className="animate-spin" />
+                    Structure 목록을 불러오는 중입니다.
+                  </div>
+                ) : structuresQuery.isError ? (
+                  <div className="flex min-h-48 items-center justify-center text-sm text-destructive">
+                    Structure 목록을 불러오지 못했습니다.
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={columns}
+                    data={leafRows}
+                    emptyLabel="조건에 맞는 leaf Structure가 없습니다."
+                    getRowKey={(row) => String(row.id)}
+                    selectedKey={selectedStructureId === null ? undefined : String(selectedStructureId)}
+                    onRowClick={(row) => requestNavigation(row, true)}
+                  />
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+        <div
+          aria-label="Structure 패널과 Viewer 크기 조절"
+          aria-orientation="vertical"
+          aria-valuemax={75}
+          aria-valuemin={25}
+          aria-valuenow={Math.round(workspaceLeftPercent)}
+          className="group hidden cursor-col-resize touch-none items-stretch justify-center bg-muted outline-none hover:bg-neutral-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset lg:flex"
+          role="separator"
+          tabIndex={0}
+          onDoubleClick={() => setWorkspaceLeftPercent(defaultWorkspaceLeftPercent)}
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+            const width = workspaceRef.current?.getBoundingClientRect().width
+            if (!width) return
+            event.preventDefault()
+            setWorkspaceLeftPercent((current) =>
+              clampWorkspaceLeftPercent(current + (event.key === 'ArrowLeft' ? -2 : 2), width),
+            )
+          }}
+          onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+          onPointerMove={(event) => {
+            if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+            const bounds = workspaceRef.current?.getBoundingClientRect()
+            if (bounds) {
+              setWorkspaceLeftPercent(
+                clampWorkspaceLeftPercent(((event.clientX - bounds.left) / bounds.width) * 100, bounds.width),
+              )
+            }
+          }}
+          onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+        >
+          <span className="w-px bg-border group-hover:bg-neutral-400" />
+        </div>
+        <CadViewer
+          experiment={null}
+          selected={viewerSelection}
+          structure={structureViewerDocument}
+          onRenderEnd={handleRenderEnd}
+          onRenderError={handleRenderError}
+          onRenderStart={handleRenderStart}
+        />
+      </div>
+
+      <Dialog onOpenChange={(open) => !open && !metadataMutation.isPending && setMetadataTarget(null)} open={metadataTarget !== null}>
+        <DialogContent>
+          <form
+            className="grid gap-5"
+            onSubmit={(event: FormEvent) => {
+              event.preventDefault()
+              if (metadataTarget && metadataEditable) {
+                metadataMutation.mutate({
+                  row: metadataTarget,
+                  name: metadataName,
+                  description: metadataDescription,
+                })
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>{metadataEditable ? 'Structure 정보 편집' : 'Structure 정보'}</DialogTitle>
+              <DialogDescription>
+                {metadataEditable ? '코드는 변경하지 않고 이름과 설명만 저장합니다.' : '이 Structure는 읽기 전용입니다.'}
+              </DialogDescription>
+            </DialogHeader>
+            <label className="grid gap-1.5 text-sm font-medium">
+              이름
+              <Input
+                autoFocus={metadataEditable}
+                disabled={!metadataEditable}
+                maxLength={200}
+                value={metadataName}
+                onChange={(event) => setMetadataName(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              설명
+              <textarea
+                className="min-h-28 rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                disabled={!metadataEditable}
+                maxLength={2000}
+                value={metadataDescription}
+                onChange={(event) => setMetadataDescription(event.target.value)}
+              />
+            </label>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setMetadataTarget(null)}>
+                닫기
+              </Button>
+              {metadataEditable ? (
+                <Button disabled={!metadataName.trim() || metadataMutation.isPending} type="submit">
+                  {metadataMutation.isPending ? <LoaderCircle className="animate-spin" /> : null}
+                  저장
+                </Button>
+              ) : null}
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <SaveDefinitionDialog
+        defaults={saveDefaults}
+        description={
+          saveMode === 'root'
+            ? '현재 Source code를 선택한 Structure의 parent 없이 내 새 root로 저장합니다.'
+            : undefined
+        }
+        kind="Structure"
+        open={saveMode !== null}
+        pending={definitionMutation.isPending}
+        submitLabel={saveMode === 'root' ? '새 root로 저장' : 'Structure 저장'}
+        title={saveMode === 'root' ? '새 Structure root 저장' : 'Structure 저장'}
+        onOpenChange={(open) => !open && !definitionMutation.isPending && setSaveMode(null)}
+        onSubmit={async (values) => {
+          await definitionMutation.mutateAsync({ forceRoot: saveMode === 'root', values })
+        }}
+      />
+
+      <Dialog onOpenChange={(open) => !open && setPendingNavigation(null)} open={pendingNavigation !== null}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>저장되지 않은 변경을 버릴까요?</DialogTitle>
+            <DialogDescription>
+              다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingNavigation(null)}>취소</Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingNavigation) applyStructure(pendingNavigation)
+                setPendingNavigation(null)
+              }}
+            >
+              변경 버리고 이동
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)} open={deleteTarget !== null}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Structure를 삭제할까요?</DialogTitle>
+            <DialogDescription>
+              child는 삭제 노드의 parent로 자동 재연결됩니다. 연결된 Sample과 Designer/Predictor Model도 함께 삭제될 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+            <span className="font-medium">{deleteTarget?.name}</span>
+            <span className="ml-2 text-muted-foreground">Structure #{deleteTarget?.id}</span>
+          </div>
+          <DialogFooter>
+            <Button disabled={deleteMutation.isPending} variant="outline" onClick={() => setDeleteTarget(null)}>
+              취소
+            </Button>
+            <Button
+              disabled={deleteMutation.isPending}
+              variant="destructive"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
+            >
+              {deleteMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Trash2 />}
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </section>
+  )
+}
+
+export const Component = StructurePage
