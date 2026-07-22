@@ -7,7 +7,8 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserData } from '@/api'
-import { updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
+import { cadEntrySource, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
+import { defaultCode } from '@/lib/defaultCode'
 import { StructurePage } from './StructurePage'
 
 const api = vi.hoisted(() => ({
@@ -88,16 +89,58 @@ vi.mock('@/features/viewer/viewer/CadViewer', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 const structures = [
-  { id: 1, parent_id: null, name: 'Root', description: 'family root', code: 'root source', user_id: 'owner-id', updated_at: '2026-07-01T00:00:00Z' },
-  { id: 2, parent_id: 1, name: 'Middle', description: 'middle node', code: 'middle source', user_id: 'owner-id', updated_at: '2026-07-02T00:00:00Z' },
-  { id: 3, parent_id: 1, name: 'Public Leaf', description: 'searchable beta', code: 'public source', user_id: null, updated_at: '2026-07-03T00:00:00Z' },
-  { id: 4, parent_id: null, name: 'Foreign Leaf', description: 'outside family', code: 'foreign source', user_id: 'other-id', updated_at: '2026-07-04T00:00:00Z' },
-  { id: 5, parent_id: 2, name: 'Owned Grandchild', description: 'alpha leaf', code: 'owned source', user_id: 'owner-id', updated_at: '2026-07-05T00:00:00Z' },
+  {
+    id: 1,
+    parent_id: null,
+    name: 'Root',
+    description: 'family root',
+    code: 'root source',
+    user_id: 'owner-id',
+    updated_at: '2026-07-01T00:00:00Z',
+  },
+  {
+    id: 2,
+    parent_id: 1,
+    name: 'Middle',
+    description: 'middle node',
+    code: 'middle source',
+    user_id: 'owner-id',
+    updated_at: '2026-07-02T00:00:00Z',
+  },
+  {
+    id: 3,
+    parent_id: 1,
+    name: 'Public Leaf',
+    description: 'searchable beta',
+    code: 'public source',
+    user_id: null,
+    updated_at: '2026-07-03T00:00:00Z',
+  },
+  {
+    id: 4,
+    parent_id: null,
+    name: 'Foreign Leaf',
+    description: 'outside family',
+    code: 'foreign source',
+    user_id: 'other-id',
+    updated_at: '2026-07-04T00:00:00Z',
+  },
+  {
+    id: 5,
+    parent_id: 2,
+    name: 'Owned Grandchild',
+    description: 'alpha leaf',
+    code: 'owned source',
+    user_id: 'owner-id',
+    updated_at: '2026-07-05T00:00:00Z',
+  },
 ]
 
 function renderPage(initialEntry = '/structures') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/structures', element: <StructurePage /> }], { initialEntries: [initialEntry] })
+  const router = createMemoryRouter([{ path: '/structures', element: <StructurePage /> }], {
+    initialEntries: [initialEntry],
+  })
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -115,7 +158,13 @@ beforeEach(() => {
   api.listStructures.mockResolvedValue({ items: structures, total: structures.length })
   api.deleteStructures.mockResolvedValue(undefined)
   api.upsertStructures.mockResolvedValue([{ id: 5 }])
-  api.saveDefinition.mockResolvedValue({ id: 10, action: 'created', parentId: null, code: 'owned source', kind: 'structure' })
+  api.saveDefinition.mockResolvedValue({
+    id: 10,
+    action: 'created',
+    parentId: null,
+    code: 'owned source',
+    kind: 'structure',
+  })
   workspace.useCadWorkspace.mockImplementation(
     (
       structure: CadSourceDocumentV2 | null,
@@ -187,6 +236,62 @@ describe('StructurePage', () => {
     expect(router.state.location.search).toBe('?structure=3')
   })
 
+  it('starts a default Structure from the list and saves it as a new root', async () => {
+    api.saveDefinition.mockResolvedValueOnce({
+      id: 10,
+      action: 'created',
+      parentId: null,
+      code: defaultCode,
+      kind: 'structure',
+    })
+    renderPage('/structures?structure=5')
+    await screen.findByText('Owned Grandchild')
+
+    await userEvent.click(screen.getByRole('button', { name: '새 Structure 생성' }))
+
+    expect(screen.getByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Structure 생성' })).toBeInTheDocument()
+    const draft = workspace.useCadWorkspace.mock.calls[
+      workspace.useCadWorkspace.mock.calls.length - 1
+    ]?.[0] as CadSourceDocumentV2
+    expect(cadEntrySource(draft)).toBe(defaultCode)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Structure 생성' }))
+    const saveDialog = screen.getByRole('dialog')
+    expect(within(saveDialog).getByRole('heading', { name: '새 Structure 생성' })).toBeInTheDocument()
+    await userEvent.click(within(saveDialog).getByRole('button', { name: 'Structure 생성' }))
+
+    await waitFor(() =>
+      expect(api.saveDefinition).toHaveBeenCalledWith(
+        expect.objectContaining({ forceRoot: true, savedCode: null, selectedId: null }),
+      ),
+    )
+    const request = api.saveDefinition.mock.calls[api.saveDefinition.mock.calls.length - 1]?.[0]
+    expect(cadEntrySource(request.document)).toBe(defaultCode)
+    await waitFor(() => expect(screen.getByRole('button', { name: '새 root로 저장' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Structure 생성' })).not.toBeInTheDocument()
+  })
+
+  it('confirms before replacing an unsaved edit with a new Structure', async () => {
+    renderPage('/structures?structure=5')
+    await screen.findByText('Owned Grandchild')
+    await userEvent.click(screen.getByRole('button', { name: '코드 에디터 열기' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Source 변경' }))
+    await userEvent.click(screen.getByRole('button', { name: '목록' }))
+
+    await userEvent.click(screen.getByRole('button', { name: '새 Structure 생성' }))
+
+    const confirmDialog = screen.getByRole('dialog')
+    expect(within(confirmDialog).getByText(/새 Structure를 시작하면/)).toBeInTheDocument()
+    await userEvent.click(within(confirmDialog).getByRole('button', { name: '변경 버리고 이동' }))
+
+    expect(screen.getByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
+    const draft = workspace.useCadWorkspace.mock.calls[
+      workspace.useCadWorkspace.mock.calls.length - 1
+    ]?.[0] as CadSourceDocumentV2
+    expect(cadEntrySource(draft)).toBe(defaultCode)
+  })
+
   it('keeps foreign metadata read-only and saves the current code as a new root', async () => {
     renderPage('/structures?structure=4')
 
@@ -213,7 +318,10 @@ describe('StructurePage', () => {
     const router = renderPage('/structures?structure=5')
     await screen.findByText('Owned Grandchild')
     await waitFor(() =>
-      expect(screen.getByRole('row', { name: /Owned Grandchild Structure #5/ })).toHaveAttribute('aria-selected', 'true'),
+      expect(screen.getByRole('row', { name: /Owned Grandchild Structure #5/ })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 정보 편집' }))
@@ -221,9 +329,11 @@ describe('StructurePage', () => {
     await userEvent.clear(within(infoDialog).getByLabelText('이름'))
     await userEvent.type(within(infoDialog).getByLabelText('이름'), 'Renamed leaf')
     await userEvent.click(within(infoDialog).getByRole('button', { name: '저장' }))
-    await waitFor(() => expect(api.upsertStructures).toHaveBeenCalledWith([
-      expect.objectContaining({ id: 5, name: 'Renamed leaf', code: 'owned source' }),
-    ]))
+    await waitFor(() =>
+      expect(api.upsertStructures).toHaveBeenCalledWith([
+        expect.objectContaining({ id: 5, name: 'Renamed leaf', code: 'owned source' }),
+      ]),
+    )
 
     await userEvent.click(screen.getByRole('button', { name: '코드 에디터 열기' }))
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 삭제' }))
@@ -256,6 +366,7 @@ describe('StructurePage', () => {
     renderPage('/structures?structure=5')
 
     await screen.findByText('Owned Grandchild')
+    expect(screen.queryByRole('button', { name: '새 Structure 생성' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 정보 보기' }))
     expect(within(await screen.findByRole('dialog')).getByLabelText('이름')).toBeDisabled()
     await userEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '닫기' })[0])

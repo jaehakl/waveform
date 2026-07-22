@@ -1,16 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  Code2,
-  Eye,
-  GitBranch,
-  LoaderCircle,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import { ArrowLeft, Code2, Eye, GitBranch, LoaderCircle, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -42,6 +32,7 @@ import {
   type CadSourceDocumentV2,
   type EvaluatedDocumentSnapshotV2,
 } from '@/lib/cad'
+import { defaultCode } from '@/lib/defaultCode'
 
 type StructureRow = StructureRecord & { id: number }
 
@@ -203,8 +194,9 @@ export function StructurePage() {
   const [metadataTarget, setMetadataTarget] = useState<StructureRow | null>(null)
   const [metadataName, setMetadataName] = useState('')
   const [metadataDescription, setMetadataDescription] = useState('')
-  const [saveMode, setSaveMode] = useState<'root' | 'save' | null>(null)
+  const [saveMode, setSaveMode] = useState<'create' | 'root' | 'save' | null>(null)
   const [pendingNavigation, setPendingNavigation] = useState<StructureRow | null>(null)
+  const [pendingCreate, setPendingCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StructureRow | null>(null)
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const initializedFromUrl = useRef(false)
@@ -225,9 +217,7 @@ export function StructurePage() {
   const selectedStructure = rows.find((row) => row.id === selectedStructureId) ?? null
   const canManage = useCallback((row: StructureRow) => canManageStructure(row, auth.user), [auth.user])
   const selectedManageable = Boolean(selectedStructure && canManage(selectedStructure))
-  const dirty = Boolean(
-    structure && savedStructureCode !== null && cadEntrySource(structure) !== savedStructureCode,
-  )
+  const dirty = Boolean(structure && (savedStructureCode === null || cadEntrySource(structure) !== savedStructureCode))
 
   const leafRows = useMemo(() => {
     const visibleIds = new Set(rows.map((row) => row.id))
@@ -275,6 +265,14 @@ export function StructurePage() {
     updateDeepLink(null)
   }, [updateDeepLink])
 
+  const startNewStructure = useCallback(() => {
+    setStructure(createCadSourceDocumentV2('structure', defaultCode))
+    setSelectedStructureId(null)
+    setSavedStructureCode(null)
+    setEditorOpen(true)
+    updateDeepLink(null)
+  }, [updateDeepLink])
+
   useEffect(() => {
     if (initializedFromUrl.current || !structuresQuery.isSuccess) return
     initializedFromUrl.current = true
@@ -305,15 +303,12 @@ export function StructurePage() {
     resolveMaterials,
   )
 
-  const invalidateStructures = useCallback(
-    async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['structures'] }),
-        queryClient.invalidateQueries({ queryKey: ['work', 'structures'] }),
-      ])
-    },
-    [queryClient],
-  )
+  const invalidateStructures = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['structures'] }),
+      queryClient.invalidateQueries({ queryKey: ['work', 'structures'] }),
+    ])
+  }, [queryClient])
 
   const metadataMutation = useMutation({
     mutationFn: ({ description, name, row }: { description: string; name: string; row: StructureRow }) =>
@@ -332,8 +327,7 @@ export function StructurePage() {
       await invalidateStructures()
       toast.success('Structure 정보를 저장했습니다.')
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : 'Structure 정보를 저장하지 못했습니다.'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure 정보를 저장하지 못했습니다.'),
   })
 
   const definitionMutation = useMutation({
@@ -377,10 +371,10 @@ export function StructurePage() {
     onSuccess: async (deleted) => {
       const fallback =
         deleted.parent_id == null
-          ? rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ?? null
-          : rows.find((row) => row.id === deleted.parent_id) ??
+          ? (rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ?? null)
+          : (rows.find((row) => row.id === deleted.parent_id) ??
             rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ??
-            null
+            null)
       setDeleteTarget(null)
       if (selectedStructureId === deleted.id) {
         if (fallback) applyStructure(fallback)
@@ -406,6 +400,14 @@ export function StructurePage() {
     },
     [applyStructure, dirty, selectedStructureId, structureDocument],
   )
+
+  const requestNewStructure = useCallback(() => {
+    if (dirty) {
+      setPendingCreate(true)
+      return
+    }
+    startNewStructure()
+  }, [dirty, startNewStructure])
 
   const openMetadata = useCallback((row: StructureRow) => {
     setMetadataTarget(row)
@@ -501,14 +503,17 @@ export function StructurePage() {
   const metadataEditable = Boolean(metadataTarget && canManage(metadataTarget))
 
   return (
-    <section aria-label="Structure 관리 페이지" className="flex h-full min-h-0 flex-col overflow-auto lg:overflow-hidden">
+    <section
+      aria-label="Structure 관리 페이지"
+      className="flex h-full min-h-0 flex-col overflow-auto lg:overflow-hidden"
+    >
       <div
         className="grid min-h-0 flex-1 grid-cols-1 lg:h-full lg:grid-cols-[minmax(360px,var(--workspace-left-width))_5px_minmax(0,1fr)] lg:overflow-hidden"
         ref={workspaceRef}
         style={{ '--workspace-left-width': `${workspaceLeftPercent}%` } as CSSProperties}
       >
         <div className="min-h-[420px] min-w-0 border-b lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0">
-          {editorOpen && structure && selectedStructureId ? (
+          {editorOpen && structure ? (
             <div className="flex h-full min-h-0 flex-col bg-background">
               <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
                 <Button size="sm" variant="ghost" onClick={() => setEditorOpen(false)}>
@@ -516,20 +521,28 @@ export function StructurePage() {
                   목록
                 </Button>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">
-                    {selectedStructure?.name ?? `Structure #${selectedStructureId}`}
+                  <p className="truncate text-sm font-semibold">{selectedStructure?.name ?? '새 Structure'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedStructureId === null
+                      ? '저장 전 새 Structure입니다.'
+                      : dirty
+                        ? '저장되지 않은 코드 변경이 있습니다.'
+                        : '저장된 코드와 일치합니다.'}
                   </p>
-                  <p className="text-xs text-muted-foreground">{dirty ? '저장되지 않은 코드 변경이 있습니다.' : '저장된 코드와 일치합니다.'}</p>
                 </div>
-                {selectedManageable ? (
+                {selectedStructureId === null && auth.isAuthenticated ? (
+                  <Button size="sm" onClick={() => setSaveMode('create')}>
+                    <Plus />
+                    Structure 생성
+                  </Button>
+                ) : selectedManageable ? (
                   <Button size="sm" variant="outline" onClick={() => setSaveMode('save')}>
                     Structure 저장
                   </Button>
                 ) : null}
-                {auth.isAuthenticated ? (
+                {selectedStructureId !== null && auth.isAuthenticated ? (
                   <Button size="sm" onClick={() => setSaveMode('root')}>
-                    <Plus />
-                    새 root로 저장
+                    <Plus />새 root로 저장
                   </Button>
                 ) : null}
               </div>
@@ -566,10 +579,17 @@ export function StructurePage() {
                       {leafRows.length.toLocaleString()} leaf / {rows.length.toLocaleString()} visible
                     </p>
                   </div>
-                  <Button disabled={!selectedStructureId} size="sm" onClick={() => setEditorOpen(true)}>
-                    <Code2 />
-                    코드 에디터 열기
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {auth.isAuthenticated ? (
+                      <Button size="sm" variant="outline" onClick={requestNewStructure}>
+                        <Plus />새 Structure 생성
+                      </Button>
+                    ) : null}
+                    <Button disabled={!selectedStructureId} size="sm" onClick={() => setEditorOpen(true)}>
+                      <Code2 />
+                      코드 에디터 열기
+                    </Button>
+                  </div>
                 </div>
                 <div className="relative mt-4">
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -649,7 +669,10 @@ export function StructurePage() {
         />
       </div>
 
-      <Dialog onOpenChange={(open) => !open && !metadataMutation.isPending && setMetadataTarget(null)} open={metadataTarget !== null}>
+      <Dialog
+        onOpenChange={(open) => !open && !metadataMutation.isPending && setMetadataTarget(null)}
+        open={metadataTarget !== null}
+      >
         <DialogContent>
           <form
             className="grid gap-5"
@@ -667,7 +690,9 @@ export function StructurePage() {
             <DialogHeader>
               <DialogTitle>{metadataEditable ? 'Structure 정보 편집' : 'Structure 정보'}</DialogTitle>
               <DialogDescription>
-                {metadataEditable ? '코드는 변경하지 않고 이름과 설명만 저장합니다.' : '이 Structure는 읽기 전용입니다.'}
+                {metadataEditable
+                  ? '코드는 변경하지 않고 이름과 설명만 저장합니다.'
+                  : '이 Structure는 읽기 전용입니다.'}
               </DialogDescription>
             </DialogHeader>
             <label className="grid gap-1.5 text-sm font-medium">
@@ -708,36 +733,65 @@ export function StructurePage() {
       <SaveDefinitionDialog
         defaults={saveDefaults}
         description={
-          saveMode === 'root'
-            ? '현재 Source code를 선택한 Structure의 parent 없이 내 새 root로 저장합니다.'
-            : undefined
+          saveMode === 'create'
+            ? '기본 Source code를 내 새 root Structure로 저장합니다.'
+            : saveMode === 'root'
+              ? '현재 Source code를 선택한 Structure의 parent 없이 내 새 root로 저장합니다.'
+              : undefined
         }
         kind="Structure"
         open={saveMode !== null}
         pending={definitionMutation.isPending}
-        submitLabel={saveMode === 'root' ? '새 root로 저장' : 'Structure 저장'}
-        title={saveMode === 'root' ? '새 Structure root 저장' : 'Structure 저장'}
+        submitLabel={
+          saveMode === 'create' ? 'Structure 생성' : saveMode === 'root' ? '새 root로 저장' : 'Structure 저장'
+        }
+        title={
+          saveMode === 'create'
+            ? '새 Structure 생성'
+            : saveMode === 'root'
+              ? '새 Structure root 저장'
+              : 'Structure 저장'
+        }
         onOpenChange={(open) => !open && !definitionMutation.isPending && setSaveMode(null)}
         onSubmit={async (values) => {
-          await definitionMutation.mutateAsync({ forceRoot: saveMode === 'root', values })
+          await definitionMutation.mutateAsync({ forceRoot: saveMode !== 'save', values })
         }}
       />
 
-      <Dialog onOpenChange={(open) => !open && setPendingNavigation(null)} open={pendingNavigation !== null}>
+      <Dialog
+        onOpenChange={(open) => {
+          if (open) return
+          setPendingNavigation(null)
+          setPendingCreate(false)
+        }}
+        open={pendingNavigation !== null || pendingCreate}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>저장되지 않은 변경을 버릴까요?</DialogTitle>
             <DialogDescription>
-              다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.
+              {pendingCreate
+                ? '새 Structure를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                : '다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingNavigation(null)}>취소</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPendingNavigation(null)
+                setPendingCreate(false)
+              }}
+            >
+              취소
+            </Button>
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingNavigation) applyStructure(pendingNavigation)
+                if (pendingCreate) startNewStructure()
+                else if (pendingNavigation) applyStructure(pendingNavigation)
                 setPendingNavigation(null)
+                setPendingCreate(false)
               }}
             >
               변경 버리고 이동
@@ -746,12 +800,16 @@ export function StructurePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)} open={deleteTarget !== null}>
+      <Dialog
+        onOpenChange={(open) => !open && !deleteMutation.isPending && setDeleteTarget(null)}
+        open={deleteTarget !== null}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Structure를 삭제할까요?</DialogTitle>
             <DialogDescription>
-              child는 삭제 노드의 parent로 자동 재연결됩니다. 연결된 Sample과 Designer/Predictor Model도 함께 삭제될 수 있습니다.
+              child는 삭제 노드의 parent로 자동 재연결됩니다. 연결된 Sample과 Designer/Predictor Model도 함께 삭제될 수
+              있습니다.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border bg-muted/20 p-3 text-sm">
