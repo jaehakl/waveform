@@ -63,7 +63,7 @@ export function HomePage() {
       <section className="relative overflow-hidden rounded-2xl border bg-card px-6 py-10 shadow-xs sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -right-24 -top-28 size-80 rounded-full bg-orange-200/40 blur-3xl" />
         <div className="relative max-w-3xl">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">CAD from Code &<br /><span className="text-primary">CAE </span> from Data  </h2>
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">CAD from Code,<br /><span className="text-primary">CAE </span> from Data  </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">통합<br /><span className="text-primary">컴퓨터 기반 엔지니어링 </span>프레임워크</p>
           <div className="mt-7 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/viewer"><Box />Code to CAD</Link></Button><Button asChild size="lg" variant="outline"><Link to="/docs">사용 설명서<ArrowRight /></Link></Button></div>
         </div>
