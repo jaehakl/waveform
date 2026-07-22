@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Box, Boxes, FlaskConical, Gauge, Layers3, Sparkles } from 'lucide-react'
+import { ArrowRight, Box, Boxes, FlaskConical, Gauge, Layers3 } from 'lucide-react'
 import { Link } from 'react-router'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'

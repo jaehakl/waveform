@@ -5,6 +5,8 @@ import { AppShell } from './layout/AppShell'
 export const appRoutePaths = [
   'index',
   'viewer',
+  'materials',
+  'materials/:materialId',
   'catalog/cad/:tag?',
   'catalog/materials/:key?',
   'catalog/quantity-kinds/:name?',
@@ -32,6 +34,8 @@ export function createAppRouter() {
       children: [
         { index: true, lazy: () => import('@/pages/home/HomePage') },
         { path: 'viewer', lazy: () => import('@/pages/viewer/ViewerPage') },
+        { path: 'materials', lazy: () => import('@/pages/materials/MaterialListPage') },
+        { path: 'materials/:materialId', lazy: () => import('@/pages/materials/MaterialDetailPage') },
         {
           path: 'catalog',
           id: 'catalog',

@@ -119,8 +119,9 @@ function AccountMenu() {
 function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/viewer')) return 'Code-to-CAD Viewer'
+  if (pathname.startsWith('/materials')) return 'Materials'
   if (pathname.startsWith('/catalog/cad')) return 'Geometry'
-  if (pathname.startsWith('/catalog/materials')) return 'Material'
+  if (pathname.startsWith('/catalog/materials')) return 'Material Catalog'
   if (pathname.startsWith('/catalog/quantity-kinds')) return 'Quantity Kind'
   if (pathname.startsWith('/catalog/solvers')) return 'Physics Solver'
   if (pathname.startsWith('/docs')) return 'How to Code'

@@ -72,13 +72,13 @@ describe('AppShell catalog navigation', () => {
     render(<RouterProvider router={router} />)
     expect(await screen.findByText('CAD catalog content')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('link', { name: 'Material' }))
+    await userEvent.click(screen.getByRole('link', { name: 'Material Catalog' }))
     await waitFor(() => expect(router.state.navigation.location?.pathname).toBe('/catalog/materials'))
 
     expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByRole('heading', { name: 'Material 카탈로그' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Material Catalog' })).toBeInTheDocument()
     expect(screen.queryByText('CAD catalog content')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Material' })).toHaveClass('bg-muted')
+    expect(screen.getByRole('link', { name: 'Material Catalog' })).toHaveClass('bg-muted')
 
     act(() => finishLoading?.())
     expect(await screen.findByText('Material catalog content')).toBeInTheDocument()

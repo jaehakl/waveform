@@ -6,9 +6,9 @@ import { DataTable } from '@/components/DataTable'
 import { Badge } from '@/components/ui/badge'
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { dcCurrentDensitySpec, type SolverSpec } from '@/lib/solver'
+import { solverModules, type SolverSpec } from '@/lib/solver'
 
-const solvers: SolverSpec[] = [dcCurrentDensitySpec]
+const solvers: SolverSpec[] = solverModules.map((module) => module.spec)
 const columns: ColumnDef<SolverSpec, unknown>[] = [
   {
     accessorKey: 'name',
