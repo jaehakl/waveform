@@ -3,16 +3,9 @@ import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadDocumentType, CadScenePart, RecordedDataRule, UcumUnit } from '@/lib/cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
 import RecordedDataResults from './RecordedDataResults'
-import type {
-  CadViewerRecordedData,
-  RecordedDataDisplayUnits,
-} from './recordedData'
+import type { CadViewerRecordedData, RecordedDataDisplayUnits } from './recordedData'
 import type { CadViewerSimulation } from './CadViewer'
-import type {
-  MaterialGridResult,
-  MaterialGridWorkerRequest,
-  MaterialGridWorkerResponse,
-} from './materialGrid'
+import type { MaterialGridResult, MaterialGridWorkerRequest, MaterialGridWorkerResponse } from './materialGrid'
 import { createWireframeGeometries } from './selection'
 import {
   createLayerRenderParts,
@@ -40,18 +33,35 @@ type ReglRendererApi = {
   cameras: {
     perspective: {
       defaults: RendererState
-      setProjection: (output: RendererState, camera: RendererState, input: { height: number; width: number }) => RendererState
+      setProjection: (
+        output: RendererState,
+        camera: RendererState,
+        input: { height: number; width: number },
+      ) => RendererState
       update: (output: RendererState, camera: RendererState) => RendererState
     }
   }
   controls: {
     orbit: {
       defaults: RendererState
-      pan: (state: RendererState & { camera: RendererState; controls: RendererState; speed: number }, delta: number[]) => RendererChange
-      rotate: (state: RendererState & { camera: RendererState; controls: RendererState; speed: number }, angle: number[]) => RendererChange
+      pan: (
+        state: RendererState & { camera: RendererState; controls: RendererState; speed: number },
+        delta: number[],
+      ) => RendererChange
+      rotate: (
+        state: RendererState & { camera: RendererState; controls: RendererState; speed: number },
+        angle: number[],
+      ) => RendererChange
       update: (state: { camera: RendererState; controls: RendererState }) => RendererChange
-      zoom: (state: RendererState & { camera: RendererState; controls: RendererState; speed: number }, delta: number) => RendererChange
-      zoomToFit: (state: { camera: RendererState; controls: RendererState; entities: RendererEntity[] }) => RendererChange
+      zoom: (
+        state: RendererState & { camera: RendererState; controls: RendererState; speed: number },
+        delta: number,
+      ) => RendererChange
+      zoomToFit: (state: {
+        camera: RendererState
+        controls: RendererState
+        entities: RendererEntity[]
+      }) => RendererChange
     }
   }
   drawCommands: Record<string, unknown>
@@ -117,6 +127,7 @@ type ViewerToolbarProps = {
 }
 
 const renderer = reglRenderer as unknown as ReglRendererApi
+const materialGridTimeoutMs = 30_000
 const cameraViewDirections = {
   default: [1, 1, 1],
   x: [1, 0, 0],
@@ -209,19 +220,18 @@ export function ViewerToolbar({
   const appliedSpacingChanged = gridResult && gridResult.effectiveSpacing !== gridResult.requestedSpacing
   const firstCompatibilityIssue = simulation?.compatibility.issues[0]
   const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const modes: ViewerMode[] = hasResults
-      ? ['geometry', 'material-grid', 'results']
-      : ['geometry', 'material-grid']
+    const modes: ViewerMode[] = hasResults ? ['geometry', 'material-grid', 'results'] : ['geometry', 'material-grid']
     const currentIndex = modes.indexOf(mode)
-    const targetMode = event.key === 'Home'
-      ? modes[0]
-      : event.key === 'End'
-        ? modes[modes.length - 1]
-        : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
-          ? modes[(currentIndex - 1 + modes.length) % modes.length]
-          : event.key === 'ArrowRight' || event.key === 'ArrowDown'
-            ? modes[(currentIndex + 1) % modes.length]
-            : undefined
+    const targetMode =
+      event.key === 'Home'
+        ? modes[0]
+        : event.key === 'End'
+          ? modes[modes.length - 1]
+          : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+            ? modes[(currentIndex - 1 + modes.length) % modes.length]
+            : event.key === 'ArrowRight' || event.key === 'ArrowDown'
+              ? modes[(currentIndex + 1) % modes.length]
+              : undefined
     if (!targetMode) return
 
     event.preventDefault()
@@ -235,7 +245,7 @@ export function ViewerToolbar({
         <button
           aria-controls="viewer-render-panel"
           aria-selected={mode === 'geometry'}
-          className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+          className={`h-full border-b-2 px-3 text-xs font-semibold tracking-wide uppercase ${
             mode === 'geometry'
               ? 'border-slate-900 text-slate-950'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -252,7 +262,7 @@ export function ViewerToolbar({
         <button
           aria-controls="viewer-render-panel"
           aria-selected={mode === 'material-grid'}
-          className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+          className={`h-full border-b-2 px-3 text-xs font-semibold tracking-wide uppercase ${
             mode === 'material-grid'
               ? 'border-slate-900 text-slate-950'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -270,7 +280,7 @@ export function ViewerToolbar({
           <button
             aria-controls="viewer-render-panel"
             aria-selected={mode === 'results'}
-            className={`h-full border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+            className={`h-full border-b-2 px-3 text-xs font-semibold tracking-wide uppercase ${
               mode === 'results'
                 ? 'border-slate-900 text-slate-950'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -392,32 +402,33 @@ export function ViewerToolbar({
           aria-label="Simulation controls"
           className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2 border-l border-slate-200 pl-3 text-xs"
         >
-          <span className="max-w-52 truncate font-mono text-[11px] text-slate-600" title={
-            simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'
-          }>
+          <span
+            className="max-w-52 truncate font-mono text-[11px] text-slate-600"
+            title={simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'}
+          >
             {simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'}
           </span>
           <span
             aria-label={`Solver compatibility: ${simulation.compatibility.status}`}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
               simulation.compatibility.status === 'compatible'
                 ? 'bg-emerald-100 text-emerald-700'
                 : simulation.compatibility.status === 'incompatible'
                   ? 'bg-amber-100 text-amber-800'
                   : 'bg-slate-100 text-slate-600'
             }`}
-            title={firstCompatibilityIssue
-              ? `${firstCompatibilityIssue.path}: ${firstCompatibilityIssue.message}`
-              : undefined}
+            title={
+              firstCompatibilityIssue
+                ? `${firstCompatibilityIssue.path}: ${firstCompatibilityIssue.message}`
+                : undefined
+            }
           >
             {solverCompatibilityLabels[simulation.compatibility.status]}
-            {simulation.compatibility.status === 'incompatible'
-              ? ` · ${simulation.compatibility.issues.length}`
-              : ''}
+            {simulation.compatibility.status === 'incompatible' ? ` · ${simulation.compatibility.issues.length}` : ''}
           </span>
           <span
             aria-label={`Simulation status: ${simulation.process.status}`}
-            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
               simulation.process.status === 'failed'
                 ? 'bg-rose-100 text-rose-700'
                 : simulation.process.status === 'succeeded'
@@ -430,7 +441,7 @@ export function ViewerToolbar({
             {simulation.process.status}
           </span>
           {simulation.stale ? (
-            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-700">
+            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-orange-700 uppercase">
               Stale
             </span>
           ) : null}
@@ -445,15 +456,17 @@ export function ViewerToolbar({
             </button>
           ) : (
             <button
-              aria-describedby={simulation.compatibility.status === 'incompatible'
-                ? 'simulation-compatibility-message'
-                : undefined}
+              aria-describedby={
+                simulation.compatibility.status === 'incompatible' ? 'simulation-compatibility-message' : undefined
+              }
               aria-label="Run simulation"
               className="rounded border border-slate-300 bg-slate-900 px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!simulation.canRun}
-              title={simulation.compatibility.status === 'incompatible'
-                ? `Resolve ${simulation.compatibility.issues.length} compatibility issue${simulation.compatibility.issues.length === 1 ? '' : 's'} in Solver Spec before running.`
-                : undefined}
+              title={
+                simulation.compatibility.status === 'incompatible'
+                  ? `Resolve ${simulation.compatibility.issues.length} compatibility issue${simulation.compatibility.issues.length === 1 ? '' : 's'} in Solver Spec before running.`
+                  : undefined
+              }
               type="button"
               onClick={simulation.run}
             >
@@ -466,9 +479,12 @@ export function ViewerToolbar({
               id="simulation-compatibility-message"
               role="status"
             >
-              Simulation incompatible · {simulation.compatibility.issues.length} issue{simulation.compatibility.issues.length === 1 ? '' : 's'}
-              {firstCompatibilityIssue ? ` · ${firstCompatibilityIssue.path}: ${firstCompatibilityIssue.message}` : ''}
-              {' '}· See Solver Spec.
+              Simulation incompatible · {simulation.compatibility.issues.length} issue
+              {simulation.compatibility.issues.length === 1 ? '' : 's'}
+              {firstCompatibilityIssue
+                ? ` · ${firstCompatibilityIssue.path}: ${firstCompatibilityIssue.message}`
+                : ''}{' '}
+              · See Solver Spec.
             </div>
           ) : null}
           {simulation.process.error ? (
@@ -499,22 +515,28 @@ function JscadViewer({
 }: JscadViewerProps) {
   const displayLayers = useMemo(() => scaleViewerLayers(layers, lengthUnit), [layers, lengthUnit])
   const parts = useMemo(() => materialGridPartsFromLayers(displayLayers), [displayLayers])
-  const recordedDataSchemaSignature = useMemo(() => JSON.stringify(recordedDataRules.map((rule) => ({
-    label: rule.label,
-    result: {
-      axes: rule.result.axes?.map((axis) => ({
-        length: axis.length,
-        name: axis.name,
-        quantityKind: axis.quantityKind,
-        ticks: axis.ticks,
-        unit: axis.unit,
-      })),
-      dtype: rule.result.dtype,
-      quantityKind: rule.result.quantityKind,
-      basis: rule.result.basis,
-      unit: rule.result.unit,
-    },
-  }))), [recordedDataRules])
+  const recordedDataSchemaSignature = useMemo(
+    () =>
+      JSON.stringify(
+        recordedDataRules.map((rule) => ({
+          label: rule.label,
+          result: {
+            axes: rule.result.axes?.map((axis) => ({
+              length: axis.length,
+              name: axis.name,
+              quantityKind: axis.quantityKind,
+              ticks: axis.ticks,
+              unit: axis.unit,
+            })),
+            dtype: rule.result.dtype,
+            quantityKind: rule.result.quantityKind,
+            basis: rule.result.basis,
+            unit: rule.result.unit,
+          },
+        })),
+      ),
+    [recordedDataRules],
+  )
   const selection = selected?.selection ?? null
   const [gridError, setGridError] = useState<string | null>(null)
   const [gridApplyVersion, setGridApplyVersion] = useState(0)
@@ -525,7 +547,7 @@ function JscadViewer({
   const [spacingError, setSpacingError] = useState<string | null>(null)
   const [recordedDisplayUnits, setRecordedDisplayUnits] = useState<RecordedDataDisplayUnits>({})
   const [viewerMode, setViewerMode] = useState<ViewerMode>('geometry')
-  const activeGridRenderRef = useRef<string | null>(null)
+  const activeGridRenderRef = useRef<Readonly<{ requestId: string; onRenderEnd: () => void }> | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
   const controlsRef = useRef<RendererState | null>(null)
@@ -548,6 +570,7 @@ function JscadViewer({
   })
   const rendererEntityCacheRef = useRef(new Map<string, RendererEntityCacheEntry>())
   const recordedDataSchemaSignatureRef = useRef(recordedDataSchemaSignature)
+  const renderCallbacksRef = useRef({ onRenderEnd, onRenderStart })
   const referenceEntitiesRef = useRef<RendererEntity[]>([
     {
       size: [120, 120],
@@ -561,9 +584,10 @@ function JscadViewer({
   ])
   const renderRef = useRef<((options: RendererOptions) => void) | null>(null)
 
-  const currentGridResult = gridSnapshot?.parts === parts && gridSnapshot.requestedSpacing === requestedSpacing
-    ? gridSnapshot.result
-    : null
+  renderCallbacksRef.current = { onRenderEnd, onRenderStart }
+
+  const currentGridResult =
+    gridSnapshot?.parts === parts && gridSnapshot.requestedSpacing === requestedSpacing ? gridSnapshot.result : null
   const hasColoredGeometry = parts.some((part) => materialColor(part.material) !== undefined)
   const hasResults = recordedDataRules.length > 0
 
@@ -640,10 +664,7 @@ function JscadViewer({
       event.preventDefault()
       event.stopPropagation()
 
-      const controlChange = orbit.zoom(
-        { camera, controls, speed: 0.12 },
-        event.deltaY > 0 ? 1 : -1,
-      )
+      const controlChange = orbit.zoom({ camera, controls, speed: 0.12 }, event.deltaY > 0 ? 1 : -1)
       Object.assign(camera, controlChange.camera)
       Object.assign(controls, controlChange.controls)
 
@@ -693,9 +714,9 @@ function JscadViewer({
     const cached = gridSnapshotRef.current
     const requestId = `material-grid-${gridRequestSequenceRef.current + 1}`
     gridRequestSequenceRef.current += 1
-    activeGridRenderRef.current = requestId
+    activeGridRenderRef.current = { requestId, onRenderEnd: renderCallbacksRef.current.onRenderEnd }
     setGridError(null)
-    onRenderStart()
+    renderCallbacksRef.current.onRenderStart()
 
     if (cached?.parts === parts && cached.requestedSpacing === requestedSpacing) {
       setGridStatus('ready')
@@ -703,21 +724,42 @@ function JscadViewer({
     }
 
     setGridStatus('calculating')
-    const worker = new Worker(new URL('./materialGrid.worker.ts', import.meta.url), { type: 'module' })
-    gridWorkerRef.current = worker
-
+    let timeoutId: number | null = null
+    const clearGridTimeout = () => {
+      if (timeoutId === null) return
+      window.clearTimeout(timeoutId)
+      timeoutId = null
+    }
     const finishWithError = (message: string) => {
-      if (activeGridRenderRef.current !== requestId) return
+      const activeRender = activeGridRenderRef.current
+      if (activeRender?.requestId !== requestId) return
+      clearGridTimeout()
       activeGridRenderRef.current = null
       setGridError(message)
       setGridStatus('error')
-      onRenderEnd()
+      activeRender.onRenderEnd()
     }
+
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('./materialGrid.worker.ts', import.meta.url), { type: 'module' })
+      gridWorkerRef.current = worker
+    } catch (error) {
+      finishWithError(error instanceof Error ? error.message : String(error))
+      return
+    }
+
+    timeoutId = window.setTimeout(() => {
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      finishWithError('Material Grid calculation timed out after 30 seconds. Try a larger spacing.')
+    }, materialGridTimeoutMs)
 
     worker.onmessage = (event: MessageEvent<MaterialGridWorkerResponse>) => {
       const response = event.data
       if (response.requestId !== requestId) return
 
+      clearGridTimeout()
       worker.terminate()
       if (gridWorkerRef.current === worker) gridWorkerRef.current = null
       if (response.type === 'error') {
@@ -737,25 +779,41 @@ function JscadViewer({
       finishWithError(event.message || 'Material Grid calculation failed.')
     }
 
-    worker.postMessage({
-      parts,
-      requestId,
-      requestedSpacing,
-    } satisfies MaterialGridWorkerRequest)
-
-    return () => {
+    worker.onmessageerror = () => {
       worker.terminate()
       if (gridWorkerRef.current === worker) gridWorkerRef.current = null
-      if (activeGridRenderRef.current === requestId) {
+      finishWithError('Material Grid worker could not deserialize the calculation result.')
+    }
+
+    try {
+      worker.postMessage({
+        parts,
+        requestId,
+        requestedSpacing,
+      } satisfies MaterialGridWorkerRequest)
+    } catch (error) {
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      finishWithError(error instanceof Error ? error.message : String(error))
+      return
+    }
+
+    return () => {
+      clearGridTimeout()
+      worker.terminate()
+      if (gridWorkerRef.current === worker) gridWorkerRef.current = null
+      const activeRender = activeGridRenderRef.current
+      if (activeRender?.requestId === requestId) {
         activeGridRenderRef.current = null
-        onRenderEnd()
+        activeRender.onRenderEnd()
       }
     }
-  }, [gridApplyVersion, onRenderEnd, onRenderStart, parts, requestedSpacing, viewerMode])
+  }, [gridApplyVersion, parts, requestedSpacing, viewerMode])
 
   useEffect(() => {
     if (viewerMode === 'results') return
-    if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current) return
+    if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current)
+      return
 
     const shouldFit = lastFittedPartsRef.current !== parts
     const modeChanged = lastRenderedModeRef.current !== viewerMode
@@ -766,14 +824,20 @@ function JscadViewer({
       const cacheKey = displayLayers.every((layer) => layer.sceneHash)
         ? JSON.stringify({
             lengthUnit,
-            scenes: displayLayers.map((layer) => [layer.documentType, layer.sceneHash]),
-            selection: selected ? [
-              selected.documentType,
-              selected.selection.kind,
-              selected.selection.id,
-              selected.selection.geometryIds,
-              selected.selection.surfaceIds,
-            ] : null,
+            scenes: displayLayers.map((layer) => [
+              layer.documentType,
+              layer.sceneHash,
+              layer.parts.map((part) => [part.id, part.material?.name ?? null, materialColor(part.material) ?? null]),
+            ]),
+            selection: selected
+              ? [
+                  selected.documentType,
+                  selected.selection.kind,
+                  selected.selection.id,
+                  selected.selection.geometryIds,
+                  selected.selection.surfaceIds,
+                ]
+              : null,
           })
         : null
       const cachedEntities = cacheKey ? rendererEntityCacheRef.current.get(cacheKey) : undefined
@@ -783,21 +847,20 @@ function JscadViewer({
         const renderParts = createLayerRenderParts(displayLayers, selected)
         wireframeEntities = renderParts
           .filter((part) => part.wireframe)
-          .flatMap((part) => createWireframeGeometries(part).map((geometry) => ({
-            geometry,
-            visuals: {
-              drawCmd: 'drawLines',
-              show: true,
-              transparent: false,
-              useVertexColors: true,
-            },
-          })))
+          .flatMap((part) =>
+            createWireframeGeometries(part).map((geometry) => ({
+              geometry,
+              visuals: {
+                drawCmd: 'drawLines',
+                show: true,
+                transparent: false,
+                useVertexColors: true,
+              },
+            })),
+          )
         const meshEntities = renderParts
           .filter((part) => !part.wireframe)
-          .flatMap((part) => renderer.entitiesFromSolids(
-            { color: part.color, smoothNormals: true },
-            part.geometry,
-          ))
+          .flatMap((part) => renderer.entitiesFromSolids({ color: part.color, smoothNormals: true }, part.geometry))
         geometryEntities = [...meshEntities, ...wireframeEntities]
         if (cacheKey) {
           rendererEntityCacheRef.current.set(cacheKey, { geometryEntities, wireframeEntities })
@@ -806,18 +869,23 @@ function JscadViewer({
           }
         }
       }
-      const displayEntities = viewerMode === 'geometry'
-        ? geometryEntities
-        : [
-            ...(currentGridResult ? [Object.assign(pointEntityRef.current, {
-              geometry: {
-                colors: currentGridResult.colors,
-                positions: currentGridResult.positions,
-              },
-              pointSize: 5 * (window.devicePixelRatio || 1),
-            })] : []),
-            ...wireframeEntities,
-          ]
+      const displayEntities =
+        viewerMode === 'geometry'
+          ? geometryEntities
+          : [
+              ...(currentGridResult
+                ? [
+                    Object.assign(pointEntityRef.current, {
+                      geometry: {
+                        colors: currentGridResult.colors,
+                        positions: currentGridResult.positions,
+                      },
+                      pointSize: 5 * (window.devicePixelRatio || 1),
+                    }),
+                  ]
+                : []),
+              ...wireframeEntities,
+            ]
 
       optionsRef.current.entities = [...referenceEntitiesRef.current, ...displayEntities]
 
@@ -845,8 +913,9 @@ function JscadViewer({
 
       if (shouldReportGeometryRender) onRenderEnd()
       if (viewerMode === 'material-grid' && currentGridResult && activeGridRenderRef.current !== null) {
+        const activeRender = activeGridRenderRef.current
         activeGridRenderRef.current = null
-        onRenderEnd()
+        activeRender.onRenderEnd()
       }
     } catch (error) {
       activeGridRenderRef.current = null
@@ -896,11 +965,7 @@ function JscadViewer({
 
     const position = cameraRef.current.position as number[]
     const target = cameraRef.current.target as number[]
-    const currentDistance = Math.hypot(
-      position[0] - target[0],
-      position[1] - target[1],
-      position[2] - target[2],
-    )
+    const currentDistance = Math.hypot(position[0] - target[0], position[1] - target[1], position[2] - target[2])
     const fallbackPosition = renderer.cameras.perspective.defaults.position as number[]
     const fallbackTarget = renderer.cameras.perspective.defaults.target as number[]
     const fallbackDistance = Math.hypot(
@@ -908,9 +973,7 @@ function JscadViewer({
       fallbackPosition[1] - fallbackTarget[1],
       fallbackPosition[2] - fallbackTarget[2],
     )
-    const distance = Number.isFinite(currentDistance) && currentDistance > 0
-      ? currentDistance
-      : fallbackDistance
+    const distance = Number.isFinite(currentDistance) && currentDistance > 0 ? currentDistance : fallbackDistance
     const direction = cameraViewDirections[view]
     const directionLength = Math.hypot(...direction)
 
@@ -956,7 +1019,7 @@ function JscadViewer({
       >
         <canvas
           ref={canvasRef}
-          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full touch-none cursor-grab active:cursor-grabbing`}
+          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full cursor-grab touch-none active:cursor-grabbing`}
           data-viewer-canvas="true"
           onContextMenu={(event) => event.preventDefault()}
           onPointerDown={(event) => {
@@ -990,10 +1053,10 @@ function JscadViewer({
             const dy = event.clientY - lastPoint.y
             const controlChange =
               lastPoint.button === 2
-                ? renderer.controls.orbit.pan(
-                    { camera: cameraRef.current, controls: controlsRef.current, speed: 1 },
-                    [-dx, dy],
-                  )
+                ? renderer.controls.orbit.pan({ camera: cameraRef.current, controls: controlsRef.current, speed: 1 }, [
+                    -dx,
+                    dy,
+                  ])
                 : renderer.controls.orbit.rotate(
                     { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
                     [dx, dy],
@@ -1030,20 +1093,23 @@ function JscadViewer({
 
         {viewerMode === 'results' ? (
           <RecordedDataResults
-            displayUnits={recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature
-              ? recordedDisplayUnits
-              : {}}
+            displayUnits={
+              recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature ? recordedDisplayUnits : {}
+            }
             recordedData={recordedData}
             rules={recordedDataRules}
-            onDisplayUnitChange={(label, target, unit) => setRecordedDisplayUnits((current) => {
-              const entry = current[label] ?? {}
-              return {
-                ...current,
-                [label]: target === 'result'
-                  ? { ...entry, result: unit }
-                  : { ...entry, axes: { ...entry.axes, [target]: unit } },
-              }
-            })}
+            onDisplayUnitChange={(label, target, unit) =>
+              setRecordedDisplayUnits((current) => {
+                const entry = current[label] ?? {}
+                return {
+                  ...current,
+                  [label]:
+                    target === 'result'
+                      ? { ...entry, result: unit }
+                      : { ...entry, axes: { ...entry.axes, [target]: unit } },
+                }
+              })
+            }
           />
         ) : null}
 
@@ -1059,23 +1125,23 @@ function JscadViewer({
           </div>
         ) : null}
 
-        {viewerMode === 'material-grid'
-        && gridStatus === 'ready'
-        && hasColoredGeometry
-        && currentGridResult?.visiblePointCount === 0 ? (
+        {viewerMode === 'material-grid' &&
+        gridStatus === 'ready' &&
+        hasColoredGeometry &&
+        currentGridResult?.visiblePointCount === 0 ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
             No Grid points fall inside the geometry at this spacing.
           </div>
         ) : null}
 
         {viewerMode !== 'results' && parts.length > 0 ? (
-          <div className="pointer-events-none absolute right-3 top-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Materials</div>
+          <div className="pointer-events-none absolute top-3 right-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+            <div className="mb-1.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">Materials</div>
             {[...new Set(parts.map((part) => part.material))].map((material, index) => {
               const color = materialColor(material)
               return (
                 <div
-                  key={`${material?.symbol ?? 'unassigned'}-${index}`}
+                  key={`${material?.name ?? 'unassigned'}-${index}`}
                   className="flex items-center gap-2 py-0.5 text-xs text-slate-700"
                 >
                   {color ? (
@@ -1085,14 +1151,11 @@ function JscadViewer({
                       style={{ backgroundColor: color }}
                     />
                   ) : (
-                    <span
-                      className="grid h-2.5 w-2.5 shrink-0 items-center"
-                      data-material-swatch="wireframe"
-                    >
+                    <span className="grid h-2.5 w-2.5 shrink-0 items-center" data-material-swatch="wireframe">
                       <span className="block border-t-2" style={{ borderColor: unassignedGeometryColor }} />
                     </span>
                   )}
-                  <span>{material?.symbol ?? 'Unassigned'}</span>
+                  <span>{material?.name ?? 'Unassigned'}</span>
                 </div>
               )
             })}
@@ -1100,16 +1163,14 @@ function JscadViewer({
         ) : null}
 
         {viewerMode !== 'results' && selection ? (
-          <div className="pointer-events-none absolute left-3 top-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-orange-600">Selected</div>
+          <div className="pointer-events-none absolute top-3 left-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+            <div className="text-[10px] font-semibold tracking-wide text-orange-600 uppercase">Selected</div>
             <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
               {selection.kind === 'group'
                 ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
                 : selection.label}
             </div>
-            <div className="truncate font-mono text-[10px] text-slate-400">
-              {selection.id}
-            </div>
+            <div className="truncate font-mono text-[10px] text-slate-400">{selection.id}</div>
           </div>
         ) : null}
       </div>

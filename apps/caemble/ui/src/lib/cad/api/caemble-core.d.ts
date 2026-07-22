@@ -2643,44 +2643,40 @@ export type TensorQuantityKindName =
   | 'economicsOperations.WebTimeAverageThrust'
 export type ScalarQuantityKindName = Exclude<QuantityKindName, TensorQuantityKindName>
 // </generated:quantity-kind-types>
-type QuantityBasisMetadata<Name extends QuantityKindName> =
-  [Name] extends [ScalarQuantityKindName]
-    ? Readonly<{ basis?: never }>
-    : [Name] extends [TensorQuantityKindName]
-      ? Readonly<{ basis?: CartesianBasis }>
-      : Readonly<{ basis?: CartesianBasis }>
+type QuantityBasisMetadata<Name extends QuantityKindName> = [Name] extends [ScalarQuantityKindName]
+  ? Readonly<{ basis?: never }>
+  : [Name] extends [TensorQuantityKindName]
+    ? Readonly<{ basis?: CartesianBasis }>
+    : Readonly<{ basis?: CartesianBasis }>
 export type QuantityMetadata<Name extends QuantityKindName = QuantityKindName> = Readonly<{
   unit: UcumUnit
   quantityKind: Name
-}> & QuantityBasisMetadata<Name>
+}> &
+  QuantityBasisMetadata<Name>
 type DataAxisBase = Readonly<{
   length: number
   name?: string
   ticks?: readonly (number | string)[]
 }>
-export type DataAxis = DataAxisBase & Readonly<
-  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
-  | { unit?: never; quantityKind?: never }
->
+export type DataAxis = DataAxisBase &
+  Readonly<{ unit: UcumUnit; quantityKind: ScalarQuantityKindName } | { unit?: never; quantityKind?: never }>
 type DataValueDescriptorBase = Readonly<{
   axes?: readonly DataAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
 export type MatrixValue = readonly (readonly number[])[]
-export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
-  | ({
-    dtype: FloatDataDType
-  } & (
-    QuantityMetadata<ScalarQuantityKindName>
-    | QuantityMetadata<TensorQuantityKindName>
-  ))
-  | {
-    dtype: NonFloatDataDType
-    unit?: never
-    quantityKind?: never
-    basis?: never
-  }
->
+export type DataValueDescriptor = DataValueDescriptorBase &
+  Readonly<
+    | ({
+        dtype: FloatDataDType
+      } & (QuantityMetadata<ScalarQuantityKindName> | QuantityMetadata<TensorQuantityKindName>))
+    | {
+        dtype: NonFloatDataDType
+        unit?: never
+        quantityKind?: never
+        basis?: never
+      }
+  >
 export type ScalarValue = boolean | string | number
 export type ExperimentParameter = ScalarValue | DataValueDescriptor
 export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
@@ -2689,27 +2685,23 @@ type RecordedDataResultAxisBase = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
 }>
-export type RecordedDataResultAxis = RecordedDataResultAxisBase & Readonly<
-  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
-  | { unit?: never; quantityKind?: never }
->
+export type RecordedDataResultAxis = RecordedDataResultAxisBase &
+  Readonly<{ unit: UcumUnit; quantityKind: ScalarQuantityKindName } | { unit?: never; quantityKind?: never }>
 type RecordedDataResultBase = Readonly<{
   axes?: readonly RecordedDataResultAxis[]
 }>
-export type RecordedDataResult = RecordedDataResultBase & Readonly<
-  | ({
-    dtype: FloatDataDType
-  } & (
-    QuantityMetadata<ScalarQuantityKindName>
-    | QuantityMetadata<TensorQuantityKindName>
-  ))
-  | {
-    dtype: NonFloatDataDType
-    unit?: never
-    quantityKind?: never
-    basis?: never
-  }
->
+export type RecordedDataResult = RecordedDataResultBase &
+  Readonly<
+    | ({
+        dtype: FloatDataDType
+      } & (QuantityMetadata<ScalarQuantityKindName> | QuantityMetadata<TensorQuantityKindName>))
+    | {
+        dtype: NonFloatDataDType
+        unit?: never
+        quantityKind?: never
+        basis?: never
+      }
+  >
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
   label: string
@@ -3152,7 +3144,7 @@ export type MaterialDataValueDescriptor<
   dtype: FloatDataDType
   value: number | readonly unknown[]
   unit: UcumUnit
-  errorRate: number
+  errorRate?: number
   axes?: never
   quantityKind?: never
 }> & MaterialAuthoringBasis<MaterialPropertyQuantityKind<Key>> : never
@@ -3186,7 +3178,7 @@ export type MaterialSampledRelation<
 
 export type MaterialVariable = string | MaterialDataValueDescriptor | MaterialSampledRelation
 export type MaterialVariables = Readonly<
-  { color?: string }
+  { color?: string; errorRate?: number }
   & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> }
   & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
 >
@@ -3234,12 +3226,14 @@ export function isFloatDType(dtype: DataDType): boolean
 export function Mat(diagonal: number, offDiagonal?: number, size?: number): MatrixValue
 
 export class Material {
-  constructor(symbol: string)
-  constructor(symbol: string, variables: MaterialVariables)
-  constructor(symbol: string, version: string)
-  constructor(symbol: string, version: string, variables: MaterialVariables)
-  readonly symbol: string
+  constructor(name: string)
+  constructor(name: string, variables: MaterialVariables)
+  constructor(name: string, sourceVersion: string)
+  constructor(name: string, sourceVersion: string, variables: MaterialVariables)
+  readonly name: string
+  readonly source?: string
   readonly version?: string
+  readonly errorRate: number
   readonly variables: NormalizedMaterialVariables
 }
 
@@ -3296,22 +3290,10 @@ export class Setup<
   TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
-> extends VariableObject<Experiment<
-    TInitializationParameters,
-    TBoundaryConditionParameters,
-    TRecordedDataParameters
-  >> {
+> extends VariableObject<Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>> {
   constructor(
-    experiment: Experiment<
-      TInitializationParameters,
-      TBoundaryConditionParameters,
-      TRecordedDataParameters
-    >,
+    experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>,
     partialVars?: Record<string, Tensor>,
   )
-  readonly experiment: Experiment<
-    TInitializationParameters,
-    TBoundaryConditionParameters,
-    TRecordedDataParameters
-  >
+  readonly experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>
 }

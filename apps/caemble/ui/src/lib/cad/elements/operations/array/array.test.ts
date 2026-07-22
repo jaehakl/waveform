@@ -35,13 +35,16 @@ describe('CAD array', () => {
     )
 
     expect(centered.map((part) => measurements.measureBoundingBox(part.geometry))).toEqual([
-      [[-3, -1, -1], [-1, 1, 1]],
-      [[1, -1, -1], [3, 1, 1]],
+      [
+        [-3, -1, -1],
+        [-1, 1, 1],
+      ],
+      [
+        [1, -1, -1],
+        [3, 1, 1],
+      ],
     ])
-    expect(centered.map((part) => part.id)).toEqual([
-      'parent.$cell-0-0-0.cell',
-      'parent.$cell-1-0-0.cell',
-    ])
+    expect(centered.map((part) => part.id)).toEqual(['parent.$cell-0-0-0.cell', 'parent.$cell-1-0-0.cell'])
     expect(oriented).toHaveLength(4)
 
     const centers = oriented.map((part) => {
@@ -114,13 +117,16 @@ describe('CAD array', () => {
       scale: [0.5, 2, 1],
       rotate: { axis: [0, 0, 1], angle: Math.PI / 2 },
     })
-    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material?.name)).toEqual(['Core', 'Core'])
 
     const centers = parts.map((part) => {
       const bounds = measurements.measureBoundingBox(part.geometry)
       return bounds[0].map((minimum, axis) => (minimum + bounds[1][axis]) / 2)
     })
-    expect(centers).toEqual([[-4, 0, 0], [4, 0, 0]])
+    expect(centers).toEqual([
+      [-4, 0, 0],
+      [4, 0, 0],
+    ])
   })
 
   it('applies child transforms, lattice offset, array transforms, and parent transforms in order', () => {
@@ -167,10 +173,13 @@ describe('CAD array', () => {
       )
     })
 
-    ;[[0, 0, 0], [-1, 0, 0], [1, Number.NaN, 0], [1, 0]].forEach((period) => {
-      expect(() => evaluateCad(h('array', { shape: [2, 1, 1], period }, child))).toThrow(
-        '<array> period',
-      )
+    ;[
+      [0, 0, 0],
+      [-1, 0, 0],
+      [1, Number.NaN, 0],
+      [1, 0],
+    ].forEach((period) => {
+      expect(() => evaluateCad(h('array', { shape: [2, 1, 1], period }, child))).toThrow('<array> period')
     })
 
     ;[
@@ -199,9 +208,9 @@ describe('CAD array', () => {
     expect(() => evaluate({ radius: [[[1]], [[1, 2]]] })).toThrow('dense rectangular tensor')
     expect(() => evaluate({ radius: [[[1]], [[Number.NaN]]] })).toThrow('finite numbers')
     expect(() => evaluate({ pos: [[[[0, 0]]], [[[0, 0]]]] })).toThrow('must have shape [2, 1, 1, 3]')
-    expect(() =>
-      evaluate({ rotate: { axis: [[[[0, 0, 1]]], [[[0, 0, 1]]]], angle: [[[0]]] } }),
-    ).toThrow('inject.rotate.angle must have shape [2, 1, 1]')
+    expect(() => evaluate({ rotate: { axis: [[[[0, 0, 1]]], [[[0, 0, 1]]]], angle: [[[0]]] } })).toThrow(
+      'inject.rotate.angle must have shape [2, 1, 1]',
+    )
     expect(() => evaluate({ rotate: [[[[0, 0, 1, 0]]], [[[0, 0, 1, 0]]]] })).toThrow(
       'inject.rotate must be an object with axis and angle tensors',
     )
@@ -212,22 +221,15 @@ describe('CAD array', () => {
     const props = { shape: [1, 1, 1], period: [0, 0, 0] }
 
     expect(() => evaluateCad(h('array', props))).toThrow('exactly one direct child Geometry')
-    expect(() => evaluateCad(h(
-      'array',
-      props,
-      h(Box, { id: 'first', materials: [core] }),
-      h(Box, { id: 'second', materials: [core] }),
-    ))).toThrow(
-      'exactly one direct child Geometry',
-    )
+    expect(() =>
+      evaluateCad(
+        h('array', props, h(Box, { id: 'first', materials: [core] }), h(Box, { id: 'second', materials: [core] })),
+      ),
+    ).toThrow('exactly one direct child Geometry')
     expect(() => evaluateCad(h('array', props, h('box', { size, materials: [core] })))).toThrow(
       'exactly one direct child Geometry',
     )
-    expect(() => evaluateCad(h(
-      'array',
-      props,
-      h(Fragment, null, h(Box, { id: 'box', materials: [core] })),
-    ))).toThrow(
+    expect(() => evaluateCad(h('array', props, h(Fragment, null, h(Box, { id: 'box', materials: [core] }))))).toThrow(
       'exactly one direct child Geometry',
     )
   })
@@ -238,10 +240,11 @@ describe('CAD array', () => {
     const arrayProps = { shape: [2, 1, 1], period: [3, 0, 0] }
 
     expect(evaluateCad(h('array', arrayProps, h(Box, { id: 'box', materials: [core] })))).toHaveLength(2)
-    expect(evaluateCad(h(
-      () => h('union', null, h('array', arrayProps, h(Box, { id: 'box', materials: [core] }))),
-      { id: 'result' },
-    ))).toHaveLength(1)
+    expect(
+      evaluateCad(
+        h(() => h('union', null, h('array', arrayProps, h(Box, { id: 'box', materials: [core] }))), { id: 'result' }),
+      ),
+    ).toHaveLength(1)
 
     function MixedCell() {
       return h(
@@ -254,14 +257,9 @@ describe('CAD array', () => {
 
     expect(() =>
       evaluateCad(
-        h(
-          () => h(
-            'union',
-            null,
-            h('array', { shape: [1, 1, 1], period: [0, 0, 0] }, h(MixedCell, { id: 'cell' })),
-          ),
-          { id: 'result' },
-        ),
+        h(() => h('union', null, h('array', { shape: [1, 1, 1], period: [0, 0, 0] }, h(MixedCell, { id: 'cell' }))), {
+          id: 'result',
+        }),
       ),
     ).toThrow('cannot combine Geometry with different Materials')
   })

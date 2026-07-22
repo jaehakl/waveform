@@ -89,6 +89,7 @@ class Material(TimestampMixin, Base):
     )
     inchi: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    color: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user: Mapped[Optional["User"]] = relationship("User", back_populates="materials")
     names: Mapped[List["MaterialName"]] = relationship(
@@ -368,6 +369,12 @@ class Setup(TimestampMixin, Base):
         nullable=False,
     )
     vars: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+    material_parameters: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default=dict,

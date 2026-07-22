@@ -19,6 +19,6 @@ async def test_configured_database_is_at_head_with_seeded_roles(db_session):
     revision = await db_session.scalar(text("SELECT version_num FROM alembic_version"))
     roles = list((await db_session.execute(text("SELECT name FROM roles ORDER BY name"))).scalars())
     vector = await db_session.scalar(text("SELECT extversion FROM pg_extension WHERE extname = 'vector'"))
-    assert revision == "c7e4b127f3d2"
+    assert revision == "f3a97c1248be"
     assert roles == ["admin", "user"]
     assert vector

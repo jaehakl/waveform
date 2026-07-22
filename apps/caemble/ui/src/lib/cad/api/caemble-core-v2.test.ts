@@ -39,9 +39,8 @@ function diagnosticsFor(source: string) {
   const defaultDirectoryExists = host.directoryExists?.bind(host)
   host.fileExists = (path) => virtualFiles.has(path.replace(/\\/g, '/')) || defaultFileExists(path)
   host.readFile = (path) => virtualFiles.get(path.replace(/\\/g, '/')) ?? defaultReadFile(path)
-  host.directoryExists = (path) => path.replace(/\\/g, '/').startsWith('C:/node_modules/@caemble/core')
-    || defaultDirectoryExists?.(path)
-    || false
+  host.directoryExists = (path) =>
+    path.replace(/\\/g, '/').startsWith('C:/node_modules/@caemble/core') || defaultDirectoryExists?.(path) || false
   host.getSourceFile = (path, languageVersion) => {
     const text = host.readFile(path)
     return text === undefined ? undefined : ts.createSourceFile(path, text, languageVersion, true)
@@ -51,10 +50,9 @@ function diagnosticsFor(source: string) {
     options,
     host,
   })
-  return ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(
-    diagnostic.messageText,
-    '\n',
-  ))
+  return ts
+    .getPreEmitDiagnostics(program)
+    .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
 }
 
 describe('@caemble/core/v2 authoring declaration', () => {
@@ -90,10 +88,10 @@ describe('@caemble/core/v2 authoring declaration', () => {
   })
 
   it('generates strict canonical Material property and model authoring types', () => {
-    expect(coreV2Types).toContain(
-      "'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>",
-    )
+    expect(coreV2Types).toContain("'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>")
     expect(coreTypes).toContain("'model.sorption.isotherm': Readonly<{")
+    expect(coreTypes).toContain('{ color?: string; errorRate?: number }')
+    expect(coreTypes).toContain('readonly errorRate: number')
 
     const localKey = defaultCode.replace("'electrical.conductivity': {", 'electricalConductivity: {')
     const arbitraryKey = defaultCode.replace("'electrical.conductivity': {", "'custom.conductivity': {")
@@ -118,9 +116,8 @@ describe('@caemble/core/v2 authoring declaration', () => {
       })
     `
     expect(diagnosticsFor(modelRelation)).toEqual([])
-    expect(diagnosticsFor(modelRelation.replace(
-      'model.sorption.isotherm',
-      'model.sorption.local_isotherm',
-    )).join('\n')).toContain('model.sorption.local_isotherm')
+    expect(
+      diagnosticsFor(modelRelation.replace('model.sorption.isotherm', 'model.sorption.local_isotherm')).join('\n'),
+    ).toContain('model.sorption.local_isotherm')
   })
 })

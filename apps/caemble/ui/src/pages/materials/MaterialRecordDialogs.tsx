@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { FloatDataDType } from '@/lib/cad'
 import type { MaterialModelDefinition } from '@/lib/material'
 import { MaterialCatalogPickerDialog, QualifierCatalogPickerDialog } from './CatalogPickerDialog'
+import { MaterialColorField } from './MaterialColorField'
 import {
   createMaterialPropertyValue,
   createMaterialRelationValue,
@@ -34,7 +35,12 @@ import {
   readMaterialPropertyValue,
   readMaterialRelationValue,
 } from './material-value'
-import { getQualifierNames, isDedicatedQualifierName, isMaterialCatalogKey } from './material-utils'
+import {
+  getQualifierNames,
+  isDedicatedQualifierName,
+  isMaterialCatalogKey,
+  isMaterialColorValid,
+} from './material-utils'
 import { VisibilityField, type Visibility } from './VisibilityField'
 
 function isAdmin(user: UserData) {
@@ -70,12 +76,14 @@ export function MaterialEditDialog({
   const queryClient = useQueryClient()
   const [inchi, setInchi] = useState('')
   const [description, setDescription] = useState('')
+  const [color, setColor] = useState('')
   useEffect(() => {
     if (open) {
       setInchi(material.inchi ?? '')
       setDescription(material.description ?? '')
+      setColor(material.color ?? '')
     }
-  }, [material.description, material.inchi, open])
+  }, [material.color, material.description, material.inchi, open])
   const mutation = useMutation({
     mutationFn: () =>
       dbTables.Material.upsertRow([
@@ -83,6 +91,7 @@ export function MaterialEditDialog({
           ...material,
           inchi: inchi.trim() || null,
           description: description.trim() || null,
+          color: color.trim().toLowerCase() || null,
         },
       ]),
     onSuccess: async () => {
@@ -92,6 +101,7 @@ export function MaterialEditDialog({
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Material 정보를 저장하지 못했습니다.'),
   })
+  const colorValid = isMaterialColorValid(color)
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
@@ -118,11 +128,12 @@ export function MaterialEditDialog({
               value={description}
             />
           </label>
+          <MaterialColorField onChange={setColor} value={color} />
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               취소
             </Button>
-            <Button disabled={mutation.isPending} type="submit">
+            <Button disabled={!colorValid || mutation.isPending} type="submit">
               {mutation.isPending ? <LoaderCircle className="animate-spin" /> : null}저장
             </Button>
           </DialogFooter>

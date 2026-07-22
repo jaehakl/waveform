@@ -6,57 +6,70 @@ import { findDraftTarget, shouldClearGeometryTreeSelection, updateDraftSelection
 
 const scene: CadScene = {
   lengthUnit: 'mm',
-  geometryGroups: [{
-    id: '@geometry-group/body',
-    name: 'body',
-    kind: 'geometry',
-    memberIds: ['assembly', 'missing.geometry'],
-    geometryIds: ['assembly.core'],
-    surfaceIds: [],
-    missingMemberIds: ['missing.geometry'],
-  }],
-  surfaceGroups: [{
-    id: '@surface-group/contact',
-    name: 'contact',
-    kind: 'surface',
-    memberIds: ['assembly.core/surface-1'],
-    geometryIds: ['assembly.core'],
-    surfaceIds: ['assembly.core/surface-1'],
-    missingMemberIds: [],
-  }],
-  parts: [{
-    id: 'assembly.core',
-    geometry: {},
-    material: { symbol: 'Core', variables: { color: '#2563eb' } },
-    surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
-  }],
+  geometryGroups: [
+    {
+      id: '@geometry-group/body',
+      name: 'body',
+      kind: 'geometry',
+      memberIds: ['assembly', 'missing.geometry'],
+      geometryIds: ['assembly.core'],
+      surfaceIds: [],
+      missingMemberIds: ['missing.geometry'],
+    },
+  ],
+  surfaceGroups: [
+    {
+      id: '@surface-group/contact',
+      name: 'contact',
+      kind: 'surface',
+      memberIds: ['assembly.core/surface-1'],
+      geometryIds: ['assembly.core'],
+      surfaceIds: ['assembly.core/surface-1'],
+      missingMemberIds: [],
+    },
+  ],
+  parts: [
+    {
+      id: 'assembly.core',
+      geometry: {},
+      material: { name: 'Core', variables: { color: '#2563eb' } },
+      surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
+    },
+  ],
   tree: {
     key: 'structure',
     label: 'Structure',
-    children: [{
-      key: 'structure/assembly',
-      label: 'Assembly',
-      globalId: 'assembly',
-      groupId: 'assembly',
-      geometryIds: ['assembly.core'],
-      children: [{
-        key: 'structure/assembly/core',
-        label: 'Cell',
-        globalId: 'assembly.core',
-        geometryId: 'assembly.core',
-        children: [{
-          key: 'structure/assembly/core/surface-1',
-          label: 'Top',
-          surfaceId: 'assembly.core/surface-1',
-          children: [],
-        }],
-      }, {
-        key: 'structure/assembly/operand',
-        label: 'Consumed operand',
-        globalId: 'assembly.cutter',
-        children: [],
-      }],
-    }],
+    children: [
+      {
+        key: 'structure/assembly',
+        label: 'Assembly',
+        globalId: 'assembly',
+        groupId: 'assembly',
+        geometryIds: ['assembly.core'],
+        children: [
+          {
+            key: 'structure/assembly/core',
+            label: 'Cell',
+            globalId: 'assembly.core',
+            geometryId: 'assembly.core',
+            children: [
+              {
+                key: 'structure/assembly/core/surface-1',
+                label: 'Top',
+                surfaceId: 'assembly.core/surface-1',
+                children: [],
+              },
+            ],
+          },
+          {
+            key: 'structure/assembly/operand',
+            label: 'Consumed operand',
+            globalId: 'assembly.cutter',
+            children: [],
+          },
+        ],
+      },
+    ],
   },
 }
 
@@ -141,14 +154,22 @@ describe('GeometryTree', () => {
     })
     expect(withoutGroup).toEqual({ kind: 'geometry', memberIds: ['assembly.core'] })
     expect(mixed).toBe(withoutGroup)
-    expect(updateDraftSelection(
-      { kind: 'geometry', memberIds: ['assembly.core'] },
-      { kind: 'geometry', memberIds: ['assembly.core'] },
-    )).toBeNull()
-    expect(updateDraftSelection(null, {
-      kind: 'surface',
-      memberIds: ['assembly.core/surface-1'],
-    }, { kind: 'geometry', memberIds: ['assembly'] })).toBeNull()
+    expect(
+      updateDraftSelection(
+        { kind: 'geometry', memberIds: ['assembly.core'] },
+        { kind: 'geometry', memberIds: ['assembly.core'] },
+      ),
+    ).toBeNull()
+    expect(
+      updateDraftSelection(
+        null,
+        {
+          kind: 'surface',
+          memberIds: ['assembly.core/surface-1'],
+        },
+        { kind: 'geometry', memberIds: ['assembly'] },
+      ),
+    ).toBeNull()
   })
 
   it('expands named groups to declared members and marks every drafted row', () => {

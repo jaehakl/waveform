@@ -38,8 +38,10 @@ export type CadScenePart = {
 }
 
 export type CadSceneMaterial = Readonly<{
-  symbol: string
+  name: string
+  source?: string
   version?: string
+  errorRate?: number
   variables: ResolvedMaterialVariables
 }>
 
@@ -119,5 +121,4 @@ export type GeometryOperationDefinition<Tag extends string = string> = Readonly<
 }>
 
 export type CadElementDefinition<Tag extends string = string> =
-  | PrimitiveElementDefinition<Tag>
-  | GeometryOperationDefinition<Tag>
+  PrimitiveElementDefinition<Tag> | GeometryOperationDefinition<Tag>

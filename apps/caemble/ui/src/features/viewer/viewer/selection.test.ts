@@ -9,7 +9,7 @@ function createPart(id = 'assembly.core', color: string | null = '#2563eb', with
   return {
     id,
     geometry: primitives.cuboid({ size: [2, 2, 2] }),
-    ...(withMaterial ? { material: { symbol: 'Core', variables: color === null ? {} : { color } } } : {}),
+    ...(withMaterial ? { material: { name: 'Core', variables: color === null ? {} : { color } } } : {}),
     surfaces: [
       { id: `${id}/surface-1`, name: '-X', polygonIndices: [0] },
       { id: `${id}/surface-2`, name: 'Other', polygonIndices: [1, 2, 3, 4, 5] },
@@ -28,10 +28,7 @@ describe('viewer selection colors', () => {
   })
 
   it('uses neutral wireframe rendering when Material or color is missing', () => {
-    const rendered = createRenderParts([
-      createPart('colorless', null),
-      createPart('materialless', null, false),
-    ], null)
+    const rendered = createRenderParts([createPart('colorless', null), createPart('materialless', null, false)], null)
 
     for (const renderPart of rendered) {
       expect(renderPart.color).toEqual([71 / 255, 85 / 255, 105 / 255, 1])
@@ -49,11 +46,23 @@ describe('viewer selection colors', () => {
       geometry: {
         transforms,
         polygons: [
-          { vertices: [[0, 0, 0], [1, 0, 0], [1, 1, 0]] },
-          { vertices: [[0, 0, 0], [1, 1, 0], [0, 1, 0]] },
+          {
+            vertices: [
+              [0, 0, 0],
+              [1, 0, 0],
+              [1, 1, 0],
+            ],
+          },
+          {
+            vertices: [
+              [0, 0, 0],
+              [1, 1, 0],
+              [0, 1, 0],
+            ],
+          },
         ],
       },
-      material: { symbol: 'Colorless', variables: {} },
+      material: { name: 'Colorless', variables: {} },
       surfaces: [
         { id: 'wireframe/surface-1', name: 'First', polygonIndices: [0] },
         { id: 'wireframe/surface-2', name: 'Second', polygonIndices: [1] },
@@ -69,7 +78,9 @@ describe('viewer selection colors', () => {
     const [wireframe] = createWireframeGeometries(renderPart)
 
     expect(wireframe.positions).toHaveLength(10)
-    expect(wireframe.colors.filter((color) => color.every((value, index) => value === selectedColor[index]))).toHaveLength(6)
+    expect(
+      wireframe.colors.filter((color) => color.every((value, index) => value === selectedColor[index])),
+    ).toHaveLength(6)
   })
 
   it('keeps selected unassigned Geometry as orange lines without a mesh', () => {
@@ -84,16 +95,16 @@ describe('viewer selection colors', () => {
 
     expect(renderPart.wireframe).toBe(true)
     expect(geometries).toHaveLength(1)
-    expect(geometries[0].colors.every((color) => (
-      color.every((value, index) => value === selectedColor[index])
-    ))).toBe(true)
+    expect(geometries[0].colors.every((color) => color.every((value, index) => value === selectedColor[index]))).toBe(
+      true,
+    )
   })
 
   it('splits large wireframes below the 16-bit vertex limit', () => {
     const transforms = (primitives.cuboid() as { transforms: unknown }).transforms
     const vertexCount = 32_768
     const vertices = Array.from({ length: vertexCount }, (_, index) => {
-      const angle = index / vertexCount * Math.PI * 2
+      const angle = (index / vertexCount) * Math.PI * 2
       return [Math.cos(angle), Math.sin(angle), 0]
     })
     const part = createPart('large-wireframe', null, false)
@@ -116,9 +127,11 @@ describe('viewer selection colors', () => {
     })[0].geometry as {
       polygons: Array<{ color: number[] }>
     }
-    expect(geometrySelection.polygons.every((polygon) =>
-      polygon.color.every((coordinate, index) => coordinate === selectedColor[index]),
-    )).toBe(true)
+    expect(
+      geometrySelection.polygons.every((polygon) =>
+        polygon.color.every((coordinate, index) => coordinate === selectedColor[index]),
+      ),
+    ).toBe(true)
 
     const surfaceSelection = createRenderParts([part], {
       id: part.surfaces[0].id,
@@ -136,9 +149,11 @@ describe('viewer selection colors', () => {
       1,
     ]
     expect(surfaceSelection.polygons[0].color).toEqual(selectedColor)
-    expect(surfaceSelection.polygons.slice(1).every((polygon) =>
-      polygon.color.every((coordinate, index) => coordinate === dimmedBlue[index]),
-    )).toBe(true)
+    expect(
+      surfaceSelection.polygons
+        .slice(1)
+        .every((polygon) => polygon.color.every((coordinate, index) => coordinate === dimmedBlue[index])),
+    ).toBe(true)
     expect(originalPolygons.every((polygon) => polygon.color === undefined)).toBe(true)
   })
 
@@ -156,9 +171,11 @@ describe('viewer selection colors', () => {
 
     for (const index of [0, 1]) {
       const geometry = rendered[index].geometry as { polygons: Array<{ color: number[] }> }
-      expect(geometry.polygons.every((polygon) =>
-        polygon.color.every((coordinate, colorIndex) => coordinate === selectedColor[colorIndex]),
-      )).toBe(true)
+      expect(
+        geometry.polygons.every((polygon) =>
+          polygon.color.every((coordinate, colorIndex) => coordinate === selectedColor[colorIndex]),
+        ),
+      ).toBe(true)
     }
 
     const dimmedRed = [
@@ -168,9 +185,11 @@ describe('viewer selection colors', () => {
       1,
     ]
     const outsideGeometry = rendered[2].geometry as { polygons: Array<{ color: number[] }> }
-    expect(outsideGeometry.polygons.every((polygon) =>
-      polygon.color.every((coordinate, colorIndex) => coordinate === dimmedRed[colorIndex]),
-    )).toBe(true)
+    expect(
+      outsideGeometry.polygons.every((polygon) =>
+        polygon.color.every((coordinate, colorIndex) => coordinate === dimmedRed[colorIndex]),
+      ),
+    ).toBe(true)
     for (const part of [first, second, outside]) {
       const polygons = (part.geometry as { polygons: Array<{ color?: number[] }> }).polygons
       expect(polygons.every((polygon) => polygon.color === undefined)).toBe(true)

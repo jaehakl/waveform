@@ -24,9 +24,7 @@ describe('CAD transforms-materials', () => {
         materials: [core],
       }),
     )[0]
-    const scaled = evaluateCad(
-      h(OffsetBox, { id: 'offset', scale: [2, 1, 1], pos: [10, 0, 0], materials: [core] }),
-    )[0]
+    const scaled = evaluateCad(h(OffsetBox, { id: 'offset', scale: [2, 1, 1], pos: [10, 0, 0], materials: [core] }))[0]
 
     expect(measurements.measureBoundingBox(rotated.geometry)).toEqual([
       [9, 1, -1],
@@ -63,9 +61,7 @@ describe('CAD transforms-materials', () => {
     }
 
     const [primitive] = evaluateCad(h(Primitive, { id: 'primitive', materials: [core] }))
-    const [combined] = evaluateCad(
-      h(Combined, { id: 'combined', materials: [core] }),
-    )
+    const [combined] = evaluateCad(h(Combined, { id: 'combined', materials: [core] }))
 
     expect(measurements.measureBoundingBox(primitive.geometry)).toEqual([
       [8, -2, -1],
@@ -80,9 +76,7 @@ describe('CAD transforms-materials', () => {
   it('treats proportional axis vectors as the same rotation', () => {
     const core = new Material('Core', { color: '#2563eb' })
     const evaluate = (axis: number[]) =>
-      evaluateCad(
-        h(OffsetBox, { id: 'offset', rotate: { axis, angle: Math.PI / 2 }, materials: [core] }),
-      )[0].geometry
+      evaluateCad(h(OffsetBox, { id: 'offset', rotate: { axis, angle: Math.PI / 2 }, materials: [core] }))[0].geometry
 
     expect(measurements.measureBoundingBox(evaluate([0, 0, 5]))).toEqual(
       measurements.measureBoundingBox(evaluate([0, 0, 1])),
@@ -100,7 +94,7 @@ describe('CAD transforms-materials', () => {
 
     expect(parts).toHaveLength(1)
     expect(parts[0]).toMatchObject({
-      material: { symbol: 'Core', variables: { color: '#2563eb' } },
+      material: { name: 'Core', variables: { color: '#2563eb' } },
     })
   })
 
@@ -122,7 +116,7 @@ describe('CAD transforms-materials', () => {
     const parts = evaluateCad(h(Group, { id: 'group' }))
 
     expect(groupMaterials).toBeUndefined()
-    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
+    expect(parts.map((part) => part.material?.name)).toEqual(['Core', 'Cladding'])
   })
 
   it('allows a primitive to create an unassigned scene part', () => {
@@ -147,7 +141,7 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding, core] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material?.name)).toEqual(['Core', 'Cladding'])
   })
 
   it('preserves different Material parts under positioned Geometry', () => {
@@ -160,10 +154,10 @@ describe('CAD transforms-materials', () => {
       h(Box, { id: 'cladding', materials: [cladding] }),
     )
 
-    expect(evaluateCad(root).map((part) => part.material?.symbol)).toEqual(['Core', 'Cladding'])
+    expect(evaluateCad(root).map((part) => part.material?.name)).toEqual(['Core', 'Cladding'])
   })
 
-  it('rejects empty material arrays and allows duplicate symbol/version instances', () => {
+  it('rejects empty material arrays and allows duplicate name/source instances', () => {
     expect(() => evaluateCad(h(Box, { id: 'box', materials: [] }))).toThrow('non-empty array of Material instances')
 
     const first = new Material('Core', 'measured', { color: '#2563eb' })
@@ -176,30 +170,31 @@ describe('CAD transforms-materials', () => {
     )
 
     const parts = evaluateCad(root)
-    expect(parts.map((part) => part.material?.symbol)).toEqual(['Core', 'Core'])
-    expect(parts.map((part) => part.material?.version)).toEqual(['measured', 'measured'])
+    expect(parts.map((part) => part.material?.name)).toEqual(['Core', 'Core'])
+    expect(parts.map((part) => part.material?.source)).toEqual(['measured', 'measured'])
     expect(parts[0].material).not.toBe(parts[1].material)
   })
 
   it('shares one serializable snapshot for parts using the same Material instance', () => {
     const shared = new Material('Core', 'Kittel_1988', {
       'general.mass_density': {
-        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3',
+        dtype: 'float64',
+        value: 2.7,
+        errorRate: 0,
+        unit: 'g.cm-3',
       },
       color: '#2563eb',
     })
-    const parts = evaluateCad(h(
-      Fragment,
-      null,
-      h(Box, { id: 'first', materials: [shared] }),
-      h(Box, { id: 'second', materials: [shared] }),
-    ))
+    const parts = evaluateCad(
+      h(Fragment, null, h(Box, { id: 'first', materials: [shared] }), h(Box, { id: 'second', materials: [shared] })),
+    )
     const cloned = structuredClone(parts)
 
     expect(parts[0].material).toBe(parts[1].material)
     expect(parts[0].material).toEqual({
-      symbol: 'Core',
-      version: 'Kittel_1988',
+      name: 'Core',
+      source: 'Kittel_1988',
+      errorRate: 0.001,
       variables: {
         'general.mass_density': { dtype: 'float64', value: 2.7, unit: 'g.cm-3', quantityKind: 'MassDensity' },
         color: '#2563eb',
@@ -213,39 +208,44 @@ describe('CAD transforms-materials', () => {
     try {
       const shared = new Material('Shared', {
         'general.mass_density': {
-          dtype: 'float64', value: 10, errorRate: 0.2,
+          dtype: 'float64',
+          value: 10,
+          errorRate: 0.2,
           unit: 'kg.m-3',
         },
       })
       const first = new Material('Separate', {
         'general.mass_density': {
-          dtype: 'float64', value: 10, errorRate: 0.2,
+          dtype: 'float64',
+          value: 10,
+          errorRate: 0.2,
           unit: 'kg.m-3',
         },
       })
       const second = new Material('Separate', {
         'general.mass_density': {
-          dtype: 'float64', value: 10, errorRate: 0.2,
+          dtype: 'float64',
+          value: 10,
+          errorRate: 0.2,
           unit: 'kg.m-3',
         },
       })
       const structure = new Structure({
         lengthUnit: 'mm',
-        geometry: () => h(
-          Fragment,
-          null,
-          h(Box, { id: 'shared-first', materials: [shared] }),
-          h(Box, { id: 'shared-second', pos: [3, 0, 0], materials: [shared] }),
-          h(Box, { id: 'separate-first', pos: [6, 0, 0], materials: [first] }),
-          h(Box, { id: 'separate-second', pos: [9, 0, 0], materials: [second] }),
-        ),
+        geometry: () =>
+          h(
+            Fragment,
+            null,
+            h(Box, { id: 'shared-first', materials: [shared] }),
+            h(Box, { id: 'shared-second', pos: [3, 0, 0], materials: [shared] }),
+            h(Box, { id: 'separate-first', pos: [6, 0, 0], materials: [first] }),
+            h(Box, { id: 'separate-second', pos: [9, 0, 0], materials: [second] }),
+          ),
         varsSchema: {},
       })
       const sample = new Sample(structure)
       const scene = evaluateWithVars(sample.vars, () => evaluateCadScene(structure.geometry()))
-      const applied = scene.parts.map((part) => (
-        part.material?.variables['general.mass_density'] as { value: number }
-      ))
+      const applied = scene.parts.map((part) => part.material?.variables['general.mass_density'] as { value: number })
 
       expect(scene.parts[0].material).toBe(scene.parts[1].material)
       expect(applied[0]).toEqual(applied[1])

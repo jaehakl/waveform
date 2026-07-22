@@ -66,14 +66,17 @@ async def test_visible_mine_public_scopes_and_realization_ownership(client, db_s
     setup_response = await client.post("/setup/upsert", headers=headers, json=[{
         "experiment_id": owner_experiment.id,
         "vars": {"voltage": 1},
+        "material_parameters": {"schemaVersion": 1, "materials": {}},
     }])
     assert setup_response.status_code == 200
     setup = await db_session.get(Setup, setup_response.json()[0]["id"])
     assert setup.user_id == owner.id
     assert setup.vars == {"voltage": 1}
+    assert setup.material_parameters == {"schemaVersion": 1, "materials": {}}
     forbidden_setup = await client.post("/setup/upsert", headers=headers, json=[{
         "experiment_id": other_experiment.id,
         "vars": {},
+        "material_parameters": {},
     }])
     assert forbidden_setup.status_code == 404
 

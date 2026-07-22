@@ -14,7 +14,7 @@ function createPart(
     geometry,
     ...(materialSymbol === null
       ? {}
-      : { material: { symbol: materialSymbol, variables: color === null ? {} : { color } } }),
+      : { material: { name: materialSymbol, variables: color === null ? {} : { color } } }),
     surfaces: [],
   }
 }
@@ -29,10 +29,7 @@ function readPoints(positions: Float32Array) {
 
 describe('Material Grid generation', () => {
   it('keeps world-origin Grid points that are inside or on a geometry boundary', () => {
-    const geometry = transforms.translate(
-      [0.4, 0.4, 0.4],
-      primitives.cuboid({ size: [1, 1, 1] }),
-    )
+    const geometry = transforms.translate([0.4, 0.4, 0.4], primitives.cuboid({ size: [1, 1, 1] }))
     const result = createMaterialGrid([createPart('sample.core', geometry)], 0.5)
 
     expect(result.candidatePointCount).toBe(8)
@@ -63,10 +60,7 @@ describe('Material Grid generation', () => {
   })
 
   it('does not fill the void inside a hollow geometry', () => {
-    const geometry = booleans.subtract(
-      primitives.cuboid({ size: [6, 6, 6] }),
-      primitives.cuboid({ size: [4, 4, 4] }),
-    )
+    const geometry = booleans.subtract(primitives.cuboid({ size: [6, 6, 6] }), primitives.cuboid({ size: [4, 4, 4] }))
     const result = createMaterialGrid([createPart('sample.shell', geometry)], 1)
     const points = readPoints(result.positions)
 
@@ -79,10 +73,13 @@ describe('Material Grid generation', () => {
 
   it('uses the later scene Geometry material when solids overlap', () => {
     const geometry = primitives.cuboid({ size: [2, 2, 2] })
-    const result = createMaterialGrid([
-      createPart('sample.core', geometry, 'Core', '#2563eb'),
-      createPart('sample.cladding', geometry, 'Cladding', '#f59e0b'),
-    ], 1)
+    const result = createMaterialGrid(
+      [
+        createPart('sample.core', geometry, 'Core', '#2563eb'),
+        createPart('sample.cladding', geometry, 'Cladding', '#f59e0b'),
+      ],
+      1,
+    )
 
     expect(result.visiblePointCount).toBe(27)
     for (let index = 0; index < result.colors.length; index += 4) {
@@ -95,10 +92,10 @@ describe('Material Grid generation', () => {
 
   it('excludes colorless and materialless Geometry from Grid points', () => {
     const geometry = primitives.cuboid({ size: [2, 2, 2] })
-    const result = createMaterialGrid([
-      createPart('sample.colorless', geometry, 'Core', null),
-      createPart('sample.materialless', geometry, null),
-    ], 1)
+    const result = createMaterialGrid(
+      [createPart('sample.colorless', geometry, 'Core', null), createPart('sample.materialless', geometry, null)],
+      1,
+    )
 
     expect(result.candidatePointCount).toBe(0)
     expect(result.visiblePointCount).toBe(0)
@@ -107,11 +104,14 @@ describe('Material Grid generation', () => {
 
   it('does not let later unassigned Geometry hide colored Grid points', () => {
     const geometry = primitives.cuboid({ size: [2, 2, 2] })
-    const result = createMaterialGrid([
-      createPart('sample.core', geometry, 'Core', '#2563eb'),
-      createPart('sample.colorless', geometry, 'Colorless', null),
-      createPart('sample.materialless', geometry, null),
-    ], 1)
+    const result = createMaterialGrid(
+      [
+        createPart('sample.core', geometry, 'Core', '#2563eb'),
+        createPart('sample.colorless', geometry, 'Colorless', null),
+        createPart('sample.materialless', geometry, null),
+      ],
+      1,
+    )
 
     expect(result.visiblePointCount).toBe(27)
     for (let index = 0; index < result.colors.length; index += 4) {

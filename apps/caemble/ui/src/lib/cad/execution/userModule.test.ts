@@ -9,10 +9,7 @@ import { dcCurrentDensitySolver } from '../../solver/modules/dcCurrentDensity'
 import { executeCompiledCode, executeCompiledProject, requireCaembleModule } from './userModule'
 import { identityCartesianBasis } from '../../quantitykind/identityBasis'
 import { CAD_COMPILER_VERSION } from '../compiler/types'
-import {
-  assertEvaluatedDocumentSnapshotV2,
-  serializeEvaluatedDocumentSnapshotV2,
-} from './snapshot'
+import { assertEvaluatedDocumentSnapshotV2, serializeEvaluatedDocumentSnapshotV2 } from './snapshot'
 
 const validModule = `
 const { Material, structure } = require('@caemble/core/v2')
@@ -52,10 +49,12 @@ describe('compiled user module execution', () => {
       variables: { width: 4, epsilon: 12 },
       scene: {
         lengthUnit: 'mm',
-        parts: [{
-          id: 'root',
-          material: { symbol: 'Core', variables: { color: '#2563eb' } },
-        }],
+        parts: [
+          {
+            id: 'root',
+            material: { name: 'Core', variables: { color: '#2563eb' } },
+          },
+        ],
         tree: { label: 'Structure' },
         geometryGroups: [{ name: 'body', geometryIds: ['root'], missingMemberIds: ['missing'] }],
         surfaceGroups: [{ name: 'face', surfaceIds: ['root/surface-1'] }],
@@ -73,12 +72,8 @@ describe('compiled user module execution', () => {
     expect(defaultExperimentCode).toContain('boundaryConditions: ({ vars }) => [')
     expect(defaultExperimentCode).toContain('recordedData: () => [')
     expect(defaultExperimentCode).toContain("methodId: 'dc.current-density'")
-    expect(defaultExperimentCode).toContain(
-      "{ name: 'cross-section v', unit: 'm', quantityKind: 'Length' }",
-    )
-    expect(defaultExperimentCode).toContain(
-      "{ name: 'cross-section u', unit: 'm', quantityKind: 'Length' }",
-    )
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section v', unit: 'm', quantityKind: 'Length' }")
+    expect(defaultExperimentCode).toContain("{ name: 'cross-section u', unit: 'm', quantityKind: 'Length' }")
     expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrent'")
     expect(defaultExperimentCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
     expect(defaultExperimentCode).toContain("'structure.surface.sourceTerminal'")
@@ -92,9 +87,7 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    expect(() => executeCompiledCode(compiled.code)).toThrow(
-      'Structure Source must export default structure({...})',
-    )
+    expect(() => executeCompiledCode(compiled.code)).toThrow('Structure Source must export default structure({...})')
     const execution = executeCompiledCode(compiled.code, 'experiment', 'b'.repeat(64))
     const snapshot = serializeEvaluatedDocumentSnapshotV2(execution)
     expect(() => assertEvaluatedDocumentSnapshotV2(snapshot)).not.toThrow()
@@ -105,7 +98,10 @@ describe('compiled user module execution', () => {
       version: '0.0.0',
       parameters: {
         relativeTolerance: {
-          dtype: 'float64', value: 1e-8, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64',
+          value: 1e-8,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 2000,
       },
@@ -117,18 +113,20 @@ describe('compiled user module execution', () => {
       sourceVoltage: 1,
       referenceVoltage: 0,
     })
-    expect(experimentRules?.initializations).toEqual([{
-      target: ['structure.geometry.conductor'],
-      label: 'Voxel grid',
-      methodId: 'dc.voxel-grid',
-      parameters: {
-        gridShape: {
-          dtype: 'int32',
-          axes: [{ length: 3, name: 'axis 0', ticks: [0, 1, 2] }],
-          value: [100, 41, 41],
+    expect(experimentRules?.initializations).toEqual([
+      {
+        target: ['structure.geometry.conductor'],
+        label: 'Voxel grid',
+        methodId: 'dc.voxel-grid',
+        parameters: {
+          gridShape: {
+            dtype: 'int32',
+            axes: [{ length: 3, name: 'axis 0', ticks: [0, 1, 2] }],
+            value: [100, 41, 41],
+          },
         },
       },
-    }])
+    ])
     expect(experimentRules?.boundaryConditions.map((rule) => rule.methodId)).toEqual([
       'dc.source-potential',
       'dc.reference-potential',
@@ -147,19 +145,22 @@ describe('compiled user module execution', () => {
         { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
       ],
     })
-    expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual([
-      'Current density',
-      'Total current',
-    ])
+    expect(experimentRules?.recordedData.map((rule) => rule.label)).toEqual(['Current density', 'Total current'])
     expect(experimentRules?.recordedData.map((rule) => rule.parameters)).toEqual([
       {
         crossSectionPosition: {
-          dtype: 'float64', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64',
+          value: 0.35,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
       },
       {
         crossSectionPosition: {
-          dtype: 'float64', value: 0.35, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64',
+          value: 0.35,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
       },
     ])
@@ -185,7 +186,7 @@ describe('compiled user module execution', () => {
     expect(defaultCode).not.toContain("quantityKind: 'electromagnetism.ElectricConductivity'")
     expect(defaultCode).toContain('value: Mat(vars.electricalConductivity)')
     expect(defaultCode).not.toContain('IDENTITY_CARTESIAN_BASIS')
-    expect(defaultCode).toContain('errorRate: 0.001')
+    expect(defaultCode).toContain("new Material('Copper', 'reference', {\n          errorRate: 0.001,")
     expect(defaultCode).toContain('conductorSize: { min: [100, 12, 10], max: [100, 12, 10] }')
     expect(defaultCode).toContain('notchSize: { min: [20, 4, 5], max: [40, 6, 7] }')
     expect(defaultCode).toContain('notchPosition: { min: [-10, 4, 2.5], max: [10, 5, 3.5] }')
@@ -205,8 +206,8 @@ describe('compiled user module execution', () => {
     expect(parts[0]).toMatchObject({
       id: 'conductor',
       material: {
-        symbol: 'Copper',
-        version: 'reference',
+        name: 'Copper',
+        source: 'reference',
         variables: {
           'electrical.conductivity': {
             dtype: 'float64',
@@ -235,7 +236,9 @@ describe('compiled user module execution', () => {
     const sourceSurface = parts[0].surfaces.find(({ id }) => id === 'conductor/surface-1')!
     const referenceSurface = parts[0].surfaces.find(({ id }) => id === 'conductor/surface-2')!
     const sourceX = sourceSurface.polygonIndices.flatMap((index) => polygons[index].vertices.map((vertex) => vertex[0]))
-    const referenceX = referenceSurface.polygonIndices.flatMap((index) => polygons[index].vertices.map((vertex) => vertex[0]))
+    const referenceX = referenceSurface.polygonIndices.flatMap((index) =>
+      polygons[index].vertices.map((vertex) => vertex[0]),
+    )
     expect(sourceX.every((x) => Math.abs(x + 50) < 1e-3)).toBe(true)
     expect(referenceX.every((x) => Math.abs(x - 50) < 1e-3)).toBe(true)
     expect(geometries.poly3.plane(polygons[sourceSurface.polygonIndices[0]])[0]).toBeCloseTo(-1, 8)
@@ -258,18 +261,12 @@ describe('compiled user module execution', () => {
     for (const value of [0, 1]) {
       const expectedNotchSize = value === 0 ? [20, 4, 5] : [40, 6, 7]
       const expectedNotchPosition = value === 0 ? [-10, 4, 2.5] : [10, 5, 3.5]
-      const { scene, variables } = executeCompiledCode(
-        compiled.code,
-        'structure',
-        'default-source-hash',
-        101,
-        {
-          conductorSize: [100, 12, 10],
-          electricalConductivity: 5.96e7,
-          notchPosition: expectedNotchPosition,
-          notchSize: expectedNotchSize,
-        },
-      )
+      const { scene, variables } = executeCompiledCode(compiled.code, 'structure', 'default-source-hash', 101, {
+        conductorSize: [100, 12, 10],
+        electricalConductivity: 5.96e7,
+        notchPosition: expectedNotchPosition,
+        notchSize: expectedNotchSize,
+      })
       const part = scene.parts[0]
 
       expect(variables.notchSize).toEqual(expectedNotchSize)
@@ -283,9 +280,7 @@ describe('compiled user module execution', () => {
   it('keeps example IDs unique and validates every registered example snapshot', async () => {
     expect(new Set(caembleExamples.map(({ id }) => id)).size).toBe(caembleExamples.length)
     expect(caembleExamples[0].code).toBe(defaultCode)
-    expect(caembleExamples.filter(({ mode }) => mode === 'simulation').map(({ id }) => id)).toEqual([
-      'dc-conductor',
-    ])
+    expect(caembleExamples.filter(({ mode }) => mode === 'simulation').map(({ id }) => id)).toEqual(['dc-conductor'])
 
     const experimentCompiled = await transform(defaultExperimentCode, {
       format: 'cjs',
@@ -295,12 +290,7 @@ describe('compiled user module execution', () => {
       platform: 'browser',
       target: 'es2020',
     })
-    const experimentExecution = executeCompiledCode(
-      experimentCompiled.code,
-      'experiment',
-      'b'.repeat(64),
-      11,
-    )
+    const experimentExecution = executeCompiledCode(experimentCompiled.code, 'experiment', 'b'.repeat(64), 11)
     if (!experimentExecution.experimentRules || !experimentExecution.solver) {
       throw new Error('Expected the default Experiment to produce rules and Solver metadata.')
     }
@@ -336,7 +326,10 @@ describe('compiled user module execution', () => {
         expect(preflight.issues, example.title).toEqual([])
       } else {
         expect(preflight.issues.length, example.title).toBeGreaterThan(0)
-        expect(preflight.issues.some((issue) => issue.message.includes('missing structure.')), example.title).toBe(true)
+        expect(
+          preflight.issues.some((issue) => issue.message.includes('missing structure.')),
+          example.title,
+        ).toBe(true)
       }
     }
   })
@@ -356,15 +349,27 @@ describe('compiled user module execution', () => {
     })
     const { parts } = executeCompiledCode(compiled.code).scene
 
-    expect(parts.map((part) => part.material?.symbol)).toEqual([
-      'Core', 'Layer 1',
-      'Core', 'Layer 1', 'Layer 2',
-      'Core', 'Layer 1', 'Layer 2', 'Layer 3',
+    expect(parts.map((part) => part.material?.name)).toEqual([
+      'Core',
+      'Layer 1',
+      'Core',
+      'Layer 1',
+      'Layer 2',
+      'Core',
+      'Layer 1',
+      'Layer 2',
+      'Layer 3',
     ])
     expect(parts.map((part) => part.id)).toEqual([
-      'cylinder.$part-1', 'cylinder.$part-2',
-      'sphere.$part-1', 'sphere.$part-2', 'sphere.$part-3',
-      'fiber.$part-1', 'fiber.$part-2', 'fiber.$part-3', 'fiber.$part-4',
+      'cylinder.$part-1',
+      'cylinder.$part-2',
+      'sphere.$part-1',
+      'sphere.$part-2',
+      'sphere.$part-3',
+      'fiber.$part-1',
+      'fiber.$part-2',
+      'fiber.$part-3',
+      'fiber.$part-4',
     ])
     parts.forEach((part, index) => {
       expect(() => geometries.geom3.validate(part.geometry), `part ${index}`).not.toThrow()
@@ -378,9 +383,10 @@ describe('compiled user module execution', () => {
 
     const cadUnion = booleans.union as unknown as (...geometries: unknown[]) => unknown
     const fiberCoreAndLayer = cadUnion(parts[5].geometry, parts[6].geometry)
-    const overlapByVolume = measurements.measureVolume(parts[5].geometry)
-      + measurements.measureVolume(parts[6].geometry)
-      - measurements.measureVolume(fiberCoreAndLayer)
+    const overlapByVolume =
+      measurements.measureVolume(parts[5].geometry) +
+      measurements.measureVolume(parts[6].geometry) -
+      measurements.measureVolume(fiberCoreAndLayer)
     expect(Math.max(0, overlapByVolume)).toBeCloseTo(0, 6)
   })
 
@@ -454,13 +460,15 @@ describe('compiled user module execution', () => {
   })
 
   it('loads relative modules inside one validated compiled virtual project', () => {
-    const execution = executeCompiledProject({
-      apiVersion: 2,
-      compilerVersion: CAD_COMPILER_VERSION,
-      entryFile: 'structure.tsx',
-      modules: {
-        'helpers/size.ts': { code: 'exports.size = [3, 4, 5]' },
-        'structure.tsx': { code: `
+    const execution = executeCompiledProject(
+      {
+        apiVersion: 2,
+        compilerVersion: CAD_COMPILER_VERSION,
+        entryFile: 'structure.tsx',
+        modules: {
+          'helpers/size.ts': { code: 'exports.size = [3, 4, 5]' },
+          'structure.tsx': {
+            code: `
 const { structure } = require('@caemble/core/v2')
 const { size } = require('./helpers/size')
 function Body() { return h('box', { size }) }
@@ -469,10 +477,14 @@ module.exports.default = structure({
   varsSchema: {},
   geometry: () => h(Body, { id: 'body' }),
 })
-` },
+`,
+          },
+        },
+        sourceHash: 'e'.repeat(64),
       },
-      sourceHash: 'e'.repeat(64),
-    }, 'structure', 4)
+      'structure',
+      4,
+    )
 
     expect(execution.scene.parts).toHaveLength(1)
     expect(measurements.measureBoundingBox(execution.scene.parts[0].geometry)).toEqual([

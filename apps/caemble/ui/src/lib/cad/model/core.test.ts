@@ -27,26 +27,42 @@ import { componentShapeForTensorOrder } from '../../quantitykind/runtime'
 function assertQuantityMetadataTypes() {
   const quantityKind = 'Length' as const satisfies QuantityKindName
   const floatData: DataValueDescriptor = {
-    dtype: 'float64', axes: [{ length: 1 }], value: [1],
-    unit: 'm', quantityKind,
+    dtype: 'float64',
+    axes: [{ length: 1 }],
+    value: [1],
+    unit: 'm',
+    quantityKind,
   }
   const integerData: DataValueDescriptor = {
-    dtype: 'int32', axes: [{ length: 1 }], value: [1],
+    dtype: 'int32',
+    axes: [{ length: 1 }],
+    value: [1],
   }
   const vectorData: DataValueDescriptor = {
-    dtype: 'float64', value: [1, 2, 3],
-    unit: 'N', quantityKind: 'mechanics.Force', basis: identityCartesianBasis,
+    dtype: 'float64',
+    value: [1, 2, 3],
+    unit: 'N',
+    quantityKind: 'mechanics.Force',
+    basis: identityCartesianBasis,
   }
   const vectorWithoutBasis: DataValueDescriptor = {
-    dtype: 'float64', value: [1, 2, 3],
-    unit: 'N', quantityKind: 'mechanics.Force',
+    dtype: 'float64',
+    value: [1, 2, 3],
+    unit: 'N',
+    quantityKind: 'mechanics.Force',
   }
   // @ts-expect-error unknown Quantity Kind names must be rejected
   const unknownQuantityKind: QuantityKindName = 'NotAQuantityKind'
   // @ts-expect-error float descriptors require Quantity Kind metadata
   const missingQuantityKind: DataValueDescriptor = { dtype: 'float64', value: 1, unit: 'm' }
-  // @ts-expect-error non-float descriptors must not declare Quantity Kind metadata
-  const integerWithMetadata: DataValueDescriptor = { dtype: 'int32', axes: [{ length: 1 }], value: [1], unit: 'm', quantityKind: 'Length' }
+  const integerWithMetadata: DataValueDescriptor = {
+    dtype: 'int32',
+    axes: [{ length: 1 }],
+    value: [1],
+    unit: 'm',
+    // @ts-expect-error non-float descriptors must not declare Quantity Kind metadata
+    quantityKind: 'Length',
+  }
   void [
     floatData,
     integerData,
@@ -64,7 +80,8 @@ function createSolver(parameters: () => Record<string, never> = () => ({})) {
 }
 
 function createStructure() {
-  return new Structure({ lengthUnit: 'mm',
+  return new Structure({
+    lengthUnit: 'mm',
     geometry: () => null,
     varsSchema: {
       width: { min: 10, max: 30 },
@@ -72,7 +89,16 @@ function createStructure() {
         min: -2,
         max: [2, 3],
       },
-      fixed: { min: [[1, 2], [3, 4]], max: [[1, 2], [3, 4]] },
+      fixed: {
+        min: [
+          [1, 2],
+          [3, 4],
+        ],
+        max: [
+          [1, 2],
+          [3, 4],
+        ],
+      },
     },
   })
 }
@@ -84,7 +110,10 @@ describe('Structure and Sample vars', () => {
     expect(sample.vars).toEqual({
       width: 25,
       offset: [0, 1],
-      fixed: [[1, 2], [3, 4]],
+      fixed: [
+        [1, 2],
+        [3, 4],
+      ],
     })
     expect(Object.isFrozen(sample.vars)).toBe(true)
     expect(Object.isFrozen(sample.vars.fixed)).toBe(true)
@@ -103,7 +132,8 @@ describe('Structure and Sample vars', () => {
   it('infers shapes and rejects invalid or legacy bounds', () => {
     expect(
       () =>
-        new Structure({ lengthUnit: 'mm',
+        new Structure({
+          lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
             invalid: { min: [0, 3], max: [2, 2] },
@@ -113,7 +143,8 @@ describe('Structure and Sample vars', () => {
 
     expect(
       () =>
-        new Structure({ lengthUnit: 'mm',
+        new Structure({
+          lengthUnit: 'mm',
           geometry: () => null,
           varsSchema: {
             invalid: { min: 0 } as never,
@@ -121,18 +152,46 @@ describe('Structure and Sample vars', () => {
         }),
     ).toThrow('must define both min and max')
 
-    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
-      legacy: { shape: [], default: 1, min: 0, max: 2 } as never,
-    } })).toThrow('shape is not supported')
-    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
-      ragged: { min: [[0], [1, 2]], max: 3 },
-    } })).toThrow('must be a rectangular tensor')
-    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
-      mismatch: { min: [0, 0], max: [[1, 1]] },
-    } })).toThrow('must have shape [2]')
-    expect(() => new Structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
-      nonFinite: { min: Number.NaN, max: 1 },
-    } })).toThrow('must contain only finite numbers')
+    expect(
+      () =>
+        new Structure({
+          lengthUnit: 'mm',
+          geometry: () => null,
+          varsSchema: {
+            legacy: { shape: [], default: 1, min: 0, max: 2 } as never,
+          },
+        }),
+    ).toThrow('shape is not supported')
+    expect(
+      () =>
+        new Structure({
+          lengthUnit: 'mm',
+          geometry: () => null,
+          varsSchema: {
+            ragged: { min: [[0], [1, 2]], max: 3 },
+          },
+        }),
+    ).toThrow('must be a rectangular tensor')
+    expect(
+      () =>
+        new Structure({
+          lengthUnit: 'mm',
+          geometry: () => null,
+          varsSchema: {
+            mismatch: { min: [0, 0], max: [[1, 1]] },
+          },
+        }),
+    ).toThrow('must have shape [2]')
+    expect(
+      () =>
+        new Structure({
+          lengthUnit: 'mm',
+          geometry: () => null,
+          varsSchema: {
+            nonFinite: { min: Number.NaN, max: 1 },
+          },
+        }),
+    ).toThrow('must contain only finite numbers')
   })
 
   it('generates deterministic seeded vars within scalar-broadcast and tensor bounds', () => {
@@ -146,11 +205,15 @@ describe('Structure and Sample vars', () => {
     expect((first.offset as readonly number[])[0]).toBeGreaterThanOrEqual(-2)
     expect((first.offset as readonly number[])[0]).toBeLessThanOrEqual(2)
     expect((first.offset as readonly number[])[1]).toBeLessThanOrEqual(3)
-    expect(first.fixed).toEqual([[1, 2], [3, 4]])
+    expect(first.fixed).toEqual([
+      [1, 2],
+      [3, 4],
+    ])
   })
 
   it('creates a new unseeded realization per instance and lets partial vars win', () => {
-    const random = vi.spyOn(Math, 'random')
+    const random = vi
+      .spyOn(Math, 'random')
       .mockReturnValueOnce(0.1)
       .mockReturnValueOnce(0.2)
       .mockReturnValueOnce(0.3)
@@ -174,7 +237,8 @@ describe('Structure and Sample vars', () => {
   })
 
   it('normalizes, deduplicates, and deeply freezes Structure groups', () => {
-    const structure = new Structure({ lengthUnit: 'mm',
+    const structure = new Structure({
+      lengthUnit: 'mm',
       geometry: () => null,
       varsSchema: {},
       geometryGroup: {
@@ -194,24 +258,24 @@ describe('Structure and Sample vars', () => {
   it('rejects malformed Structure group maps, names, and members', () => {
     const options = { geometry: () => null, varsSchema: {} }
 
-    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: [] as never })).toThrow('geometryGroup must be an object')
-    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: { ' ': [] } })).toThrow('group names must not be empty')
-    expect(() => new Structure({ lengthUnit: 'mm',
-      ...options,
-      geometryGroup: { duplicate: [], ' duplicate ': [] },
-    })).toThrow('duplicated after trimming')
-    expect(() => new Structure({ lengthUnit: 'mm',
-      ...options,
-      geometryGroup: { invalid: 'assembly' as never },
-    })).toThrow('must be an array')
-    expect(() => new Structure({ lengthUnit: 'mm',
-      ...options,
-      surfaceGroup: { invalid: [''] },
-    })).toThrow('must be a non-empty string')
-    expect(() => new Structure({ lengthUnit: 'mm',
-      ...options,
-      surfaceGroup: { invalid: [1 as never] },
-    })).toThrow('must be a non-empty string')
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: [] as never })).toThrow(
+      'geometryGroup must be an object',
+    )
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: { ' ': [] } })).toThrow(
+      'group names must not be empty',
+    )
+    expect(
+      () => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: { duplicate: [], ' duplicate ': [] } }),
+    ).toThrow('duplicated after trimming')
+    expect(
+      () => new Structure({ lengthUnit: 'mm', ...options, geometryGroup: { invalid: 'assembly' as never } }),
+    ).toThrow('must be an array')
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, surfaceGroup: { invalid: [''] } })).toThrow(
+      'must be a non-empty string',
+    )
+    expect(() => new Structure({ lengthUnit: 'mm', ...options, surfaceGroup: { invalid: [1 as never] } })).toThrow(
+      'must be a non-empty string',
+    )
   })
 })
 
@@ -219,7 +283,8 @@ describe('Experiment and Setup', () => {
   it('inherits Structure behavior and exposes VariableObject aliases', () => {
     const structure = createStructure()
     const sample = new Sample(structure, { width: 24 })
-    const experiment = new Experiment({ lengthUnit: 'mm',
+    const experiment = new Experiment({
+      lengthUnit: 'mm',
       solver: createSolver(),
       geometry: () => null,
       varsSchema: {
@@ -246,10 +311,13 @@ describe('Experiment and Setup', () => {
 
   it('rejects invalid VariableObject pairings and direct abstract construction', () => {
     const structure = createStructure()
-    const experiment = new Experiment({ lengthUnit: 'mm', solver: createSolver(), geometry: () => null, varsSchema: {} })
-    const DirectVariableObject = VariableObject as unknown as new (
-      object: Structure,
-    ) => VariableObject<Structure>
+    const experiment = new Experiment({
+      lengthUnit: 'mm',
+      solver: createSolver(),
+      geometry: () => null,
+      varsSchema: {},
+    })
+    const DirectVariableObject = VariableObject as unknown as new (object: Structure) => VariableObject<Structure>
 
     expect(() => new Sample(experiment)).toThrow('Use Setup instead')
     expect(() => new Setup(structure as never)).toThrow('Setup requires an Experiment')
@@ -257,18 +325,24 @@ describe('Experiment and Setup', () => {
   })
 
   it('rejects the removed initialConditions option with an explicit migration error', () => {
-    expect(() => new Experiment({
-      lengthUnit: 'mm',
-      solver: createSolver(),
-      geometry: () => null,
-      varsSchema: {},
-      initialConditions: () => [],
-    } as never)).toThrow('Experiment initialConditions was renamed to initializations')
+    expect(
+      () =>
+        new Experiment({
+          lengthUnit: 'mm',
+          solver: createSolver(),
+          geometry: () => null,
+          varsSchema: {},
+          initialConditions: () => [],
+        } as never),
+    ).toThrow('Experiment initialConditions was renamed to initializations')
   })
 
   it('evaluates, copies, and freezes all method rows in order under Setup vars', () => {
     const order: string[] = []
-    const profile = [[0.1, 0.2], [0.3, 0.4]]
+    const profile = [
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ]
     const experiment = new Experiment<
       Readonly<{
         initialValue: DataValueDescriptor
@@ -288,58 +362,64 @@ describe('Experiment and Setup', () => {
       surfaceGroup: { 'outer.boundary': [] },
       initializations: () => {
         order.push('initializations')
-        return [{
-          target: [
-            ' experiment.geometry.domain ' as 'experiment.geometry.domain',
-            'structure.geometry.sample',
-            'structure.geometry.sample',
-          ],
-          label: ' Shared label ',
-          methodId: ' field.apply ',
-          parameters: {
-            initialValue: {
-              dtype: 'float64',
-              value: vars.initialValue as number,
-              unit: 'V',
-              quantityKind: 'electromagnetism.Voltage',
-            },
-            profile: {
-              dtype: 'float32',
-              axes: [{ length: 2 }, { length: 2 }],
-              unit: 'V',
-              quantityKind: 'electromagnetism.Voltage',
-              value: profile,
+        return [
+          {
+            target: [
+              ' experiment.geometry.domain ' as 'experiment.geometry.domain',
+              'structure.geometry.sample',
+              'structure.geometry.sample',
+            ],
+            label: ' Shared label ',
+            methodId: ' field.apply ',
+            parameters: {
+              initialValue: {
+                dtype: 'float64',
+                value: vars.initialValue as number,
+                unit: 'V',
+                quantityKind: 'electromagnetism.Voltage',
+              },
+              profile: {
+                dtype: 'float32',
+                axes: [{ length: 2 }, { length: 2 }],
+                unit: 'V',
+                quantityKind: 'electromagnetism.Voltage',
+                value: profile,
+              },
             },
           },
-        }]
+        ]
       },
       boundaryConditions: () => {
         order.push('boundaryConditions')
-        return [{
-          target: ['experiment.surface.outer.boundary', 'structure.surface.sampleBoundary'],
-          label: 'Shared label',
-          methodId: 'field.apply',
-          parameters: { active: true, label: { dtype: 'string', value: 'fixed' } },
-        }]
+        return [
+          {
+            target: ['experiment.surface.outer.boundary', 'structure.surface.sampleBoundary'],
+            label: 'Shared label',
+            methodId: 'field.apply',
+            parameters: { active: true, label: { dtype: 'string', value: 'fixed' } },
+          },
+        ]
       },
       recordedData: () => {
         order.push('recordedData')
-        return [{
-          target: [
-            'experiment.geometry.domain',
-            'structure.geometry.sample',
-            'experiment.surface.outer.boundary',
-            'structure.surface.sampleBoundary',
-          ],
-          label: ' Recorded field ',
-          methodId: ' field.record ',
-          parameters: { interval: { dtype: 'int64', value: 10 } },
-          result: {
-            dtype: 'float64',
-            unit: '{fraction}',
-            quantityKind: 'DimensionlessRatio',
+        return [
+          {
+            target: [
+              'experiment.geometry.domain',
+              'structure.geometry.sample',
+              'experiment.surface.outer.boundary',
+              'structure.surface.sampleBoundary',
+            ],
+            label: ' Recorded field ',
+            methodId: ' field.record ',
+            parameters: { interval: { dtype: 'int64', value: 10 } },
+            result: {
+              dtype: 'float64',
+              unit: '{fraction}',
+              quantityKind: 'DimensionlessRatio',
+            },
           },
-        }]
+        ]
       },
     })
     const setup = new Setup(experiment, { initialValue: 0.75 })
@@ -368,7 +448,8 @@ describe('Experiment and Setup', () => {
       value: profile,
     })
     expect(rules.boundaryConditions[0].target).toEqual([
-      'experiment.surface.outer.boundary', 'structure.surface.sampleBoundary',
+      'experiment.surface.outer.boundary',
+      'structure.surface.sampleBoundary',
     ])
     expect(rules.boundaryConditions[0].parameters).toEqual({
       active: true,
@@ -402,21 +483,31 @@ describe('Experiment and Setup', () => {
     expect(Object.isFrozen(rules.recordedData)).toBe(true)
     expect(Object.isFrozen(rules.recordedData[0].result)).toBe(true)
     profile[0][0] = 9
-    expect(rules.initializations[0].parameters.profile.value).toEqual([[0.1, 0.2], [0.3, 0.4]])
+    expect(rules.initializations[0].parameters.profile.value).toEqual([
+      [0.1, 0.2],
+      [0.3, 0.4],
+    ])
   })
 
   it('accepts integer and explicit scalar parameters and rejects raw floats and unsupported forms', () => {
-    const evaluateParameter = (parameter: unknown) => evaluateExperimentRules(new Experiment({ lengthUnit: 'mm',
-      solver: createSolver(),
-      geometry: () => null,
-      varsSchema: {},
-      initializations: () => [{
-        target: ['structure.geometry.sample'],
-        label: 'Scalar',
-        methodId: 'scalar.apply',
-        parameters: { value: parameter },
-      }] as never,
-    })).initializations[0].parameters.value
+    const evaluateParameter = (parameter: unknown) =>
+      evaluateExperimentRules(
+        new Experiment({
+          lengthUnit: 'mm',
+          solver: createSolver(),
+          geometry: () => null,
+          varsSchema: {},
+          initializations: () =>
+            [
+              {
+                target: ['structure.geometry.sample'],
+                label: 'Scalar',
+                methodId: 'scalar.apply',
+                parameters: { value: parameter },
+              },
+            ] as never,
+        }),
+      ).initializations[0].parameters.value
 
     expect(evaluateParameter(true)).toBe(true)
     expect(evaluateParameter('text')).toBe('text')
@@ -424,13 +515,26 @@ describe('Experiment and Setup', () => {
     expect(evaluateParameter({ dtype: 'bool', value: false })).toEqual({ dtype: 'bool', value: false })
     expect(evaluateParameter({ dtype: 'string', value: 'value' })).toEqual({ dtype: 'string', value: 'value' })
     expect(evaluateParameter({ dtype: 'int64', value: 4 })).toEqual({ dtype: 'int64', value: 4 })
-    expect(evaluateParameter({
-      dtype: 'float64', value: 4, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
-    })).toEqual({
-      dtype: 'float64', value: 4, unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    expect(
+      evaluateParameter({
+        dtype: 'float64',
+        value: 4,
+        unit: '{fraction}',
+        quantityKind: 'DimensionlessRatio',
+      }),
+    ).toEqual({
+      dtype: 'float64',
+      value: 4,
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
     })
-    expect(evaluateParameter({ dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' })).toEqual({
-      dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage',
+    expect(
+      evaluateParameter({ dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' }),
+    ).toEqual({
+      dtype: 'float64',
+      value: 1,
+      unit: 'mV',
+      quantityKind: 'electromagnetism.Voltage',
     })
 
     ;[
@@ -479,21 +583,28 @@ describe('Experiment and Setup', () => {
         dtype,
         axes: [{ length: 2 }],
         value,
-        ...(dtype.startsWith('float')
-          ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' }
-          : {}),
+        ...(dtype.startsWith('float') ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' } : {}),
       })
       expect(descriptor.value).toEqual(value)
       expect(descriptor.axes?.[0]).toEqual({ length: 2, name: 'axis 0', ticks: [0, 1] })
     })
 
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'int8', axes: [{ length: 1 }], value: [128],
-    })).toThrow('must be a int8 safe integer')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'float16', axes: [{ length: 1 }], value: [65505],
-      unit: '{fraction}', quantityKind: 'DimensionlessRatio',
-    })).toThrow('finite float16 value')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'int8',
+        axes: [{ length: 1 }],
+        value: [128],
+      }),
+    ).toThrow('must be a int8 safe integer')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'float16',
+        axes: [{ length: 1 }],
+        value: [65505],
+        unit: '{fraction}',
+        quantityKind: 'DimensionlessRatio',
+      }),
+    ).toThrow('finite float16 value')
   })
 
   it('uses axis lengths as the outer shape and rejects empty, malformed, or ragged data', () => {
@@ -503,7 +614,10 @@ describe('Experiment and Setup', () => {
         { length: 2, name: 'row' },
         { length: 3, name: 'column', ticks: ['a', 'b', 'c'] },
       ],
-      value: [[1, 2, 3], [4, 5, 6]],
+      value: [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
     })
 
     expect(descriptor.axes).toEqual([
@@ -511,18 +625,34 @@ describe('Experiment and Setup', () => {
       { length: 3, name: 'column', ticks: ['a', 'b', 'c'] },
     ])
     expect(Object.isFrozen(descriptor.axes?.[0].ticks)).toBe(true)
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'int32', axes: [], value: 1,
-    })).toThrow('axes must be omitted')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'int32', axes: [{ length: 0 }], value: [],
-    })).toThrow('length must be a positive safe integer')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'int32', axes: [{ length: 2, ticks: [0] }], value: [1, 2],
-    })).toThrow('ticks has length 1; expected 2')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'int32', axes: [{ length: 2 }, { length: 2 }], value: [[1, 2], [3]],
-    })).toThrow('ragged')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'int32',
+        axes: [],
+        value: 1,
+      }),
+    ).toThrow('axes must be omitted')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'int32',
+        axes: [{ length: 0 }],
+        value: [],
+      }),
+    ).toThrow('length must be a positive safe integer')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'int32',
+        axes: [{ length: 2, ticks: [0] }],
+        value: [1, 2],
+      }),
+    ).toThrow('ticks has length 1; expected 2')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'int32',
+        axes: [{ length: 2 }, { length: 2 }],
+        value: [[1, 2], [3]],
+      }),
+    ).toThrow('ragged')
   })
 
   it('normalizes scalar and dynamic RecordedData result schemas from axes alone', () => {
@@ -539,7 +669,9 @@ describe('Experiment and Setup', () => {
           methodId: 'record.scalar',
           parameters: {},
           result: {
-            dtype: 'float64', unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+            dtype: 'float64',
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio',
           },
         },
         {
@@ -560,7 +692,9 @@ describe('Experiment and Setup', () => {
           methodId: 'record.vector',
           parameters: {},
           result: {
-            dtype: 'float64', unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity',
+            dtype: 'float64',
+            unit: 'A.m-2',
+            quantityKind: 'electromagnetism.ElectricCurrentDensity',
           },
         },
       ],
@@ -568,7 +702,9 @@ describe('Experiment and Setup', () => {
     const rules = evaluateExperimentRules(experiment)
 
     expect(rules.recordedData[0].result).toEqual({
-      dtype: 'float64', unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      dtype: 'float64',
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio',
     })
     expect(rules.recordedData[1].result.axes).toEqual([
       { name: 'time' },
@@ -578,14 +714,17 @@ describe('Experiment and Setup', () => {
   })
 
   it('rejects raw array, object, and null values in Experiment and Solver maps', () => {
-    const solverExperiment = (parameter: unknown) => new Experiment({
-      lengthUnit: 'mm',
-      solver: {
-        name: 'test', version: '1', parameters: () => ({ parameter } as never),
-      },
-      geometry: () => null,
-      varsSchema: {},
-    })
+    const solverExperiment = (parameter: unknown) =>
+      new Experiment({
+        lengthUnit: 'mm',
+        solver: {
+          name: 'test',
+          version: '1',
+          parameters: () => ({ parameter }) as never,
+        },
+        geometry: () => null,
+        varsSchema: {},
+      })
 
     expect(() => evaluateExperimentSolver(solverExperiment([1, 2]))).toThrow('raw arrays are not allowed')
     expect(() => evaluateExperimentSolver(solverExperiment({ nested: 1 }))).toThrow('must contain exactly')
@@ -597,20 +736,20 @@ describe('Experiment and Setup', () => {
       geometry: () => null,
       varsSchema: {},
       geometryGroup: { domain: ['domain'] },
-      initializations: () => [{
-        target: ['experiment.geometry.domain'],
-        label: 'Invalid',
-        methodId: 'invalid',
-        parameters: { values: [1, 2] as never },
-      }],
+      initializations: () => [
+        {
+          target: ['experiment.geometry.domain'],
+          label: 'Invalid',
+          methodId: 'invalid',
+          parameters: { values: [1, 2] as never },
+        },
+      ],
     })
     expect(() => evaluateExperimentRules(experiment)).toThrow('raw arrays are not allowed')
   })
 
   it('requires a valid UCUM lengthUnit', () => {
-    expect(() => new Structure({ geometry: () => null, varsSchema: {} } as never)).toThrow(
-      'Structure lengthUnit',
-    )
+    expect(() => new Structure({ geometry: () => null, varsSchema: {} } as never)).toThrow('Structure lengthUnit')
     expect(() => new Structure({ lengthUnit: 's', geometry: () => null, varsSchema: {} })).toThrow(
       'cannot convert s to m',
     )
@@ -620,34 +759,54 @@ describe('Experiment and Setup', () => {
 
 describe('Material and global vars', () => {
   it('supports every Material constructor overload', () => {
-    expect(new Material('Al')).toMatchObject({ symbol: 'Al', variables: {} })
-    expect(new Material('Al', {
-      'general.mass_density': {
-        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3',
-      },
-    })).toMatchObject({
-      symbol: 'Al',
+    expect(new Material('Al')).toMatchObject({ name: 'Al', variables: {} })
+    expect(
+      new Material('Al', {
+        'general.mass_density': {
+          dtype: 'float64',
+          value: 2.7,
+          errorRate: 0,
+          unit: 'g.cm-3',
+        },
+      }),
+    ).toMatchObject({
+      name: 'Al',
       variables: {
         'general.mass_density': {
-          dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+          dtype: 'float64',
+          value: 2.7,
+          errorRate: 0,
+          unit: 'g.cm-3',
+          quantityKind: 'MassDensity',
         },
       },
     })
-    expect(new Material('Al', 'Kittel_1988')).toMatchObject({
-      symbol: 'Al',
-      version: 'Kittel_1988',
+    expect(new Material('Al', 'Kittel/1988')).toMatchObject({
+      name: 'Al',
+      source: 'Kittel',
+      version: '1988',
       variables: {},
     })
-    expect(new Material('Al', 'Kittel_1988', {
-      'general.mass_density': {
-        dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3',
-      },
-    })).toMatchObject({
-      symbol: 'Al',
-      version: 'Kittel_1988',
+    expect(
+      new Material('Al', 'Kittel/1988', {
+        'general.mass_density': {
+          dtype: 'float64',
+          value: 2.7,
+          errorRate: 0,
+          unit: 'g.cm-3',
+        },
+      }),
+    ).toMatchObject({
+      name: 'Al',
+      source: 'Kittel',
+      version: '1988',
       variables: {
         'general.mass_density': {
-          dtype: 'float64', value: 2.7, errorRate: 0, unit: 'g.cm-3', quantityKind: 'MassDensity',
+          dtype: 'float64',
+          value: 2.7,
+          errorRate: 0,
+          unit: 'g.cm-3',
+          quantityKind: 'MassDensity',
         },
       },
     })
@@ -655,11 +814,25 @@ describe('Material and global vars', () => {
   })
 
   it('builds frozen square matrices from diagonal, off-diagonal, and size inputs', () => {
-    expect(Mat(4)).toEqual([[4, 0, 0], [0, 4, 0], [0, 0, 4]])
-    expect(Mat(4, 2)).toEqual([[4, 2, 2], [2, 4, 2], [2, 2, 4]])
-    expect(Mat(4, 2, 2)).toEqual([[4, 2], [2, 4]])
+    expect(Mat(4)).toEqual([
+      [4, 0, 0],
+      [0, 4, 0],
+      [0, 0, 4],
+    ])
+    expect(Mat(4, 2)).toEqual([
+      [4, 2, 2],
+      [2, 4, 2],
+      [2, 2, 4],
+    ])
+    expect(Mat(4, 2, 2)).toEqual([
+      [4, 2],
+      [2, 4],
+    ])
     const identityScaled = Mat(4, 0, 2)
-    expect(identityScaled).toEqual([[4, 0], [0, 4]])
+    expect(identityScaled).toEqual([
+      [4, 0],
+      [0, 4],
+    ])
     expect(Object.isFrozen(identityScaled)).toBe(true)
     expect(identityScaled.every(Object.isFrozen)).toBe(true)
 
@@ -682,8 +855,16 @@ describe('Material and global vars', () => {
       unit: 'S.m-1',
       quantityKind: 'electromagnetism.ElectricConductivity',
       value: [
-        [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-        [[2, 0, 0], [0, 2, 0], [0, 0, 2]],
+        [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+        ],
+        [
+          [2, 0, 0],
+          [0, 2, 0],
+          [0, 0, 2],
+        ],
       ],
     })
 
@@ -694,29 +875,57 @@ describe('Material and global vars', () => {
     expect(Object.isFrozen(vector.basis)).toBe(true)
     expect(Object.isFrozen(vector.basis?.[0])).toBe(true)
 
-    expect(normalizeDataValueDescriptor({
-      dtype: 'float64',
-      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', value: [1, 2, 3],
-    }).basis).toEqual(identityCartesianBasis)
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'float64',
-      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', basis: identityCartesianBasis,
-      value: 1,
-    })).toThrow('actual shape []; expected shape [3]')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'float64', axes: [{ length: 2 }],
-      unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity', basis: identityCartesianBasis,
-      value: [[1, 2, 3], [4, 5]],
-    })).toThrow('actual shape [2, ragged [3] | [2]]; expected shape [2,3]')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'float64',
-      unit: 'S.m-1', quantityKind: 'electromagnetism.ElectricConductivity', basis: identityCartesianBasis,
-      value: [[1, 0, 0], [0, 1, 0]],
-    })).toThrow('expected shape [3,3]')
-    expect(() => normalizeDataValueDescriptor({
-      dtype: 'float64',
-      unit: 'V', quantityKind: 'electromagnetism.Voltage', basis: identityCartesianBasis, value: 1,
-    })).toThrow('basis is not allowed for scalar Quantity Kind electromagnetism.Voltage')
+    expect(
+      normalizeDataValueDescriptor({
+        dtype: 'float64',
+        unit: 'A.m-2',
+        quantityKind: 'electromagnetism.ElectricCurrentDensity',
+        value: [1, 2, 3],
+      }).basis,
+    ).toEqual(identityCartesianBasis)
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'float64',
+        unit: 'A.m-2',
+        quantityKind: 'electromagnetism.ElectricCurrentDensity',
+        basis: identityCartesianBasis,
+        value: 1,
+      }),
+    ).toThrow('actual shape []; expected shape [3]')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'float64',
+        axes: [{ length: 2 }],
+        unit: 'A.m-2',
+        quantityKind: 'electromagnetism.ElectricCurrentDensity',
+        basis: identityCartesianBasis,
+        value: [
+          [1, 2, 3],
+          [4, 5],
+        ],
+      }),
+    ).toThrow('actual shape [2, ragged [3] | [2]]; expected shape [2,3]')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'float64',
+        unit: 'S.m-1',
+        quantityKind: 'electromagnetism.ElectricConductivity',
+        basis: identityCartesianBasis,
+        value: [
+          [1, 0, 0],
+          [0, 1, 0],
+        ],
+      }),
+    ).toThrow('expected shape [3,3]')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dtype: 'float64',
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        basis: identityCartesianBasis,
+        value: 1,
+      }),
+    ).toThrow('basis is not allowed for scalar Quantity Kind electromagnetism.Voltage')
   })
 
   it('accepts basis tolerance but rejects non-finite, non-orthogonal, and left-handed bases', () => {
@@ -727,30 +936,54 @@ describe('Material and global vars', () => {
       quantityKind: 'mechanics.Force',
       value: [1, 2, 3],
     }
-    expect(normalizeDataValueDescriptor({
-      ...descriptor,
-      basis: [[1, 0, 0], [epsilon, Math.sqrt(1 - epsilon ** 2), 0], [0, 0, 1]],
-    })).toMatchObject({ value: [1, 2, 3] })
-    expect(() => normalizeDataValueDescriptor({
-      ...descriptor,
-      basis: [[1, 0, 0], [0, Number.NaN, 0], [0, 0, 1]],
-    })).toThrow('exactly three finite numbers')
-    expect(() => normalizeDataValueDescriptor({
-      ...descriptor,
-      basis: [[1, 0, 0], [1, 0, 0], [0, 0, 1]],
-    })).toThrow('orthonormal Cartesian basis')
-    expect(() => normalizeDataValueDescriptor({
-      ...descriptor,
-      basis: [[1, 0, 0], [0, 1, 0], [0, 0, -1]],
-    })).toThrow('right-handed Cartesian basis')
+    expect(
+      normalizeDataValueDescriptor({
+        ...descriptor,
+        basis: [
+          [1, 0, 0],
+          [epsilon, Math.sqrt(1 - epsilon ** 2), 0],
+          [0, 0, 1],
+        ],
+      }),
+    ).toMatchObject({ value: [1, 2, 3] })
+    expect(() =>
+      normalizeDataValueDescriptor({
+        ...descriptor,
+        basis: [
+          [1, 0, 0],
+          [0, Number.NaN, 0],
+          [0, 0, 1],
+        ],
+      }),
+    ).toThrow('exactly three finite numbers')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        ...descriptor,
+        basis: [
+          [1, 0, 0],
+          [1, 0, 0],
+          [0, 0, 1],
+        ],
+      }),
+    ).toThrow('orthonormal Cartesian basis')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        ...descriptor,
+        basis: [
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, -1],
+        ],
+      }),
+    ).toThrow('right-handed Cartesian basis')
   })
 
   it('handles arbitrary internal order-3 and order-4 component shapes', () => {
     const order3Shape = componentShapeForTensorOrder(3)
     const order4Shape = componentShapeForTensorOrder(4)
     const order3Value = Array.from({ length: 3 }, (_, i) =>
-      Array.from({ length: 3 }, (_, j) =>
-        Array.from({ length: 3 }, (_, k) => i * 9 + j * 3 + k)))
+      Array.from({ length: 3 }, (_, j) => Array.from({ length: 3 }, (_, k) => i * 9 + j * 3 + k)),
+    )
     const order4Value = Array.from({ length: 3 }, () => order3Value)
 
     const normalized3 = normalizeDataValue(order3Value, order3Shape, 'float64', 'order3')
@@ -758,57 +991,113 @@ describe('Material and global vars', () => {
     expect(normalized3).toEqual(order3Value)
     expect(normalized4).toEqual(order4Value)
     expect(Object.isFrozen(normalized4)).toBe(true)
-    expect(() => normalizeDataValue([order3Value, order3Value], order4Shape, 'float64', 'order4'))
-      .toThrow('expected shape [3,3,3,3]')
+    expect(() => normalizeDataValue([order3Value, order3Value], order4Shape, 'float64', 'order4')).toThrow(
+      'expected shape [3,3,3,3]',
+    )
   })
 
   it('rejects every legacy descriptor field with a dtype/axes migration error', () => {
-    expect(() => normalizeDataValueDescriptor({
-      type: 'tensor', dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: 1,
-    })).toThrow('.type is obsolete in the dtype/axes contract; use dtype')
-    expect(() => normalizeDataValueDescriptor({
-      shape: [1], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
-    })).toThrow('.shape is obsolete in the dtype/axes contract; move every outer dimension to axes with a length')
-    expect(() => normalizeDataValueDescriptor({
-      dimension: 1, dtype: 'float64', axes: [{ length: 1 }],
-      unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
-    })).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
-    expect(() => normalizeDataValueDescriptor({
-      sampleDimension: 1, dtype: 'float64', axes: [{ length: 1 }],
-      unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
-    } as never)).toThrow('.sampleDimension is obsolete in the dtype/axes contract')
-    expect(() => normalizeDataValueDescriptor({
-      sampleShape: [1], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
-    } as never)).toThrow('.sampleShape is obsolete in the dtype/axes contract')
-    expect(() => normalizeDataValueDescriptor({
-      sampleAxes: [{}], dtype: 'float64', unit: 'V', quantityKind: 'electromagnetism.Voltage', value: [1],
-    } as never)).toThrow('.sampleAxes is obsolete in the dtype/axes contract; use axes')
-    expect(() => new Material('Legacy', {
-      'general.mass_density': {
-        dimension: 1, dtype: 'float64', axes: [{ length: 1 }], value: [1], errorRate: 0,
-        unit: 'kg.m-3',
-      } as never,
-    })).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        type: 'tensor',
+        dtype: 'float64',
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: 1,
+      }),
+    ).toThrow('.type is obsolete in the dtype/axes contract; use dtype')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        shape: [1],
+        dtype: 'float64',
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: [1],
+      }),
+    ).toThrow('.shape is obsolete in the dtype/axes contract; move every outer dimension to axes with a length')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        dimension: 1,
+        dtype: 'float64',
+        axes: [{ length: 1 }],
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: [1],
+      }),
+    ).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        sampleDimension: 1,
+        dtype: 'float64',
+        axes: [{ length: 1 }],
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: [1],
+      } as never),
+    ).toThrow('.sampleDimension is obsolete in the dtype/axes contract')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        sampleShape: [1],
+        dtype: 'float64',
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: [1],
+      } as never),
+    ).toThrow('.sampleShape is obsolete in the dtype/axes contract')
+    expect(() =>
+      normalizeDataValueDescriptor({
+        sampleAxes: [{}],
+        dtype: 'float64',
+        unit: 'V',
+        quantityKind: 'electromagnetism.Voltage',
+        value: [1],
+      } as never),
+    ).toThrow('.sampleAxes is obsolete in the dtype/axes contract; use axes')
+    expect(
+      () =>
+        new Material('Legacy', {
+          'general.mass_density': {
+            dimension: 1,
+            dtype: 'float64',
+            axes: [{ length: 1 }],
+            value: [1],
+            errorRate: 0,
+            unit: 'kg.m-3',
+          } as never,
+        }),
+    ).toThrow('.dimension is obsolete in the dtype/axes contract; omit it; outer dimension is axes.length')
   })
 
   it('derives canonical QuantityKinds and enforces scalar, vector, and rank-4 shapes', () => {
-    const rank4 = Array.from({ length: 3 }, (_, i) => Array.from({ length: 3 }, (_, j) => (
-      Array.from({ length: 3 }, (_, k) => Array.from({ length: 3 }, (_, l) => i + j + k + l))
-    )))
+    const rank4 = Array.from({ length: 3 }, (_, i) =>
+      Array.from({ length: 3 }, (_, j) =>
+        Array.from({ length: 3 }, (_, k) => Array.from({ length: 3 }, (_, l) => i + j + k + l)),
+      ),
+    )
     const material = new Material('Measured', {
       'general.mass_density': {
-        dtype: 'float64', value: 2700, errorRate: 0.2, unit: 'kg.m-3',
+        dtype: 'float64',
+        value: 2700,
+        errorRate: 0.2,
+        unit: 'kg.m-3',
       },
       'magnetic.remanent_flux_density': {
-        dtype: 'float32', value: [1.5, -2, 0], errorRate: 0.1, unit: 'T',
+        dtype: 'float32',
+        value: [1.5, -2, 0],
+        errorRate: 0.1,
+        unit: 'T',
       },
       'mechanical.elastic_stiffness_tensor': {
-        dtype: 'float64', value: rank4, errorRate: 0, unit: 'Pa',
+        dtype: 'float64',
+        value: rank4,
+        errorRate: 0,
+        unit: 'Pa',
       },
     })
 
     expect(material.variables['general.mass_density']).toMatchObject({
-      quantityKind: 'MassDensity', value: 2700,
+      quantityKind: 'MassDensity',
+      value: 2700,
     })
     expect(material.variables['magnetic.remanent_flux_density']).toMatchObject({
       quantityKind: 'electromagnetism.MagneticFluxDensity',
@@ -822,42 +1111,83 @@ describe('Material and global vars', () => {
     expect(Object.isFrozen(material.variables)).toBe(true)
     expect(Object.isFrozen(material.variables['mechanical.elastic_stiffness_tensor']?.value)).toBe(true)
 
-    expect(() => new Material('Invalid', {
-      'general.mass_density': {
-        dtype: 'float64', value: 1, unit: 'kg.m-3', errorRate: 0,
-        quantityKind: 'MassDensity',
-      } as never,
-    })).toThrow('must contain exactly dtype, value, unit, errorRate')
-    expect(() => new Material('Invalid', {
-      'general.mass_density': {
-        dtype: 'float64', value: [1], unit: 'kg.m-3', errorRate: 0, axes: [{ length: 1 }],
-      } as never,
-    })).toThrow('must contain exactly dtype, value, unit, errorRate')
-    expect(() => new Material('Invalid', {
-      'general.mass_density': { dtype: 'int32', value: 1, unit: 'kg.m-3', errorRate: 0 } as never,
-    })).toThrow('dtype must be a supported float dtype')
-    expect(() => new Material('Invalid', {
-      'general.mass_density': {
-        dtype: 'float64', value: 1, unit: 'kg.m-3', errorRate: 0, basis: identityCartesianBasis,
-      } as never,
-    })).toThrow('basis is not allowed for scalar Quantity Kind MassDensity')
-    expect(() => new Material('Invalid', {
-      'magnetic.remanent_flux_density': {
-        dtype: 'float64', value: 1, unit: 'T', errorRate: 0,
-      } as never,
-    })).toThrow('actual shape []; expected shape [3]')
-    expect(() => new Material('Invalid', {
-      'mechanical.elastic_stiffness_tensor': {
-        dtype: 'float64', value: [[1]], unit: 'Pa', errorRate: 0,
-      } as never,
-    })).toThrow('expected shape [3,3,3,3]')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: 1,
+            unit: 'kg.m-3',
+            errorRate: 0,
+            quantityKind: 'MassDensity',
+          } as never,
+        }),
+    ).toThrow('must contain exactly dtype, value, unit, errorRate')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: [1],
+            unit: 'kg.m-3',
+            errorRate: 0,
+            axes: [{ length: 1 }],
+          } as never,
+        }),
+    ).toThrow('must contain exactly dtype, value, unit, errorRate')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'general.mass_density': { dtype: 'int32', value: 1, unit: 'kg.m-3', errorRate: 0 } as never,
+        }),
+    ).toThrow('dtype must be a supported float dtype')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: 1,
+            unit: 'kg.m-3',
+            errorRate: 0,
+            basis: identityCartesianBasis,
+          } as never,
+        }),
+    ).toThrow('basis is not allowed for scalar Quantity Kind MassDensity')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'magnetic.remanent_flux_density': {
+            dtype: 'float64',
+            value: 1,
+            unit: 'T',
+            errorRate: 0,
+          } as never,
+        }),
+    ).toThrow('actual shape []; expected shape [3]')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'mechanical.elastic_stiffness_tensor': {
+            dtype: 'float64',
+            value: [[1]],
+            unit: 'Pa',
+            errorRate: 0,
+          } as never,
+        }),
+    ).toThrow('expected shape [3,3,3,3]')
 
     ;[-0.001, 1, Number.NaN, Number.POSITIVE_INFINITY, '0.1'].forEach((errorRate) => {
-      expect(() => new Material('Invalid', {
-        'general.mass_density': {
-          dtype: 'float64', value: 1, errorRate, unit: 'kg.m-3',
-        } as never,
-      })).toThrow('errorRate must be a finite number in [0, 1)')
+      expect(
+        () =>
+          new Material('Invalid', {
+            'general.mass_density': {
+              dtype: 'float64',
+              value: 1,
+              errorRate,
+              unit: 'kg.m-3',
+            } as never,
+          }),
+      ).toThrow('errorRate must be a finite number in [0, 1)')
     })
   })
 
@@ -865,8 +1195,20 @@ describe('Material and global vars', () => {
     const material = new Material('Dependent', {
       'model.magnetic_hysteresis.b_h_curve': {
         kind: 'sampled_relation',
-        input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]] },
-        output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
+        input: {
+          unit: 'A.m-1',
+          values: [
+            [0, 0, 0],
+            [100, 0, 0],
+          ],
+        },
+        output: {
+          unit: 'T',
+          values: [
+            [0, 0, 0],
+            [1.2, 0, 0],
+          ],
+        },
       },
       'model.sorption.isotherm': {
         kind: 'sampled_relation',
@@ -883,63 +1225,105 @@ describe('Material and global vars', () => {
     expect(Object.isFrozen(curve.input.values[0])).toBe(true)
     expect(material.variables['model.sorption.isotherm']).not.toHaveProperty('input.basis')
 
-    expect(() => new Material('Invalid', {
-      'model.magnetic_hysteresis.b_h_curve': {
-        kind: 'sampled_relation',
-        input: { unit: 'A.m-1', values: [[0, 0, 0]] },
-        output: { unit: 'T', values: [[0, 0, 0]] },
-      },
-    })).toThrow('must contain at least 2 samples')
-    expect(() => new Material('Invalid', {
-      'model.sorption.isotherm': {
-        kind: 'sampled_relation',
-        input: { unit: '%', values: [0, 50, 100] },
-        output: { unit: '{fraction}', values: [0, 0.2] },
-      },
-    })).toThrow('input and output must contain the same number of samples')
-    expect(() => new Material('Invalid', {
-      'model.magnetic_hysteresis.b_h_curve': {
-        kind: 'sampled_relation',
-        input: { unit: 'A.m-1', values: [0, 100] },
-        output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
-      },
-    } as never)).toThrow('expected shape [3]')
-    expect(() => new Material('Invalid', {
-      'model.sorption.isotherm': {
-        kind: 'sampled_relation',
-        input: { unit: '%', values: [0, 100], basis: identityCartesianBasis },
-        output: { unit: '{fraction}', values: [0, 0.2] },
-      },
-    } as never)).toThrow('basis is not allowed for scalar Quantity Kind thermodynamics.RelativeHumidity')
-    expect(() => new Material('Invalid', {
-      'model.magnetic_hysteresis.b_h_curve': {
-        kind: 'sampled_relation',
-        input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]], basis: identityCartesianBasis },
-        output: {
-          unit: 'T',
-          values: [[0, 0, 0], [1.2, 0, 0]],
-          basis: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
-        },
-      },
-    } as never)).toThrow('input and output must use the same Cartesian basis')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'model.magnetic_hysteresis.b_h_curve': {
+            kind: 'sampled_relation',
+            input: { unit: 'A.m-1', values: [[0, 0, 0]] },
+            output: { unit: 'T', values: [[0, 0, 0]] },
+          },
+        }),
+    ).toThrow('must contain at least 2 samples')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'model.sorption.isotherm': {
+            kind: 'sampled_relation',
+            input: { unit: '%', values: [0, 50, 100] },
+            output: { unit: '{fraction}', values: [0, 0.2] },
+          },
+        }),
+    ).toThrow('input and output must contain the same number of samples')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'model.magnetic_hysteresis.b_h_curve': {
+            kind: 'sampled_relation',
+            input: { unit: 'A.m-1', values: [0, 100] },
+            output: {
+              unit: 'T',
+              values: [
+                [0, 0, 0],
+                [1.2, 0, 0],
+              ],
+            },
+          },
+        } as never),
+    ).toThrow('expected shape [3]')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'model.sorption.isotherm': {
+            kind: 'sampled_relation',
+            input: { unit: '%', values: [0, 100], basis: identityCartesianBasis },
+            output: { unit: '{fraction}', values: [0, 0.2] },
+          },
+        } as never),
+    ).toThrow('basis is not allowed for scalar Quantity Kind thermodynamics.RelativeHumidity')
+    expect(
+      () =>
+        new Material('Invalid', {
+          'model.magnetic_hysteresis.b_h_curve': {
+            kind: 'sampled_relation',
+            input: {
+              unit: 'A.m-1',
+              values: [
+                [0, 0, 0],
+                [100, 0, 0],
+              ],
+              basis: identityCartesianBasis,
+            },
+            output: {
+              unit: 'T',
+              values: [
+                [0, 0, 0],
+                [1.2, 0, 0],
+              ],
+              basis: [
+                [0, 1, 0],
+                [-1, 0, 0],
+                [0, 0, 1],
+              ],
+            },
+          },
+        } as never),
+    ).toThrow('input and output must use the same Cartesian basis')
   })
 
   it('realizes independent float values once per Sample or Setup and strips error rates from applied values', () => {
-    const random = vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0)
-      .mockReturnValueOnce(0.5)
-      .mockReturnValue(0.25)
+    const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.5).mockReturnValue(0.25)
     try {
       const material = new Material('Variable', {
         'general.mass_density': {
-          dtype: 'float64', value: 100, errorRate: 0.1, unit: 'kg.m-3',
+          dtype: 'float64',
+          value: 100,
+          errorRate: 0.1,
+          unit: 'kg.m-3',
         },
         'thermal.specific_heat_capacity': {
-          dtype: 'float64', value: 25, errorRate: 0, unit: 'J.kg-1.K-1',
+          dtype: 'float64',
+          value: 25,
+          errorRate: 0,
+          unit: 'J.kg-1.K-1',
         },
         'electrical.conductivity': {
           dtype: 'float64',
-          value: [[10, 0, 0], [0, 20, 0], [0, 0, 30]],
+          value: [
+            [10, 0, 0],
+            [0, 20, 0],
+            [0, 0, 30],
+          ],
           errorRate: 0.2,
           unit: 'S.m-1',
         },
@@ -962,7 +1346,10 @@ describe('Material and global vars', () => {
       const setupReplay = evaluateWithVars(setup.vars, () => resolveMaterialVariables(material))
 
       expect(direct['general.mass_density']).toEqual({
-        dtype: 'float64', value: 100, unit: 'kg.m-3', quantityKind: 'MassDensity',
+        dtype: 'float64',
+        value: 100,
+        unit: 'kg.m-3',
+        quantityKind: 'MassDensity',
       })
       expect(first).toEqual(replay)
       expect(setupFirst).toEqual(setupReplay)
@@ -971,7 +1358,10 @@ describe('Material and global vars', () => {
       expect(first['electrical.conductivity']).not.toHaveProperty('errorRate')
       expect(material.variables['general.mass_density']).toMatchObject({ value: 100, errorRate: 0.1 })
       expect(first['thermal.specific_heat_capacity']).toEqual({
-        dtype: 'float64', value: 25, unit: 'J.kg-1.K-1', quantityKind: 'thermodynamics.SpecificHeatCapacity',
+        dtype: 'float64',
+        value: 25,
+        unit: 'J.kg-1.K-1',
+        quantityKind: 'thermodynamics.SpecificHeatCapacity',
       })
       expect(Object.isFrozen(first)).toBe(true)
       expect(Object.isFrozen(first['electrical.conductivity'])).toBe(true)
@@ -989,6 +1379,30 @@ describe('Material and global vars', () => {
     } finally {
       random.mockRestore()
     }
+  })
+
+  it('applies hierarchical Material error rates and keeps them out of scene variables', () => {
+    const defaults = new Material('Default', {
+      'general.mass_density': { dtype: 'float32', value: 100, unit: 'kg.m-3' },
+    })
+    const inherited = new Material('Inherited', {
+      errorRate: 0.2,
+      'general.mass_density': { dtype: 'float32', value: 100, unit: 'kg.m-3' },
+      'thermal.specific_heat_capacity': {
+        dtype: 'float32',
+        value: 20,
+        unit: 'J.kg-1.K-1',
+        errorRate: 0,
+      },
+    })
+
+    expect(defaults.errorRate).toBe(0.001)
+    expect(defaults.variables['general.mass_density']?.errorRate).toBe(0.001)
+    expect(inherited.errorRate).toBe(0.2)
+    expect(inherited.variables).not.toHaveProperty('errorRate')
+    expect(inherited.variables['general.mass_density']?.errorRate).toBe(0.2)
+    expect(inherited.variables['thermal.specific_heat_capacity']?.errorRate).toBe(0)
+    expect(resolveMaterialVariables(inherited)).not.toHaveProperty('errorRate')
   })
 
   it('rejects a realized float tensor value that exceeds its dtype range', () => {
@@ -1014,15 +1428,29 @@ describe('Material and global vars', () => {
 
   it('constructs Materials after vars are bound and deeply freezes dtype descriptors', () => {
     const sample = new Sample(createStructure(), { width: 24 })
-    const source = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    const material = evaluateWithVars(sample.vars, () => new Material('Core', 'measured', {
-      'general.mass_density': {
-        dtype: 'float64', value: vars.width as number, errorRate: 0, unit: 'kg.m-3',
-      },
-      'electrical.conductivity': {
-        dtype: 'float64', value: source, errorRate: 0, unit: 'S.m-1',
-      },
-    }))
+    const source = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]
+    const material = evaluateWithVars(
+      sample.vars,
+      () =>
+        new Material('Core', 'measured', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: vars.width as number,
+            errorRate: 0,
+            unit: 'kg.m-3',
+          },
+          'electrical.conductivity': {
+            dtype: 'float64',
+            value: source,
+            errorRate: 0,
+            unit: 'S.m-1',
+          },
+        }),
+    )
 
     expect(material.variables).toMatchObject({
       'general.mass_density': { value: 24, quantityKind: 'MassDensity' },
@@ -1036,7 +1464,9 @@ describe('Material and global vars', () => {
     expect(Object.isFrozen(material.variables['electrical.conductivity'])).toBe(true)
     source[0][0] = 99
     expect(material.variables['electrical.conductivity']?.value).toEqual([
-      [1, 0, 0], [0, 1, 0], [0, 0, 1],
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
     ])
     expect(() => {
       ;(material.variables as Record<string, number>)['general.mass_density'] = 3
@@ -1052,7 +1482,10 @@ describe('Material and global vars', () => {
 
   it('rejects invalid Material metadata and raw composite values', () => {
     expect(() => new Material('', {})).toThrow('non-empty string')
-    expect(() => new Material('Core', ' ')).toThrow('version must be a non-empty string')
+    expect(() => new Material('Core', ' ')).toThrow('source selector')
+    expect(() => new Material('Core', '/v1')).toThrow('source selector')
+    expect(() => new Material('Core', 'source/')).toThrow('source selector')
+    expect(() => new Material('Core', 'source/v1/extra')).toThrow('source selector')
     expect(() => new Material('Core', { values: [1, 2] } as never)).toThrow(
       'variables.values is not a registered Material catalog key',
     )
@@ -1065,33 +1498,65 @@ describe('Material and global vars', () => {
     expect(() => new Material('Core', { 'general.mass_density': 1.5 } as never)).toThrow(
       'must be a Material property descriptor',
     )
-    expect(() => new Material('Core', {
-      'general.mass_density': {
-        dtype: 'float64', value: 1.5, errorRate: 0,
-        unit: 'invalid-unit',
-      },
-    })).toThrow('valid case-sensitive UCUM code')
-    expect(() => new Material('Core', {
-      'electrical.conductivity': {
-        dtype: 'float64', value: Mat(1), errorRate: 0,
-        unit: 'S/m',
-      } as never,
-    })).toThrow('S/m is not applicable to Quantity Kind electromagnetism.ElectricConductivity')
-    expect(() => new Material('Core', {
-      'electrical.conductivity': {
-        dtype: 'float64', value: 1.5, errorRate: 0,
-        unit: 'S.m-1',
-      } as never,
-    })).toThrow('actual shape []; expected shape [3,3]')
-    expect(() => new Material('Core', {
-      'general.mass_density': { dtype: 'int32', value: 1, errorRate: 0, unit: 'kg.m-3' } as never,
-    })).toThrow('dtype must be a supported float dtype')
+    expect(
+      () =>
+        new Material('Core', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: 1.5,
+            errorRate: 0,
+            unit: 'invalid-unit',
+          },
+        }),
+    ).toThrow('valid case-sensitive UCUM code')
+    expect(
+      () =>
+        new Material('Core', {
+          'electrical.conductivity': {
+            dtype: 'float64',
+            value: Mat(1),
+            errorRate: 0,
+            unit: 'S/m',
+          } as never,
+        }),
+    ).toThrow('S/m is not applicable to Quantity Kind electromagnetism.ElectricConductivity')
+    expect(
+      () =>
+        new Material('Core', {
+          'electrical.conductivity': {
+            dtype: 'float64',
+            value: 1.5,
+            errorRate: 0,
+            unit: 'S.m-1',
+          } as never,
+        }),
+    ).toThrow('actual shape []; expected shape [3,3]')
+    expect(
+      () =>
+        new Material('Core', {
+          'general.mass_density': { dtype: 'int32', value: 1, errorRate: 0, unit: 'kg.m-3' } as never,
+        }),
+    ).toThrow('dtype must be a supported float dtype')
     expect(() => new Material('Core', { color: 'blue' })).toThrow('#RRGGBB')
+    expect(() => new Material('Core', { errorRate: null } as never)).toThrow('finite number in [0, 1)')
+    expect(() => new Material('Core', { errorRate: -0.1 })).toThrow('finite number in [0, 1)')
+    expect(() => new Material('Core', { errorRate: 1 })).toThrow('finite number in [0, 1)')
+    expect(
+      () =>
+        new Material('Core', {
+          'general.mass_density': {
+            dtype: 'float64',
+            value: 1,
+            unit: 'kg.m-3',
+            errorRate: null,
+          } as never,
+        }),
+    ).toThrow('finite number in [0, 1)')
     expect(() => new Material('Core', null as never)).toThrow('plain object')
     expect(() => new Material('Core', 'measured', null as never)).toThrow('plain object')
 
     const LegacyMaterial = Material as unknown as new (...args: unknown[]) => Material
-    expect(() => new LegacyMaterial('Core', {}, '#2563eb')).toThrow('string version')
+    expect(() => new LegacyMaterial('Core', {}, '#2563eb')).toThrow('source selector')
   })
 })
 

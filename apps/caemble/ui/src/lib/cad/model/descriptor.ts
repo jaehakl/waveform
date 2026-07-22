@@ -37,53 +37,54 @@ type DataAxisBase = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
 }>
-export type DataAxis = DataAxisBase & Readonly<
-  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
-  | { unit?: never; quantityKind?: never }
->
+export type DataAxis = DataAxisBase &
+  Readonly<{ unit: UcumUnit; quantityKind: ScalarQuantityKindName } | { unit?: never; quantityKind?: never }>
 type DataValueDescriptorBase = Readonly<{
   axes?: readonly DataAxis[]
   value: boolean | string | number | readonly unknown[]
 }>
 export type MatrixValue = readonly (readonly number[])[]
-export type DataValueDescriptor = DataValueDescriptorBase & Readonly<
-  | ({ dtype: FloatDataDType } & (
-    QuantityMetadata<ScalarQuantityKindName>
-    | QuantityMetadata<TensorQuantityKindName>
-  ))
-  | {
-    dtype: NonFloatDataDType
-    unit?: never
-    quantityKind?: never
-    basis?: never
-  }
->
-type MaterialInputBasisMetadata<Name extends QuantityKindName> =
-  Name extends ScalarQuantityKindName
-    ? Readonly<{ basis?: never }>
-    : Readonly<{ basis?: CartesianBasis }>
+export type DataValueDescriptor = DataValueDescriptorBase &
+  Readonly<
+    | ({ dtype: FloatDataDType } & (
+        QuantityMetadata<ScalarQuantityKindName> | QuantityMetadata<TensorQuantityKindName>
+      ))
+    | {
+        dtype: NonFloatDataDType
+        unit?: never
+        quantityKind?: never
+        basis?: never
+      }
+  >
+type MaterialInputBasisMetadata<Name extends QuantityKindName> = Name extends ScalarQuantityKindName
+  ? Readonly<{ basis?: never }>
+  : Readonly<{ basis?: CartesianBasis }>
 
-export type MaterialDataValueDescriptor<
-  Key extends MaterialPropertyKey = MaterialPropertyKey,
-> = Key extends MaterialPropertyKey ? Readonly<{
-  dtype: FloatDataDType
-  value: number | readonly unknown[]
-  unit: UcumUnit
-  errorRate: number
-  axes?: never
-  quantityKind?: never
-}> & MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>> : never
+export type MaterialDataValueDescriptor<Key extends MaterialPropertyKey = MaterialPropertyKey> =
+  Key extends MaterialPropertyKey
+    ? Readonly<{
+        dtype: FloatDataDType
+        value: number | readonly unknown[]
+        unit: UcumUnit
+        errorRate?: number
+        axes?: never
+        quantityKind?: never
+      }> &
+        MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>>
+    : never
 
-export type ResolvedMaterialDataValueDescriptor<
-  Key extends MaterialPropertyKey = MaterialPropertyKey,
-> = Key extends MaterialPropertyKey ? Readonly<{
-  dtype: FloatDataDType
-  value: number | readonly unknown[]
-  unit: UcumUnit
-  quantityKind: MaterialPropertyQuantityKind<Key>
-  errorRate: number
-  axes?: never
-}> & MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>> : never
+export type ResolvedMaterialDataValueDescriptor<Key extends MaterialPropertyKey = MaterialPropertyKey> =
+  Key extends MaterialPropertyKey
+    ? Readonly<{
+        dtype: FloatDataDType
+        value: number | readonly unknown[]
+        unit: UcumUnit
+        quantityKind: MaterialPropertyQuantityKind<Key>
+        errorRate: number
+        axes?: never
+      }> &
+        MaterialInputBasisMetadata<MaterialPropertyQuantityKind<Key>>
+    : never
 
 type MaterialModelInputQuantityKind<Key extends MaterialModelKey> =
   MaterialModelDefinitionFor<Key>['input']['quantity_kind']
@@ -93,32 +94,33 @@ type MaterialModelOutputQuantityKind<Key extends MaterialModelKey> =
 export type MaterialQuantitySeries<Name extends QuantityKindName> = Readonly<{
   unit: UcumUnit
   values: readonly unknown[]
-}> & MaterialInputBasisMetadata<Name>
+}> &
+  MaterialInputBasisMetadata<Name>
 
-export type MaterialSampledRelation<
-  Key extends MaterialModelKey = MaterialModelKey,
-> = Key extends MaterialModelKey ? Readonly<{
-  kind: 'sampled_relation'
-  input: MaterialQuantitySeries<MaterialModelInputQuantityKind<Key>>
-  output: MaterialQuantitySeries<MaterialModelOutputQuantityKind<Key>>
-}> : never
+export type MaterialSampledRelation<Key extends MaterialModelKey = MaterialModelKey> = Key extends MaterialModelKey
+  ? Readonly<{
+      kind: 'sampled_relation'
+      input: MaterialQuantitySeries<MaterialModelInputQuantityKind<Key>>
+      output: MaterialQuantitySeries<MaterialModelOutputQuantityKind<Key>>
+    }>
+  : never
 
 export type ScalarValue = boolean | string | number
 export type MaterialVariable = string | MaterialDataValueDescriptor | MaterialSampledRelation
 export type MaterialVariables = Readonly<
-  { color?: string }
-  & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string; errorRate?: number } & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 export type NormalizedMaterialVariables = Readonly<
-  { color?: string }
-  & { [Key in MaterialPropertyKey]?: ResolvedMaterialDataValueDescriptor<Key> }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string } & { [Key in MaterialPropertyKey]?: ResolvedMaterialDataValueDescriptor<Key> } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 export type ResolvedMaterialVariables = Readonly<
-  { color?: string }
-  & { [Key in MaterialPropertyKey]?: DataValueDescriptor }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string } & { [Key in MaterialPropertyKey]?: DataValueDescriptor } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 export type SolverParameterValue = ScalarValue | DataValueDescriptor
 export type SolverParameters = Readonly<Record<string, SolverParameterValue>>
@@ -139,23 +141,21 @@ type RecordedDataResultAxisBase = Readonly<{
   name?: string
   ticks?: readonly (number | string)[]
 }>
-export type RecordedDataResultAxis = RecordedDataResultAxisBase & Readonly<
-  | { unit: UcumUnit; quantityKind: ScalarQuantityKindName }
-  | { unit?: never; quantityKind?: never }
->
+export type RecordedDataResultAxis = RecordedDataResultAxisBase &
+  Readonly<{ unit: UcumUnit; quantityKind: ScalarQuantityKindName } | { unit?: never; quantityKind?: never }>
 type RecordedDataResultBase = Readonly<{ axes?: readonly RecordedDataResultAxis[] }>
-export type RecordedDataResult = RecordedDataResultBase & Readonly<
-  | ({ dtype: FloatDataDType } & (
-    QuantityMetadata<ScalarQuantityKindName>
-    | QuantityMetadata<TensorQuantityKindName>
-  ))
-  | {
-    dtype: NonFloatDataDType
-    unit?: never
-    quantityKind?: never
-    basis?: never
-  }
->
+export type RecordedDataResult = RecordedDataResultBase &
+  Readonly<
+    | ({ dtype: FloatDataDType } & (
+        QuantityMetadata<ScalarQuantityKindName> | QuantityMetadata<TensorQuantityKindName>
+      ))
+    | {
+        dtype: NonFloatDataDType
+        unit?: never
+        quantityKind?: never
+        basis?: never
+      }
+  >
 export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
   target: readonly ExperimentTarget[]
   label: string
@@ -191,7 +191,9 @@ export function Mat(diagonal: number, offDiagonal = 0, size = 3): MatrixValue {
   if (!Number.isSafeInteger(size) || size <= 0) {
     throw new CadModelError('Mat size must be a positive safe integer.')
   }
-  return Object.freeze(Array.from({ length: size }, (_, row) => Object.freeze(
-    Array.from({ length: size }, (_item, column) => row === column ? diagonal : offDiagonal),
-  )))
+  return Object.freeze(
+    Array.from({ length: size }, (_, row) =>
+      Object.freeze(Array.from({ length: size }, (_item, column) => (row === column ? diagonal : offDiagonal))),
+    ),
+  )
 }

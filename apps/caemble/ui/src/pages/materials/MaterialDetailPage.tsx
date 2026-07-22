@@ -315,6 +315,21 @@ export function MaterialDetailPage() {
               {material.updated_at ? new Date(material.updated_at).toLocaleString('ko-KR') : '—'}
             </p>
           </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Color</p>
+            {material.color ? (
+              <div className="mt-1 flex items-center gap-2 text-sm">
+                <span
+                  aria-label={`색상 ${material.color}`}
+                  className="size-6 rounded-md border"
+                  style={{ backgroundColor: material.color }}
+                />
+                <code>{material.color}</code>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm">등록되지 않음</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

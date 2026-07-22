@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/use-auth'
-import { allRowsRequest, materialDisplayName } from './material-utils'
+import { MaterialColorField } from './MaterialColorField'
+import { allRowsRequest, isMaterialColorValid, materialDisplayName } from './material-utils'
 import { VisibilityField, type Visibility } from './VisibilityField'
 
 type MaterialListRow = {
@@ -35,7 +36,19 @@ const columns: ColumnDef<MaterialListRow, unknown>[] = [
     header: 'Material',
     cell: ({ row }) => (
       <div>
-        <p className="font-medium">{row.original.name}</p>
+        <div className="flex items-center gap-2">
+          {row.original.material.color ? (
+            <span
+              aria-label={`색상 ${row.original.material.color}`}
+              className="size-4 shrink-0 rounded-full border"
+              style={{ backgroundColor: row.original.material.color }}
+            />
+          ) : null}
+          <p className="font-medium">{row.original.name}</p>
+          {row.original.material.color ? (
+            <code className="text-xs text-muted-foreground">{row.original.material.color}</code>
+          ) : null}
+        </div>
         {row.original.aliases.length > 1 ? (
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{row.original.aliases.slice(1).join(', ')}</p>
         ) : null}
@@ -63,6 +76,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const isAdmin = Boolean(user?.roles.includes('admin'))
   const [inchi, setInchi] = useState('')
   const [description, setDescription] = useState('')
+  const [color, setColor] = useState('')
   const [initialName, setInitialName] = useState('')
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [nameVisibility, setNameVisibility] = useState<Visibility>('public')
@@ -70,6 +84,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const reset = () => {
     setInchi('')
     setDescription('')
+    setColor('')
     setInitialName('')
     setVisibility(isAdmin ? 'public' : 'private')
     setNameVisibility(isAdmin ? 'public' : 'private')
@@ -83,6 +98,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
         {
           inchi: inchi.trim() || null,
           description: description.trim() || null,
+          color: color.trim().toLowerCase() || null,
           user_id: ownerId,
         },
       ])
@@ -120,6 +136,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   }
 
   const effectiveVisibility = isAdmin ? visibility : 'private'
+  const colorValid = isMaterialColorValid(color)
 
   return (
     <Dialog
@@ -155,6 +172,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                   value={description}
                 />
               </label>
+              <MaterialColorField onChange={setColor} value={color} />
               <label className="grid gap-1.5 text-sm font-medium">
                 최초 이름
                 <Input
@@ -176,7 +194,7 @@ function MaterialCreateDialog({ open, onOpenChange }: { open: boolean; onOpenCha
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               취소
             </Button>
-            <Button disabled={!isAuthenticated || createMutation.isPending} type="submit">
+            <Button disabled={!isAuthenticated || !colorValid || createMutation.isPending} type="submit">
               {createMutation.isPending ? <LoaderCircle className="animate-spin" /> : <Plus />}
               생성
             </Button>

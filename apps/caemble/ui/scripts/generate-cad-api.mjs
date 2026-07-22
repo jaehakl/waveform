@@ -74,9 +74,9 @@ function groupedImports(entries, moduleKey, exportKey) {
     if (!names.includes(entry[exportKey])) names.push(entry[exportKey])
     modules.set(entry[moduleKey], names)
   })
-  return [...modules.entries()].map(([moduleName, names]) => (
-    `import { ${names.join(', ')} } from ${tsString(moduleName)}`
-  )).join('\n')
+  return [...modules.entries()]
+    .map(([moduleName, names]) => `import { ${names.join(', ')} } from ${tsString(moduleName)}`)
+    .join('\n')
 }
 
 async function loadBundledModule(entryPoint) {
@@ -117,14 +117,14 @@ async function validateElementManifest() {
     tags.add(element.tag)
     const definitionPath = path.join(root, 'src/lib/cad/elements', `${element.definitionModule}.ts`)
     const runtimePath = path.join(root, 'src/lib/cad/elements', `${element.runtimeModule}.ts`)
-    const [definition, runtime] = await Promise.all([
-      readFile(definitionPath, 'utf8'),
-      readFile(runtimePath, 'utf8'),
-    ])
+    const [definition, runtime] = await Promise.all([readFile(definitionPath, 'utf8'), readFile(runtimePath, 'utf8')])
     if (!definition.includes(`export type ${element.attributes}`)) {
       throw new Error(`${element.definitionModule} does not export ${element.attributes}.`)
     }
-    if (!definition.includes(`export const ${element.manifestExport}`) || !definition.includes(`tag: '${element.tag}'`)) {
+    if (
+      !definition.includes(`export const ${element.manifestExport}`) ||
+      !definition.includes(`tag: '${element.tag}'`)
+    ) {
       throw new Error(`${element.definitionModule} does not define ${element.manifestExport} for ${element.tag}.`)
     }
     if (!runtime.includes(`export const ${element.definitionExport}`)) {
@@ -166,14 +166,10 @@ function parameterType(parameter, materialKey) {
   const value = parameter.value
   if (value.dtype === 'float64' && typeof value.quantityKind === 'string') {
     const parameter = `Float64Parameter<${tsString(value.quantityKind)}>`
-    return value.referenceBasis
-      ? `Omit<${parameter}, 'basis'> & Readonly<{ basis?: CartesianBasis }>`
-      : parameter
+    return value.referenceBasis ? `Omit<${parameter}, 'basis'> & Readonly<{ basis?: CartesianBasis }>` : parameter
   }
   if (value.dtype === 'int32') {
-    return value.axes?.length
-      ? `Int32Parameter<${tensorValueType(value.axes)}>`
-      : 'number | Int32Parameter'
+    return value.axes?.length ? `Int32Parameter<${tensorValueType(value.axes)}>` : 'number | Int32Parameter'
   }
   throw new Error(`Unsupported generated Solver authoring parameter dtype: ${value.dtype}`)
 }
@@ -181,12 +177,15 @@ function parameterType(parameter, materialKey) {
 function parameterRecord(parameters, material = false) {
   const entries = Object.entries(parameters)
   if (entries.length === 0) return 'Readonly<Record<string, never>>'
-  return `Readonly<{\n${entries.map(([name, parameter]) => (
-    `    ${tsString(name)}${parameter.required === false ? '?' : ''}: ${parameterType(
-      parameter,
-      material ? name : undefined,
-    )}`
-  )).join('\n')}\n  }>`
+  return `Readonly<{\n${entries
+    .map(
+      ([name, parameter]) =>
+        `    ${tsString(name)}${parameter.required === false ? '?' : ''}: ${parameterType(
+          parameter,
+          material ? name : undefined,
+        )}`,
+    )
+    .join('\n')}\n  }>`
 }
 
 function resultType(result) {
@@ -211,25 +210,39 @@ function solverAuthoring(specs) {
           ? `${base} & Readonly<{ result: ${resultType(method.result).replaceAll('\n', '\n  ')} }>`
           : base
       })
-      sections.push(`export type ${ruleType} =${variants.length === 0
-        ? ' never'
-        : `\n${variants.map((variant) => `  | ${variant}`).join('\n')}`}`)
+      sections.push(
+        `export type ${ruleType} =${
+          variants.length === 0 ? ' never' : `\n${variants.map((variant) => `  | ${variant}`).join('\n')}`
+        }`,
+      )
     })
     spec.materials.forEach((material) => {
-      sections.push(`export type ${prefix}${pascalCase(material.role)}MaterialVariables = ${parameterRecord(
-        material.parameters,
-        true,
-      )}`)
+      sections.push(
+        `export type ${prefix}${pascalCase(material.role)}MaterialVariables = ${parameterRecord(
+          material.parameters,
+          true,
+        )}`,
+      )
     })
     const solverParameters = parameterRecord(spec.parameters).replaceAll('\n', '\n      ')
-    sections.push(`export type ${prefix}Options<Schema extends VarsSchemaDefinition> = StructureDefinitionOptions<Schema> & Readonly<{\n  solver: Readonly<{\n    name: ${tsString(spec.name)}\n    version: ${tsString(spec.version)}\n    parameters: (context: ModelContext<Schema>) => ${solverParameters}\n  }>\n  initializations?: (context: ModelContext<Schema>) => readonly ${prefix}InitializationsRule[]\n  boundaryConditions?: (context: ModelContext<Schema>) => readonly ${prefix}BoundaryConditionsRule[]\n  recordedData?: (context: ModelContext<Schema>) => readonly ${prefix}RecordedDataRule[]\n}>`)
+    sections.push(
+      `export type ${prefix}Options<Schema extends VarsSchemaDefinition> = StructureDefinitionOptions<Schema> & Readonly<{\n  solver: Readonly<{\n    name: ${tsString(spec.name)}\n    version: ${tsString(spec.version)}\n    parameters: (context: ModelContext<Schema>) => ${solverParameters}\n  }>\n  initializations?: (context: ModelContext<Schema>) => readonly ${prefix}InitializationsRule[]\n  boundaryConditions?: (context: ModelContext<Schema>) => readonly ${prefix}BoundaryConditionsRule[]\n  recordedData?: (context: ModelContext<Schema>) => readonly ${prefix}RecordedDataRule[]\n}>`,
+    )
   })
 
   const registeredNames = specs.map((spec) => tsString(spec.name))
-  const registeredOptions = specs.map((spec, index) => (
-    `${index === 0 ? '' : '  : '}SolverName extends ${tsString(spec.name)}\n  ? ${pascalCase(spec.name)}Options<Schema>`
-  )).join('\n')
-  const overloads = specs.map((spec) => `export declare function experiment<const Schema extends VarsSchemaDefinition>(\n  options: ${pascalCase(spec.name)}Options<Schema>,\n): Readonly<{\n  readonly apiVersion: 2\n  readonly documentType: 'experiment'\n  readonly varsSchema: Schema\n}>`).join('\n\n')
+  const registeredOptions = specs
+    .map(
+      (spec, index) =>
+        `${index === 0 ? '' : '  : '}SolverName extends ${tsString(spec.name)}\n  ? ${pascalCase(spec.name)}Options<Schema>`,
+    )
+    .join('\n')
+  const overloads = specs
+    .map(
+      (spec) =>
+        `export declare function experiment<const Schema extends VarsSchemaDefinition>(\n  options: ${pascalCase(spec.name)}Options<Schema>,\n): Readonly<{\n  readonly apiVersion: 2\n  readonly documentType: 'experiment'\n  readonly varsSchema: Schema\n}>`,
+    )
+    .join('\n\n')
 
   return `// <generated:solver-authoring>\n// Generated by scripts/generate-cad-api.mjs from registered SolverSpec values. Do not edit.\n${sections.join('\n\n')}\n\nexport type RegisteredSolverName =\n${registeredNames.map((name) => `  | ${name}`).join('\n')}\n\ntype RegisteredExperimentDefinitionOptions<\n  Schema extends VarsSchemaDefinition,\n  SolverName extends RegisteredSolverName,\n> = ${registeredOptions}\n  : never\n\ntype GenericExperimentDefinitionOptions<\n  Schema extends VarsSchemaDefinition,\n  SolverName extends string,\n> = StructureDefinitionOptions<Schema> & Readonly<{\n  solver: Readonly<{\n    name: SolverName\n    version: string\n    parameters: (context: ModelContext<Schema>) => SolverParameters\n  }>\n  initializations?: (context: ModelContext<Schema>) => readonly ExperimentRule[]\n  boundaryConditions?: (context: ModelContext<Schema>) => readonly ExperimentRule[]\n  recordedData?: (context: ModelContext<Schema>) => readonly RecordedDataRule[]\n}>\n\nexport type ExperimentDefinitionOptions<\n  Schema extends VarsSchemaDefinition,\n  SolverName extends string = string,\n> = SolverName extends RegisteredSolverName\n  ? RegisteredExperimentDefinitionOptions<Schema, SolverName>\n  : GenericExperimentDefinitionOptions<Schema, SolverName>\n\n${overloads}\n\nexport declare function experiment<\n  const Schema extends VarsSchemaDefinition,\n  const SolverName extends string,\n>(options: GenericExperimentDefinitionOptions<Schema, SolverName> & Readonly<{\n  solver: Readonly<{ name: SolverName extends RegisteredSolverName ? never : SolverName }>\n}>): Readonly<{\n  readonly apiVersion: 2\n  readonly documentType: 'experiment'\n  readonly varsSchema: Schema\n}>\n// </generated:solver-authoring>`
 }
@@ -237,24 +250,32 @@ function solverAuthoring(specs) {
 function quantityKindTypes(quantityKindData) {
   const names = Object.keys(quantityKindData)
   const tensorNames = names.filter((name) => quantityKindData[name].tensorOrder > 0)
-  const namesByDomain = quantityKindDomains.map((domain) => `  ${domain}:\n${names
-    .filter((name) => quantityKindData[name].domain === domain)
-    .map((name) => `    | ${tsString(name)}`).join('\n')}`)
+  const namesByDomain = quantityKindDomains.map(
+    (domain) =>
+      `  ${domain}:\n${names
+        .filter((name) => quantityKindData[name].domain === domain)
+        .map((name) => `    | ${tsString(name)}`)
+        .join('\n')}`,
+  )
   return `// <generated:quantity-kind-types>\nexport type QuantityKindName =\n${names.map((name) => `  | ${tsString(name)}`).join('\n')}\nexport type QuantityKindDomain =\n${quantityKindDomains.map((domain) => `  | ${tsString(domain)}`).join('\n')}\nexport type QuantityKindNameForDomain<Domain extends QuantityKindDomain> = Readonly<{\n${namesByDomain.join('\n')}\n}>[Domain]\nexport type TensorQuantityKindName =\n${tensorNames.map((name) => `  | ${tsString(name)}`).join('\n')}\nexport type ScalarQuantityKindName = Exclude<QuantityKindName, TensorQuantityKindName>\n// </generated:quantity-kind-types>`
 }
 
 function materialCatalogTypes(properties, models) {
-  const propertyMap = properties.map((property) => (
-    `  ${tsString(property.key)}: ${tsString(property.quantity_kind)}`
-  )).join('\n')
-  const modelMap = models.map((model) => `  ${tsString(model.key)}: Readonly<{
+  const propertyMap = properties
+    .map((property) => `  ${tsString(property.key)}: ${tsString(property.quantity_kind)}`)
+    .join('\n')
+  const modelMap = models
+    .map(
+      (model) => `  ${tsString(model.key)}: Readonly<{
     key: ${tsString(model.key)}
     kind: 'sampled_relation'
     input: Readonly<{ quantity_kind: ${tsString(model.input.quantity_kind)} }>
     output: Readonly<{ quantity_kind: ${tsString(model.output.quantity_kind)} }>
     minimum_samples: ${model.minimum_samples}
     shared_basis: ${model.shared_basis}
-  }>`).join('\n')
+  }>`,
+    )
+    .join('\n')
   return `// <generated:material-catalog-types>
 // Generated by scripts/generate-cad-api.mjs from the Material property and model catalogs. Do not edit.
 export type MaterialPropertyQuantityKindMap = Readonly<{
@@ -290,7 +311,7 @@ export type MaterialDataValueDescriptor<
   dtype: FloatDataDType
   value: number | readonly unknown[]
   unit: UcumUnit
-  errorRate: number
+  errorRate?: number
   axes?: never
   quantityKind?: never
 }> & MaterialAuthoringBasis<MaterialPropertyQuantityKind<Key>> : never
@@ -324,7 +345,7 @@ export type MaterialSampledRelation<
 
 export type MaterialVariable = string | MaterialDataValueDescriptor | MaterialSampledRelation
 export type MaterialVariables = Readonly<
-  { color?: string }
+  { color?: string; errorRate?: number }
   & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> }
   & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
 >
@@ -353,9 +374,9 @@ function validateMaterialParameterCatalog(
 ) {
   const expectedDomains = Object.keys(materialParameterDomainCounts)
   if (
-    !Array.isArray(materialParameterDomains)
-    || materialParameterDomains.length !== expectedDomains.length
-    || materialParameterDomains.some((domain, index) => domain !== expectedDomains[index])
+    !Array.isArray(materialParameterDomains) ||
+    materialParameterDomains.length !== expectedDomains.length ||
+    materialParameterDomains.some((domain, index) => domain !== expectedDomains[index])
   ) {
     throw new Error(`Material parameter domains must be ${expectedDomains.join(', ')} in that order.`)
   }
@@ -363,10 +384,10 @@ function validateMaterialParameterCatalog(
     throw new Error('Material parameter domains must be frozen.')
   }
   if (
-    !materialParameterCatalog
-    || materialParameterCatalog.catalog_id !== 'material-parameter-catalog'
-    || materialParameterCatalog.catalog_version !== '0.0.0'
-    || materialParameterCatalog.quantity_kind_data_version !== authoringManifest.quantityKindDataVersion
+    !materialParameterCatalog ||
+    materialParameterCatalog.catalog_id !== 'material-parameter-catalog' ||
+    materialParameterCatalog.catalog_version !== '0.0.0' ||
+    materialParameterCatalog.quantity_kind_data_version !== authoringManifest.quantityKindDataVersion
   ) {
     throw new Error('Material catalog identity or version metadata is invalid.')
   }
@@ -376,24 +397,24 @@ function validateMaterialParameterCatalog(
     }
   }
   if (
-    !materialParameterCatalog.design_rules
-    || typeof materialParameterCatalog.design_rules.quantity_kind !== 'string'
-    || !Array.isArray(materialParameterCatalog.global_qualifiers)
+    !materialParameterCatalog.design_rules ||
+    typeof materialParameterCatalog.design_rules.quantity_kind !== 'string' ||
+    !Array.isArray(materialParameterCatalog.global_qualifiers)
   ) {
     throw new Error('Material catalog metadata is incomplete.')
   }
   if (
-    !Object.isFrozen(materialParameterCatalog)
-    || !Object.isFrozen(materialParameterCatalog.design_rules)
-    || !Object.isFrozen(materialParameterCatalog.global_qualifiers)
+    !Object.isFrozen(materialParameterCatalog) ||
+    !Object.isFrozen(materialParameterCatalog.design_rules) ||
+    !Object.isFrozen(materialParameterCatalog.global_qualifiers)
   ) {
     throw new Error('Material catalog metadata must be frozen.')
   }
   if (
-    !Array.isArray(materialParameterData)
-    || materialParameterData.length !== 258
-    || materialParameterCatalog.properties !== materialParameterData
-    || !Object.isFrozen(materialParameterData)
+    !Array.isArray(materialParameterData) ||
+    materialParameterData.length !== 258 ||
+    materialParameterCatalog.properties !== materialParameterData ||
+    !Object.isFrozen(materialParameterData)
   ) {
     throw new Error('Material catalog must expose its frozen 258-property aggregate as properties.')
   }
@@ -412,18 +433,18 @@ function validateMaterialParameterCatalog(
     }
     const fields = Object.keys(property)
     if (
-      !fields.includes('key')
-      || !fields.includes('label_ko')
-      || !fields.includes('quantity_kind')
-      || fields.some((field) => !allowedFields.has(field))
+      !fields.includes('key') ||
+      !fields.includes('label_ko') ||
+      !fields.includes('quantity_kind') ||
+      fields.some((field) => !allowedFields.has(field))
     ) {
       throw new Error(`Material catalog property ${property.key ?? '<unknown>'} has an invalid schema.`)
     }
     if (
-      typeof property.key !== 'string'
-      || typeof property.label_ko !== 'string'
-      || property.label_ko.length === 0
-      || typeof property.quantity_kind !== 'string'
+      typeof property.key !== 'string' ||
+      typeof property.label_ko !== 'string' ||
+      property.label_ko.length === 0 ||
+      typeof property.quantity_kind !== 'string'
     ) {
       throw new Error('Material catalog property keys, labels, and QuantityKind references must be strings.')
     }
@@ -434,24 +455,25 @@ function validateMaterialParameterCatalog(
 
     const [domain, propertyName, ...extraSegments] = property.key.split('.')
     if (
-      !(domain in materialParameterDomainCounts)
-      || !/^[a-z][a-z0-9_]*$/.test(propertyName ?? '')
-      || extraSegments.length > 0
+      !(domain in materialParameterDomainCounts) ||
+      !/^[a-z][a-z0-9_]*$/.test(propertyName ?? '') ||
+      extraSegments.length > 0
     ) {
       throw new Error(`Material catalog property ${property.key} does not follow its domain naming contract.`)
     }
     actualDomainCounts[domain] += 1
     if (
-      /^(?:mdb|qudt):/.test(property.quantity_kind)
-      || !Object.prototype.hasOwnProperty.call(quantityKindData, property.quantity_kind)
+      /^(?:mdb|qudt):/.test(property.quantity_kind) ||
+      !Object.prototype.hasOwnProperty.call(quantityKindData, property.quantity_kind)
     ) {
       throw new Error(`Material catalog property ${property.key} has an invalid QuantityKind reference.`)
     }
-    if (property.special_qualifiers !== undefined && (
-      !Array.isArray(property.special_qualifiers)
-      || !Object.isFrozen(property.special_qualifiers)
-      || property.special_qualifiers.some((qualifier) => typeof qualifier !== 'string')
-    )) {
+    if (
+      property.special_qualifiers !== undefined &&
+      (!Array.isArray(property.special_qualifiers) ||
+        !Object.isFrozen(property.special_qualifiers) ||
+        property.special_qualifiers.some((qualifier) => typeof qualifier !== 'string'))
+    ) {
       throw new Error(`Material catalog property ${property.key} has invalid special qualifiers.`)
     }
   }
@@ -472,11 +494,7 @@ function markdownCode(value) {
   return `\`${String(value).replaceAll('`', '\\`')}\``
 }
 
-function materialParameterCatalogMarkdown(
-  materialParameterDomains,
-  materialParameterData,
-  materialParameterCatalog,
-) {
+function materialParameterCatalogMarkdown(materialParameterDomains, materialParameterData, materialParameterCatalog) {
   const [version, status] = materialParameterCatalog.catalog_version.split('-', 2)
   const titleStatus = status ? ` (${status[0].toUpperCase()}${status.slice(1)})` : ''
   const lines = [
@@ -488,9 +506,9 @@ function materialParameterCatalogMarkdown(
     '',
     '## Rules',
     '',
-    ...Object.entries(materialParameterCatalog.design_rules).map(([name, description]) => (
-      `- **${markdownText(name)}**: ${markdownText(description)}`
-    )),
+    ...Object.entries(materialParameterCatalog.design_rules).map(
+      ([name, description]) => `- **${markdownText(name)}**: ${markdownText(description)}`,
+    ),
     '',
     '## Global qualifiers',
     '',
@@ -526,9 +544,10 @@ function materialModelCatalogMarkdown(materialModelCatalog) {
     '',
     '| Key | Korean label | Input QuantityKind | Output QuantityKind | Minimum samples | Shared basis |',
     '|---|---|---|---|---:|---|',
-    ...materialModelCatalog.relations.map((relation) => (
-      `| ${markdownCode(relation.key)} | ${markdownText(relation.label_ko)} | ${markdownCode(relation.input.quantity_kind)} | ${markdownCode(relation.output.quantity_kind)} | ${relation.minimum_samples} | ${relation.shared_basis} |`
-    )),
+    ...materialModelCatalog.relations.map(
+      (relation) =>
+        `| ${markdownCode(relation.key)} | ${markdownText(relation.label_ko)} | ${markdownCode(relation.input.quantity_kind)} | ${markdownCode(relation.output.quantity_kind)} | ${relation.minimum_samples} | ${relation.shared_basis} |`,
+    ),
   ]
   return `${lines.join('\n')}\n`
 }
@@ -540,12 +559,12 @@ const [modelV2Runtime, coreRuntime] = await Promise.all([
   loadBundledModule(path.join(root, 'src/lib/cad/model/core.ts')),
 ])
 if (
-  typeof modelV2Runtime.structure !== 'function'
-  || typeof modelV2Runtime.experiment !== 'function'
-  || typeof modelV2Runtime.StructureDefinitionV2 !== 'function'
-  || typeof modelV2Runtime.ExperimentDefinitionV2 !== 'function'
-  || typeof coreRuntime.Material !== 'function'
-  || typeof coreRuntime.Mat !== 'function'
+  typeof modelV2Runtime.structure !== 'function' ||
+  typeof modelV2Runtime.experiment !== 'function' ||
+  typeof modelV2Runtime.StructureDefinitionV2 !== 'function' ||
+  typeof modelV2Runtime.ExperimentDefinitionV2 !== 'function' ||
+  typeof coreRuntime.Material !== 'function' ||
+  typeof coreRuntime.Mat !== 'function'
 ) {
   throw new Error('@caemble/core/v2 runtime exports do not match the declaration generator contract.')
 }
@@ -564,9 +583,9 @@ for (const directory of solverDirectories) {
     continue
   }
   const module = await loadBundledModule(specPath)
-  const spec = Object.values(module).find((value) => (
-    value && typeof value === 'object' && 'name' in value && 'version' in value && 'methods' in value
-  ))
+  const spec = Object.values(module).find(
+    (value) => value && typeof value === 'object' && 'name' in value && 'version' in value && 'methods' in value,
+  )
   if (!spec) throw new Error(`No SolverSpec export was found in ${specPath}.`)
   specs.push(spec)
 }
@@ -587,12 +606,12 @@ const {
   materialParameterDomains,
 } = materialModule
 if (
-  !materialModelByKey
-  || !materialModelCatalog
-  || !materialModelData
-  || !materialParameterCatalog
-  || !materialParameterData
-  || !materialParameterDomains
+  !materialModelByKey ||
+  !materialModelCatalog ||
+  !materialModelData ||
+  !materialParameterCatalog ||
+  !materialParameterData ||
+  !materialParameterDomains
 ) {
   throw new Error('Material parameter data could not be loaded for catalog generation.')
 }
@@ -625,24 +644,24 @@ validateMaterialParameterCatalog(
   quantityKindData,
 )
 if (
-  materialModelCatalog.catalog_id !== 'material-model-catalog'
-  || materialModelCatalog.catalog_version !== '0.0.0'
-  || materialModelCatalog.quantity_kind_data_version !== authoringManifest.quantityKindDataVersion
-  || materialModelCatalog.relations !== materialModelData
-  || materialModelData.length !== 2
-  || Object.keys(materialModelByKey).length !== 2
+  materialModelCatalog.catalog_id !== 'material-model-catalog' ||
+  materialModelCatalog.catalog_version !== '0.0.0' ||
+  materialModelCatalog.quantity_kind_data_version !== authoringManifest.quantityKindDataVersion ||
+  materialModelCatalog.relations !== materialModelData ||
+  materialModelData.length !== 2 ||
+  Object.keys(materialModelByKey).length !== 2
 ) {
   throw new Error('Material model catalog identity or relation data is invalid.')
 }
 for (const relation of materialModelData) {
   if (
-    materialModelByKey[relation.key] !== relation
-    || relation.kind !== 'sampled_relation'
-    || !Object.prototype.hasOwnProperty.call(quantityKindData, relation.input.quantity_kind)
-    || !Object.prototype.hasOwnProperty.call(quantityKindData, relation.output.quantity_kind)
-    || !Number.isSafeInteger(relation.minimum_samples)
-    || relation.minimum_samples < 2
-    || typeof relation.shared_basis !== 'boolean'
+    materialModelByKey[relation.key] !== relation ||
+    relation.kind !== 'sampled_relation' ||
+    !Object.prototype.hasOwnProperty.call(quantityKindData, relation.input.quantity_kind) ||
+    !Object.prototype.hasOwnProperty.call(quantityKindData, relation.output.quantity_kind) ||
+    !Number.isSafeInteger(relation.minimum_samples) ||
+    relation.minimum_samples < 2 ||
+    typeof relation.shared_basis !== 'boolean'
   ) {
     throw new Error(`Material model relation ${relation.key} is invalid.`)
   }
@@ -656,20 +675,18 @@ await emit(
 )
 
 const v2DeclarationPath = path.join(root, 'src/lib/cad/api/caemble-core-v2.d.ts')
-const v2Declaration = await readFile(v2DeclarationPath, 'utf8')
-  .then((source) => source
+const v2Declaration = await readFile(v2DeclarationPath, 'utf8').then((source) =>
+  source
     .replace(
       /^\/\/ @caemble\/core\/v2 declaration version: .*$/m,
       `// @caemble/core/v2 declaration version: ${authoringManifest.coreV2DeclarationVersion}`,
     )
-    .replace(
-      /\/\/ <generated:solver-authoring>[\s\S]*?\/\/ <\/generated:solver-authoring>/,
-      solverAuthoring(specs),
-    ))
+    .replace(/\/\/ <generated:solver-authoring>[\s\S]*?\/\/ <\/generated:solver-authoring>/, solverAuthoring(specs)),
+)
 
 const coreDeclarationPath = path.join(root, 'src/lib/cad/api/caemble-core.d.ts')
-const coreDeclaration = await readFile(coreDeclarationPath, 'utf8')
-  .then((source) => source
+const coreDeclaration = await readFile(coreDeclarationPath, 'utf8').then((source) =>
+  source
     .replace(
       /\/\/ <generated:quantity-kind-types>[\s\S]*?\/\/ <\/generated:quantity-kind-types>/,
       quantityKindTypes(quantityKindData),
@@ -677,7 +694,8 @@ const coreDeclaration = await readFile(coreDeclarationPath, 'utf8')
     .replace(
       /\/\/ <generated:material-catalog-types>[\s\S]*?\/\/ <\/generated:material-catalog-types>/,
       materialCatalogTypes(materialParameterData, materialModelData),
-    ))
+    ),
+)
 
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'))
 if (packageJson.dependencies['monaco-editor'] !== authoringManifest.monacoVersion) {
@@ -694,9 +712,7 @@ const monacoTypeScriptVersion = monacoTypeScriptMetadata.match(/typescriptVersio
 if (monacoTypeScriptVersion !== authoringManifest.typescriptVersion) {
   throw new Error('The test TypeScript version must match the TypeScript version embedded in Monaco.')
 }
-const solverVersions = JSON.stringify(Object.fromEntries(
-  specs.map((spec) => [spec.name, spec.version]),
-), null, 2)
+const solverVersions = JSON.stringify(Object.fromEntries(specs.map((spec) => [spec.name, spec.version])), null, 2)
 const generatedVersions = `// Generated by scripts/generate-cad-api.mjs. Do not edit.
 export const CAEMBLE_CORE_V2_DECLARATION_VERSION = ${tsString(authoringManifest.coreV2DeclarationVersion)} as const
 export const CAEMBLE_MONACO_VERSION = ${tsString(authoringManifest.monacoVersion)} as const
@@ -714,16 +730,9 @@ await Promise.all([
   emit('src/lib/cad/api/generatedVersions.ts', generatedVersions),
   emit(
     'src/lib/material/material_parameter_catalog_v0.0.0.md',
-    materialParameterCatalogMarkdown(
-      materialParameterDomains,
-      materialParameterData,
-      materialParameterCatalog,
-    ),
+    materialParameterCatalogMarkdown(materialParameterDomains, materialParameterData, materialParameterCatalog),
   ),
-  emit(
-    'src/lib/material/material_model_catalog_v0.0.0.md',
-    materialModelCatalogMarkdown(materialModelCatalog),
-  ),
+  emit('src/lib/material/material_model_catalog_v0.0.0.md', materialModelCatalogMarkdown(materialModelCatalog)),
 ])
 
 if (checkOnly && changed.length > 0) {

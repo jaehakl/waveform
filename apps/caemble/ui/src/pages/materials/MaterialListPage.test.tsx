@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
@@ -70,7 +70,7 @@ function renderPage() {
 beforeEach(() => {
   api.listMaterials.mockResolvedValue({
     items: [
-      { id: 1, inchi: 'InChI=1S/Cu', user_id: null },
+      { id: 1, inchi: 'InChI=1S/Cu', color: '#d97706', user_id: null },
       { id: 2, inchi: 'InChI=1S/Fe', user_id: 'admin-id' },
     ],
     total: 2,
@@ -97,6 +97,8 @@ describe('MaterialListPage', () => {
   it('searches all visible names and InChI and opens the selected detail', async () => {
     const router = renderPage()
     expect(await screen.findByText('Copper')).toBeInTheDocument()
+    expect(screen.getByText('#d97706')).toBeInTheDocument()
+    expect(screen.getByLabelText('색상 #d97706')).toHaveStyle({ backgroundColor: '#d97706' })
     await userEvent.type(screen.getByRole('textbox', { name: 'Material 검색' }), '구리')
     expect(screen.getByText('Copper')).toBeInTheDocument()
     expect(screen.queryByText('Iron')).not.toBeInTheDocument()
@@ -106,17 +108,32 @@ describe('MaterialListPage', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/materials/2'))
   })
 
+  it('shows white in an unset picker while creating the Material with a null color', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Material 추가' }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByLabelText('Color palette')).toHaveValue('#ffffff')
+    expect(within(dialog).getByLabelText('Color')).toHaveValue('')
+    await userEvent.click(within(dialog).getByRole('button', { name: '생성' }))
+
+    await waitFor(() =>
+      expect(api.upsertMaterial).toHaveBeenCalledWith([expect.objectContaining({ color: null, user_id: null })]),
+    )
+  })
+
   it('defaults admin creation to public and rolls back when the initial name fails', async () => {
     api.upsertName.mockRejectedValueOnce(new Error('duplicate name'))
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: 'Material 추가' }))
     const dialog = screen.getByRole('dialog')
     await userEvent.type(within(dialog).getByLabelText('InChI'), 'InChI=1S/C')
+    fireEvent.change(within(dialog).getByLabelText('Color palette'), { target: { value: '#a1b2c3' } })
+    expect(within(dialog).getByLabelText('Color')).toHaveValue('#a1b2c3')
     await userEvent.type(within(dialog).getByLabelText('최초 이름'), 'Carbon')
     await userEvent.click(within(dialog).getByRole('button', { name: '생성' }))
 
     await waitFor(() => expect(api.deleteMaterial).toHaveBeenCalledWith([42]))
-    expect(api.upsertMaterial).toHaveBeenCalledWith([expect.objectContaining({ user_id: null })])
+    expect(api.upsertMaterial).toHaveBeenCalledWith([expect.objectContaining({ color: '#a1b2c3', user_id: null })])
     expect(api.upsertName).toHaveBeenCalledWith([
       expect.objectContaining({ material_id: 42, name: 'Carbon', user_id: null }),
     ])

@@ -62,12 +62,14 @@ describe('curved edge cylinder geometry', () => {
 
     const [translated] = evaluateCad(h(CurvedCylinder, { id: 'cylinder', pos: [3, 0, 0], materials: [material] }))
     const [combined] = evaluateCad(
-      h(() => h(
-          'union',
-          null,
-          h(CurvedCylinder, { id: 'first', materials: [material] }),
-          h(CurvedCylinder, { id: 'second', pos: [1, 0, 0], materials: [material] }),
-        ),
+      h(
+        () =>
+          h(
+            'union',
+            null,
+            h(CurvedCylinder, { id: 'first', materials: [material] }),
+            h(CurvedCylinder, { id: 'second', pos: [1, 0, 0], materials: [material] }),
+          ),
         { id: 'combined' },
       ),
     )
@@ -75,9 +77,9 @@ describe('curved edge cylinder geometry', () => {
     const bounds = measurements.measureBoundingBox(translated.geometry)
     expect(bounds[0][0]).toBeCloseTo(2)
     expect(bounds[1][0]).toBeCloseTo(4)
-    expect(translated.material?.symbol).toBe('Curved Cylinder')
+    expect(translated.material?.name).toBe('Curved Cylinder')
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Bottom', 'Side', 'Top'])
-    expect(combined.material?.symbol).toBe('Curved Cylinder')
+    expect(combined.material?.name).toBe('Curved Cylinder')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

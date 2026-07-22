@@ -1,4 +1,5 @@
 import type { EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
+import type { BuiltRealizationV2 } from '../execution/realization'
 import type { RecordedData } from '../model/core'
 import type { Tensor } from '../model/types'
 import type { CadSourceDocumentV2 } from '../source/document'
@@ -34,10 +35,10 @@ export type CadEvaluationRequestV2 = Readonly<{
 
 export type CadWorkerRequest =
   | Readonly<{
-      type: 'cache-snapshot'
+      type: 'cache-realization'
       requestId: string
       revision: number
-      snapshot: EvaluatedDocumentSnapshotV2
+      realization: BuiltRealizationV2
     }>
   | Readonly<{
       type: 'run-solver'
@@ -51,7 +52,7 @@ export type CadWorkerRequest =
     }>
 
 export type CadEvaluationResponseV2 =
-  Readonly<{
+  | Readonly<{
       type: 'document-success'
       requestId: string
       revision: number

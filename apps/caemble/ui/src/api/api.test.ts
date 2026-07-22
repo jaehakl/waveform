@@ -173,9 +173,35 @@ describe('unified dbTables API', () => {
     expect(calls).toHaveLength(callsBeforeInvalidRecords)
   })
 
+  it('uses the dedicated Structure and Experiment semantic save endpoints', async () => {
+    const seen: string[] = []
+    server.use(
+      http.post('http://api.test/:entity/save', ({ params }) => {
+        seen.push(String(params.entity))
+        return HttpResponse.json({ id: seen.length, action: seen.length === 1 ? 'updated' : 'forked', parentId: null })
+      }),
+    )
+    const { dbTables } = await loadApi()
+    const payload = {
+      id: 1,
+      name: 'Definition',
+      description: null,
+      code: 'export default 1',
+      rawCodeHash: '1'.repeat(64),
+      semanticHash: '2'.repeat(64),
+      semanticHashVersion: 1 as const,
+      baseRawCodeHash: '3'.repeat(64),
+      baseSemanticHash: '4'.repeat(64),
+    }
+
+    await expect(dbTables.Structure.save(payload)).resolves.toMatchObject({ action: 'updated' })
+    await expect(dbTables.Experiment.save(payload)).resolves.toMatchObject({ action: 'forked' })
+    expect(seen).toEqual(['structure', 'experiment'])
+  })
+
   it('uses validated list, upsert, and delete contracts for every CRUD table', async () => {
     const definitions = [
-      ['Material', 'material', {}],
+      ['Material', 'material', { color: '#a1b2c3' }],
       ['MaterialName', 'material_name', { material_id: 1, name: 'Copper' }],
       ['MaterialParameter', 'material_parameter', { material_id: 1, name: 'conductivity', value: 5.96e7 }],
       [
@@ -187,7 +213,7 @@ describe('unified dbTables API', () => {
       ['Structure', 'structure', { name: 'Structure', code: 'export default structure({})' }],
       ['Experiment', 'experiment', { name: 'Experiment', code: 'export default experiment({})' }],
       ['Sample', 'sample', { structure_id: 1, vars: {}, material_parameters: {} }],
-      ['Setup', 'setup', { experiment_id: 1, vars: {} }],
+      ['Setup', 'setup', { experiment_id: 1, vars: {}, material_parameters: {} }],
       ['Measurement', 'measurement', { sample_id: 1, setup_id: 1 }],
       [
         'RecordedData',

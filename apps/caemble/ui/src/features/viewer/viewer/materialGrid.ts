@@ -1,5 +1,8 @@
-import type { CadScenePart } from '@/lib/cad'
-import { createSolidPointTester, type SolidPointTester } from '@/lib/cad'
+// The development worker must not evaluate the compiler and runner exports from the CAD barrel.
+// eslint-disable-next-line no-restricted-imports
+import type { CadScenePart } from '@/lib/cad/evaluation/types'
+// eslint-disable-next-line no-restricted-imports
+import { createSolidPointTester, type SolidPointTester } from '@/lib/cad/geometry/solid'
 import { materialColor } from './materialColor'
 import { colorFromHex } from './selection'
 
@@ -8,9 +11,10 @@ type Vec3 = readonly [number, number, number]
 
 type Bounds = readonly [Vec3, Vec3]
 
-type PreparedPart = SolidPointTester & Readonly<{
-  color: readonly [number, number, number, number]
-}>
+type PreparedPart = SolidPointTester &
+  Readonly<{
+    color: readonly [number, number, number, number]
+  }>
 
 export type MaterialGridResult = Readonly<{
   candidatePointCount: number
@@ -52,8 +56,16 @@ function preparePart(part: CadScenePart): PreparedPart | null {
 }
 
 function aggregateBounds(parts: readonly PreparedPart[]): Bounds {
-  const minimum: [number, number, number] = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
-  const maximum: [number, number, number] = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY]
+  const minimum: [number, number, number] = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+  ]
+  const maximum: [number, number, number] = [
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ]
 
   for (const part of parts) {
     for (let axis = 0; axis < 3; axis += 1) {
@@ -93,11 +105,7 @@ function countGridPointUpperBound(bounds: Bounds, spacing: number) {
   }, 1)
 }
 
-function resolveEffectiveSpacing(
-  bounds: Bounds,
-  requestedSpacing: number,
-  maximumCandidatePoints: number,
-) {
+function resolveEffectiveSpacing(bounds: Bounds, requestedSpacing: number, maximumCandidatePoints: number) {
   if (countGridPoints(bounds, requestedSpacing) <= maximumCandidatePoints) return requestedSpacing
 
   let lower = requestedSpacing

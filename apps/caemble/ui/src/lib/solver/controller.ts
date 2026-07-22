@@ -1,4 +1,9 @@
-import { assertEvaluatedDocumentSnapshotV2, type EvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
+import {
+  applyFrozenMaterialParameters,
+  assertBuiltRealizationV2,
+  type BuiltSampleV2,
+  type BuiltSetupV2,
+} from '../cad/execution/realization'
 import { deserializeCadScene } from '../cad/execution/mesh'
 import { CadModelError, type RecordedData } from '../cad/model/core'
 import { normalizeRecordedData } from '../cad/model/recordedData'
@@ -56,26 +61,19 @@ function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
-function prepareSolverInput(
-  structureSnapshot: EvaluatedDocumentSnapshotV2,
-  experimentSnapshot: EvaluatedDocumentSnapshotV2,
-): SolverModuleInput {
-  assertEvaluatedDocumentSnapshotV2(structureSnapshot)
-  assertEvaluatedDocumentSnapshotV2(experimentSnapshot)
-  if (structureSnapshot.kind !== 'structure') {
-    throw new CadModelError('SolverController requires a Structure snapshot.')
-  }
-  if (
-    experimentSnapshot.kind !== 'experiment'
-    || !experimentSnapshot.experimentRules
-    || !experimentSnapshot.solver
-  ) {
-    throw new CadModelError('SolverController requires a complete Experiment snapshot.')
+function prepareSolverInput(sample: BuiltSampleV2, setup: BuiltSetupV2): SolverModuleInput {
+  assertBuiltRealizationV2(sample)
+  assertBuiltRealizationV2(setup)
+  const structureSnapshot = sample.structure
+  const experimentSnapshot = setup.experiment
+  if (!experimentSnapshot.experimentRules || !experimentSnapshot.solver) {
+    throw new CadModelError('SolverController requires a complete built Setup.')
   }
   return Object.freeze({
     structure: Object.freeze({
       vars: structureSnapshot.variables,
-      scene: deserializeCadScene(structureSnapshot.scene),
+      scene: applyFrozenMaterialParameters(deserializeCadScene(structureSnapshot.scene), sample.materialParameters),
+      materialParameters: sample.materialParameters,
       provenance: Object.freeze({
         apiVersion: structureSnapshot.apiVersion,
         seed: structureSnapshot.seed,
@@ -84,7 +82,8 @@ function prepareSolverInput(
     }),
     experiment: Object.freeze({
       vars: experimentSnapshot.variables,
-      scene: deserializeCadScene(experimentSnapshot.scene),
+      scene: applyFrozenMaterialParameters(deserializeCadScene(experimentSnapshot.scene), setup.materialParameters),
+      materialParameters: setup.materialParameters,
       rules: experimentSnapshot.experimentRules,
       solver: experimentSnapshot.solver,
       provenance: Object.freeze({
@@ -125,24 +124,21 @@ export class SolverController {
     this.active?.abortController.abort()
   }
 
-  async run(
-    structureSnapshot: EvaluatedDocumentSnapshotV2,
-    experimentSnapshot: EvaluatedDocumentSnapshotV2,
-  ): Promise<RecordedData> {
+  async run(sample: BuiltSampleV2, setup: BuiltSetupV2): Promise<RecordedData> {
     if (this.active) throw new CadModelError('A solver run is already active.')
 
     const runId = `solver-${Date.now()}-${this.sequence + 1}`
     this.sequence += 1
     const abortController = new AbortController()
-    const solver = experimentSnapshot.kind === 'experiment' && experimentSnapshot.solver
-      ? Object.freeze({ name: experimentSnapshot.solver.name, version: experimentSnapshot.solver.version })
+    const solver = setup.experiment.solver
+      ? Object.freeze({ name: setup.experiment.solver.name, version: setup.experiment.solver.version })
       : null
     const startedAt = Date.now()
     this.active = Object.freeze({ runId, abortController })
     this.updateProcess('preparing', { runId, solver, startedAt })
 
     try {
-      const input = prepareSolverInput(structureSnapshot, experimentSnapshot)
+      const input = prepareSolverInput(sample, setup)
       throwIfAborted(abortController.signal)
       const module = this.registry.get(input.experiment.solver.name, input.experiment.solver.version)
       if (!module) {
@@ -159,10 +155,7 @@ export class SolverController {
         abortController.signal,
       )
       throwIfAborted(abortController.signal)
-      const solverResult = normalizeRecordedData(
-        solverInput.experiment.rules.recordedData,
-        rawResult,
-      )
+      const solverResult = normalizeRecordedData(solverInput.experiment.rules.recordedData, rawResult)
       const result = restoreAuthoringRecordedData(
         solverResult,
         solverInput.experiment.rules.recordedData,
@@ -190,10 +183,7 @@ export class SolverController {
     }
   }
 
-  private updateProcess(
-    status: SolverProcessStatus,
-    values: Partial<Omit<SolverProcess, 'status'>>,
-  ) {
+  private updateProcess(status: SolverProcessStatus, values: Partial<Omit<SolverProcess, 'status'>>) {
     this.process = Object.freeze({
       runId: values.runId ?? null,
       status,

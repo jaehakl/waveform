@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import EmailStr, Field, field_serializer
+from pydantic import EmailStr, Field, field_serializer, field_validator
 
 from utils.datetime_utils import serialize_datetime_utc
 
@@ -69,6 +69,12 @@ class OwnedTimestampFields(TimestampFields):
 class MaterialBase(OwnedTimestampFields):
     inchi: Optional[str] = None
     description: Optional[str] = None
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+
+    @field_validator("color")
+    @classmethod
+    def normalize_color(cls, value: Optional[str]) -> Optional[str]:
+        return value.lower() if value is not None else None
 
 
 class MaterialNameBase(OwnedTimestampFields):
@@ -113,6 +119,30 @@ class ExperimentBase(CodeEntityBase):
     pass
 
 
+class SaveCodeEntityRequest(BaseModel):
+    id: Optional[int] = None
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    code: str = Field(..., min_length=1)
+    rawCodeHash: str = Field(..., pattern=r"^[0-9a-f]{64}$")
+    semanticHash: str = Field(..., pattern=r"^[0-9a-f]{64}$")
+    semanticHashVersion: Literal[1]
+    baseRawCodeHash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+    baseSemanticHash: Optional[str] = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class SaveCodeEntityResponse(BaseModel):
+    id: int
+    action: Literal["created", "updated", "forked"]
+    parentId: Optional[int] = None
+
+
 class SampleBase(OwnedTimestampFields):
     structure_id: int
     vars: Dict[str, Any] = Field(default_factory=dict)
@@ -122,6 +152,7 @@ class SampleBase(OwnedTimestampFields):
 class SetupBase(OwnedTimestampFields):
     experiment_id: int
     vars: Dict[str, Any] = Field(default_factory=dict)
+    material_parameters: Dict[str, Any] = Field(default_factory=dict)
 
 
 class MeasurementBase(OwnedTimestampFields):

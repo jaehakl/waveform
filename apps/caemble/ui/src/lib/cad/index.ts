@@ -13,18 +13,8 @@ export type {
   CadSceneSurface,
   CadSceneTreeNode,
 } from './evaluation/types'
-export {
-  CadModelError,
-  Mat,
-  Material,
-  isFloatDType,
-} from './model/core'
-export {
-  experiment,
-  ExperimentDefinitionV2,
-  structure,
-  StructureDefinitionV2,
-} from './model/v2'
+export { CadModelError, Mat, Material, isFloatDType } from './model/core'
+export { experiment, ExperimentDefinitionV2, structure, StructureDefinitionV2 } from './model/v2'
 export type {
   CadDefinitionV2,
   ExperimentDefinitionOptions,
@@ -107,39 +97,33 @@ export {
   updateCadEntrySource,
 } from './source/document'
 export type { CadEvaluationInputV2, CadSourceDocumentV2 } from './source/document'
-export {
-  CadDocumentEvaluationErrorV2,
-  evaluateDocument,
-} from './execution/evaluateDocument'
+export { CadDocumentEvaluationErrorV2, evaluateDocument } from './execution/evaluateDocument'
 export type { EvaluateDocumentOptionsV2 } from './execution/evaluateDocument'
-export {
-  assertEvaluatedDocumentSnapshotV2,
-} from './execution/snapshot'
+export { assertEvaluatedDocumentSnapshotV2 } from './execution/snapshot'
 export type { EvaluatedDocumentSnapshotV2 } from './execution/snapshot'
 export {
-  assertSerializableCadScene,
-  deserializeCadScene,
-  serializeCadScene,
-} from './execution/mesh'
+  assertBuiltRealizationV2,
+  applyFrozenMaterialParameters,
+  buildRealizationV2,
+  buildSourceOnlyRealizationV2,
+  type BuiltRealizationV2,
+  type BuiltSampleV2,
+  type BuiltSetupV2,
+} from './execution/realization'
+export { assertSerializableCadScene, deserializeCadScene, serializeCadScene } from './execution/mesh'
 export type { SerializableCadMesh, SerializableCadScene, SerializableCadScenePart } from './execution/mesh'
-export {
-  StaleCadSourcePatchError,
-  applyCadSourcePatchV2,
-  createCadSourcePatchV2,
-} from './source/sourcePatch'
+export { StaleCadSourcePatchError, applyCadSourcePatchV2, createCadSourcePatchV2 } from './source/sourcePatch'
 export type { CadSourcePatchV2, CadSourceTextEditV2 } from './source/sourcePatch'
 export { migrateCadSourceV1ToV2 } from './source/codemodV2'
 export type { CadV1CodemodIssue, CadV1CodemodResult } from './source/codemodV2'
 export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/recordedData'
 export type { ResolvedRecordedTensor } from './model/recordedData'
 export { CadCompilationError, compileCadDocument } from './compiler/monacoCompiler'
+export { cadSemanticHash, compiledCadSemanticHash, rawCodeHash } from './compiler/semanticHash'
 export { evaluateInIsolatedRunner } from './runner/client'
 export { StructureGroupSyncError, updateModelGroupSource } from './source/structureGroups'
 export type { StructureGroupProperty } from './source/structureGroups'
-export {
-  inspectExperimentTensorSource,
-  updateExperimentTensorSource,
-} from './source/experimentParameters'
+export { inspectExperimentTensorSource, updateExperimentTensorSource } from './source/experimentParameters'
 export type { ExperimentRuleCategory } from './source/experimentParameters'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { BooleanAttributes } from './elements/operations/booleans/definition'

@@ -38,11 +38,7 @@ function Status({ document }: { document: CadDocumentController }) {
     <div className="flex items-center gap-2">
       <span
         className={`h-2.5 w-2.5 rounded-full ${
-          document.status === 'Error'
-            ? 'bg-rose-500'
-            : document.status === 'Ready'
-              ? 'bg-emerald-500'
-              : 'bg-amber-500'
+          document.status === 'Error' ? 'bg-rose-500' : document.status === 'Ready' ? 'bg-emerald-500' : 'bg-amber-500'
         }`}
       />
       <span className="font-medium text-slate-700">{document.status}</span>
@@ -61,31 +57,29 @@ export function StructureExperimentViewer({
 }: StructureExperimentViewerProps) {
   const hasStructure = structure !== null && structure !== undefined
   const hasExperiment = experiment !== null && experiment !== undefined
-  const availableTabs = workspaceTabs.filter((tab) => (
-    tab.documentType === 'structure' ? hasStructure : hasExperiment
-  ))
-  const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(() => (
+  const availableTabs = workspaceTabs.filter((tab) => (tab.documentType === 'structure' ? hasStructure : hasExperiment))
+  const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(() =>
     activeDocumentType === 'experiment' && hasExperiment
       ? 'experiment-source'
       : hasStructure
         ? 'structure-source'
         : hasExperiment
           ? 'experiment-source'
-          : null
-  ))
-  const selectedTab = activeTab && availableTabs.some((tab) => tab.id === activeTab)
-    ? activeTab
-    : availableTabs[0]?.id ?? null
+          : null,
+  )
+  const selectedTab =
+    activeTab && availableTabs.some((tab) => tab.id === activeTab) ? activeTab : (availableTabs[0]?.id ?? null)
   const selectedDocumentType: CadDocumentType | null = selectedTab?.startsWith('structure')
     ? 'structure'
     : selectedTab
       ? 'experiment'
       : null
-  const activeDocument = selectedDocumentType === 'structure'
-    ? structureDocument
-    : selectedDocumentType === 'experiment'
-      ? experimentDocument
-      : null
+  const activeDocument =
+    selectedDocumentType === 'structure'
+      ? structureDocument
+      : selectedDocumentType === 'experiment'
+        ? experimentDocument
+        : null
 
   useEffect(() => {
     if (activeTab !== selectedTab) setActiveTab(selectedTab)
@@ -123,7 +117,7 @@ export function StructureExperimentViewer({
             <button
               aria-controls={`${tab.id}-panel`}
               aria-selected={selectedTab === tab.id}
-              className={`h-12 shrink-0 border-b-2 px-3 text-xs font-semibold uppercase tracking-wide ${
+              className={`h-12 shrink-0 border-b-2 px-3 text-xs font-semibold tracking-wide uppercase ${
                 selectedTab === tab.id
                   ? 'border-slate-900 text-slate-950'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -151,9 +145,9 @@ export function StructureExperimentViewer({
               className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 disabled:opacity-50"
               disabled={activeDocument.runIsBusy}
               value={activeDocument.evaluationTimeoutMs}
-              onChange={(event) => activeDocument.setEvaluationTimeoutMs(
-                Number(event.target.value) as 3000 | 10000 | 30000,
-              )}
+              onChange={(event) =>
+                activeDocument.setEvaluationTimeoutMs(Number(event.target.value) as 3000 | 10000 | 30000)
+              }
             >
               <option value={3000}>3 s</option>
               <option value={10000}>10 s</option>
@@ -191,7 +185,9 @@ export function StructureExperimentViewer({
             >
               {selectedTab !== tab.id ? null : tab.panel === 'source' ? (
                 <CadEditor
-                  diagnostics={document.diagnostics.filter((diagnostic) => diagnostic.file === sourceDocument?.entryFile)}
+                  diagnostics={document.diagnostics.filter(
+                    (diagnostic) => diagnostic.file === sourceDocument?.entryFile,
+                  )}
                   modelPath={`file:///${tab.documentType}.tsx`}
                   readOnly={document.sourceReadOnly}
                   value={source}
@@ -230,19 +226,25 @@ export function StructureExperimentViewer({
         {activeDocument.error ? (
           <div className="max-h-36 overflow-auto">
             <div className="text-sm font-semibold text-rose-700">{activeDocument.error.title}</div>
-            <pre className="mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-700">
+            <pre className="mt-1 text-xs leading-5 whitespace-pre-wrap text-slate-700">
               {activeDocument.error.message}
               {activeDocument.error.stack ? `\n\n${activeDocument.error.stack}` : ''}
             </pre>
+          </div>
+        ) : activeDocument.materialWarnings.length > 0 ? (
+          <div className="max-h-36 overflow-auto text-amber-900" role="status">
+            <div className="text-sm font-semibold">Preview ready · Material warning</div>
+            <p className="mt-1 text-xs leading-5">{activeDocument.materialWarnings[0]}</p>
           </div>
         ) : solverCompatibility.status === 'incompatible' ? (
           <div className="max-h-36 overflow-auto text-amber-900" role="status">
             <div className="text-sm font-semibold">Preview ready · Simulation incompatible</div>
             <p className="mt-1 text-xs leading-5">
-              {solverCompatibility.issues.length} compatibility issue{solverCompatibility.issues.length === 1 ? '' : 's'} ·{' '}
+              {solverCompatibility.issues.length} compatibility issue
+              {solverCompatibility.issues.length === 1 ? '' : 's'} ·{' '}
               {(activeDocument.preflightIssues[0] ?? solverCompatibility.issues[0])?.path}:{' '}
-              {(activeDocument.preflightIssues[0] ?? solverCompatibility.issues[0])?.message}
-              {' '}See Solver Spec for all compatibility issues.
+              {(activeDocument.preflightIssues[0] ?? solverCompatibility.issues[0])?.message} See Solver Spec for all
+              compatibility issues.
             </p>
           </div>
         ) : (

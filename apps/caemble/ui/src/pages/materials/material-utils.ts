@@ -24,6 +24,10 @@ export const materialCatalogEntries = Object.freeze([
 const materialCatalogKeySet = new Set<string>(materialCatalogEntries.map((entry) => entry.key))
 const dedicatedQualifierNameSet = new Set<string>(dedicatedQualifierNames)
 
+export function isMaterialColorValid(value: string) {
+  return !value.trim() || /^#[0-9a-f]{6}$/i.test(value.trim())
+}
+
 export function isMaterialCatalogKey(value: string) {
   return materialCatalogKeySet.has(value)
 }

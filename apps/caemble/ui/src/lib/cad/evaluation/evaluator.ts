@@ -23,13 +23,7 @@ function resolveMaterials(value: unknown, inherited: readonly Material[] | undef
   return [...value] as Material[]
 }
 
-function addTreeNode(
-  state: EvaluationState,
-  parent: CadSceneTreeNode,
-  key: string,
-  label: string,
-  globalId?: string,
-) {
+function addTreeNode(state: EvaluationState, parent: CadSceneTreeNode, key: string, label: string, globalId?: string) {
   const node: CadSceneTreeNode = {
     key,
     label,
@@ -44,10 +38,7 @@ function addTreeNode(
 function annotateGeometryNodes(tree: CadSceneTreeNode) {
   const geometryIdsByKey = new Map<string, string[]>()
   const collectGeometryIds = (node: CadSceneTreeNode): string[] => {
-    const geometryIds = [
-      ...(node.geometryId ? [node.geometryId] : []),
-      ...node.children.flatMap(collectGeometryIds),
-    ]
+    const geometryIds = [...(node.geometryId ? [node.geometryId] : []), ...node.children.flatMap(collectGeometryIds)]
     geometryIdsByKey.set(node.key, geometryIds)
     return geometryIds
   }
@@ -74,9 +65,7 @@ function resolveGeometryId(value: unknown, label: string, parentId: string, stat
 
   const siblingIds = state.localIdsByParent.get(parentId) ?? new Set<string>()
   if (siblingIds.has(value)) {
-    throw new CadModelError(
-      `Geometry id "${value}" must be unique within parent "${parentId || state.rootLabel}".`,
-    )
+    throw new CadModelError(`Geometry id "${value}" must be unique within parent "${parentId || state.rootLabel}".`)
   }
   siblingIds.add(value)
   state.localIdsByParent.set(parentId, siblingIds)
@@ -146,8 +135,10 @@ function evaluateNode(
     )
   }
 
-  if (type === 'translate') throw new CadModelError('<translate> is not supported. Use the relative pos attribute instead.')
-  if (type === 'rotate') throw new CadModelError('<rotate> is not supported. Use the axis-angle rotate attribute instead.')
+  if (type === 'translate')
+    throw new CadModelError('<translate> is not supported. Use the relative pos attribute instead.')
+  if (type === 'rotate')
+    throw new CadModelError('<rotate> is not supported. Use the axis-angle rotate attribute instead.')
   if (type === 'scale') throw new CadModelError('<scale> is not supported. Use the scale attribute instead.')
 
   const definition = getCadElementDefinition(type)
@@ -163,13 +154,15 @@ function evaluateNode(
     const materials = resolveMaterials(undefined, inheritedMaterials)
 
     const geometry = definition.createGeometry(props)
-    parts = [{
-      geometry,
-      ...(materials === undefined ? {} : { material: materials[0] }),
-      surfaces: definition.createSurfaces(geometry, props),
-      ownerNodeKey,
-      resultNodeKey: nodeKey,
-    }]
+    parts = [
+      {
+        geometry,
+        ...(materials === undefined ? {} : { material: materials[0] }),
+        surfaces: definition.createSurfaces(geometry, props),
+        ownerNodeKey,
+        resultNodeKey: nodeKey,
+      },
+    ]
   } else {
     let childIndex = 0
     parts = definition.evaluate(value, {
@@ -194,15 +187,7 @@ function evaluateNode(
 
         const childKey = `${nodeKey}/child-${childIndex}`
         childIndex += 1
-        return evaluateNode(
-          child,
-          materials,
-          state,
-          traceNode,
-          childKey,
-          identityParent,
-          ownerNodeKey,
-        )
+        return evaluateNode(child, materials, state, traceNode, childKey, identityParent, ownerNodeKey)
       },
     })
 
@@ -280,9 +265,7 @@ export function evaluateCadScene(
     const directPartOrdinal = directPartOrdinals[partIndex]
     const subtreePartCount = subtreePartCounts.get(owner.globalId) ?? 0
     const usesExactGeometryId = directPartCount === 1 && subtreePartCount === 1
-    const id = usesExactGeometryId
-      ? owner.globalId
-      : `${owner.globalId}.$part-${directPartOrdinal}`
+    const id = usesExactGeometryId ? owner.globalId : `${owner.globalId}.$part-${directPartOrdinal}`
     const surfaces = part.surfaces.map((surface, surfaceIndex) => ({
       id: `${id}/surface-${surfaceIndex + 1}`,
       name: surface.name,
@@ -300,7 +283,7 @@ export function evaluateCadScene(
     } else {
       resultNode.children.push({
         key: `${part.resultNodeKey}/${id}`,
-        label: `Part ${directPartOrdinal} · ${part.material?.symbol ?? 'Unassigned'}`,
+        label: `Part ${directPartOrdinal} · ${part.material?.name ?? 'Unassigned'}`,
         geometryId: id,
         children: surfaceNodes,
       })
@@ -311,8 +294,10 @@ export function evaluateCadScene(
       material = sceneMaterials.get(part.material)
       if (!material) {
         material = Object.freeze({
-          symbol: part.material.symbol,
+          name: part.material.name,
+          ...(part.material.source === undefined ? {} : { source: part.material.source }),
           ...(part.material.version === undefined ? {} : { version: part.material.version }),
+          errorRate: part.material.errorRate,
           variables: resolveMaterialVariables(part.material),
         })
         sceneMaterials.set(part.material, material)

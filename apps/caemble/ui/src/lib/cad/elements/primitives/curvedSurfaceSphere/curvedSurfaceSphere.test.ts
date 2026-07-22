@@ -60,12 +60,14 @@ describe('curved surface sphere geometry', () => {
 
     const [translated] = evaluateCad(h(CurvedSphere, { id: 'sphere', pos: [3, 0, 0], materials: [material] }))
     const [combined] = evaluateCad(
-      h(() => h(
-          'union',
-          null,
-          h(CurvedSphere, { id: 'first', materials: [material] }),
-          h(CurvedSphere, { id: 'second', pos: [1, 0, 0], materials: [material] }),
-        ),
+      h(
+        () =>
+          h(
+            'union',
+            null,
+            h(CurvedSphere, { id: 'first', materials: [material] }),
+            h(CurvedSphere, { id: 'second', pos: [1, 0, 0], materials: [material] }),
+          ),
         { id: 'combined' },
       ),
     )
@@ -73,9 +75,9 @@ describe('curved surface sphere geometry', () => {
     const bounds = measurements.measureBoundingBox(translated.geometry)
     expect(bounds[0][0]).toBeCloseTo(2)
     expect(bounds[1][0]).toBeCloseTo(4)
-    expect(translated.material?.symbol).toBe('Curved Sphere')
+    expect(translated.material?.name).toBe('Curved Sphere')
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Outer'])
-    expect(combined.material?.symbol).toBe('Curved Sphere')
+    expect(combined.material?.name).toBe('Curved Sphere')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })

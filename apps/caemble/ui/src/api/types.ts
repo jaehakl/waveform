@@ -6,6 +6,8 @@ export type {
   GetListRequest,
   GetListResponse,
   GpsAccessTokenData,
+  SaveCodeEntityRequest,
+  SaveCodeEntityResponse,
   UpsertResponse,
 } from './api'
 

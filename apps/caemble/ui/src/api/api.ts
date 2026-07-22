@@ -20,9 +20,33 @@ const upsertResponseSchema = z.object({
 const gpsAccessTokenSchema = z.object({ gps_access_token: z.string().nullable() })
 const logoutResponseSchema = z.object({ ok: z.literal(true) })
 const deleteResponseSchema = z.null()
+const saveCodeEntityRequestSchema = z.object({
+  id: z.number().int().optional(),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  code: z.string().min(1),
+  rawCodeHash: z.string().regex(/^[0-9a-f]{64}$/),
+  semanticHash: z.string().regex(/^[0-9a-f]{64}$/),
+  semanticHashVersion: z.literal(1),
+  baseRawCodeHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+  baseSemanticHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .optional(),
+})
+const saveCodeEntityResponseSchema = z.object({
+  id: z.number().int(),
+  action: z.enum(['created', 'updated', 'forked']),
+  parentId: z.number().int().nullable(),
+})
 
 export type GetListRequest = z.infer<typeof getListRequestSchema>
 export type UpsertResponse = z.infer<typeof upsertResponseSchema>
+export type SaveCodeEntityRequest = z.infer<typeof saveCodeEntityRequestSchema>
+export type SaveCodeEntityResponse = z.infer<typeof saveCodeEntityResponseSchema>
 export type GpsAccessTokenData = z.infer<typeof gpsAccessTokenSchema>
 export type GetListResponse<TItem> = { items: TItem[]; total: number }
 
@@ -72,6 +96,11 @@ export const dbTables = {
       user_id: z.string().nullable().optional(),
       inchi: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .nullable()
+        .optional(),
     }),
     async listRows(listRequest: GetListRequest = getListRequest()) {
       const payload = getListRequestSchema.parse(listRequest)
@@ -215,6 +244,10 @@ export const dbTables = {
       const payload = z.array(this.rowSchema).parse(items)
       return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/structure/upsert', payload))
     },
+    async save(item: SaveCodeEntityRequest) {
+      const payload = saveCodeEntityRequestSchema.parse(item)
+      return saveCodeEntityResponseSchema.parse(await request<unknown>('post', '/structure/save', payload))
+    },
     async deleteRows(ids: readonly number[]) {
       const payload = z.array(z.number().int()).parse(ids)
       deleteResponseSchema.parse(await request<unknown>('delete', '/structure/', payload))
@@ -240,6 +273,10 @@ export const dbTables = {
     async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
       const payload = z.array(this.rowSchema).parse(items)
       return z.array(upsertResponseSchema).parse(await request<unknown>('post', '/experiment/upsert', payload))
+    },
+    async save(item: SaveCodeEntityRequest) {
+      const payload = saveCodeEntityRequestSchema.parse(item)
+      return saveCodeEntityResponseSchema.parse(await request<unknown>('post', '/experiment/save', payload))
     },
     async deleteRows(ids: readonly number[]) {
       const payload = z.array(z.number().int()).parse(ids)
@@ -280,6 +317,7 @@ export const dbTables = {
       user_id: z.string().nullable().optional(),
       experiment_id: z.number().int(),
       vars: z.record(z.string(), z.unknown()),
+      material_parameters: z.record(z.string(), z.unknown()),
     }),
     async listRows(listRequest: GetListRequest = getListRequest()) {
       const payload = getListRequestSchema.parse(listRequest)

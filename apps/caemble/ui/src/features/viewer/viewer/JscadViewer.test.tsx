@@ -27,8 +27,12 @@ describe('JscadViewer modes', () => {
     )
 
     expect(markup).toContain('aria-label="Viewer modes"')
-    expect(markup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="viewer-geometry-tab"[^>]*role="tab"[^>]*tabindex="0"/)
-    expect(markup).toMatch(/<button[^>]*aria-selected="false"[^>]*id="viewer-material-grid-tab"[^>]*role="tab"[^>]*tabindex="-1"/)
+    expect(markup).toMatch(
+      /<button[^>]*aria-selected="true"[^>]*id="viewer-geometry-tab"[^>]*role="tab"[^>]*tabindex="0"/,
+    )
+    expect(markup).toMatch(
+      /<button[^>]*aria-selected="false"[^>]*id="viewer-material-grid-tab"[^>]*role="tab"[^>]*tabindex="-1"/,
+    )
     expect(markup).toMatch(/aria-labelledby="viewer-geometry-tab"[^>]*id="viewer-render-panel"[^>]*role="tabpanel"/)
     expect(markup).toContain('aria-label="Camera views"')
     expect(markup).toContain('aria-label="Set default camera view"')
@@ -188,9 +192,7 @@ describe('JscadViewer modes', () => {
             compatibility: { status, issues: [] },
             process: idleSolverProcess,
             run: () => undefined,
-            solver: status === 'checking'
-              ? { name: 'dc-current-density', version: '0.0.0' }
-              : null,
+            solver: status === 'checking' ? { name: 'dc-current-density', version: '0.0.0' } : null,
             stale: false,
           }}
           onApplySpacing={() => undefined}
@@ -220,11 +222,13 @@ describe('JscadViewer modes', () => {
           cancel: () => undefined,
           compatibility: {
             status: 'incompatible',
-            issues: [{
-              documentType: 'structure',
-              path: 'rules.initializations[0].target[0]',
-              message: 'references missing structure.geometry.conductor.',
-            }],
+            issues: [
+              {
+                documentType: 'structure',
+                path: 'rules.initializations[0].target[0]',
+                message: 'references missing structure.geometry.conductor.',
+              },
+            ],
           },
           process: idleSolverProcess,
           run: () => undefined,
@@ -327,16 +331,19 @@ describe('JscadViewer modes', () => {
         lengthUnit="mm"
         layers={[]}
         recordedData={{ 'Total current': { value: 14.9 } }}
-        recordedDataRules={[{
-          target: ['structure.geometry.conductor'],
-          label: 'Total current',
-          methodId: 'dc.total-current',
-          parameters: {},
-          result: {
-            dtype: 'float64',
-            unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent',
+        recordedDataRules={[
+          {
+            target: ['structure.geometry.conductor'],
+            label: 'Total current',
+            methodId: 'dc.total-current',
+            parameters: {},
+            result: {
+              dtype: 'float64',
+              unit: 'A',
+              quantityKind: 'electromagnetism.ElectricCurrent',
+            },
           },
-        }]}
+        ]}
         selected={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
@@ -350,30 +357,41 @@ describe('JscadViewer modes', () => {
 })
 describe('JscadViewer source layers', () => {
   const structurePart = {
-    id: 'shared', geometry: {}, material: { symbol: 'Structure', variables: { color: '#2563eb' } }, surfaces: [],
+    id: 'shared',
+    geometry: {},
+    material: { name: 'Structure', variables: { color: '#2563eb' } },
+    surfaces: [],
   }
   const experimentPart = {
-    id: 'shared', geometry: {}, material: { symbol: 'Experiment', variables: { color: '#dc2626' } }, surfaces: [],
+    id: 'shared',
+    geometry: {},
+    material: { name: 'Experiment', variables: { color: '#dc2626' } },
+    surfaces: [],
   }
 
   it('applies selection only to the active document layer when Geometry IDs collide', () => {
-    const parts = createLayerRenderParts([
-      { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
-      { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
-    ], {
-      documentType: 'structure',
-      selection: { id: 'shared', kind: 'geometry', label: 'Shared', geometryIds: ['shared'] },
-    })
+    const parts = createLayerRenderParts(
+      [
+        { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
+        { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
+      ],
+      {
+        documentType: 'structure',
+        selection: { id: 'shared', kind: 'geometry', label: 'Shared', geometryIds: ['shared'] },
+      },
+    )
 
     expect(parts[0].color).toEqual([220 / 255, 38 / 255, 38 / 255, 1])
     expect(parts[1].color).toEqual([249 / 255, 115 / 255, 22 / 255, 1])
   })
 
   it('orders Experiment before Structure so Structure wins Material Grid overlap', () => {
-    expect(materialGridPartsFromLayers([
-      { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
-      { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
-    ])).toEqual([experimentPart, structurePart])
+    expect(
+      materialGridPartsFromLayers([
+        { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
+        { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
+      ]),
+    ).toEqual([experimentPart, structurePart])
   })
 
   it('scales mixed-unit layers into the display unit without changing source geometry', () => {
@@ -408,8 +426,8 @@ describe('JscadViewer source layers', () => {
 
 describe('JscadViewer Material legend', () => {
   it('shows filled, colorless, and unassigned entries with the matching swatch style', () => {
-    const core = { symbol: 'Core', version: 'Kittel_1988', variables: { color: '#2563eb' } }
-    const cladding = { symbol: 'Cladding', variables: {} }
+    const core = { name: 'Core', version: 'Kittel_1988', variables: { color: '#2563eb' } }
+    const cladding = { name: 'Cladding', variables: {} }
     const markup = renderToStaticMarkup(
       <JscadViewer
         lengthUnit="mm"
@@ -417,13 +435,19 @@ describe('JscadViewer Material legend', () => {
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selected={null}
-        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
-          { id: 'assembly.core-1', geometry: {}, material: core, surfaces: [] },
-          { id: 'assembly.core-2', geometry: {}, material: core, surfaces: [] },
-          { id: 'assembly.cladding', geometry: {}, material: cladding, surfaces: [] },
-          { id: 'assembly.unassigned-1', geometry: {}, surfaces: [] },
-          { id: 'assembly.unassigned-2', geometry: {}, surfaces: [] },
-        ] }]}
+        layers={[
+          {
+            documentType: 'structure',
+            lengthUnit: 'mm',
+            parts: [
+              { id: 'assembly.core-1', geometry: {}, material: core, surfaces: [] },
+              { id: 'assembly.core-2', geometry: {}, material: core, surfaces: [] },
+              { id: 'assembly.cladding', geometry: {}, material: cladding, surfaces: [] },
+              { id: 'assembly.unassigned-1', geometry: {}, surfaces: [] },
+              { id: 'assembly.unassigned-2', geometry: {}, surfaces: [] },
+            ],
+          },
+        ]}
       />,
     )
 
@@ -445,20 +469,26 @@ describe('JscadViewer Material legend', () => {
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         selected={null}
-        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
+        layers={[
           {
-            id: 'assembly.first',
-            geometry: {},
-            material: { symbol: 'Core', variables: { color: '#2563eb' } },
-            surfaces: [],
+            documentType: 'structure',
+            lengthUnit: 'mm',
+            parts: [
+              {
+                id: 'assembly.first',
+                geometry: {},
+                material: { name: 'Core', variables: { color: '#2563eb' } },
+                surfaces: [],
+              },
+              {
+                id: 'assembly.second',
+                geometry: {},
+                material: { name: 'Core', variables: { color: '#dc2626' } },
+                surfaces: [],
+              },
+            ],
           },
-          {
-            id: 'assembly.second',
-            geometry: {},
-            material: { symbol: 'Core', variables: { color: '#dc2626' } },
-            surfaces: [],
-          },
-        ] }]}
+        ]}
       />,
     )
 
@@ -484,12 +514,20 @@ describe('JscadViewer Material legend', () => {
             surfaceIds: ['assembly.core/surface-1'],
           },
         }}
-        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [{
-          id: 'assembly.core',
-          geometry: {},
-          material: { symbol: 'Core', variables: { color: '#2563eb' } },
-          surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
-        }] }]}
+        layers={[
+          {
+            documentType: 'structure',
+            lengthUnit: 'mm',
+            parts: [
+              {
+                id: 'assembly.core',
+                geometry: {},
+                material: { name: 'Core', variables: { color: '#2563eb' } },
+                surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
+              },
+            ],
+          },
+        ]}
       />,
     )
 
@@ -514,20 +552,26 @@ describe('JscadViewer Material legend', () => {
             geometryIds: ['assembly.first', 'assembly.second'],
           },
         }}
-        layers={[{ documentType: 'structure', lengthUnit: 'mm', parts: [
+        layers={[
           {
-            id: 'assembly.first',
-            geometry: {},
-            material: { symbol: 'Core', variables: { color: '#2563eb' } },
-            surfaces: [],
+            documentType: 'structure',
+            lengthUnit: 'mm',
+            parts: [
+              {
+                id: 'assembly.first',
+                geometry: {},
+                material: { name: 'Core', variables: { color: '#2563eb' } },
+                surfaces: [],
+              },
+              {
+                id: 'assembly.second',
+                geometry: {},
+                material: { name: 'Core', variables: { color: '#2563eb' } },
+                surfaces: [],
+              },
+            ],
           },
-          {
-            id: 'assembly.second',
-            geometry: {},
-            material: { symbol: 'Core', variables: { color: '#2563eb' } },
-            surfaces: [],
-          },
-        ] }]}
+        ]}
       />,
     )
 

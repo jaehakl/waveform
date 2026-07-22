@@ -112,12 +112,14 @@ describe('procedural fiber geometry', () => {
 
     const [translated] = evaluateCad(h(Fiber, { id: 'fiber', pos: [3, 0, 0], materials: [material] }))
     const [combined] = evaluateCad(
-      h(() => h(
-          'union',
-          null,
-          h(Fiber, { id: 'first', materials: [material] }),
-          h(Fiber, { id: 'second', pos: [2, 0, 0], materials: [material] }),
-        ),
+      h(
+        () =>
+          h(
+            'union',
+            null,
+            h(Fiber, { id: 'first', materials: [material] }),
+            h(Fiber, { id: 'second', pos: [2, 0, 0], materials: [material] }),
+          ),
         { id: 'combined' },
       ),
     )
@@ -126,7 +128,7 @@ describe('procedural fiber geometry', () => {
     expect(bounds[0][0]).toBeCloseTo(2.5)
     expect(bounds[1][0]).toBeCloseTo(3.5)
     expect(translated.surfaces.map((surface) => surface.name)).toEqual(['Start cap', 'Side', 'End cap'])
-    expect(combined.material?.symbol).toBe('Fiber')
+    expect(combined.material?.name).toBe('Fiber')
     expect(measurements.measureVolume(combined.geometry)).toBeGreaterThan(0)
   })
 })
@@ -167,4 +169,3 @@ describe('procedural fiber validation', () => {
     )
   })
 })
-

@@ -125,6 +125,27 @@ async def upsert_items(
         if inaccessible_ids:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Items not found: {inaccessible_ids}.")
 
+    for item in items:
+        existing = existing_entities.get(item.id)
+        if existing is None:
+            continue
+        changed_field = next(
+            (
+                field_name
+                for field_name in spec.immutable_update_fields
+                if getattr(existing, field_name) != getattr(item, field_name)
+            ),
+            None,
+        )
+        if changed_field is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"{spec.model.__name__}.{changed_field} cannot be changed through generic upsert; "
+                    "use the dedicated save endpoint."
+                ),
+            )
+
     direct_owner = spec.model.__table__.columns.get("user_id") is not None
     effective_owners: list[str | None] = []
     for item in items:

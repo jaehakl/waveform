@@ -1,14 +1,25 @@
-import { assertEvaluatedDocumentSnapshotV2, type EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
+import {
+  applyFrozenMaterialParameters,
+  assertBuiltRealizationV2,
+  type BuiltRealizationV2,
+  type BuiltSampleV2,
+  type BuiltSetupV2,
+} from '../execution/realization'
 import { SolverController } from '../../solver'
 import { solverModules } from '../../solver/modules'
 import type { CadDocumentType, CadWorkerRequest, CadWorkerResponse } from './protocol'
 import { deserializeCadScene } from '../execution/mesh'
 
 let activeSolverRequestId: string | null = null
-const cachedEntries: Partial<Record<CadDocumentType, Readonly<{
-  revision: number
-  snapshot: EvaluatedDocumentSnapshotV2
-}>>> = {}
+const cachedEntries: Partial<
+  Record<
+    CadDocumentType,
+    Readonly<{
+      revision: number
+      realization: BuiltRealizationV2
+    }>
+  >
+> = {}
 const solverController = new SolverController(solverModules)
 
 function postResponse(response: CadWorkerResponse) {
@@ -22,14 +33,28 @@ solverController.subscribe((process) => {
 
 function postSolverPreflight() {
   const experiment = cachedEntries.experiment
-  if (!experiment?.snapshot.experimentRules || !experiment.snapshot.solver) return
+  if (experiment?.realization.kind !== 'setup') return
+  const experimentSnapshot = experiment.realization.experiment
+  if (!experimentSnapshot.experimentRules || !experimentSnapshot.solver) return
   const structure = cachedEntries.structure
   const result = solverController.preflight({
-    ...(structure ? { structure: { scene: deserializeCadScene(structure.snapshot.scene) } } : {}),
+    ...(structure?.realization.kind === 'sample'
+      ? {
+          structure: {
+            scene: applyFrozenMaterialParameters(
+              deserializeCadScene(structure.realization.structure.scene),
+              structure.realization.materialParameters,
+            ),
+          },
+        }
+      : {}),
     experiment: {
-      scene: deserializeCadScene(experiment.snapshot.scene),
-      rules: experiment.snapshot.experimentRules,
-      solver: experiment.snapshot.solver,
+      scene: applyFrozenMaterialParameters(
+        deserializeCadScene(experimentSnapshot.scene),
+        experiment.realization.materialParameters,
+      ),
+      rules: experimentSnapshot.experimentRules,
+      solver: experimentSnapshot.solver,
     },
   })
   postResponse({
@@ -41,17 +66,18 @@ function postSolverPreflight() {
   })
 }
 
-function cacheSnapshot(request: Extract<CadWorkerRequest, { type: 'cache-snapshot' }>) {
+function cacheRealization(request: Extract<CadWorkerRequest, { type: 'cache-realization' }>) {
   try {
-    assertEvaluatedDocumentSnapshotV2(request.snapshot)
+    assertBuiltRealizationV2(request.realization)
     if (!Number.isSafeInteger(request.revision) || request.revision < 0) {
       throw new Error('Snapshot revision is invalid.')
     }
-    const current = cachedEntries[request.snapshot.kind]
+    const documentType = request.realization.kind === 'sample' ? 'structure' : 'experiment'
+    const current = cachedEntries[documentType]
     if (current && current.revision > request.revision) return
-    cachedEntries[request.snapshot.kind] = Object.freeze({
+    cachedEntries[documentType] = Object.freeze({
       revision: request.revision,
-      snapshot: request.snapshot,
+      realization: request.realization,
     })
     postSolverPreflight()
   } catch (error) {
@@ -67,10 +93,10 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
   const structure = cachedEntries.structure
   const experiment = cachedEntries.experiment
   if (
-    !structure
-    || !experiment
-    || structure.revision !== request.structureRevision
-    || experiment.revision !== request.experimentRevision
+    !structure ||
+    !experiment ||
+    structure.revision !== request.structureRevision ||
+    experiment.revision !== request.experimentRevision
   ) {
     postResponse({
       type: 'solver-error',
@@ -86,7 +112,12 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
 
   activeSolverRequestId = request.requestId
   try {
-    const recordedData = await solverController.run(structure.snapshot, experiment.snapshot)
+    const recordedData = await solverController.run(
+      structure.realization as BuiltSampleV2,
+      experiment.realization as BuiltSetupV2,
+    )
+    const structureSnapshot = (structure.realization as BuiltSampleV2).structure
+    const experimentSnapshot = (experiment.realization as BuiltSetupV2).experiment
     postResponse({
       type: 'solver-success',
       requestId: request.requestId,
@@ -95,20 +126,20 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
       recordedData,
       provenance: Object.freeze({
         structure: Object.freeze({
-          apiVersion: structure.snapshot.apiVersion,
-          sourceHash: structure.snapshot.sourceHash,
-          seed: structure.snapshot.seed,
-          vars: structure.snapshot.variables,
+          apiVersion: structureSnapshot.apiVersion,
+          sourceHash: structureSnapshot.sourceHash,
+          seed: structureSnapshot.seed,
+          vars: structureSnapshot.variables,
         }),
         experiment: Object.freeze({
-          apiVersion: experiment.snapshot.apiVersion,
-          sourceHash: experiment.snapshot.sourceHash,
-          seed: experiment.snapshot.seed,
-          vars: experiment.snapshot.variables,
+          apiVersion: experimentSnapshot.apiVersion,
+          sourceHash: experimentSnapshot.sourceHash,
+          seed: experimentSnapshot.seed,
+          vars: experimentSnapshot.variables,
         }),
         solver: Object.freeze({
-          name: experiment.snapshot.solver!.name,
-          version: experiment.snapshot.solver!.version,
+          name: experimentSnapshot.solver!.name,
+          version: experimentSnapshot.solver!.version,
         }),
       }),
     })
@@ -121,8 +152,8 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
 
 self.onmessage = (event: MessageEvent<CadWorkerRequest>) => {
   const message = event.data
-  if (message.type === 'cache-snapshot') {
-    cacheSnapshot(message)
+  if (message.type === 'cache-realization') {
+    cacheRealization(message)
   } else if (message.type === 'run-solver') {
     void runSolver(message)
   } else if (message.type === 'cancel-solver' && activeSolverRequestId === message.requestId) {

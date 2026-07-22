@@ -29,7 +29,7 @@ export function resolveCadSceneSelection(scene: CadScene | null, selectedId: str
       return {
         id: selectedId,
         kind: 'geometry',
-        label: `${part.id} · ${part.material?.symbol ?? 'Unassigned'}`,
+        label: `${part.id} · ${part.material?.name ?? 'Unassigned'}`,
         geometryIds: [part.id],
       }
     }

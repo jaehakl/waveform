@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
@@ -23,6 +23,7 @@ const api = vi.hoisted(() => ({
   upsertParameter: vi.fn(),
   upsertQualifier: vi.fn(),
 }))
+const auth = vi.hoisted(() => ({ roles: ['user'] as string[] }))
 
 vi.mock('@/api', () => ({
   dbTables: {
@@ -55,7 +56,7 @@ vi.mock('@/features/auth/use-auth', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     isLoading: false,
-    user: { id: 'user-id', email: 'user@example.com', is_active: true, roles: ['user'] },
+    user: { id: 'user-id', email: 'user@example.com', is_active: true, roles: auth.roles },
   }),
 }))
 
@@ -89,11 +90,16 @@ async function chooseMaterialCatalogEntry(key: string, currentKey?: string) {
 }
 
 beforeEach(() => {
-  api.listMaterials.mockResolvedValue({ items: [{ id: 1, inchi: 'InChI=1S/Cu', user_id: null }], total: 1 })
+  auth.roles = ['user']
+  api.listMaterials.mockResolvedValue({
+    items: [{ id: 1, inchi: 'InChI=1S/Cu', color: '#d97706', user_id: null }],
+    total: 1,
+  })
   api.listNames.mockResolvedValue({ items: [{ id: 10, material_id: 1, name: 'Copper', user_id: null }], total: 1 })
   api.listParameters.mockResolvedValue({ items: [], total: 0 })
   api.listQualifiers.mockResolvedValue({ items: [], total: 0 })
   api.upsertParameter.mockResolvedValue([{ id: 20 }])
+  api.upsertMaterial.mockResolvedValue([{ id: 1 }])
 })
 
 afterEach(() => {
@@ -102,9 +108,49 @@ afterEach(() => {
 })
 
 describe('MaterialDetailPage permissions and solver guidance', () => {
+  it('syncs direct color input with the palette and saves a palette selection', async () => {
+    auth.roles = ['admin']
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: '편집' }))
+    const dialog = screen.getByRole('dialog')
+    const input = within(dialog).getByLabelText('Color')
+    const palette = within(dialog).getByLabelText('Color palette')
+    expect(palette).toHaveValue('#d97706')
+    await userEvent.clear(input)
+    await userEvent.type(input, '#A1B2C3')
+    expect(palette).toHaveValue('#a1b2c3')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'blue')
+    expect(within(dialog).getByRole('button', { name: '저장' })).toBeDisabled()
+    fireEvent.change(palette, { target: { value: '#336699' } })
+    expect(input).toHaveValue('#336699')
+    await userEvent.click(within(dialog).getByRole('button', { name: '저장' }))
+
+    await waitFor(() =>
+      expect(api.upsertMaterial).toHaveBeenCalledWith([expect.objectContaining({ color: '#336699', id: 1 })]),
+    )
+  })
+
+  it('clears an existing color back to null and resets the picker display to white', async () => {
+    auth.roles = ['admin']
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: '편집' }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: '색상 지우기' }))
+    expect(within(dialog).getByLabelText('Color')).toHaveValue('')
+    expect(within(dialog).getByLabelText('Color palette')).toHaveValue('#ffffff')
+    await userEvent.click(within(dialog).getByRole('button', { name: '저장' }))
+
+    await waitFor(() =>
+      expect(api.upsertMaterial).toHaveBeenCalledWith([expect.objectContaining({ color: null, id: 1 })]),
+    )
+  })
+
   it('keeps a public Material read-only while allowing a user to add a private missing parameter', async () => {
     renderPage()
     expect(await screen.findByRole('heading', { name: 'Copper' })).toBeInTheDocument()
+    expect(screen.getByText('#d97706')).toBeInTheDocument()
+    expect(screen.getByLabelText('색상 #d97706')).toHaveStyle({ backgroundColor: '#d97706' })
     expect(screen.queryByRole('button', { name: '편집' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '이름 추가' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Parameter 추가' })).toBeEnabled()

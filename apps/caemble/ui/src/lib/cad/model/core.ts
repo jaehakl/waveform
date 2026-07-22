@@ -111,10 +111,7 @@ export function normalizeRawScalar(value: unknown, path: string): ScalarValue {
   throw new CadModelError(`${path} must be a raw boolean, string, safe integer, or dtype descriptor.`)
 }
 
-function normalizeSolverParameterValue(
-  value: unknown,
-  path: string,
-): SolverParameterValue {
+function normalizeSolverParameterValue(value: unknown, path: string): SolverParameterValue {
   if (isPlainObject(value)) return normalizeDataValueDescriptor(value, path)
   return normalizeRawScalar(value, path)
 }
@@ -191,65 +188,62 @@ function assertNoLegacyDataKeys(value: Record<string, unknown>, path: string) {
   }
 }
 
-function normalizeDataAxes(
-  value: unknown,
-  path: string,
-) {
+function normalizeDataAxes(value: unknown, path: string) {
   if (value === undefined) return undefined
   if (!Array.isArray(value)) throw new CadModelError(`${path}.axes must be an array.`)
   if (value.length === 0) {
     throw new CadModelError(`${path}.axes must be omitted for a single value; axes cannot be empty.`)
   }
 
-  return Object.freeze(Array.from(value, (rawAxis, axisIndex) => {
-    const axisPath = `${path}.axes[${axisIndex}]`
-    if (!isPlainObject(rawAxis)) {
-      throw new CadModelError(`${axisPath} must be a plain object.`)
-    }
-    const axisKeys = ['length', 'name', 'ticks', 'unit', 'quantityKind']
-      .filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
-    assertDescriptorKeys(rawAxis, axisKeys, axisPath)
-
-    if (!Number.isSafeInteger(rawAxis.length) || (rawAxis.length as number) <= 0) {
-      throw new CadModelError(`${axisPath}.length must be a positive safe integer.`)
-    }
-    const length = rawAxis.length as number
-
-    const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
-    if (typeof name !== 'string' || !name.trim()) {
-      throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
-    }
-    const hasUnit = Object.prototype.hasOwnProperty.call(rawAxis, 'unit')
-    const hasQuantityKind = Object.prototype.hasOwnProperty.call(rawAxis, 'quantityKind')
-    if (hasUnit !== hasQuantityKind) {
-      throw new CadModelError(`${axisPath} must specify both unit and quantityKind or neither.`)
-    }
-    const metadata = hasUnit ? normalizeQuantityMetadata(rawAxis, axisPath, true) : undefined
-
-    const rawTicks = rawAxis.ticks === undefined
-      ? Array.from({ length }, (_, tickIndex) => tickIndex)
-      : rawAxis.ticks
-    if (!Array.isArray(rawTicks)) {
-      throw new CadModelError(`${axisPath}.ticks must be an array.`)
-    }
-    if (rawTicks.length !== length) {
-      throw new CadModelError(
-        `${axisPath}.ticks has length ${rawTicks.length}; expected ${length} to match ${axisPath}.length.`,
+  return Object.freeze(
+    Array.from(value, (rawAxis, axisIndex) => {
+      const axisPath = `${path}.axes[${axisIndex}]`
+      if (!isPlainObject(rawAxis)) {
+        throw new CadModelError(`${axisPath} must be a plain object.`)
+      }
+      const axisKeys = ['length', 'name', 'ticks', 'unit', 'quantityKind'].filter((key) =>
+        Object.prototype.hasOwnProperty.call(rawAxis, key),
       )
-    }
-    const ticks = Object.freeze(Array.from(rawTicks, (tick, tickIndex) => {
-      if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
-      throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
-    }))
+      assertDescriptorKeys(rawAxis, axisKeys, axisPath)
 
-    return Object.freeze({ length, name: name.trim(), ticks, ...metadata })
-  }))
+      if (!Number.isSafeInteger(rawAxis.length) || (rawAxis.length as number) <= 0) {
+        throw new CadModelError(`${axisPath}.length must be a positive safe integer.`)
+      }
+      const length = rawAxis.length as number
+
+      const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
+      if (typeof name !== 'string' || !name.trim()) {
+        throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
+      }
+      const hasUnit = Object.prototype.hasOwnProperty.call(rawAxis, 'unit')
+      const hasQuantityKind = Object.prototype.hasOwnProperty.call(rawAxis, 'quantityKind')
+      if (hasUnit !== hasQuantityKind) {
+        throw new CadModelError(`${axisPath} must specify both unit and quantityKind or neither.`)
+      }
+      const metadata = hasUnit ? normalizeQuantityMetadata(rawAxis, axisPath, true) : undefined
+
+      const rawTicks = rawAxis.ticks === undefined ? Array.from({ length }, (_, tickIndex) => tickIndex) : rawAxis.ticks
+      if (!Array.isArray(rawTicks)) {
+        throw new CadModelError(`${axisPath}.ticks must be an array.`)
+      }
+      if (rawTicks.length !== length) {
+        throw new CadModelError(
+          `${axisPath}.ticks has length ${rawTicks.length}; expected ${length} to match ${axisPath}.length.`,
+        )
+      }
+      const ticks = Object.freeze(
+        Array.from(rawTicks, (tick, tickIndex) => {
+          if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
+          throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
+        }),
+      )
+
+      return Object.freeze({ length, name: name.trim(), ticks, ...metadata })
+    }),
+  )
 }
 
-function normalizeDataSchema(
-  value: Record<string, unknown>,
-  path: string,
-) {
+function normalizeDataSchema(value: Record<string, unknown>, path: string) {
   assertNoLegacyDataKeys(value, path)
   if (typeof value.dtype !== 'string' || !dataDTypes.has(value.dtype as DataDType)) {
     throw new CadModelError(`${path}.dtype must be a supported data dtype.`)
@@ -263,16 +257,10 @@ function normalizeDataSchema(
       throw new CadModelError(`${path} must specify both unit and quantityKind for a float dtype.`)
     }
   } else if (hasUnit || hasQuantityKind || hasBasis) {
-    throw new CadModelError(
-      `${path}.unit, ${path}.quantityKind, and ${path}.basis are allowed only for float dtypes.`,
-    )
+    throw new CadModelError(`${path}.unit, ${path}.quantityKind, and ${path}.basis are allowed only for float dtypes.`)
   }
-  const metadata = isFloatDType(dtype)
-    ? normalizeQuantityMetadata(value, path)
-    : undefined
-  const componentShape = metadata === undefined
-    ? []
-    : getQuantityKindComponentShape(metadata.quantityKind)
+  const metadata = isFloatDType(dtype) ? normalizeQuantityMetadata(value, path) : undefined
+  const componentShape = metadata === undefined ? [] : getQuantityKindComponentShape(metadata.quantityKind)
   const axes = normalizeDataAxes(value.axes, path)
   const outerShape = axes?.map((axis) => axis.length) ?? []
   return {
@@ -296,9 +284,7 @@ function describeTensorShape(value: unknown, ancestors = new Set<unknown>()): st
     return `[${value.length}, ragged ${uniqueShapes.join(' | ')}]`
   }
   const child = uniqueShapes[0]
-  return child === '[]'
-    ? `[${value.length}]`
-    : `[${value.length}, ${child.slice(1, -1)}]`
+  return child === '[]' ? `[${value.length}]` : `[${value.length}, ${child.slice(1, -1)}]`
 }
 
 function tensorShapeError(path: string, value: unknown, shape: readonly number[]): CadModelError {
@@ -307,11 +293,7 @@ function tensorShapeError(path: string, value: unknown, shape: readonly number[]
   )
 }
 
-export function normalizeDataElement(
-  value: unknown,
-  dtype: DataDType,
-  path: string,
-) {
+export function normalizeDataElement(value: unknown, dtype: DataDType, path: string) {
   if (dtype === 'bool') {
     if (typeof value !== 'boolean') throw new CadModelError(`${path} must be a bool element.`)
     return value
@@ -359,24 +341,14 @@ export function normalizeDataValue(
   }
 
   ancestors.add(value)
-  const normalized = value.map((item, index) => normalizeDataValue(
-    item,
-    shape,
-    dtype,
-    `${path}[${index}]`,
-    rootValue,
-    rootPath,
-    depth + 1,
-    ancestors,
-  ))
+  const normalized = value.map((item, index) =>
+    normalizeDataValue(item, shape, dtype, `${path}[${index}]`, rootValue, rootPath, depth + 1, ancestors),
+  )
   ancestors.delete(value)
   return Object.freeze(normalized)
 }
 
-export function normalizeDataValueDescriptor(
-  value: unknown,
-  path = 'Data value descriptor',
-): DataValueDescriptor {
+export function normalizeDataValueDescriptor(value: unknown, path = 'Data value descriptor'): DataValueDescriptor {
   if (!isPlainObject(value)) {
     throw new CadModelError(`${path} must be a dtype descriptor.`)
   }
@@ -394,44 +366,48 @@ export function normalizeDataValueDescriptor(
   }) as DataValueDescriptor
 }
 
+export const DEFAULT_MATERIAL_ERROR_RATE = 0.001
+
+export function normalizeMaterialErrorRate(value: unknown, path: string, fallback = DEFAULT_MATERIAL_ERROR_RATE) {
+  const normalized = value === undefined ? fallback : value
+  if (typeof normalized !== 'number' || !Number.isFinite(normalized) || normalized < 0 || normalized >= 1) {
+    throw new CadModelError(`${path} must be a finite number in [0, 1).`)
+  }
+  return normalized
+}
+
 export function normalizeMaterialDataValueDescriptor(
   key: MaterialPropertyKey,
   value: Record<string, unknown>,
   path: string,
+  defaultErrorRate = DEFAULT_MATERIAL_ERROR_RATE,
 ): ResolvedMaterialDataValueDescriptor {
   assertNoLegacyDataKeys(value, path)
   const dtype = value.dtype
   if (typeof dtype !== 'string' || !isFloatDType(dtype as DataDType)) {
     throw new CadModelError(`${path}.dtype must be a supported float dtype.`)
   }
-  const descriptorKeys = ['dtype', 'value', 'unit', 'errorRate']
+  const descriptorKeys = ['dtype', 'value', 'unit']
+  if (Object.prototype.hasOwnProperty.call(value, 'errorRate')) descriptorKeys.push('errorRate')
   if (Object.prototype.hasOwnProperty.call(value, 'basis')) descriptorKeys.push('basis')
   assertDescriptorKeys(value, descriptorKeys, path)
-  if (
-    typeof value.errorRate !== 'number'
-    || !Number.isFinite(value.errorRate)
-    || value.errorRate < 0
-    || value.errorRate >= 1
-  ) {
-    throw new CadModelError(`${path}.errorRate must be a finite number in [0, 1).`)
-  }
+  const errorRate = normalizeMaterialErrorRate(value.errorRate, `${path}.errorRate`, defaultErrorRate)
   const quantityKind = materialParameterByKey[key].quantity_kind
-  const { storageShape, ...schema } = normalizeDataSchema({
-    ...value,
-    quantityKind,
-  }, path)
+  const { storageShape, ...schema } = normalizeDataSchema(
+    {
+      ...value,
+      quantityKind,
+    },
+    path,
+  )
   return Object.freeze({
     ...schema,
     value: normalizeDataValue(value.value, storageShape, schema.dtype, `${path}.value`),
-    errorRate: value.errorRate,
+    errorRate,
   }) as ResolvedMaterialDataValueDescriptor
 }
 
-function normalizeMaterialQuantitySeries(
-  value: unknown,
-  quantityKind: QuantityKindName,
-  path: string,
-) {
+function normalizeMaterialQuantitySeries(value: unknown, quantityKind: QuantityKindName, path: string) {
   if (!isPlainObject(value)) throw new CadModelError(`${path} must be a quantity series.`)
   const allowedKeys = ['unit', 'values']
   if (Object.prototype.hasOwnProperty.call(value, 'basis')) allowedKeys.push('basis')
@@ -439,12 +415,11 @@ function normalizeMaterialQuantitySeries(
   if (!Array.isArray(value.values)) throw new CadModelError(`${path}.values must be an array.`)
   const metadata = normalizeQuantityMetadata({ ...value, quantityKind }, path)
   const componentShape = getQuantityKindComponentShape(quantityKind)
-  const values = Object.freeze(value.values.map((sample, index) => normalizeDataValue(
-    sample,
-    componentShape,
-    'float64',
-    `${path}.values[${index}]`,
-  )))
+  const values = Object.freeze(
+    value.values.map((sample, index) =>
+      normalizeDataValue(sample, componentShape, 'float64', `${path}.values[${index}]`),
+    ),
+  )
   return Object.freeze({
     unit: metadata.unit,
     values,
@@ -462,16 +437,8 @@ export function normalizeMaterialSampledRelation(
     throw new CadModelError(`${path}.kind must be sampled_relation.`)
   }
   const definition = materialModelByKey[key]
-  const input = normalizeMaterialQuantitySeries(
-    value.input,
-    definition.input.quantity_kind,
-    `${path}.input`,
-  )
-  const output = normalizeMaterialQuantitySeries(
-    value.output,
-    definition.output.quantity_kind,
-    `${path}.output`,
-  )
+  const input = normalizeMaterialQuantitySeries(value.input, definition.input.quantity_kind, `${path}.input`)
+  const output = normalizeMaterialQuantitySeries(value.output, definition.output.quantity_kind, `${path}.output`)
   if (input.values.length < definition.minimum_samples) {
     throw new CadModelError(`${path} must contain at least ${definition.minimum_samples} samples.`)
   }
@@ -508,43 +475,50 @@ function normalizeRecordedDataResultAxes(value: unknown, path: string) {
     throw new CadModelError(`${path}.axes must be omitted for a single value; axes cannot be empty.`)
   }
 
-  return Object.freeze(Array.from(value, (rawAxis, axisIndex) => {
-    const axisPath = `${path}.axes[${axisIndex}]`
-    if (!isPlainObject(rawAxis)) throw new CadModelError(`${axisPath} must be a plain object.`)
-    const keys = ['length', 'name', 'ticks', 'unit', 'quantityKind']
-      .filter((key) => Object.prototype.hasOwnProperty.call(rawAxis, key))
-    assertDescriptorKeys(rawAxis, keys, axisPath)
-    const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
-    if (typeof name !== 'string' || !name.trim()) {
-      throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
-    }
-    const hasUnit = Object.prototype.hasOwnProperty.call(rawAxis, 'unit')
-    const hasQuantityKind = Object.prototype.hasOwnProperty.call(rawAxis, 'quantityKind')
-    if (hasUnit !== hasQuantityKind) {
-      throw new CadModelError(`${axisPath} must specify both unit and quantityKind or neither.`)
-    }
-    const metadata = hasUnit ? normalizeQuantityMetadata(rawAxis, axisPath, true) : undefined
-    if (rawAxis.length === undefined) {
-      if (Object.prototype.hasOwnProperty.call(rawAxis, 'ticks')) {
-        throw new CadModelError(`${axisPath}.ticks must be omitted when ${axisPath}.length is dynamic.`)
+  return Object.freeze(
+    Array.from(value, (rawAxis, axisIndex) => {
+      const axisPath = `${path}.axes[${axisIndex}]`
+      if (!isPlainObject(rawAxis)) throw new CadModelError(`${axisPath} must be a plain object.`)
+      const keys = ['length', 'name', 'ticks', 'unit', 'quantityKind'].filter((key) =>
+        Object.prototype.hasOwnProperty.call(rawAxis, key),
+      )
+      assertDescriptorKeys(rawAxis, keys, axisPath)
+      const name = rawAxis.name === undefined ? `axis ${axisIndex}` : rawAxis.name
+      if (typeof name !== 'string' || !name.trim()) {
+        throw new CadModelError(`${axisPath}.name must be a non-empty string.`)
       }
-      return Object.freeze({ name: name.trim(), ...metadata })
-    }
-    if (!Number.isSafeInteger(rawAxis.length) || (rawAxis.length as number) <= 0) {
-      throw new CadModelError(`${axisPath}.length must be a positive safe integer when specified.`)
-    }
-    const length = rawAxis.length as number
-    const rawTicks = rawAxis.ticks ?? Array.from({ length }, (_, index) => index)
-    if (!Array.isArray(rawTicks)) throw new CadModelError(`${axisPath}.ticks must be an array.`)
-    if (rawTicks.length !== length) {
-      throw new CadModelError(`${axisPath}.ticks has length ${rawTicks.length}; expected ${length} to match ${axisPath}.length.`)
-    }
-    const ticks = Object.freeze(Array.from(rawTicks, (tick, tickIndex) => {
-      if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
-      throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
-    }))
-    return Object.freeze({ length, name: name.trim(), ticks, ...metadata })
-  }))
+      const hasUnit = Object.prototype.hasOwnProperty.call(rawAxis, 'unit')
+      const hasQuantityKind = Object.prototype.hasOwnProperty.call(rawAxis, 'quantityKind')
+      if (hasUnit !== hasQuantityKind) {
+        throw new CadModelError(`${axisPath} must specify both unit and quantityKind or neither.`)
+      }
+      const metadata = hasUnit ? normalizeQuantityMetadata(rawAxis, axisPath, true) : undefined
+      if (rawAxis.length === undefined) {
+        if (Object.prototype.hasOwnProperty.call(rawAxis, 'ticks')) {
+          throw new CadModelError(`${axisPath}.ticks must be omitted when ${axisPath}.length is dynamic.`)
+        }
+        return Object.freeze({ name: name.trim(), ...metadata })
+      }
+      if (!Number.isSafeInteger(rawAxis.length) || (rawAxis.length as number) <= 0) {
+        throw new CadModelError(`${axisPath}.length must be a positive safe integer when specified.`)
+      }
+      const length = rawAxis.length as number
+      const rawTicks = rawAxis.ticks ?? Array.from({ length }, (_, index) => index)
+      if (!Array.isArray(rawTicks)) throw new CadModelError(`${axisPath}.ticks must be an array.`)
+      if (rawTicks.length !== length) {
+        throw new CadModelError(
+          `${axisPath}.ticks has length ${rawTicks.length}; expected ${length} to match ${axisPath}.length.`,
+        )
+      }
+      const ticks = Object.freeze(
+        Array.from(rawTicks, (tick, tickIndex) => {
+          if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
+          throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
+        }),
+      )
+      return Object.freeze({ length, name: name.trim(), ticks, ...metadata })
+    }),
+  )
 }
 
 function normalizeRecordedDataResult(value: unknown, path: string): RecordedDataResult {
@@ -595,26 +569,20 @@ function normalizeExperimentTarget(
   const firstSeparator = target.indexOf('.')
   const secondSeparator = target.indexOf('.', firstSeparator + 1)
   if (firstSeparator <= 0 || secondSeparator <= firstSeparator + 1) {
-    throw new CadModelError(
-      `${targetPath} must use source.kind.group format.`,
-    )
+    throw new CadModelError(`${targetPath} must use source.kind.group format.`)
   }
 
   const source = target.slice(0, firstSeparator)
   const kind = target.slice(firstSeparator + 1, secondSeparator)
   const group = target.slice(secondSeparator + 1).trim()
   if ((source !== 'experiment' && source !== 'structure') || (kind !== 'geometry' && kind !== 'surface') || !group) {
-    throw new CadModelError(
-      `${targetPath} must use source.kind.group format.`,
-    )
+    throw new CadModelError(`${targetPath} must use source.kind.group format.`)
   }
 
   if (source === 'experiment') {
     const groups = kind === 'geometry' ? experiment.geometryGroup : experiment.surfaceGroup
     if (!Object.prototype.hasOwnProperty.call(groups, group)) {
-      throw new CadModelError(
-        `${targetPath} references missing ${kind} group "${group}".`,
-      )
+      throw new CadModelError(`${targetPath} references missing ${kind} group "${group}".`)
     }
   }
 
@@ -631,55 +599,60 @@ function normalizeExperimentRuleList<TParameters extends ExperimentParameters>(
   }
 
   const labels = new Set<string>()
-  return Object.freeze(rawRules.map((rawRule, index): ExperimentRule<TParameters> | RecordedDataRule<TParameters> => {
-    if (
-      !isRecord(rawRule)
-      || !Object.prototype.hasOwnProperty.call(rawRule, 'target')
-      || !Object.prototype.hasOwnProperty.call(rawRule, 'label')
-      || !Object.prototype.hasOwnProperty.call(rawRule, 'methodId')
-      || !Object.prototype.hasOwnProperty.call(rawRule, 'parameters')
-    ) {
-      throw new CadModelError(
-        `Experiment ${propertyName}[${index}] must contain target, label, methodId, and parameters.`,
-      )
-    }
-    if (!Array.isArray(rawRule.target) || rawRule.target.length === 0) {
-      throw new CadModelError(`Experiment ${propertyName}[${index}].target must be a non-empty array.`)
-    }
-    if (typeof rawRule.label !== 'string' || !rawRule.label.trim()) {
-      throw new CadModelError(`Experiment ${propertyName}[${index}].label must be a non-empty string.`)
-    }
-    const label = rawRule.label.trim()
-    if (labels.has(label)) {
-      throw new CadModelError(`Experiment ${propertyName} label "${label}" is duplicated.`)
-    }
-    labels.add(label)
-    if (typeof rawRule.methodId !== 'string' || !rawRule.methodId.trim()) {
-      throw new CadModelError(`Experiment ${propertyName}[${index}].methodId must be a non-empty string.`)
-    }
-    if (!isRecord(rawRule.parameters)) {
-      throw new CadModelError(`Experiment ${propertyName}[${index}].parameters must be an object.`)
-    }
+  return Object.freeze(
+    rawRules.map((rawRule, index): ExperimentRule<TParameters> | RecordedDataRule<TParameters> => {
+      if (
+        !isRecord(rawRule) ||
+        !Object.prototype.hasOwnProperty.call(rawRule, 'target') ||
+        !Object.prototype.hasOwnProperty.call(rawRule, 'label') ||
+        !Object.prototype.hasOwnProperty.call(rawRule, 'methodId') ||
+        !Object.prototype.hasOwnProperty.call(rawRule, 'parameters')
+      ) {
+        throw new CadModelError(
+          `Experiment ${propertyName}[${index}] must contain target, label, methodId, and parameters.`,
+        )
+      }
+      if (!Array.isArray(rawRule.target) || rawRule.target.length === 0) {
+        throw new CadModelError(`Experiment ${propertyName}[${index}].target must be a non-empty array.`)
+      }
+      if (typeof rawRule.label !== 'string' || !rawRule.label.trim()) {
+        throw new CadModelError(`Experiment ${propertyName}[${index}].label must be a non-empty string.`)
+      }
+      const label = rawRule.label.trim()
+      if (labels.has(label)) {
+        throw new CadModelError(`Experiment ${propertyName} label "${label}" is duplicated.`)
+      }
+      labels.add(label)
+      if (typeof rawRule.methodId !== 'string' || !rawRule.methodId.trim()) {
+        throw new CadModelError(`Experiment ${propertyName}[${index}].methodId must be a non-empty string.`)
+      }
+      if (!isRecord(rawRule.parameters)) {
+        throw new CadModelError(`Experiment ${propertyName}[${index}].parameters must be an object.`)
+      }
 
-    const rule = {
-      target: Object.freeze(rawRule.target.map((target, targetIndex) =>
-        normalizeExperimentTarget(target, propertyName, index, targetIndex, experiment))),
-      label,
-      methodId: rawRule.methodId.trim(),
-      parameters: normalizeExperimentParameters<TParameters>(
-        rawRule.parameters,
-        `Experiment ${propertyName}[${index}].parameters`,
-      ),
-    }
-    if (propertyName !== 'recordedData') return Object.freeze(rule)
-    if (!Object.prototype.hasOwnProperty.call(rawRule, 'result')) {
-      throw new CadModelError(`Experiment recordedData[${index}] must contain a result tensor descriptor.`)
-    }
-    return Object.freeze({
-      ...rule,
-      result: normalizeRecordedDataResult(rawRule.result, `Experiment recordedData[${index}].result`),
-    })
-  }))
+      const rule = {
+        target: Object.freeze(
+          rawRule.target.map((target, targetIndex) =>
+            normalizeExperimentTarget(target, propertyName, index, targetIndex, experiment),
+          ),
+        ),
+        label,
+        methodId: rawRule.methodId.trim(),
+        parameters: normalizeExperimentParameters<TParameters>(
+          rawRule.parameters,
+          `Experiment ${propertyName}[${index}].parameters`,
+        ),
+      }
+      if (propertyName !== 'recordedData') return Object.freeze(rule)
+      if (!Object.prototype.hasOwnProperty.call(rawRule, 'result')) {
+        throw new CadModelError(`Experiment recordedData[${index}] must contain a result tensor descriptor.`)
+      }
+      return Object.freeze({
+        ...rule,
+        result: normalizeRecordedDataResult(rawRule.result, `Experiment recordedData[${index}].result`),
+      })
+    }),
+  )
 }
 
 export function evaluateExperimentRules<
@@ -687,16 +660,8 @@ export function evaluateExperimentRules<
   TBoundaryConditionParameters extends ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters,
 >(
-  experiment: Experiment<
-    TInitializationParameters,
-    TBoundaryConditionParameters,
-    TRecordedDataParameters
-  >,
-): EvaluatedExperimentRules<
-  TInitializationParameters,
-  TBoundaryConditionParameters,
-  TRecordedDataParameters
-> {
+  experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>,
+): EvaluatedExperimentRules<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters> {
   return Object.freeze({
     initializations: normalizeExperimentRuleList<TInitializationParameters>(
       experiment.initializations(),
@@ -759,21 +724,13 @@ export class Setup<
   TInitializationParameters extends ExperimentParameters = ExperimentParameters,
   TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
   TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
-> extends VariableObject<Experiment<
-    TInitializationParameters,
-    TBoundaryConditionParameters,
-    TRecordedDataParameters
-  >> {
+> extends VariableObject<Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>> {
   get experiment() {
     return this.object
   }
 
   constructor(
-    experiment: Experiment<
-      TInitializationParameters,
-      TBoundaryConditionParameters,
-      TRecordedDataParameters
-    >,
+    experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>,
     partialVars: Partial<Vars> = {},
   ) {
     if (!(experiment instanceof Experiment)) {
@@ -788,19 +745,18 @@ export class Setup<
 let activeVars: Readonly<Vars> | null = null
 let activeMaterialRandom: (() => number) | null = null
 
-function applyMaterialErrorMultiplier(
+export function applyMaterialErrorMultiplier(
   value: number | readonly unknown[],
   dtype: FloatDataDType,
   multiplier: number,
   path: string,
 ): number | readonly unknown[] {
   if (Array.isArray(value)) {
-    return Object.freeze(value.map((item, index) => applyMaterialErrorMultiplier(
-      item as number | readonly unknown[],
-      dtype,
-      multiplier,
-      `${path}[${index}]`,
-    )))
+    return Object.freeze(
+      value.map((item, index) =>
+        applyMaterialErrorMultiplier(item as number | readonly unknown[], dtype, multiplier, `${path}[${index}]`),
+      ),
+    )
   }
 
   return normalizeDataElement((value as number) * multiplier, dtype, path) as number
@@ -810,19 +766,22 @@ export function resolveMaterialVariables(material: Material): ResolvedMaterialVa
   const resolved: Record<string, unknown> = {}
 
   Object.entries(material.variables).forEach(([key, value]) => {
-    const path = `Material ${material.symbol} variables.${key}`
-    if (isPlainObject(value)
-      && 'dtype' in value
-      && typeof value.dtype === 'string'
-      && isFloatDType(value.dtype as DataDType)
-      && Object.prototype.hasOwnProperty.call(value, 'errorRate')) {
+    const path = `Material ${material.name} variables.${key}`
+    if (
+      isPlainObject(value) &&
+      'dtype' in value &&
+      typeof value.dtype === 'string' &&
+      isFloatDType(value.dtype as DataDType) &&
+      Object.prototype.hasOwnProperty.call(value, 'errorRate')
+    ) {
       const parameter = value as ResolvedMaterialDataValueDescriptor & {
         dtype: FloatDataDType
         errorRate: number
       }
-      const multiplier = activeMaterialRandom === null || parameter.errorRate === 0
-        ? 1
-        : 1 - parameter.errorRate + 2 * parameter.errorRate * activeMaterialRandom()
+      const multiplier =
+        activeMaterialRandom === null || parameter.errorRate === 0
+          ? 1
+          : 1 - parameter.errorRate + 2 * parameter.errorRate * activeMaterialRandom()
       resolved[key] = Object.freeze({
         dtype: parameter.dtype,
         unit: parameter.unit,
@@ -880,11 +839,7 @@ export const vars = new Proxy<Record<string, Tensor>>(
   },
 )
 
-export function evaluateWithVars<T>(
-  sampleVars: Readonly<Vars>,
-  evaluate: () => T,
-  materialSeed?: number,
-) {
+export function evaluateWithVars<T>(sampleVars: Readonly<Vars>, evaluate: () => T, materialSeed?: number) {
   const previousVars = activeVars
   const previousMaterialRandom = activeMaterialRandom
   activeVars = sampleVars
@@ -898,5 +853,3 @@ export function evaluateWithVars<T>(
     activeMaterialRandom = previousMaterialRandom
   }
 }
-
-

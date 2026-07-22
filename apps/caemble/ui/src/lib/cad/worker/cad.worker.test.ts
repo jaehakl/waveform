@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { h } from '../evaluation/jsx'
 import { evaluateDocumentEntry } from '../execution/userModule'
-import type { EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
 import { serializeEvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
+import { buildSourceOnlyRealizationV2 } from '../execution/realization'
 import { Material } from '../model/core'
 import { experiment, structure } from '../model/v2'
 import type { CadWorkerRequest, CadWorkerResponse } from './protocol'
@@ -22,22 +22,41 @@ function createSnapshots() {
   }
   const structureDefinition = structure({
     lengthUnit: 'mm',
-    geometry: () => h(Conductor, {
-      id: 'conductor',
-      materials: [new Material('Copper', {
-        'electrical.conductivity': {
-          dtype: 'float64',
-          value: [[5.96e7, 0, 0], [0, 5.96e7, 0], [0, 0, 5.96e7]],
-          errorRate: 0,
-          unit: 'S.m-1',
-        },
-        'model.magnetic_hysteresis.b_h_curve': {
-          kind: 'sampled_relation',
-          input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]] },
-          output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
-        },
-      })],
-    }),
+    geometry: () =>
+      h(Conductor, {
+        id: 'conductor',
+        materials: [
+          new Material('Copper', {
+            'electrical.conductivity': {
+              dtype: 'float64',
+              value: [
+                [5.96e7, 0, 0],
+                [0, 5.96e7, 0],
+                [0, 0, 5.96e7],
+              ],
+              errorRate: 0,
+              unit: 'S.m-1',
+            },
+            'model.magnetic_hysteresis.b_h_curve': {
+              kind: 'sampled_relation',
+              input: {
+                unit: 'A.m-1',
+                values: [
+                  [0, 0, 0],
+                  [100, 0, 0],
+                ],
+              },
+              output: {
+                unit: 'T',
+                values: [
+                  [0, 0, 0],
+                  [1.2, 0, 0],
+                ],
+              },
+            },
+          }),
+        ],
+      }),
     varsSchema: {},
     geometryGroup: { conductor: ['conductor'] },
     surfaceGroup: {
@@ -52,60 +71,76 @@ function createSnapshots() {
       version: '0.0.0',
       parameters: () => ({
         relativeTolerance: {
-          dtype: 'float64', value: 1e-10,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+          dtype: 'float64',
+          value: 1e-10,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
         },
         maxIterations: 1000,
       }),
     },
     geometry: () => h(Probe, { id: 'probe' }),
     varsSchema: {},
-    initializations: () => [{
-      target: ['structure.geometry.conductor'],
-      label: 'Voxel grid',
-      methodId: 'dc.voxel-grid',
-      parameters: { gridShape: { dtype: 'int32', axes: [{ length: 3 }], value: [20, 11, 11] } },
-    }],
-    boundaryConditions: () => [{
-      target: ['structure.surface.sourceTerminal'],
-      label: 'Source',
-      methodId: 'dc.source-potential',
-      parameters: { voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
-    }, {
-      target: ['structure.surface.referenceTerminal'],
-      label: 'Reference',
-      methodId: 'dc.reference-potential',
-      parameters: { voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
-    }],
-    recordedData: () => [{
-      target: ['structure.geometry.conductor'],
-      label: 'Current density',
-      methodId: 'dc.current-density',
-      parameters: {
-        crossSectionPosition: {
-          dtype: 'float64', value: 0.5,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+    initializations: () => [
+      {
+        target: ['structure.geometry.conductor'],
+        label: 'Voxel grid',
+        methodId: 'dc.voxel-grid',
+        parameters: { gridShape: { dtype: 'int32', axes: [{ length: 3 }], value: [20, 11, 11] } },
+      },
+    ],
+    boundaryConditions: () => [
+      {
+        target: ['structure.surface.sourceTerminal'],
+        label: 'Source',
+        methodId: 'dc.source-potential',
+        parameters: { voltage: { dtype: 'float64', value: 1, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
+      },
+      {
+        target: ['structure.surface.referenceTerminal'],
+        label: 'Reference',
+        methodId: 'dc.reference-potential',
+        parameters: { voltage: { dtype: 'float64', value: 0, unit: 'mV', quantityKind: 'electromagnetism.Voltage' } },
+      },
+    ],
+    recordedData: () => [
+      {
+        target: ['structure.geometry.conductor'],
+        label: 'Current density',
+        methodId: 'dc.current-density',
+        parameters: {
+          crossSectionPosition: {
+            dtype: 'float64',
+            value: 0.5,
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio',
+          },
+        },
+        result: {
+          dtype: 'float64',
+          unit: 'A.m-2',
+          quantityKind: 'electromagnetism.ElectricCurrentDensity',
+          axes: [
+            { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
+            { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
+          ],
         },
       },
-      result: {
-        dtype: 'float64', unit: 'A.m-2', quantityKind: 'electromagnetism.ElectricCurrentDensity',
-        axes: [
-          { name: 'cross-section v', unit: 'm', quantityKind: 'Length' },
-          { name: 'cross-section u', unit: 'm', quantityKind: 'Length' },
-        ],
-      },
-    }, {
-      target: ['structure.geometry.conductor'],
-      label: 'Total current',
-      methodId: 'dc.total-current',
-      parameters: {
-        crossSectionPosition: {
-          dtype: 'float64', value: 0.5,
-          unit: '{fraction}', quantityKind: 'DimensionlessRatio',
+      {
+        target: ['structure.geometry.conductor'],
+        label: 'Total current',
+        methodId: 'dc.total-current',
+        parameters: {
+          crossSectionPosition: {
+            dtype: 'float64',
+            value: 0.5,
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio',
+          },
         },
+        result: { dtype: 'float64', unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent' },
       },
-      result: { dtype: 'float64', unit: 'A', quantityKind: 'electromagnetism.ElectricCurrent' },
-    }],
+    ],
   })
   return {
     experiment: serializeEvaluatedDocumentSnapshotV2(
@@ -139,20 +174,41 @@ describe('snapshot-only Solver Worker', () => {
 
   it('preflights cached snapshots, rejects stale revisions, solves, and cancels', async () => {
     const snapshots = createSnapshots()
-    expect(snapshots.structure.scene.parts[0].material
-      ?.variables['model.magnetic_hysteresis.b_h_curve']).toMatchObject({
-      kind: 'sampled_relation',
-      input: { unit: 'A.m-1', values: [[0, 0, 0], [100, 0, 0]] },
-      output: { unit: 'T', values: [[0, 0, 0], [1.2, 0, 0]] },
-    })
+    expect(snapshots.structure.scene.parts[0].material?.variables['model.magnetic_hysteresis.b_h_curve']).toMatchObject(
+      {
+        kind: 'sampled_relation',
+        input: {
+          unit: 'A.m-1',
+          values: [
+            [0, 0, 0],
+            [100, 0, 0],
+          ],
+        },
+        output: {
+          unit: 'T',
+          values: [
+            [0, 0, 0],
+            [1.2, 0, 0],
+          ],
+        },
+      },
+    )
     dispatch({
-      type: 'cache-snapshot', requestId: 'cache-experiment', revision: 2, snapshot: snapshots.experiment,
+      type: 'cache-realization',
+      requestId: 'cache-experiment',
+      revision: 2,
+      realization: buildSourceOnlyRealizationV2(snapshots.experiment),
     })
     const partial = await waitForResponse('solver-preflight', 'preflight-none-2')
     if (partial.type !== 'solver-preflight') throw new Error('Expected solver preflight.')
     expect(partial.result).toMatchObject({ complete: false, issues: [] })
 
-    dispatch({ type: 'cache-snapshot', requestId: 'cache-structure', revision: 2, snapshot: snapshots.structure })
+    dispatch({
+      type: 'cache-realization',
+      requestId: 'cache-structure',
+      revision: 2,
+      realization: buildSourceOnlyRealizationV2(snapshots.structure),
+    })
     const full = await waitForResponse('solver-preflight', 'preflight-2-2')
     if (full.type !== 'solver-preflight') throw new Error('Expected solver preflight.')
     expect(full.result).toMatchObject({ complete: true, issues: [] })
@@ -173,18 +229,22 @@ describe('snapshot-only Solver Worker', () => {
     dispatch({ type: 'run-solver', requestId: 'cancelled-run', structureRevision: 2, experimentRevision: 2 })
     dispatch({ type: 'cancel-solver', requestId: 'cancelled-run' })
     await vi.waitFor(() => {
-      expect(responses.some((response) => (
-        response.type === 'solver-process'
-        && response.requestId === 'cancelled-run'
-        && response.process.status === 'cancelled'
-      ))).toBe(true)
+      expect(
+        responses.some(
+          (response) =>
+            response.type === 'solver-process' &&
+            response.requestId === 'cancelled-run' &&
+            response.process.status === 'cancelled',
+        ),
+      ).toBe(true)
     })
   })
 
   it('rejects snapshots with a forged prototype before they reach the Solver', async () => {
     const snapshot = createSnapshots().structure
-    const forged = Object.assign(Object.create({ polluted: true }), snapshot) as EvaluatedDocumentSnapshotV2
-    dispatch({ type: 'cache-snapshot', requestId: 'forged', revision: 3, snapshot: forged })
+    const realization = buildSourceOnlyRealizationV2(snapshot)
+    const forged = Object.assign(Object.create({ polluted: true }), realization)
+    dispatch({ type: 'cache-realization', requestId: 'forged', revision: 3, realization: forged })
     const error = await waitForResponse('solver-error', 'forged')
     if (error.type !== 'solver-error') throw new Error('Expected solver error.')
     expect(error.message).toContain('plain objects')

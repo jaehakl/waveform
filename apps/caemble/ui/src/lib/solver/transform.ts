@@ -1,9 +1,5 @@
 import { geometries, transforms } from '@jscad/modeling'
-import type {
-  CadScene,
-  CadSceneMaterial,
-  CadSceneTreeNode,
-} from '../cad/evaluation/types'
+import type { CadScene, CadSceneMaterial, CadSceneTreeNode } from '../cad/evaluation/types'
 import {
   isFloatDType,
   type DataValueDescriptor,
@@ -69,9 +65,11 @@ function transformOuterQuantityValue(
       path,
     )
   }
-  return Object.freeze((value as readonly unknown[]).map((item, index) => (
-    transformOuterQuantityValue(item, outerRank, target, source, `${path}[${index}]`, depth + 1)
-  )))
+  return Object.freeze(
+    (value as readonly unknown[]).map((item, index) =>
+      transformOuterQuantityValue(item, outerRank, target, source, `${path}[${index}]`, depth + 1),
+    ),
+  )
 }
 
 function transformTicks(
@@ -81,11 +79,11 @@ function transformTicks(
   path: string,
 ) {
   if (ticks === undefined) return undefined
-  return Object.freeze(ticks.map((tick, index) => (
-    typeof tick === 'number'
-      ? convertUcumValue(tick, sourceUnit, targetUnit, `${path}[${index}]`)
-      : tick
-  )))
+  return Object.freeze(
+    ticks.map((tick, index) =>
+      typeof tick === 'number' ? convertUcumValue(tick, sourceUnit, targetUnit, `${path}[${index}]`) : tick,
+    ),
+  )
 }
 
 function transformDataDescriptor(
@@ -102,12 +100,7 @@ function transformDataDescriptor(
   const axes = descriptor.axes?.map((axis, axisIndex) => {
     const axisSpec = spec.axes?.[axisIndex]
     if (axisSpec?.quantityKind === undefined || axis.quantityKind === undefined) return axis
-    const ticks = transformTicks(
-      axis.ticks,
-      axis.unit,
-      axisSpec.referenceUnit,
-      `${path}.axes[${axisIndex}].ticks`,
-    )
+    const ticks = transformTicks(axis.ticks, axis.unit, axisSpec.referenceUnit, `${path}.axes[${axisIndex}].ticks`)
     return Object.freeze({
       length: axis.length,
       name: axis.name,
@@ -137,11 +130,15 @@ function transformParameters(
   specs: Readonly<Record<string, SolverParameterSpec>>,
   path: string,
 ) {
-  return Object.freeze(Object.fromEntries(Object.entries(parameters).map(([key, value]) => {
-    const spec = specs[key]
-    if (!spec || !isRecord(value)) return [key, value]
-    return [key, transformDataDescriptor(value as DataValueDescriptor, spec.value, `${path}.${key}`)]
-  })))
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(parameters).map(([key, value]) => {
+        const spec = specs[key]
+        if (!spec || !isRecord(value)) return [key, value]
+        return [key, transformDataDescriptor(value as DataValueDescriptor, spec.value, `${path}.${key}`)]
+      }),
+    ),
+  )
 }
 
 function transformResultSchema(
@@ -154,12 +151,7 @@ function transformResultSchema(
   const axes = result.axes?.map((axis, axisIndex) => {
     const axisSpec = spec.axes?.[axisIndex]
     if (axisSpec?.quantityKind === undefined || axis.quantityKind === undefined) return axis
-    const ticks = transformTicks(
-      axis.ticks,
-      axis.unit,
-      axisSpec.referenceUnit,
-      `${path}.axes[${axisIndex}].ticks`,
-    )
+    const ticks = transformTicks(axis.ticks, axis.unit, axisSpec.referenceUnit, `${path}.axes[${axisIndex}].ticks`)
     return Object.freeze({
       ...(axis.length === undefined ? {} : { length: axis.length }),
       name: axis.name,
@@ -192,26 +184,31 @@ function transformRule(
   if (category !== 'recordedData') return Object.freeze(transformed) as ExperimentRule
   return Object.freeze({
     ...transformed,
-    result: transformResultSchema(
-      (rule as RecordedDataRule).result,
-      method.result!,
-      `${path}.result`,
-    ),
+    result: transformResultSchema((rule as RecordedDataRule).result, method.result!, `${path}.result`),
   }) as RecordedDataRule
 }
 
 function transformRules(rules: EvaluatedExperimentRules, spec: SolverSpec) {
-  return Object.freeze(Object.fromEntries((
-    ['initializations', 'boundaryConditions', 'recordedData'] as const
-  ).map((category) => [category, Object.freeze(rules[category].map((rule, index) => {
-    const method = spec.methods[category].find((candidate) => candidate.methodId === rule.methodId)!
-    return transformRule(rule, method, category, `experiment.rules.${category}[${index}]`)
-  }))]))) as EvaluatedExperimentRules
+  return Object.freeze(
+    Object.fromEntries(
+      (['initializations', 'boundaryConditions', 'recordedData'] as const).map((category) => [
+        category,
+        Object.freeze(
+          rules[category].map((rule, index) => {
+            const method = spec.methods[category].find((candidate) => candidate.methodId === rule.methodId)!
+            return transformRule(rule, method, category, `experiment.rules.${category}[${index}]`)
+          }),
+        ),
+      ]),
+    ),
+  ) as EvaluatedExperimentRules
 }
 
 function materialTargets(spec: SolverSpec) {
-  const targets = new Map<string, SolverMaterialPropertyValueSpec<MaterialPropertyKey>
-    | SolverMaterialRelationValueSpec<MaterialModelKey>>()
+  const targets = new Map<
+    string,
+    SolverMaterialPropertyValueSpec<MaterialPropertyKey> | SolverMaterialRelationValueSpec<MaterialModelKey>
+  >()
   spec.materials.forEach((material) => {
     Object.entries(material.parameters).forEach(([key, parameter]) => {
       if (!targets.has(key)) targets.set(key, parameter.value)
@@ -257,9 +254,7 @@ function transformMaterial(
       kind: 'sampled_relation',
       input: Object.freeze({
         unit: relationSpec.input.referenceUnit,
-        ...(relationSpec.input.referenceBasis === undefined
-          ? {}
-          : { basis: relationSpec.input.referenceBasis }),
+        ...(relationSpec.input.referenceBasis === undefined ? {} : { basis: relationSpec.input.referenceBasis }),
         values: transformOuterQuantityValue(
           relation.input.values,
           1,
@@ -274,9 +269,7 @@ function transformMaterial(
       }),
       output: Object.freeze({
         unit: relationSpec.output.referenceUnit,
-        ...(relationSpec.output.referenceBasis === undefined
-          ? {}
-          : { basis: relationSpec.output.referenceBasis }),
+        ...(relationSpec.output.referenceBasis === undefined ? {} : { basis: relationSpec.output.referenceBasis }),
         values: transformOuterQuantityValue(
           relation.output.values,
           1,
@@ -292,8 +285,10 @@ function transformMaterial(
     })
   })
   return Object.freeze({
-    symbol: material.symbol,
+    name: material.name,
+    ...(material.source === undefined ? {} : { source: material.source }),
     ...(material.version === undefined ? {} : { version: material.version }),
+    ...(material.errorRate === undefined ? {} : { errorRate: material.errorRate }),
     variables: Object.freeze(variables) as ResolvedMaterialVariables,
   })
 }
@@ -312,12 +307,7 @@ function transformScene(
   targets: ReturnType<typeof materialTargets>,
   path: string,
 ): CadScene {
-  const scale = convertUcumValue(
-    1,
-    scene.lengthUnit,
-    spec.referenceLengthUnit,
-    `${path}.lengthUnit`,
-  )
+  const scale = convertUcumValue(1, scene.lengthUnit, spec.referenceLengthUnit, `${path}.lengthUnit`)
   return {
     lengthUnit: spec.referenceLengthUnit,
     parts: scene.parts.map((part, partIndex) => {
@@ -354,12 +344,7 @@ function transformScene(
 }
 
 function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
-  if (
-    typeof value !== 'object'
-    || value === null
-    || seen.has(value)
-    || ArrayBuffer.isView(value)
-  ) {
+  if (typeof value !== 'object' || value === null || seen.has(value) || ArrayBuffer.isView(value)) {
     return value
   }
   seen.add(value)
@@ -429,32 +414,38 @@ export function restoreAuthoringRecordedData(
   authorRules: readonly RecordedDataRule[],
 ): RecordedData {
   const solverRuleByLabel = new Map(solverRules.map((rule) => [rule.label, rule]))
-  const restored = Object.fromEntries(authorRules.map((authorRule) => {
-    const solverRule = solverRuleByLabel.get(authorRule.label)!
-    const payload = solverData[authorRule.label]
-    const axes = payload.axes?.map((axis, axisIndex) => {
-      const authorAxis = authorRule.result.axes?.[axisIndex]
-      const solverAxis = solverRule.result.axes?.[axisIndex]
-      if (!authorAxis || !solverAxis || authorAxis.quantityKind === undefined) return axis
-      const ticks = authorAxis.length !== undefined && authorAxis.ticks !== undefined
-        ? authorAxis.ticks
-        : transformTicks(
-          axis.ticks,
-          (solverAxis as typeof solverAxis & { unit: UcumUnit }).unit,
-          authorAxis.unit,
-          `recordedData[${JSON.stringify(authorRule.label)}].axes[${axisIndex}].ticks`,
-        )
-      return Object.freeze({ ...(ticks === undefined ? {} : { ticks }) })
-    })
-    return [authorRule.label, Object.freeze({
-      value: restoreResultValue(
-        payload.value,
-        solverRule.result,
-        authorRule.result,
-        `recordedData[${JSON.stringify(authorRule.label)}].value`,
-      ),
-      ...(axes === undefined ? {} : { axes: Object.freeze(axes) }),
-    })]
-  }))
+  const restored = Object.fromEntries(
+    authorRules.map((authorRule) => {
+      const solverRule = solverRuleByLabel.get(authorRule.label)!
+      const payload = solverData[authorRule.label]
+      const axes = payload.axes?.map((axis, axisIndex) => {
+        const authorAxis = authorRule.result.axes?.[axisIndex]
+        const solverAxis = solverRule.result.axes?.[axisIndex]
+        if (!authorAxis || !solverAxis || authorAxis.quantityKind === undefined) return axis
+        const ticks =
+          authorAxis.length !== undefined && authorAxis.ticks !== undefined
+            ? authorAxis.ticks
+            : transformTicks(
+                axis.ticks,
+                (solverAxis as typeof solverAxis & { unit: UcumUnit }).unit,
+                authorAxis.unit,
+                `recordedData[${JSON.stringify(authorRule.label)}].axes[${axisIndex}].ticks`,
+              )
+        return Object.freeze({ ...(ticks === undefined ? {} : { ticks }) })
+      })
+      return [
+        authorRule.label,
+        Object.freeze({
+          value: restoreResultValue(
+            payload.value,
+            solverRule.result,
+            authorRule.result,
+            `recordedData[${JSON.stringify(authorRule.label)}].value`,
+          ),
+          ...(axes === undefined ? {} : { axes: Object.freeze(axes) }),
+        }),
+      ]
+    }),
+  )
   return normalizeRecordedData(authorRules, restored)
 }

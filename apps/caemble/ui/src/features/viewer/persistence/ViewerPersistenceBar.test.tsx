@@ -36,7 +36,7 @@ describe('ViewerPersistenceBar', () => {
       selectedStructureId: null,
       setupReady: true,
       setupUnavailableReason: null,
-      setups: [{ id: 202, experiment_id: 102, vars: {} }],
+      setups: [{ id: 202, experiment_id: 102, vars: {}, material_parameters: {} }],
       structures: [{ id: 101, name: 'Structure A', description: null, code: 'structure code' }],
     }
     const { rerender } = render(<ViewerPersistenceBar {...props} />)
