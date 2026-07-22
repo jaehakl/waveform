@@ -119,11 +119,11 @@ function AccountMenu() {
 function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/viewer')) return 'Code-to-CAD Viewer'
-  if (pathname.startsWith('/catalog/cad')) return 'CAD 요소'
-  if (pathname.startsWith('/catalog/materials')) return 'Material 카탈로그'
-  if (pathname.startsWith('/catalog/quantity-kinds')) return 'Quantity Kind 카탈로그'
-  if (pathname.startsWith('/catalog/solvers')) return 'Solver 카탈로그'
-  if (pathname.startsWith('/docs')) return '문서'
+  if (pathname.startsWith('/catalog/cad')) return 'Geometry'
+  if (pathname.startsWith('/catalog/materials')) return 'Material'
+  if (pathname.startsWith('/catalog/quantity-kinds')) return 'Quantity Kind'
+  if (pathname.startsWith('/catalog/solvers')) return 'Physics Solver'
+  if (pathname.startsWith('/docs')) return 'How to Code'
   if (pathname.startsWith('/account')) return '계정'
   if (pathname.startsWith('/login')) return '로그인'
   return 'Caemble'
@@ -151,14 +151,9 @@ export function AppShell() {
           </span>
           <span>
             <strong className="block text-base leading-5">Caemble</strong>
-            <span className="text-xs text-muted-foreground">Code to physics-ready CAD</span>
           </span>
         </Link>
         <Navigation />
-        <div className="mt-auto rounded-lg border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-          <strong className="block text-foreground">Workspace v0.1</strong>정의와 실현값을 분리해 재현 가능한 모델을
-          만듭니다.
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

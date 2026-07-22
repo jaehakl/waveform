@@ -19,14 +19,14 @@ export type AppNavigationItem = Readonly<{
 export const primaryNavigation: readonly AppNavigationItem[] = [
   { href: '/', icon: Home, label: '홈' },
   { href: '/viewer', icon: Box, label: 'Viewer' },
-  { href: '/docs', icon: BookOpenText, label: '문서' },
+  { href: '/docs', icon: BookOpenText, label: 'Manual' },
 ]
 
 export const catalogNavigation: readonly AppNavigationItem[] = [
-  { href: '/catalog/cad', icon: Boxes, label: 'CAD 요소' },
+  { href: '/catalog/cad', icon: Boxes, label: 'Geometry' },
   { href: '/catalog/materials', icon: Layers3, label: 'Material' },
-  { href: '/catalog/quantity-kinds', icon: Gauge, label: 'Quantity Kind' },
-  { href: '/catalog/solvers', icon: FlaskConical, label: 'Solver' },
+  { href: '/catalog/quantity-kinds', icon: Gauge, label: 'Quantity' },
+  { href: '/catalog/solvers', icon: FlaskConical, label: 'Physics' },
 ]
 
 export const brandIcon = Atom

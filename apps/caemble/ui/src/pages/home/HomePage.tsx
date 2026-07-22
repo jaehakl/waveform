@@ -63,15 +63,14 @@ export function HomePage() {
       <section className="relative overflow-hidden rounded-2xl border bg-card px-6 py-10 shadow-xs sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -right-24 -top-28 size-80 rounded-full bg-orange-200/40 blur-3xl" />
         <div className="relative max-w-3xl">
-          <Badge className="mb-5 gap-1 bg-orange-100 text-orange-800"><Sparkles className="size-3" />Physics-ready Code to CAD</Badge>
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">코드로 정의하고,<br /><span className="text-primary">재현 가능한 모델</span>로 저장하세요.</h2>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">Structure와 Experiment 정의를 작성하고, 평가된 Sample과 Setup을 분리해 관리합니다. 내장 물리 카탈로그와 Solver 계약을 한곳에서 탐색하세요.</p>
-          <div className="mt-7 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/viewer"><Box />Viewer 시작하기</Link></Button><Button asChild size="lg" variant="outline"><Link to="/docs">개발 문서 보기<ArrowRight /></Link></Button></div>
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">CAD from Code &<br /><span className="text-primary">CAE </span> from Data  </h2>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">통합<br /><span className="text-primary">컴퓨터 기반 엔지니어링 </span>프레임워크</p>
+          <div className="mt-7 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/viewer"><Box />Code to CAD</Link></Button><Button asChild size="lg" variant="outline"><Link to="/docs">사용 설명서<ArrowRight /></Link></Button></div>
         </div>
       </section>
 
       <section aria-labelledby="catalog-title">
-        <div className="mb-4"><h3 className="font-semibold" id="catalog-title">내장 카탈로그</h3><p className="text-sm text-muted-foreground">런타임과 동일한 버전의 읽기 전용 계약입니다.</p></div>
+        <div className="mb-4"><h3 className="font-semibold" id="catalog-title">둘러보기</h3></div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {catalogs.map(({ count, description, href, icon: Icon, label }) => (
             <Link className="group" key={href} to={href}><Card className="h-full transition-all group-hover:-translate-y-0.5 group-hover:border-orange-300 group-hover:shadow-md"><CardHeader><div className="mb-3 flex size-9 items-center justify-center rounded-lg bg-orange-50 text-orange-700"><Icon className="size-4" /></div><CardTitle className="flex items-center justify-between"><span>{label}</span><span className="text-2xl tabular-nums">{count.toLocaleString()}</span></CardTitle><CardDescription>{description}</CardDescription></CardHeader></Card></Link>

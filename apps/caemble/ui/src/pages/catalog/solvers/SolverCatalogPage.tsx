@@ -33,11 +33,11 @@ export function SolverCatalogPage() {
   return (
     <CatalogPageLayout
       count={solvers.length}
-      description="등록된 Solver의 전역 parameter, material requirement, method와 result schema를 확인합니다."
-      title="Solver 카탈로그"
+      description="Solver 별 구동 및 데이터 입출력 API 일람"
+      title="Simulations & Analysis"
       filters={
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Cpu className="size-4" />이 목록은 현재 UI runner에 등록된 모듈과 동일합니다.
+          <Cpu className="size-4" />웹브라우저 구동
         </div>
       }
       list={
