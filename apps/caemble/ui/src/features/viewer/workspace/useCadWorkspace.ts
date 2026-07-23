@@ -501,7 +501,7 @@ export type SimulationController = Readonly<{
   process: SolverProcess
   provenance: SolverRunProvenanceV2 | null
   recordedData: RecordedData | null
-  run: () => void
+  run: () => string | null
   stale: boolean
 }>
 
@@ -1106,7 +1106,7 @@ export function useCadWorkspace(
     compatibility.status === 'compatible'
 
   const run = useCallback(() => {
-    if (compatibility.status !== 'compatible') return
+    if (compatibility.status !== 'compatible') return null
     const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
     const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
     if (
@@ -1116,7 +1116,7 @@ export function useCadWorkspace(
       experimentSnapshot.successfulRevision !== experimentSnapshot.revision ||
       activeSolverRequestIdRef.current
     )
-      return
+      return null
 
     const requestId = createRequestId('simulation')
     const startedAt = Date.now()
@@ -1140,6 +1140,7 @@ export function useCadWorkspace(
       structureRevision: structureSnapshot.revision,
       experimentRevision: experimentSnapshot.revision,
     })
+    return requestId
   }, [compatibility.status, experimentState.controller.solver, postRequest])
 
   const cancel = useCallback(() => {

@@ -33,7 +33,7 @@ export type CadViewerSimulation = Readonly<{
   cancel: () => void
   compatibility: SolverCompatibility
   process: SolverProcess
-  run: () => void
+  run: () => string | null
   solver: Readonly<{ name: string; version: string }> | null
   stale: boolean
 }>

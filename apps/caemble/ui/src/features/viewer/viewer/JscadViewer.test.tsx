@@ -156,7 +156,7 @@ describe('JscadViewer modes', () => {
           cancel: () => undefined,
           compatibility: { status: 'compatible', issues: [] },
           process: idleSolverProcess,
-          run: () => undefined,
+          run: () => null,
           solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: false,
         }}
@@ -191,7 +191,7 @@ describe('JscadViewer modes', () => {
             cancel: () => undefined,
             compatibility: { status, issues: [] },
             process: idleSolverProcess,
-            run: () => undefined,
+            run: () => null,
             solver: status === 'checking' ? { name: 'dc-current-density', version: '0.0.0' } : null,
             stale: false,
           }}
@@ -231,7 +231,7 @@ describe('JscadViewer modes', () => {
             ],
           },
           process: idleSolverProcess,
-          run: () => undefined,
+          run: () => null,
           solver: { name: 'dc-current-density', version: '0.0.0' },
           stale: false,
         }}
@@ -275,7 +275,7 @@ describe('JscadViewer modes', () => {
             startedAt: 1,
             finishedAt: null,
           },
-          run: () => undefined,
+          run: () => null,
           solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: true,
         }}
@@ -309,7 +309,7 @@ describe('JscadViewer modes', () => {
             startedAt: 1,
             finishedAt: 2,
           },
-          run: () => undefined,
+          run: () => null,
           solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: true,
         }}

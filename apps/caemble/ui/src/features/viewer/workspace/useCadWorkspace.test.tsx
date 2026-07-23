@@ -96,6 +96,7 @@ describe('useCadWorkspace prepared Structure evaluation', () => {
         ),
       { initialProps },
     )
+    expect(render.result.current.simulation.run()).toBeNull()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(500)
