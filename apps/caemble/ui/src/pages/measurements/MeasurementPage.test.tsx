@@ -304,6 +304,7 @@ function renderPage(initialEntry: string) {
       { path: '/measurements', Component: MeasurementPage },
       { path: '/structures', element: <div>Structure manager</div> },
       { path: '/experiments', element: <div>Experiment manager</div> },
+      { path: '/analysis', element: <div>Analysis workspace</div> },
     ],
     { initialEntries: [initialEntry] },
   )
@@ -559,6 +560,20 @@ afterEach(() => {
 })
 
 describe('MeasurementPage', () => {
+  it('opens Analysis with the current Structure and Experiment context', async () => {
+    mockRunWorkflow([])
+    const router = renderPage('/measurements?structure=1&experiment=2')
+
+    const analysisButton = await screen.findByRole('button', { name: '이 조합 분석' })
+    await waitFor(() => expect(analysisButton).toBeEnabled())
+    await userEvent.click(analysisButton)
+
+    expect(router.state.location.pathname).toBe('/analysis')
+    expect(new URLSearchParams(router.state.location.search)).toEqual(
+      new URLSearchParams('structure=1&experiment=2'),
+    )
+  })
+
   it('requests the split Results layout only for the Measurement viewer', async () => {
     mockRunWorkflow([])
     renderPage('/measurements?structure=1&experiment=2')
@@ -568,6 +583,111 @@ describe('MeasurementPage', () => {
         expect.objectContaining({ resultsLayout: 'split' }),
       ),
     )
+  })
+
+  it('renders Sample, Setup, and Measurement data as unlabeled square buttons', async () => {
+    mockRunWorkflow(
+      [{ id: 10, structure_id: 1, vars: { width: 3 }, material_parameters: {} }],
+      [{ id: 30, sample_id: 10, setup_id: 20, updated_at: '2026-07-23T00:00:00Z' }],
+    )
+    renderPage('/measurements?measurement=30')
+
+    const sampleDot = await screen.findByRole('button', { name: 'Sample #10' })
+    const setupDot = await screen.findByRole('button', { name: 'Setup #20' })
+    const measurementDot = await screen.findByRole('button', { name: 'Measurement #30' })
+
+    await waitFor(() => {
+      expect(sampleDot).toHaveAttribute('aria-pressed', 'true')
+      expect(setupDot).toHaveAttribute('aria-pressed', 'true')
+      expect(measurementDot).toHaveAttribute('aria-pressed', 'true')
+    })
+    for (const dot of [sampleDot, setupDot, measurementDot]) {
+      expect(dot).toHaveClass('size-3')
+      expect(dot).not.toHaveClass('rounded-full')
+      expect(dot).toHaveTextContent('')
+    }
+    expect(screen.queryByText('Sample #10')).not.toBeInTheDocument()
+    expect(screen.queryByText('Setup #20')).not.toBeInTheDocument()
+    expect(screen.queryByText('Measurement #30')).not.toBeInTheDocument()
+  })
+
+  it('selects the newest Measurement and its Sample, Setup, and Recorded Data by default', async () => {
+    const workflow = mockRunWorkflow(
+      [
+        { id: 11, structure_id: 1, vars: { width: 4 }, material_parameters: {} },
+        { id: 10, structure_id: 1, vars: { width: 3 }, material_parameters: {} },
+      ],
+      [
+        { id: 31, sample_id: 11, setup_id: 20, updated_at: '2026-07-23T00:01:00Z' },
+        { id: 30, sample_id: 10, setup_id: 20, updated_at: '2026-07-23T00:00:00Z' },
+      ],
+    )
+    workflow.recordedData.set(31, [
+      {
+        name: 'Current',
+        quantity_kind: 'ElectricCurrent',
+        tensor_order: 0,
+        dtype: 'float64',
+        data: { value: 31 },
+      },
+    ])
+    const router = renderPage('/measurements?structure=1&experiment=2')
+
+    await waitFor(() => {
+      const params = new URLSearchParams(router.state.location.search)
+      expect(params.get('sample')).toBe('11')
+      expect(params.get('setup')).toBe('20')
+      expect(params.get('measurement')).toBe('31')
+    })
+    expect(screen.getByRole('button', { name: 'Sample #11' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Setup #20' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Measurement #31' })).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() =>
+      expect(cadViewerSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ recordedData: { Current: { value: 31 } } }),
+      ),
+    )
+  })
+
+  it('selects the newest Sample and Setup when the context has no Measurement', async () => {
+    mockRunWorkflow([
+      { id: 11, structure_id: 1, vars: { width: 4 }, material_parameters: {} },
+      { id: 10, structure_id: 1, vars: { width: 3 }, material_parameters: {} },
+    ])
+    const router = renderPage('/measurements?structure=1&experiment=2')
+
+    await waitFor(() => {
+      const params = new URLSearchParams(router.state.location.search)
+      expect(params.get('sample')).toBe('11')
+      expect(params.get('setup')).toBe('20')
+      expect(params.get('measurement')).toBeNull()
+    })
+    expect(screen.getByRole('button', { name: 'Sample #11' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Setup #20' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('preserves a partial Sample deep link and fills the missing Setup', async () => {
+    mockRunWorkflow(
+      [
+        { id: 11, structure_id: 1, vars: { width: 4 }, material_parameters: {} },
+        { id: 10, structure_id: 1, vars: { width: 3 }, material_parameters: {} },
+      ],
+      [
+        { id: 31, sample_id: 11, setup_id: 20, updated_at: '2026-07-23T00:01:00Z' },
+        { id: 30, sample_id: 10, setup_id: 20, updated_at: '2026-07-23T00:00:00Z' },
+      ],
+    )
+    const router = renderPage('/measurements?structure=1&experiment=2&sample=10')
+
+    await waitFor(() => {
+      const params = new URLSearchParams(router.state.location.search)
+      expect(params.get('sample')).toBe('10')
+      expect(params.get('setup')).toBe('20')
+      expect(params.get('measurement')).toBe('30')
+    })
+    expect(screen.getByRole('button', { name: 'Sample #10' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Setup #20' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Measurement #30' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('clears a selected Sample snapshot before rerolling a new random Sample', async () => {
@@ -585,7 +705,7 @@ describe('MeasurementPage', () => {
 
     renderPage('/measurements?sample=10')
 
-    expect(await screen.findByText('Sample #10')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Sample #10' })).toBeInTheDocument()
     expect(workspaceSpy.mock.calls.every((call) => call[7] === 'prepared-vars')).toBe(true)
     expect(workspaceSpy.mock.calls.some((call) => call[4]?.width === 3)).toBe(true)
     await userEvent.click(screen.getByRole('button', { name: 'Sample 생성' }))
@@ -648,7 +768,7 @@ describe('MeasurementPage', () => {
     await waitFor(() => expect(createAndRun).toBeEnabled())
     await userEvent.click(createAndRun)
 
-    expect(await screen.findByText('Sample #10')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Sample #10' })).toBeInTheDocument()
     await waitFor(() => expect(solverMocks.run).toHaveBeenCalledOnce())
     await waitFor(() => expect(toastMocks.error).toHaveBeenCalledWith('run 1 failed'))
     expect(apiMocks.measurementSave).not.toHaveBeenCalled()
@@ -704,6 +824,7 @@ describe('MeasurementPage', () => {
 
   it('shows batch loading, evaluation, and Solver stages in order', async () => {
     mockRunWorkflow([
+      { id: 11, structure_id: 1, vars: { sampleId: 11 }, material_parameters: {} },
       { id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} },
     ])
     solverMocks.compatibilityStatus = 'checking'
@@ -712,7 +833,7 @@ describe('MeasurementPage', () => {
     let releaseLoad: (() => void) | undefined
     apiMocks.sampleList.mockImplementation(
       async (request: { selected_ids?: number[] }) => {
-        if (request.selected_ids?.length) {
+        if (request.selected_ids?.includes(11)) {
           await new Promise<void>((resolve) => {
             releaseLoad = resolve
           })
@@ -720,10 +841,10 @@ describe('MeasurementPage', () => {
         return sampleListImplementation(request)
       },
     )
-    renderPage('/measurements?structure=1&setup=20')
+    renderPage('/measurements?structure=1&setup=20&sample=10')
 
     const runAll = await screen.findByRole('button', {
-      name: '미측정 Sample 모두 실행 (1)',
+      name: '미측정 Sample 모두 실행 (2)',
     })
     await waitFor(() => expect(runAll).toBeEnabled())
     await userEvent.click(runAll)
@@ -940,7 +1061,7 @@ describe('MeasurementPage', () => {
 
     expect(await screen.findByText('Copper bar')).toBeInTheDocument()
     expect(screen.getByText('DC experiment')).toBeInTheDocument()
-    expect(await screen.findByText('Measurement #30')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Measurement #30' })).toBeInTheDocument()
     expect(apiMocks.structureList).toHaveBeenCalledOnce()
     expect(apiMocks.experimentList).toHaveBeenCalledOnce()
     await waitFor(() =>
@@ -963,7 +1084,7 @@ describe('MeasurementPage', () => {
       ),
     )
 
-    await userEvent.click((await screen.findByText('Sample #11')).closest('button')!)
+    await userEvent.click(await screen.findByRole('button', { name: 'Sample #11' }))
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('measurement')).toBe('31'))
     await waitFor(() =>
       expect(cadViewerSpy).toHaveBeenLastCalledWith(
@@ -971,7 +1092,7 @@ describe('MeasurementPage', () => {
       ),
     )
 
-    await userEvent.click(screen.getByText('Setup #21').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Setup #21' }))
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('measurement')).toBe('32'))
     await waitFor(() =>
       expect(cadViewerSpy).toHaveBeenLastCalledWith(
@@ -979,7 +1100,7 @@ describe('MeasurementPage', () => {
       ),
     )
 
-    await userEvent.click(screen.getByText('Setup #22').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Setup #22' }))
     await waitFor(() => expect(new URLSearchParams(router.state.location.search).get('measurement')).toBeNull())
     await waitFor(() => expect(cadViewerSpy).toHaveBeenLastCalledWith(expect.objectContaining({ recordedData: null })))
   })
@@ -987,7 +1108,7 @@ describe('MeasurementPage', () => {
   it('deletes the selected Sample with its Measurement and keeps the Setup selected', async () => {
     mockSelectedMeasurement()
     const router = renderPage('/measurements?measurement=30')
-    await screen.findByText('Measurement #30')
+    await screen.findByRole('button', { name: 'Measurement #30' })
 
     await userEvent.click(screen.getByRole('button', { name: '선택 Sample 삭제' }))
     expect(
@@ -1010,7 +1131,7 @@ describe('MeasurementPage', () => {
   it('deletes the selected Setup with its Measurement and keeps the Sample selected', async () => {
     mockSelectedMeasurement()
     const router = renderPage('/measurements?measurement=30')
-    await screen.findByText('Measurement #30')
+    await screen.findByRole('button', { name: 'Measurement #30' })
 
     await userEvent.click(screen.getByRole('button', { name: '선택 Setup 삭제' }))
     expect(
@@ -1035,7 +1156,7 @@ describe('MeasurementPage', () => {
       apiMocks.measurementContext.mockResolvedValue({ total: 0, items: [] })
     })
     const router = renderPage('/measurements?measurement=30')
-    await screen.findByText('Measurement #30')
+    await screen.findByRole('button', { name: 'Measurement #30' })
 
     await userEvent.click(screen.getByRole('button', { name: '선택 Measurement 삭제' }))
     expect(
@@ -1057,7 +1178,7 @@ describe('MeasurementPage', () => {
     mockSelectedMeasurement()
     apiMocks.sampleDelete.mockRejectedValue(new Error('delete failed'))
     renderPage('/measurements?measurement=30')
-    await screen.findByText('Measurement #30')
+    await screen.findByRole('button', { name: 'Measurement #30' })
 
     await userEvent.click(screen.getByRole('button', { name: '선택 Sample 삭제' }))
     await userEvent.click(screen.getByRole('button', { name: '삭제' }))

@@ -3,6 +3,7 @@ import {
   Atom,
   BookOpenText,
   Boxes,
+  ChartNoAxesCombined,
   Database,
   FlaskConical,
   Gauge,
@@ -24,6 +25,7 @@ export const primaryNavigation: readonly AppNavigationItem[] = [
   { href: '/structures', icon: GitBranch, label: 'Structures' },
   { href: '/experiments', icon: TestTubeDiagonal, label: 'Experiments' },
   { href: '/measurements', icon: Activity, label: 'Measurements' },
+  { href: '/analysis', icon: ChartNoAxesCombined, label: 'Analysis' },
   { href: '/materials', icon: Database, label: 'Materials' },
   { href: '/docs', icon: BookOpenText, label: 'Manual' },
 ]

@@ -1,5 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, Box, FlaskConical, LoaderCircle, LogIn, Pencil, Play, Plus, Rows3, Trash2 } from 'lucide-react'
+import {
+  Activity,
+  Box,
+  ChartNoAxesCombined,
+  FlaskConical,
+  LoaderCircle,
+  LogIn,
+  Pencil,
+  Play,
+  Plus,
+  Rows3,
+  Trash2,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
@@ -44,10 +56,6 @@ import type { MaterialResolution } from '@/lib/material'
 function positiveId(value: string | null) {
   const parsed = Number(value)
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
-}
-
-function formatTimestamp(value: string | null | undefined) {
-  return value ? new Date(value).toLocaleString('ko-KR') : '방금 전'
 }
 
 type MeasurementSelection = {
@@ -96,6 +104,12 @@ export function MeasurementPage() {
   const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null)
   const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null)
   const [selectedMeasurementId, setSelectedMeasurementId] = useState<number | null>(null)
+  const [initialDeepLinkSelection] = useState(() => ({
+    sampleId: positiveId(searchParams.get('sample')),
+    setupId: positiveId(searchParams.get('setup')),
+  }))
+  const [selectingDefaults, setSelectingDefaults] = useState(false)
+  const [urlInitializationComplete, setUrlInitializationComplete] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<'measurement' | 'sample' | 'setup' | null>(null)
   const [hideLiveRecordedData, setHideLiveRecordedData] = useState(false)
   const [pendingRealization, setPendingRealization] = useState<{
@@ -106,6 +120,7 @@ export function MeasurementPage() {
   } | null>(null)
   const [runQueue, setRunQueue] = useState<MeasurementRunQueue | null>(null)
   const [runSummary, setRunSummary] = useState<MeasurementRunSummary | null>(null)
+  const defaultSelectionContext = useRef<string | null>(null)
   const initializedFromUrl = useRef(false)
   const runPreviousRecordedData = useRef<RecordedData | null>(null)
 
@@ -283,8 +298,8 @@ export function MeasurementPage() {
     [applyExperiment, fetchExperiment, updateDeepLink],
   )
   const loadSample = useCallback(
-    async (id: number, updateUrl = true) => {
-      const sample = await fetchSample(id)
+    async (id: number, updateUrl = true, loadedSample?: SampleRecord) => {
+      const sample = loadedSample?.id === id ? loadedSample : await fetchSample(id)
       if (!sample) throw new Error('Sample을 찾을 수 없습니다.')
       if (!structure || currentStructureId !== sample.structure_id) {
         const parent = await fetchStructure(sample.structure_id)
@@ -309,8 +324,8 @@ export function MeasurementPage() {
     ],
   )
   const loadSetup = useCallback(
-    async (id: number, updateUrl = true) => {
-      const setup = await fetchSetup(id)
+    async (id: number, updateUrl = true, loadedSetup?: SetupRecord) => {
+      const setup = loadedSetup?.id === id ? loadedSetup : await fetchSetup(id)
       if (!setup) throw new Error('Setup을 찾을 수 없습니다.')
       if (!experiment || currentExperimentId !== setup.experiment_id) {
         const parent = await fetchExperiment(setup.experiment_id)
@@ -393,10 +408,12 @@ export function MeasurementPage() {
       })
     }
 
-    void initialize().catch((error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Measurement 작업을 불러오지 못했습니다.')
-      updateDeepLink({ measurement: null })
-    })
+    void initialize()
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : 'Measurement 작업을 불러오지 못했습니다.')
+        updateDeepLink({ measurement: null })
+      })
+      .finally(() => setUrlInitializationComplete(true))
   }, [
     auth.isAuthenticated,
     auth.isLoading,
@@ -409,6 +426,90 @@ export function MeasurementPage() {
     loadStructure,
     searchParams,
     updateDeepLink,
+  ])
+
+  useEffect(() => {
+    if (
+      !urlInitializationComplete ||
+      !auth.isAuthenticated ||
+      currentStructureId === null ||
+      currentExperimentId === null ||
+      !samplesQuery.data ||
+      !setupsQuery.data ||
+      !measurementsQuery.data
+    )
+      return
+
+    const contextKey = `${currentStructureId}:${currentExperimentId}`
+    if (defaultSelectionContext.current === contextKey) return
+    const isInitialContext = defaultSelectionContext.current === null
+    defaultSelectionContext.current = contextKey
+
+    const selectDefaults = async () => {
+      if (selectedMeasurementId !== null) return
+
+      const preferredSampleId =
+        selectedSampleId ?? (isInitialContext ? initialDeepLinkSelection.sampleId : null)
+      const preferredSetupId =
+        selectedSetupId ?? (isInitialContext ? initialDeepLinkSelection.setupId : null)
+
+      if (preferredSampleId === null && preferredSetupId === null && measurements[0]) {
+        await loadMeasurement(measurements[0].id)
+        return
+      }
+
+      const [sample, setup] = await Promise.all([
+        preferredSampleId === null && samples[0]
+          ? loadSample(samples[0].id, false, samples[0])
+          : Promise.resolve(null),
+        preferredSetupId === null && setups[0]
+          ? loadSetup(setups[0].id, false, setups[0])
+          : Promise.resolve(null),
+      ])
+      if (!sample && !setup) return
+
+      const sampleId = sample?.id ?? preferredSampleId
+      const setupId = setup?.id ?? preferredSetupId
+      const matchingMeasurementId =
+        measurements.find(
+          (measurement) =>
+            measurement.sample_id === sampleId && measurement.setup_id === setupId,
+        )?.id ?? null
+      setSelectedMeasurementId(matchingMeasurementId)
+      setHideLiveRecordedData(true)
+      updateDeepLink({
+        sample: sampleId,
+        setup: setupId,
+        measurement: matchingMeasurementId,
+      })
+    }
+
+    setSelectingDefaults(true)
+    void selectDefaults()
+      .catch((error: unknown) =>
+        toast.error(error instanceof Error ? error.message : '기본 Measurement 선택을 불러오지 못했습니다.'),
+      )
+      .finally(() => setSelectingDefaults(false))
+  }, [
+    auth.isAuthenticated,
+    currentExperimentId,
+    currentStructureId,
+    initialDeepLinkSelection.sampleId,
+    initialDeepLinkSelection.setupId,
+    loadMeasurement,
+    loadSample,
+    loadSetup,
+    measurements,
+    measurementsQuery.data,
+    samples,
+    samplesQuery.data,
+    selectedMeasurementId,
+    selectedSampleId,
+    selectedSetupId,
+    setups,
+    setupsQuery.data,
+    updateDeepLink,
+    urlInitializationComplete,
   ])
 
   useEffect(() => {
@@ -1103,11 +1204,12 @@ export function MeasurementPage() {
       unmeasuredSamples.length === 0
     )
       return
+    const firstSampleIsLoaded = unmeasuredSamples[0]?.id === selectedSampleId
     startRunQueue(
       unmeasuredSamples.map((sample) => sample.id),
       selectedSetupId,
       'batch',
-      false,
+      firstSampleIsLoaded,
     )
   }
   const cancelBatchMeasurements = () => {
@@ -1225,7 +1327,7 @@ export function MeasurementPage() {
     simulation.process.status === 'running'
   const workflowBusy = creatingSample || creatingSetup || measurementBusy
   const deleting = deleteMutation.isPending
-  const interactionBusy = workflowBusy || deleting
+  const interactionBusy = selectingDefaults || workflowBusy || deleting
   const deleteTargetId =
     deleteTarget === 'sample'
       ? selectedSampleId
@@ -1325,7 +1427,7 @@ export function MeasurementPage() {
               Sample 생성 + Run
             </Button>
           </CardHeader>
-          <CardContent className="space-y-1 border-t pt-3">
+          <CardContent className="h-48 overflow-y-auto border-t pt-3">
             {!auth.isAuthenticated ? (
               <p className="py-3 text-center text-xs text-muted-foreground">로그인하면 Sample을 저장할 수 있습니다.</p>
             ) : samplesQuery.isLoading ? (
@@ -1335,24 +1437,27 @@ export function MeasurementPage() {
             ) : samples.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">현재 Structure의 Sample이 없습니다.</p>
             ) : (
-              samples.map((sample) => (
-                <button
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
-                    selectedSampleId === sample.id ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted'
-                  }`}
-                  disabled={interactionBusy}
-                  key={sample.id}
-                  type="button"
-                  onClick={() =>
-                    void loadSample(sample.id).catch((error: unknown) =>
-                      toast.error(error instanceof Error ? error.message : 'Sample을 열지 못했습니다.'),
-                    )
-                  }
-                >
-                  <span className="font-medium">Sample #{sample.id}</span>
-                  <span className="text-[11px] text-muted-foreground">{formatTimestamp(sample.updated_at)}</span>
-                </button>
-              ))
+              <div className="flex flex-wrap content-start gap-2">
+                {samples.map((sample) => (
+                  <button
+                    aria-label={`Sample #${sample.id}`}
+                    aria-pressed={selectedSampleId === sample.id}
+                    className={`size-3 shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                      selectedSampleId === sample.id
+                        ? 'bg-primary ring-2 ring-primary/30'
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                    }`}
+                    disabled={interactionBusy}
+                    key={sample.id}
+                    type="button"
+                    onClick={() =>
+                      void loadSample(sample.id).catch((error: unknown) =>
+                        toast.error(error instanceof Error ? error.message : 'Sample을 열지 못했습니다.'),
+                      )
+                    }
+                  />
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1407,7 +1512,7 @@ export function MeasurementPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-1 border-t pt-3">
+          <CardContent className="h-48 overflow-y-auto border-t pt-3">
             {!auth.isAuthenticated ? (
               <p className="py-3 text-center text-xs text-muted-foreground">로그인하면 Setup을 저장할 수 있습니다.</p>
             ) : setupsQuery.isLoading ? (
@@ -1417,24 +1522,27 @@ export function MeasurementPage() {
             ) : setups.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">현재 Experiment의 Setup이 없습니다.</p>
             ) : (
-              setups.map((setup) => (
-                <button
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
-                    selectedSetupId === setup.id ? 'border-primary bg-primary/5' : 'bg-background hover:bg-muted'
-                  }`}
-                  disabled={interactionBusy}
-                  key={setup.id}
-                  type="button"
-                  onClick={() =>
-                    void loadSetup(setup.id).catch((error: unknown) =>
-                      toast.error(error instanceof Error ? error.message : 'Setup을 열지 못했습니다.'),
-                    )
-                  }
-                >
-                  <span className="font-medium">Setup #{setup.id}</span>
-                  <span className="text-[11px] text-muted-foreground">{formatTimestamp(setup.updated_at)}</span>
-                </button>
-              ))
+              <div className="flex flex-wrap content-start gap-2">
+                {setups.map((setup) => (
+                  <button
+                    aria-label={`Setup #${setup.id}`}
+                    aria-pressed={selectedSetupId === setup.id}
+                    className={`size-3 shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                      selectedSetupId === setup.id
+                        ? 'bg-primary ring-2 ring-primary/30'
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                    }`}
+                    disabled={interactionBusy}
+                    key={setup.id}
+                    type="button"
+                    onClick={() =>
+                      void loadSetup(setup.id).catch((error: unknown) =>
+                        toast.error(error instanceof Error ? error.message : 'Setup을 열지 못했습니다.'),
+                      )
+                    }
+                  />
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -1500,6 +1608,20 @@ export function MeasurementPage() {
                   )}
                   미측정 Sample 모두 실행 ({unmeasuredSamples.length})
                 </Button>
+                <Button
+                  className="w-full"
+                  disabled={!currentStructureId || !currentExperimentId || interactionBusy}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigate(
+                      `/analysis?structure=${currentStructureId}&experiment=${currentExperimentId}`,
+                    )
+                  }
+                >
+                  <ChartNoAxesCombined />
+                  이 조합 분석
+                </Button>
                 {runQueue?.mode === 'batch' ? (
                   <div className="rounded-md border bg-muted/40 p-2 text-xs" aria-live="polite">
                     <p className="font-medium">
@@ -1557,7 +1679,7 @@ export function MeasurementPage() {
                     : '선택된 실현값으로 Solver를 실행하고 결과를 저장합니다.'}
             </p>
           </CardHeader>
-          <CardContent className="space-y-1 border-t pt-3">
+          <CardContent className="h-48 overflow-y-auto border-t pt-3">
             {!auth.isAuthenticated ? (
               <p className="py-3 text-center text-xs text-muted-foreground">
                 로그인하면 Measurement 이력을 볼 수 있습니다.
@@ -1569,34 +1691,27 @@ export function MeasurementPage() {
             ) : measurements.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">현재 조합의 Measurement가 없습니다.</p>
             ) : (
-              measurements.map((measurement) => (
-                <button
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
-                    selectedMeasurementId === measurement.id
-                      ? 'border-primary bg-primary/5'
-                      : 'bg-background hover:bg-muted'
-                  }`}
-                  disabled={interactionBusy}
-                  key={measurement.id}
-                  type="button"
-                  onClick={() =>
-                    void loadMeasurement(measurement.id).catch((error: unknown) =>
-                      toast.error(error instanceof Error ? error.message : 'Measurement를 열지 못했습니다.'),
-                    )
-                  }
-                >
-                  <span>
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Rows3 className="size-3.5" />
-                      Measurement #{measurement.id}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                      Sample #{measurement.sample_id} · Setup #{measurement.setup_id}
-                    </span>
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">{formatTimestamp(measurement.updated_at)}</span>
-                </button>
-              ))
+              <div className="flex flex-wrap content-start gap-2">
+                {measurements.map((measurement) => (
+                  <button
+                    aria-label={`Measurement #${measurement.id}`}
+                    aria-pressed={selectedMeasurementId === measurement.id}
+                    className={`size-3 shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+                      selectedMeasurementId === measurement.id
+                        ? 'bg-primary ring-2 ring-primary/30'
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/60'
+                    }`}
+                    disabled={interactionBusy}
+                    key={measurement.id}
+                    type="button"
+                    onClick={() =>
+                      void loadMeasurement(measurement.id).catch((error: unknown) =>
+                        toast.error(error instanceof Error ? error.message : 'Measurement를 열지 못했습니다.'),
+                      )
+                    }
+                  />
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

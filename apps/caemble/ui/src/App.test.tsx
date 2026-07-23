@@ -12,6 +12,7 @@ describe('페이지 중심 앱 라우팅', () => {
       'structures',
       'experiments',
       'measurements',
+      'analysis',
       'materials',
       'materials/:materialId',
       'catalog/cad/:tag?',

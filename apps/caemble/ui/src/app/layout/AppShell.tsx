@@ -120,6 +120,8 @@ function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/structures')) return 'Structures'
   if (pathname.startsWith('/experiments')) return 'Experiments'
+  if (pathname.startsWith('/measurements')) return 'Measurements'
+  if (pathname.startsWith('/analysis')) return 'Analysis'
   if (pathname.startsWith('/materials')) return 'Materials'
   if (pathname.startsWith('/catalog/cad')) return 'Geometry'
   if (pathname.startsWith('/catalog/materials')) return 'Material Catalog'
