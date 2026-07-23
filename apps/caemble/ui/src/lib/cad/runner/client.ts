@@ -42,7 +42,7 @@ function runnerLocation() {
       throw new Error('The development CAD runner requires an explicit host port.')
     }
     const url = new URL('/runner.html', window.location.origin)
-    url.hostname = '127.0.0.1'
+    url.hostname = 'localhost'
     url.port = String(hostPort + 1)
     return url
   }

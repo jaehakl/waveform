@@ -22,11 +22,12 @@ class Settings(BaseModel):
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     google_redirect_uri: str = os.getenv("GOOGLE_REDIRECT_URI", "")
+    google_id_token_clock_skew_sec: int = int(os.getenv("GOOGLE_ID_TOKEN_CLOCK_SKEW_SEC", "10"))
 
     app_base_url: str = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
     allowed_app_origins: tuple[str, ...] = env_csv(
         "ALLOWED_APP_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173",
+        "http://localhost:5173",
     )
     app_timezone: str = os.getenv("APP_TIMEZONE", "Asia/Seoul")
     oauth_state_ttl_sec: int = int(os.getenv("OAUTH_STATE_TTL_SEC", "600"))

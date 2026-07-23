@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+import logging
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
+import jwt as pyjwt
 import pytest
 from sqlalchemy import func, select
 
@@ -9,6 +12,14 @@ from user_auth import routes as auth_routes
 from user_auth.db import Identity, OAuthState, User
 from user_auth.utils.auth_utils import pkce_challenge, safe_return_to
 from user_auth.utils.jwt import make_access, make_refresh, verify_token
+
+
+class SuccessfulTokenResponse:
+    status_code = 200
+
+    @staticmethod
+    def json():
+        return {"id_token": "mock-id-token"}
 
 
 def test_jwt_token_types_are_not_interchangeable(monkeypatch):
@@ -62,22 +73,21 @@ async def test_google_oauth_pkce_callback_relogin_and_cookies(client, db_session
     assert "HttpOnly" in start.headers["set-cookie"]
     assert "Secure" in start.headers["set-cookie"]
 
-    class TokenResponse:
-        status_code = 200
+    verification_clock_skews = []
 
-        @staticmethod
-        def json():
-            return {"id_token": "mock-id-token"}
+    def verify_google_token(*args, **kwargs):
+        verification_clock_skews.append(kwargs.get("clock_skew_in_seconds"))
+        return {
+            "sub": "google-user-1",
+            "email": "oauth@example.com",
+            "email_verified": True,
+            "name": "OAuth User",
+            "picture": "https://images.example.com/avatar.png",
+            "nonce": oauth_state.nonce,
+        }
 
-    monkeypatch.setattr(auth_routes.requests, "post", lambda *args, **kwargs: TokenResponse())
-    monkeypatch.setattr(auth_routes.google_id_token, "verify_oauth2_token", lambda *args, **kwargs: {
-        "sub": "google-user-1",
-        "email": "oauth@example.com",
-        "email_verified": True,
-        "name": "OAuth User",
-        "picture": "https://images.example.com/avatar.png",
-        "nonce": oauth_state.nonce,
-    })
+    monkeypatch.setattr(auth_routes.requests, "post", lambda *args, **kwargs: SuccessfulTokenResponse())
+    monkeypatch.setattr(auth_routes.google_id_token, "verify_oauth2_token", verify_google_token)
     callback = await client.get(
         "/auth/google/callback",
         params={"state": oauth_state.state, "code": "mock-code"},
@@ -87,6 +97,7 @@ async def test_google_oauth_pkce_callback_relogin_and_cookies(client, db_session
     assert callback.headers["location"] == "https://app.example.com/viewer?structure=7"
     assert callback.cookies.get("access_token")
     assert callback.cookies.get("refresh_token")
+    assert verification_clock_skews == [settings.google_id_token_clock_skew_sec]
 
     me = await client.get("/auth/me")
     assert me.status_code == 200
@@ -140,3 +151,94 @@ async def test_google_oauth_pkce_callback_relogin_and_cookies(client, db_session
     client.cookies.set("refresh_token", second_callback.cookies["refresh_token"])
     assert (await client.get("/auth/me")).status_code == 401
     assert (await client.get("/auth/refresh")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_google_oauth_verification_failure_is_logged_without_secrets(
+    client,
+    db_session,
+    monkeypatch,
+    caplog,
+):
+    start = await client.get("/auth/google/start", follow_redirects=False)
+    parameters = parse_qs(urlsplit(start.headers["location"]).query)
+    oauth_state = await db_session.scalar(select(OAuthState).where(OAuthState.state == parameters["state"][0]))
+    assert oauth_state is not None
+    issued_at = int(datetime.now(timezone.utc).timestamp()) + 5
+    diagnostic_token = pyjwt.encode(
+        {
+            "iss": "https://accounts.google.com",
+            "aud": settings.google_client_id,
+            "iat": issued_at,
+            "exp": issued_at + 3600,
+            "nonce": oauth_state.nonce,
+        },
+        "test-diagnostic-signing-key-at-least-32-bytes",
+        algorithm="HS256",
+    )
+
+    class SensitiveTokenResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"id_token": diagnostic_token}
+
+    def reject_token(*args, **kwargs):
+        raise ValueError("signature verification failed")
+
+    monkeypatch.setattr(auth_routes.requests, "post", lambda *args, **kwargs: SensitiveTokenResponse())
+    monkeypatch.setattr(auth_routes.google_id_token, "verify_oauth2_token", reject_token)
+
+    with caplog.at_level(logging.WARNING, logger=auth_routes.__name__):
+        callback = await client.get(
+            "/auth/google/callback",
+            params={"state": oauth_state.state, "code": "sensitive-authorization-code"},
+            follow_redirects=False,
+        )
+
+    assert callback.status_code == 400
+    assert callback.json() == {"detail": "id_token verification failed"}
+    assert "google_oauth_id_token_verification_failed" in caplog.text
+    assert "error_type=ValueError" in caplog.text
+    assert "token_issued_in_future=True" in caplog.text
+    assert "iat_offset_seconds=" in caplog.text
+    assert diagnostic_token not in caplog.text
+    assert "sensitive-authorization-code" not in caplog.text
+    assert settings.google_client_secret not in caplog.text
+
+
+@pytest.mark.parametrize("token_nonce", [None, "sensitive-wrong-nonce"])
+@pytest.mark.asyncio
+async def test_google_oauth_nonce_failure_is_logged_without_nonce(
+    token_nonce,
+    client,
+    db_session,
+    monkeypatch,
+    caplog,
+):
+    start = await client.get("/auth/google/start", follow_redirects=False)
+    parameters = parse_qs(urlsplit(start.headers["location"]).query)
+    oauth_state = await db_session.scalar(select(OAuthState).where(OAuthState.state == parameters["state"][0]))
+    assert oauth_state is not None
+
+    monkeypatch.setattr(auth_routes.requests, "post", lambda *args, **kwargs: SuccessfulTokenResponse())
+    monkeypatch.setattr(
+        auth_routes.google_id_token,
+        "verify_oauth2_token",
+        lambda *args, **kwargs: {"nonce": token_nonce},
+    )
+
+    with caplog.at_level(logging.WARNING, logger=auth_routes.__name__):
+        callback = await client.get(
+            "/auth/google/callback",
+            params={"state": oauth_state.state, "code": "mock-code"},
+            follow_redirects=False,
+        )
+
+    assert callback.status_code == 400
+    assert callback.json() == {"detail": "id_token verification failed"}
+    assert "google_oauth_nonce_mismatch" in caplog.text
+    assert oauth_state.nonce not in caplog.text
+    if token_nonce:
+        assert token_nonce not in caplog.text

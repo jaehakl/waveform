@@ -1,10 +1,12 @@
 import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
+from google.auth import jwt as google_jwt
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from sqlalchemy import func, select
@@ -25,6 +27,7 @@ from user_auth.utils.auth_utils import (
 from user_auth.utils.jwt import make_access, make_refresh, verify_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -137,11 +140,56 @@ async def google_callback(request: Request, state: str = "", code: str = "", db:
             id_token_value,
             google_requests.Request(),
             settings.google_client_id,
+            clock_skew_in_seconds=settings.google_id_token_clock_skew_sec,
         )
-        if oauth_state.nonce and idinfo.get("nonce") != oauth_state.nonce:
-            raise ValueError("nonce mismatch")
     except Exception as error:
+        issuer_valid = audience_valid = token_expired = token_issued_in_future = None
+        iat_offset_seconds = nonce_present = nonce_matches = None
+        try:
+            unverified_claims = google_jwt.decode(id_token_value, verify=False)
+            issuer_valid = unverified_claims.get("iss") in {"accounts.google.com", "https://accounts.google.com"}
+            audience = unverified_claims.get("aud")
+            audience_valid = (
+                settings.google_client_id in audience
+                if isinstance(audience, list)
+                else audience == settings.google_client_id
+            )
+            now = int(datetime.now(timezone.utc).timestamp())
+            expires_at = unverified_claims.get("exp")
+            token_expired = (
+                expires_at <= now
+                if isinstance(expires_at, (int, float))
+                else None
+            )
+            issued_at = unverified_claims.get("iat")
+            token_issued_in_future = issued_at > now if isinstance(issued_at, (int, float)) else None
+            iat_offset_seconds = issued_at - now if isinstance(issued_at, (int, float)) else None
+            token_nonce = unverified_claims.get("nonce")
+            nonce_present = isinstance(token_nonce, str) and bool(token_nonce)
+            nonce_matches = token_nonce == oauth_state.nonce if oauth_state.nonce else None
+        except Exception:
+            pass
+        logger.warning(
+            "google_oauth_id_token_verification_failed "
+            "error_type=%s issuer_valid=%s audience_valid=%s token_expired=%s "
+            "token_issued_in_future=%s iat_offset_seconds=%s nonce_present=%s nonce_matches=%s",
+            type(error).__name__,
+            issuer_valid,
+            audience_valid,
+            token_expired,
+            token_issued_in_future,
+            iat_offset_seconds,
+            nonce_present,
+            nonce_matches,
+        )
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "id_token verification failed") from error
+    if oauth_state.nonce and idinfo.get("nonce") != oauth_state.nonce:
+        logger.warning(
+            "google_oauth_nonce_mismatch expected_nonce_present=%s token_nonce_present=%s",
+            True,
+            isinstance(idinfo.get("nonce"), str) and bool(idinfo.get("nonce")),
+        )
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "id_token verification failed")
 
     provider_user_id = idinfo.get("sub")
     if not isinstance(provider_user_id, str) or not provider_user_id:

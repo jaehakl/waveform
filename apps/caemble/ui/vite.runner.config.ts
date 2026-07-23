@@ -18,7 +18,7 @@ export default defineConfig({
     entries: ['runner.html'],
   },
   server: {
-    host: '127.0.0.1',
+    host: 'localhost',
     port: 5174,
     strictPort: true,
     hmr: false,
@@ -31,7 +31,7 @@ export default defineConfig({
       name: 'caemble-runner-html',
       configureServer(server) {
         server.middlewares.use(async (request, response, next) => {
-          const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
+          const pathname = new URL(request.url ?? '/', 'http://localhost').pathname
           if (pathname !== '/' && pathname !== '/runner.html') {
             next()
             return
