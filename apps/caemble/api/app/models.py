@@ -160,6 +160,29 @@ class MeasurementBase(OwnedTimestampFields):
     setup_id: int
 
 
+class MeasurementContextListRequest(BaseModel):
+    structure_id: int
+    experiment_id: int
+
+
+class MeasurementSaveRecordedData(BaseModel):
+    name: str = Field(..., min_length=1)
+    quantity_kind: str = Field(..., min_length=1)
+    tensor_order: int = Field(..., ge=0)
+    dtype: str = Field(..., min_length=1)
+    data: Any = None
+
+
+class MeasurementSaveRequest(BaseModel):
+    sample_id: int
+    setup_id: int
+    recorded_data: List[MeasurementSaveRecordedData] = Field(default_factory=list)
+
+
+class MeasurementSaveResponse(BaseModel):
+    id: int
+
+
 class RecordedDataBase(OwnedTimestampFields):
     measurement_id: int
     name: str = Field(..., min_length=1)

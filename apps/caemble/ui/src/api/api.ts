@@ -42,11 +42,30 @@ const saveCodeEntityResponseSchema = z.object({
   action: z.enum(['created', 'updated', 'forked']),
   parentId: z.number().int().nullable(),
 })
+const measurementContextRequestSchema = z.object({
+  structure_id: z.number().int(),
+  experiment_id: z.number().int(),
+})
+const measurementSaveRequestSchema = z.object({
+  sample_id: z.number().int(),
+  setup_id: z.number().int(),
+  recorded_data: z.array(
+    z.object({
+      name: z.string().min(1),
+      quantity_kind: z.string().min(1),
+      tensor_order: z.number().int().nonnegative(),
+      dtype: z.string().min(1),
+      data: z.unknown().nullable().optional(),
+    }),
+  ),
+})
+const measurementSaveResponseSchema = z.object({ id: z.number().int() })
 
 export type GetListRequest = z.infer<typeof getListRequestSchema>
 export type UpsertResponse = z.infer<typeof upsertResponseSchema>
 export type SaveCodeEntityRequest = z.infer<typeof saveCodeEntityRequestSchema>
 export type SaveCodeEntityResponse = z.infer<typeof saveCodeEntityResponseSchema>
+export type MeasurementSaveRequest = z.infer<typeof measurementSaveRequestSchema>
 export type GpsAccessTokenData = z.infer<typeof gpsAccessTokenSchema>
 export type GetListResponse<TItem> = { items: TItem[]; total: number }
 
@@ -347,6 +366,18 @@ export const dbTables = {
       const payload = getListRequestSchema.parse(listRequest)
       const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
       return listResponseSchema.parse(await request<unknown>('post', '/measurement/list', payload))
+    },
+    async listContext(structureId: number, experimentId: number) {
+      const payload = measurementContextRequestSchema.parse({
+        structure_id: structureId,
+        experiment_id: experimentId,
+      })
+      const listResponseSchema = z.object({ total: z.number().int().nonnegative(), items: z.array(this.rowSchema) })
+      return listResponseSchema.parse(await request<unknown>('post', '/measurement/context-list', payload))
+    },
+    async save(item: MeasurementSaveRequest) {
+      const payload = measurementSaveRequestSchema.parse(item)
+      return measurementSaveResponseSchema.parse(await request<unknown>('post', '/measurement/save', payload))
     },
     async upsertRow(items: readonly z.infer<(typeof this)['rowSchema']>[]) {
       const payload = z.array(this.rowSchema).parse(items)

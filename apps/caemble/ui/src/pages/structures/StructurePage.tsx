@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Code2, Eye, GitBranch, LoaderCircle, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { dbTables, getListRequest, type StructureRecord, type UserData } from '@/api'
 import { DataTable } from '@/components/DataTable'
@@ -35,6 +35,7 @@ import {
   type Vars,
 } from '@/lib/cad'
 import { defaultCode } from '@/lib/defaultCode'
+import { readMeasurementReturnTo, updateMeasurementReturnTo } from '@/pages/measurements/measurement-return'
 
 type StructureRow = StructureRecord & { id: number }
 
@@ -186,6 +187,8 @@ function StructureLineage({
 
 export function StructurePage() {
   const auth = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const {
     currentExperimentId,
@@ -206,10 +209,12 @@ export function StructurePage() {
   const [pendingNavigation, setPendingNavigation] = useState<StructureRow | null>(null)
   const [pendingEditorOpen, setPendingEditorOpen] = useState(false)
   const [pendingCreate, setPendingCreate] = useState(false)
+  const [pendingReturn, setPendingReturn] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<StructureRow | null>(null)
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const initializedFromUrl = useRef(false)
   const workspaceRef = useRef<HTMLDivElement | null>(null)
+  const [measurementReturnTo] = useState(() => readMeasurementReturnTo(location.state))
 
   const visibleRequest = useMemo(() => ({ ...getListRequest('visible'), limit: null }), [])
   const structuresQuery = useQuery({
@@ -268,6 +273,21 @@ export function StructurePage() {
     },
     [setSearchParams],
   )
+  const updateEditorOpen = useCallback(
+    (open: boolean) => {
+      setEditorOpen(open)
+      if (!measurementReturnTo && !searchParams.has('mode')) return
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          next.set('mode', open ? 'code' : 'list')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [measurementReturnTo, searchParams, setSearchParams],
+  )
 
   const applyStructure = useCallback(
     (row: StructureRow) => {
@@ -285,18 +305,18 @@ export function StructurePage() {
     setStructureVars(undefined)
     setSelectedStructureId(null)
     setSavedStructureCode(null)
-    setEditorOpen(false)
+    updateEditorOpen(false)
     updateDeepLink(null)
-  }, [setSelectedStructureId, updateDeepLink])
+  }, [setSelectedStructureId, updateDeepLink, updateEditorOpen])
 
   const startNewStructure = useCallback(() => {
     setStructure(createCadSourceDocumentV2('structure', defaultCode))
     setStructureVars(undefined)
     setSelectedStructureId(null)
     setSavedStructureCode(null)
-    setEditorOpen(true)
+    updateEditorOpen(true)
     updateDeepLink(null)
-  }, [setSelectedStructureId, updateDeepLink])
+  }, [setSelectedStructureId, updateDeepLink, updateEditorOpen])
 
   useEffect(() => {
     if (initializedFromUrl.current || !structuresQuery.isSuccess) return
@@ -319,6 +339,7 @@ export function StructurePage() {
       return
     }
     applyStructure(row)
+    updateEditorOpen(searchParams.get('mode') === 'code')
   }, [
     applyStructure,
     rows,
@@ -327,6 +348,7 @@ export function StructurePage() {
     setSelectedStructureId,
     structuresQuery.isSuccess,
     updateDeepLink,
+    updateEditorOpen,
   ])
 
   useEffect(() => {
@@ -475,7 +497,7 @@ export function StructurePage() {
   const requestEditorOpen = useCallback(
     (row: StructureRow) => {
       if (row.id === selectedStructureId) {
-        setEditorOpen(true)
+        updateEditorOpen(true)
         return
       }
       if (dirty) {
@@ -484,10 +506,23 @@ export function StructurePage() {
         return
       }
       applyStructure(row)
-      setEditorOpen(true)
+      updateEditorOpen(true)
     },
-    [applyStructure, dirty, selectedStructureId],
+    [applyStructure, dirty, selectedStructureId, updateEditorOpen],
   )
+
+  const returnToMeasurement = useCallback(() => {
+    if (!measurementReturnTo) return
+    navigate(updateMeasurementReturnTo(measurementReturnTo, 'structure', selectedStructureId))
+  }, [measurementReturnTo, navigate, selectedStructureId])
+
+  const requestReturnToMeasurement = useCallback(() => {
+    if (dirty) {
+      setPendingReturn(true)
+      return
+    }
+    returnToMeasurement()
+  }, [dirty, returnToMeasurement])
 
   const openMetadata = useCallback((row: StructureRow) => {
     setMetadataTarget(row)
@@ -633,10 +668,16 @@ export function StructurePage() {
           {editorOpen && structure ? (
             <div className="flex h-full min-h-0 flex-col bg-background">
               <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-                <Button size="sm" variant="ghost" onClick={() => setEditorOpen(false)}>
+                <Button size="sm" variant="ghost" onClick={() => updateEditorOpen(false)}>
                   <ArrowLeft />
                   목록
                 </Button>
+                {measurementReturnTo ? (
+                  <Button size="sm" variant="outline" onClick={requestReturnToMeasurement}>
+                    <ArrowLeft />
+                    Measurement로 돌아가기
+                  </Button>
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-1">
                     <p className="min-w-0 truncate text-sm font-semibold">
@@ -727,6 +768,12 @@ export function StructurePage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    {measurementReturnTo ? (
+                      <Button size="sm" onClick={requestReturnToMeasurement}>
+                        <ArrowLeft />
+                        Measurement로 돌아가기
+                      </Button>
+                    ) : null}
                     {auth.isAuthenticated ? (
                       <Button size="sm" variant="outline" onClick={requestNewStructure}>
                         <Plus />새 Structure 생성
@@ -908,14 +955,17 @@ export function StructurePage() {
           setPendingNavigation(null)
           setPendingEditorOpen(false)
           setPendingCreate(false)
+          setPendingReturn(false)
         }}
-        open={pendingNavigation !== null || pendingCreate}
+        open={pendingNavigation !== null || pendingCreate || pendingReturn}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>저장되지 않은 변경을 버릴까요?</DialogTitle>
             <DialogDescription>
-              {pendingCreate
+              {pendingReturn
+                ? 'Measurement로 돌아가면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                : pendingCreate
                 ? '새 Structure를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
                 : '다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
@@ -927,6 +977,7 @@ export function StructurePage() {
                 setPendingNavigation(null)
                 setPendingEditorOpen(false)
                 setPendingCreate(false)
+                setPendingReturn(false)
               }}
             >
               취소
@@ -934,14 +985,16 @@ export function StructurePage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingCreate) startNewStructure()
+                if (pendingReturn) returnToMeasurement()
+                else if (pendingCreate) startNewStructure()
                 else if (pendingNavigation) {
                   applyStructure(pendingNavigation)
-                  if (pendingEditorOpen) setEditorOpen(true)
+                  if (pendingEditorOpen) updateEditorOpen(true)
                 }
                 setPendingNavigation(null)
                 setPendingEditorOpen(false)
                 setPendingCreate(false)
+                setPendingReturn(false)
               }}
             >
               변경 버리고 이동

@@ -199,6 +199,76 @@ describe('unified dbTables API', () => {
     expect(seen).toEqual(['structure', 'experiment'])
   })
 
+  it('validates Measurement context-list and atomic save contracts', async () => {
+    const seen: Array<{ endpoint: string; payload: unknown }> = []
+    server.use(
+      http.post('http://api.test/measurement/:action', async ({ params, request }) => {
+        seen.push({ endpoint: String(params.action), payload: await request.json() })
+        return params.action === 'context-list'
+          ? HttpResponse.json({
+              total: 1,
+              items: [{ id: 9, sample_id: 3, setup_id: 4 }],
+            })
+          : HttpResponse.json({ id: 9 })
+      }),
+    )
+    const { dbTables } = await loadApi()
+
+    await expect(dbTables.Measurement.listContext(1, 2)).resolves.toEqual({
+      total: 1,
+      items: [{ id: 9, sample_id: 3, setup_id: 4 }],
+    })
+    await expect(
+      dbTables.Measurement.save({
+        sample_id: 3,
+        setup_id: 4,
+        recorded_data: [
+          {
+            name: 'Current',
+            quantity_kind: 'ElectricCurrent',
+            tensor_order: 0,
+            dtype: 'float64',
+            data: { value: 2.5 },
+          },
+        ],
+      }),
+    ).resolves.toEqual({ id: 9 })
+    expect(seen).toEqual([
+      { endpoint: 'context-list', payload: { structure_id: 1, experiment_id: 2 } },
+      {
+        endpoint: 'save',
+        payload: {
+          sample_id: 3,
+          setup_id: 4,
+          recorded_data: [
+            {
+              name: 'Current',
+              quantity_kind: 'ElectricCurrent',
+              tensor_order: 0,
+              dtype: 'float64',
+              data: { value: 2.5 },
+            },
+          ],
+        },
+      },
+    ])
+    await expect(dbTables.Measurement.listContext(1.5, 2)).rejects.toBeInstanceOf(ZodError)
+    await expect(
+      dbTables.Measurement.save({
+        sample_id: 3,
+        setup_id: 4,
+        recorded_data: [
+          {
+            name: 'Current',
+            quantity_kind: 'ElectricCurrent',
+            tensor_order: -1,
+            dtype: 'float64',
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ZodError)
+  })
+
   it('uses validated list, upsert, and delete contracts for every CRUD table', async () => {
     const definitions = [
       ['Material', 'material', { color: '#a1b2c3' }],

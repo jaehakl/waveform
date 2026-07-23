@@ -6,6 +6,7 @@ export type {
   GetListRequest,
   GetListResponse,
   GpsAccessTokenData,
+  MeasurementSaveRequest,
   SaveCodeEntityRequest,
   SaveCodeEntityResponse,
   UpsertResponse,

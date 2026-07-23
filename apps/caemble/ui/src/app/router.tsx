@@ -7,6 +7,7 @@ export const appRoutePaths = [
   'viewer',
   'structures',
   'experiments',
+  'measurements',
   'materials',
   'materials/:materialId',
   'catalog/cad/:tag?',
@@ -38,6 +39,7 @@ export function createAppRouter() {
         { path: 'viewer', lazy: () => import('@/pages/viewer/ViewerPage') },
         { path: 'structures', lazy: () => import('@/pages/structures/StructurePage') },
         { path: 'experiments', lazy: () => import('@/pages/experiments/ExperimentPage') },
+        { path: 'measurements', lazy: () => import('@/pages/measurements/MeasurementPage') },
         { path: 'materials', lazy: () => import('@/pages/materials/MaterialListPage') },
         { path: 'materials/:materialId', lazy: () => import('@/pages/materials/MaterialDetailPage') },
         {

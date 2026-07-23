@@ -296,6 +296,13 @@ afterEach(() => {
 })
 
 describe('StructurePage', () => {
+  it('opens a selected Structure directly in code mode', async () => {
+    renderPage('/structures?structure=5&mode=code')
+
+    expect(await screen.findByRole('button', { name: 'Source 변경' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '목록' })).toBeInTheDocument()
+  })
+
   it('shows only visible leaves and searches leaf names or descriptions', async () => {
     renderPage()
 

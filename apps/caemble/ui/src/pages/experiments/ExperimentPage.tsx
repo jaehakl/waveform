@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Code2, Eye, GitBranch, LoaderCircle, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { dbTables, getListRequest, type ExperimentRecord, type UserData } from '@/api'
 import { DataTable } from '@/components/DataTable'
@@ -34,6 +34,7 @@ import {
   type EvaluatedDocumentSnapshotV2,
 } from '@/lib/cad'
 import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
+import { readMeasurementReturnTo, updateMeasurementReturnTo } from '@/pages/measurements/measurement-return'
 
 type ExperimentRow = ExperimentRecord & { id: number }
 
@@ -185,6 +186,8 @@ function ExperimentLineage({
 
 export function ExperimentPage() {
   const auth = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const {
     currentExperimentId: selectedExperimentId,
@@ -204,10 +207,12 @@ export function ExperimentPage() {
   const [pendingNavigation, setPendingNavigation] = useState<ExperimentRow | null>(null)
   const [pendingEditorOpen, setPendingEditorOpen] = useState(false)
   const [pendingCreate, setPendingCreate] = useState(false)
+  const [pendingReturn, setPendingReturn] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ExperimentRow | null>(null)
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const initializedFromUrl = useRef(false)
   const workspaceRef = useRef<HTMLDivElement | null>(null)
+  const [measurementReturnTo] = useState(() => readMeasurementReturnTo(location.state))
 
   const visibleRequest = useMemo(() => ({ ...getListRequest('visible'), limit: null }), [])
   const experimentsQuery = useQuery({
@@ -267,6 +272,21 @@ export function ExperimentPage() {
     },
     [setSearchParams],
   )
+  const updateEditorOpen = useCallback(
+    (open: boolean) => {
+      setEditorOpen(open)
+      if (!measurementReturnTo && !searchParams.has('mode')) return
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current)
+          next.set('mode', open ? 'code' : 'list')
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [measurementReturnTo, searchParams, setSearchParams],
+  )
 
   const applyExperiment = useCallback(
     (row: ExperimentRow) => {
@@ -282,17 +302,17 @@ export function ExperimentPage() {
     setExperiment(null)
     setSelectedExperimentId(null)
     setSavedExperimentCode(null)
-    setEditorOpen(false)
+    updateEditorOpen(false)
     updateDeepLink(null)
-  }, [setSelectedExperimentId, updateDeepLink])
+  }, [setSelectedExperimentId, updateDeepLink, updateEditorOpen])
 
   const startNewExperiment = useCallback(() => {
     setExperiment(createCadSourceDocumentV2('experiment', defaultExperimentCode))
     setSelectedExperimentId(null)
     setSavedExperimentCode(null)
-    setEditorOpen(true)
+    updateEditorOpen(true)
     updateDeepLink(null)
-  }, [setSelectedExperimentId, updateDeepLink])
+  }, [setSelectedExperimentId, updateDeepLink, updateEditorOpen])
 
   useEffect(() => {
     if (initializedFromUrl.current || !experimentsQuery.isSuccess) return
@@ -315,6 +335,7 @@ export function ExperimentPage() {
       return
     }
     applyExperiment(row)
+    updateEditorOpen(searchParams.get('mode') === 'code')
   }, [
     applyExperiment,
     experimentsQuery.isSuccess,
@@ -323,6 +344,7 @@ export function ExperimentPage() {
     selectedExperimentId,
     setSelectedExperimentId,
     updateDeepLink,
+    updateEditorOpen,
   ])
 
   useEffect(() => {
@@ -465,7 +487,7 @@ export function ExperimentPage() {
   const requestEditorOpen = useCallback(
     (row: ExperimentRow) => {
       if (row.id === selectedExperimentId) {
-        setEditorOpen(true)
+        updateEditorOpen(true)
         return
       }
       if (dirty) {
@@ -474,10 +496,23 @@ export function ExperimentPage() {
         return
       }
       applyExperiment(row)
-      setEditorOpen(true)
+      updateEditorOpen(true)
     },
-    [applyExperiment, dirty, selectedExperimentId],
+    [applyExperiment, dirty, selectedExperimentId, updateEditorOpen],
   )
+
+  const returnToMeasurement = useCallback(() => {
+    if (!measurementReturnTo) return
+    navigate(updateMeasurementReturnTo(measurementReturnTo, 'experiment', selectedExperimentId))
+  }, [measurementReturnTo, navigate, selectedExperimentId])
+
+  const requestReturnToMeasurement = useCallback(() => {
+    if (dirty) {
+      setPendingReturn(true)
+      return
+    }
+    returnToMeasurement()
+  }, [dirty, returnToMeasurement])
 
   const openMetadata = useCallback((row: ExperimentRow) => {
     setMetadataTarget(row)
@@ -616,10 +651,16 @@ export function ExperimentPage() {
           {editorOpen && experiment ? (
             <div className="flex h-full min-h-0 flex-col bg-background">
               <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-                <Button size="sm" variant="ghost" onClick={() => setEditorOpen(false)}>
+                <Button size="sm" variant="ghost" onClick={() => updateEditorOpen(false)}>
                   <ArrowLeft />
                   목록
                 </Button>
+                {measurementReturnTo ? (
+                  <Button size="sm" variant="outline" onClick={requestReturnToMeasurement}>
+                    <ArrowLeft />
+                    Measurement로 돌아가기
+                  </Button>
+                ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-1">
                     <p className="min-w-0 truncate text-sm font-semibold">
@@ -696,6 +737,12 @@ export function ExperimentPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    {measurementReturnTo ? (
+                      <Button size="sm" onClick={requestReturnToMeasurement}>
+                        <ArrowLeft />
+                        Measurement로 돌아가기
+                      </Button>
+                    ) : null}
                     {auth.isAuthenticated ? (
                       <Button size="sm" variant="outline" onClick={requestNewExperiment}>
                         <Plus />새 Experiment 생성
@@ -877,14 +924,17 @@ export function ExperimentPage() {
           setPendingNavigation(null)
           setPendingEditorOpen(false)
           setPendingCreate(false)
+          setPendingReturn(false)
         }}
-        open={pendingNavigation !== null || pendingCreate}
+        open={pendingNavigation !== null || pendingCreate || pendingReturn}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>저장되지 않은 변경을 버릴까요?</DialogTitle>
             <DialogDescription>
-              {pendingCreate
+              {pendingReturn
+                ? 'Measurement로 돌아가면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                : pendingCreate
                 ? '새 Experiment를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
                 : '다른 Experiment로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
@@ -896,6 +946,7 @@ export function ExperimentPage() {
                 setPendingNavigation(null)
                 setPendingEditorOpen(false)
                 setPendingCreate(false)
+                setPendingReturn(false)
               }}
             >
               취소
@@ -903,14 +954,16 @@ export function ExperimentPage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingCreate) startNewExperiment()
+                if (pendingReturn) returnToMeasurement()
+                else if (pendingCreate) startNewExperiment()
                 else if (pendingNavigation) {
                   applyExperiment(pendingNavigation)
-                  if (pendingEditorOpen) setEditorOpen(true)
+                  if (pendingEditorOpen) updateEditorOpen(true)
                 }
                 setPendingNavigation(null)
                 setPendingEditorOpen(false)
                 setPendingCreate(false)
+                setPendingReturn(false)
               }}
             >
               변경 버리고 이동

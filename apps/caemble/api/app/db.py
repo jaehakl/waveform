@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -392,6 +393,13 @@ class Setup(TimestampMixin, Base):
 
 class Measurement(TimestampMixin, Base):
     __tablename__ = "measurements"
+    __table_args__ = (
+        UniqueConstraint(
+            "sample_id",
+            "setup_id",
+            name="uq_measurements_sample_id_setup_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[str]] = mapped_column(

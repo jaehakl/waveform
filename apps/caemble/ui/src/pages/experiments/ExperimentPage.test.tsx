@@ -285,6 +285,13 @@ afterEach(() => {
 })
 
 describe('ExperimentPage', () => {
+  it('opens a selected Experiment directly in code mode', async () => {
+    renderPage('/experiments?experiment=5&mode=code')
+
+    expect(await screen.findByRole('button', { name: 'Source 변경' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '목록' })).toBeInTheDocument()
+  })
+
   it('shows only visible leaves and searches leaf names or descriptions', async () => {
     renderPage()
 

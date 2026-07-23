@@ -1,4 +1,5 @@
 import {
+  Activity,
   Atom,
   BookOpenText,
   Box,
@@ -24,6 +25,7 @@ export const primaryNavigation: readonly AppNavigationItem[] = [
   { href: '/viewer', icon: Box, label: 'Viewer' },
   { href: '/structures', icon: GitBranch, label: 'Structures' },
   { href: '/experiments', icon: TestTubeDiagonal, label: 'Experiments' },
+  { href: '/measurements', icon: Activity, label: 'Measurements' },
   { href: '/materials', icon: Database, label: 'Materials' },
   { href: '/docs', icon: BookOpenText, label: 'Manual' },
 ]
