@@ -7,6 +7,7 @@ import type {
   CadScene,
   CadWorkerRequest,
   CadWorkerResponse,
+  PreparedEvaluationSession,
   EvaluatedExperimentRules,
   BuiltRealizationV2,
   RecordedData,
@@ -14,7 +15,7 @@ import type {
   Vars,
 } from '@/lib/cad'
 import { CadCompilationError, compileCadDocument } from '@/lib/cad'
-import { evaluateInIsolatedRunner } from '@/lib/cad'
+import { createPreparedEvaluationSession, evaluateInIsolatedRunner } from '@/lib/cad'
 import type { EvaluatedDocumentSnapshotV2 } from '@/lib/cad'
 import { applyFrozenMaterialParameters, buildRealizationV2 } from '@/lib/cad'
 import { sourceOnlyMaterialParameters, type MaterialResolution } from '@/lib/material'
@@ -65,6 +66,21 @@ function createRequestId(prefix: string) {
   return `${prefix}-${crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`
 }
 
+function sameCadSourceProject(
+  left: CadSourceDocumentV2 | null | undefined,
+  right: CadSourceDocumentV2 | null | undefined,
+) {
+  return Boolean(
+    left &&
+    right &&
+    left.apiVersion === right.apiVersion &&
+    left.entryFile === right.entryFile &&
+    left.files === right.files &&
+    left.formatVersion === right.formatVersion &&
+    left.kind === right.kind,
+  )
+}
+
 type DocumentWorkerHandlers = Readonly<{
   handleStart: (requestId: string, revision: number) => void
   handlePhase: (requestId: string, revision: number, phase: AppStatus) => void
@@ -89,6 +105,7 @@ type DocumentStateOptions = Readonly<{
   externalVars?: Readonly<Vars>
   onDocumentChange: ((document: CadSourceDocumentV2) => void) | undefined
   onInvalidate: () => void
+  preparedEvaluation?: boolean
   requestEvaluation: (document: CadSourceDocumentV2, revision: number, externalVars?: Readonly<Vars>) => void
 }>
 
@@ -98,6 +115,7 @@ function useDocumentState({
   externalVars,
   onInvalidate,
   onDocumentChange,
+  preparedEvaluation = false,
   requestEvaluation,
 }: DocumentStateOptions) {
   const source = document ? cadEntrySource(document) : null
@@ -113,11 +131,21 @@ function useDocumentState({
   const [solver, setSolver] = useState<ResolvedExperimentSolver | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [variables, setVariables] = useState<Readonly<Vars> | null>(null)
+  const [varsSchema, setVarsSchema] = useState<EvaluatedDocumentSnapshotV2['varsSchema'] | null>(null)
   const [revision, setRevision] = useState(0)
   const [successfulRevision, setSuccessfulRevision] = useState(-1)
   const latestRequestIdRef = useRef('')
+  const lastPreviewDispatchAtRef = useRef(Number.NEGATIVE_INFINITY)
+  const pendingEvaluationRef = useRef<Readonly<{
+    document: CadSourceDocumentV2
+    externalVars?: Readonly<Vars>
+    revision: number
+  }> | null>(null)
   const pendingRunRef = useRef<number | null>(null)
+  const pendingRunKindRef = useRef<'preview' | 'source' | null>(null)
+  const preparedSourceFilesRef = useRef<CadSourceDocumentV2['files'] | null>(null)
   const revisionRef = useRef(0)
+  const scheduledDocumentRef = useRef<CadSourceDocumentV2 | null | undefined>(undefined)
   const documentRef = useRef(document)
   const statusRef = useRef<AppStatus>('Ready')
   const successfulRevisionRef = useRef(-1)
@@ -135,9 +163,10 @@ function useDocumentState({
   }, [])
 
   const clearPendingRun = useCallback(() => {
-    if (pendingRunRef.current === null) return
-    window.clearTimeout(pendingRunRef.current)
+    if (pendingRunRef.current !== null) window.clearTimeout(pendingRunRef.current)
     pendingRunRef.current = null
+    pendingRunKindRef.current = null
+    pendingEvaluationRef.current = null
   }, [])
 
   const nextRevision = useCallback(() => {
@@ -147,13 +176,33 @@ function useDocumentState({
     return next
   }, [])
 
+  const dispatchPendingEvaluation = useCallback(() => {
+    const pending = pendingEvaluationRef.current
+    const kind = pendingRunKindRef.current
+    pendingEvaluationRef.current = null
+    pendingRunKindRef.current = null
+    pendingRunRef.current = null
+    if (!pending) return
+    if (kind === 'preview') lastPreviewDispatchAtRef.current = Date.now()
+    if (kind === 'source') preparedSourceFilesRef.current = pending.document.files
+    requestEvaluation(pending.document, pending.revision, pending.externalVars)
+  }, [requestEvaluation])
+
   useEffect(() => {
-    clearPendingRun()
+    const previousDocument = scheduledDocumentRef.current
+    scheduledDocumentRef.current = document
+    const sourceChanged = !sameCadSourceProject(previousDocument, document)
+    const previewUpdate = Boolean(
+      preparedEvaluation && !sourceChanged && document && preparedSourceFilesRef.current === document.files,
+    )
     const next = nextRevision()
     onInvalidate()
 
     if (!document) {
+      clearPendingRun()
       latestRequestIdRef.current = ''
+      lastPreviewDispatchAtRef.current = Number.NEGATIVE_INFINITY
+      preparedSourceFilesRef.current = null
       setDraftSelection(null)
       setDiagnostics([])
       setError(null)
@@ -165,27 +214,54 @@ function useDocumentState({
       setSelectedId(null)
       setSolver(null)
       setVariables(null)
+      setVarsSchema(null)
       updateSuccessfulRevision(-1)
       updateStatus('Ready')
       return
     }
 
-    updateStatus('Dirty')
-    setRealization(null)
-    setMaterialWarnings([])
-    pendingRunRef.current = window.setTimeout(() => {
-      pendingRunRef.current = null
-      requestEvaluation(document, next, externalVars)
-    }, 500)
+    const pending = Object.freeze({
+      document,
+      ...(externalVars ? { externalVars } : {}),
+      revision: next,
+    })
+    if (!previewUpdate) {
+      clearPendingRun()
+      pendingEvaluationRef.current = pending
+      pendingRunKindRef.current = 'source'
+      lastPreviewDispatchAtRef.current = Number.NEGATIVE_INFINITY
+      if (sourceChanged) preparedSourceFilesRef.current = null
+      updateStatus('Dirty')
+      setRealization(null)
+      setMaterialWarnings([])
+      if (preparedEvaluation) {
+        setVariables(null)
+        setVarsSchema(null)
+      }
+      pendingRunRef.current = window.setTimeout(dispatchPendingEvaluation, 500)
+      return
+    }
 
-    return clearPendingRun
+    pendingEvaluationRef.current = pending
+    if (pendingRunKindRef.current === 'source') return
+    updateStatus('Evaluating')
+    if (pendingRunRef.current !== null) return
+    const remaining = Math.max(0, 75 - (Date.now() - lastPreviewDispatchAtRef.current))
+    if (remaining === 0) {
+      pendingRunKindRef.current = 'preview'
+      dispatchPendingEvaluation()
+      return
+    }
+    pendingRunKindRef.current = 'preview'
+    pendingRunRef.current = window.setTimeout(dispatchPendingEvaluation, remaining)
   }, [
     clearPendingRun,
+    dispatchPendingEvaluation,
     document,
     externalVars,
     nextRevision,
     onInvalidate,
-    requestEvaluation,
+    preparedEvaluation,
     updateStatus,
     updateSuccessfulRevision,
   ])
@@ -315,6 +391,7 @@ function useDocumentState({
       setRealization(builtRealization)
       setMaterialWarnings(builtRealization.materialWarnings)
       setVariables(response.snapshot.variables)
+      setVarsSchema(response.snapshot.varsSchema)
       setExperimentRules(response.snapshot.experimentRules ?? null)
       setSolver(response.snapshot.solver ?? null)
       updateSuccessfulRevision(response.revision)
@@ -385,6 +462,7 @@ function useDocumentState({
       materialWarnings,
       successfulRevision,
       variables,
+      varsSchema,
     },
     handlers,
   }
@@ -427,6 +505,23 @@ export type SimulationController = Readonly<{
   stale: boolean
 }>
 
+type PreparedEvaluationJob = Readonly<{
+  document: CadSourceDocumentV2
+  externalVars?: Readonly<Vars>
+  requestId: string
+  revision: number
+}>
+
+type PreparedEvaluationState = {
+  active: (PreparedEvaluationJob & { timeout: number | null }) | null
+  compiling: boolean
+  entryFile: string
+  pending: PreparedEvaluationJob | null
+  ready: boolean
+  session: PreparedEvaluationSession | null
+  sourceFiles: CadSourceDocumentV2['files']
+}
+
 export function useCadWorkspace(
   structure: CadSourceDocumentV2 | null | undefined,
   experiment: CadSourceDocumentV2 | null | undefined,
@@ -435,6 +530,7 @@ export function useCadWorkspace(
   structureVars?: Readonly<Vars>,
   experimentVars?: Readonly<Vars>,
   resolveMaterials?: (snapshot: EvaluatedDocumentSnapshotV2) => Promise<MaterialResolution>,
+  structureEvaluationMode: 'one-shot' | 'prepared-vars' = 'one-shot',
 ) {
   const workerRef = useRef<Worker | null>(null)
   const documentHandlersRef = useRef<Partial<Record<CadDocumentType, DocumentWorkerHandlers>>>({})
@@ -455,6 +551,8 @@ export function useCadWorkspace(
   const activeSolverRequestIdRef = useRef<string | null>(null)
   const solverStartedAtRef = useRef<number | null>(null)
   const recordedDataRef = useRef<RecordedData | null>(null)
+  const preparedStructureRef = useRef<PreparedEvaluationState | null>(null)
+  const resolveMaterialsRef = useRef(resolveMaterials)
   const [process, setProcess] = useState<SolverProcess>(idleSolverProcess)
   const [provenance, setProvenance] = useState<SolverRunProvenanceV2 | null>(null)
   const [recordedData, setRecordedData] = useState<RecordedData | null>(null)
@@ -466,6 +564,7 @@ export function useCadWorkspace(
     experimentRevision: number
     result: SolverValidationResult
   }> | null>(null)
+  resolveMaterialsRef.current = resolveMaterials
 
   const clearEvaluationJob = useCallback((documentType: CadDocumentType, requestId?: string) => {
     const active = evaluationJobsRef.current[documentType]
@@ -503,7 +602,202 @@ export function useCadWorkspace(
     [startWorker],
   )
 
-  const requestEvaluation = useCallback(
+  const disposePreparedStructureState = useCallback((target?: PreparedEvaluationState | null) => {
+    const state = target ?? preparedStructureRef.current
+    if (!state) return
+    if (preparedStructureRef.current === state) preparedStructureRef.current = null
+    if (state.active?.timeout !== null && state.active?.timeout !== undefined) {
+      window.clearTimeout(state.active.timeout)
+    }
+    state.active = null
+    state.pending = null
+    state.ready = false
+    const session = state.session
+    state.session = null
+    session?.dispose()
+  }, [])
+
+  const dispatchPreparedEvaluation = useCallback(
+    (state: PreparedEvaluationState) => {
+      if (preparedStructureRef.current !== state || !state.ready || !state.session || state.active || !state.pending) {
+        return
+      }
+      const pending = state.pending
+      state.pending = null
+      const active: PreparedEvaluationJob & { timeout: number | null } = { ...pending, timeout: null }
+      state.active = active
+      documentHandlersRef.current.structure?.handlePhase(pending.requestId, pending.revision, 'Evaluating')
+      active.timeout = window.setTimeout(() => {
+        if (preparedStructureRef.current !== state || state.active?.requestId !== pending.requestId) {
+          return
+        }
+        disposePreparedStructureState(state)
+        documentHandlersRef.current.structure?.handleWorkerFailure(
+          `Model evaluation timed out after ${evaluationTimeoutMsRef.current / 1000} seconds for revision ${pending.revision}.`,
+        )
+      }, evaluationTimeoutMsRef.current)
+      try {
+        state.session.evaluate({
+          requestId: pending.requestId,
+          revision: pending.revision,
+          realizationSeed: pending.document.realizationSeed,
+          ...(pending.externalVars ? { vars: pending.externalVars } : {}),
+        })
+      } catch (error) {
+        disposePreparedStructureState(state)
+        documentHandlersRef.current.structure?.handleWorkerFailure(
+          error instanceof Error ? error.message : String(error),
+        )
+      }
+    },
+    [disposePreparedStructureState],
+  )
+
+  const handlePreparedResponse = useCallback(
+    (state: PreparedEvaluationState, response: CadEvaluationResponseV2) => {
+      if (
+        preparedStructureRef.current !== state ||
+        state.active?.requestId !== response.requestId ||
+        state.active.revision !== response.revision
+      ) {
+        return
+      }
+      if (state.active.timeout !== null) window.clearTimeout(state.active.timeout)
+      state.active = null
+      const handlers = documentHandlersRef.current.structure
+      const current = handlers?.getSnapshot().revision === response.revision
+      dispatchPreparedEvaluation(state)
+      if (!current) return
+
+      if (response.type === 'document-error') {
+        handlers?.handleError(response)
+        return
+      }
+
+      handlers?.handlePhase(response.requestId, response.revision, 'Resolving Materials')
+      const fallback = () => {
+        const scene = deserializeCadScene(response.snapshot.scene)
+        const materials = scene.parts.flatMap((part) => (part.material ? [part.material] : []))
+        return sourceOnlyMaterialParameters(materials)
+      }
+      void (resolveMaterialsRef.current ? resolveMaterialsRef.current(response.snapshot) : Promise.resolve(fallback()))
+        .then((resolution) => {
+          if (handlers?.getSnapshot().revision !== response.revision) return
+          const realization = buildRealizationV2(response.snapshot, resolution)
+          handlers.handleSuccess(response, realization)
+          postRequest({
+            type: 'cache-realization',
+            requestId: `cache-${response.requestId}`,
+            revision: response.revision,
+            realization,
+          })
+        })
+        .catch((error: unknown) => {
+          if (handlers?.getSnapshot().revision !== response.revision) return
+          handlers.handleError({
+            type: 'document-error',
+            requestId: response.requestId,
+            revision: response.revision,
+            documentType: response.documentType,
+            errorType: 'model',
+            message: error instanceof Error ? error.message : String(error),
+          })
+        })
+    },
+    [dispatchPreparedEvaluation, postRequest],
+  )
+
+  const requestPreparedEvaluation = useCallback(
+    (document: CadSourceDocumentV2, revision: number, externalVars?: Readonly<Vars>) => {
+      const requestId = createRequestId(document.kind)
+      const handlers = documentHandlersRef.current.structure
+      handlers?.handleStart(requestId, revision)
+      const job: PreparedEvaluationJob = {
+        document,
+        ...(externalVars ? { externalVars } : {}),
+        requestId,
+        revision,
+      }
+      let state = preparedStructureRef.current
+      if (state && (state.entryFile !== document.entryFile || state.sourceFiles !== document.files)) {
+        disposePreparedStructureState(state)
+        state = null
+      }
+      if (state) {
+        state.pending = job
+        handlers?.handlePhase(requestId, revision, state.compiling ? 'Compiling' : 'Evaluating')
+        dispatchPreparedEvaluation(state)
+        return
+      }
+
+      state = {
+        active: null,
+        compiling: true,
+        entryFile: document.entryFile,
+        pending: job,
+        ready: false,
+        session: null,
+        sourceFiles: document.files,
+      }
+      preparedStructureRef.current = state
+      handlers?.handlePhase(requestId, revision, 'Compiling')
+      const preparedState = state
+      void compileCadDocument(document)
+        .then((compiledProject) => {
+          if (preparedStructureRef.current !== preparedState) return
+          preparedState.compiling = false
+          let session: PreparedEvaluationSession
+          try {
+            session = createPreparedEvaluationSession(compiledProject, document.kind, {
+              onFailure(message) {
+                if (preparedStructureRef.current !== preparedState) return
+                disposePreparedStructureState(preparedState)
+                documentHandlersRef.current.structure?.handleWorkerFailure(message)
+              },
+              onReady() {
+                if (preparedStructureRef.current !== preparedState) return
+                preparedState.ready = true
+                dispatchPreparedEvaluation(preparedState)
+              },
+              onResponse(response) {
+                handlePreparedResponse(preparedState, response)
+              },
+            })
+          } catch (error) {
+            disposePreparedStructureState(preparedState)
+            documentHandlersRef.current.structure?.handleWorkerFailure(
+              error instanceof Error ? error.message : String(error),
+            )
+            return
+          }
+          if (preparedStructureRef.current !== preparedState) {
+            session.dispose()
+            return
+          }
+          preparedState.session = session
+          if (preparedState.ready) dispatchPreparedEvaluation(preparedState)
+        })
+        .catch((error: unknown) => {
+          if (preparedStructureRef.current !== preparedState) return
+          const latest = preparedState.pending ?? job
+          disposePreparedStructureState(preparedState)
+          const compilationError = error instanceof CadCompilationError ? error : null
+          documentHandlersRef.current.structure?.handleError({
+            type: 'document-error',
+            requestId: latest.requestId,
+            revision: latest.revision,
+            documentType: document.kind,
+            errorType: compilationError?.errorType ?? 'compile',
+            message: error instanceof Error ? error.message : String(error),
+            ...(compilationError?.diagnostics.length ? { diagnostics: compilationError.diagnostics } : {}),
+            ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
+          })
+        })
+    },
+    [dispatchPreparedEvaluation, disposePreparedStructureState, handlePreparedResponse],
+  )
+
+  const requestOneShotEvaluation = useCallback(
     (document: CadSourceDocumentV2, revision: number, externalVars?: Readonly<Vars>) => {
       const documentType = document.kind
       clearEvaluationJob(documentType)
@@ -606,6 +900,17 @@ export function useCadWorkspace(
     [clearEvaluationJob, finishEvaluationJob, postRequest, resolveMaterials],
   )
 
+  const requestEvaluation = useCallback(
+    (document: CadSourceDocumentV2, revision: number, externalVars?: Readonly<Vars>) => {
+      if (document.kind === 'structure' && structureEvaluationMode === 'prepared-vars') {
+        requestPreparedEvaluation(document, revision, externalVars)
+        return
+      }
+      requestOneShotEvaluation(document, revision, externalVars)
+    },
+    [requestOneShotEvaluation, requestPreparedEvaluation, structureEvaluationMode],
+  )
+
   const invalidateResults = useCallback(() => {
     if (recordedDataRef.current) setStale(true)
   }, [])
@@ -621,6 +926,7 @@ export function useCadWorkspace(
     externalVars: structureVars,
     onDocumentChange: onStructureChange,
     onInvalidate: invalidateWorkspace,
+    preparedEvaluation: structureEvaluationMode === 'prepared-vars',
     requestEvaluation,
   })
   const experimentState = useDocumentState({
@@ -634,6 +940,17 @@ export function useCadWorkspace(
   documentHandlersRef.current.structure = structureState.handlers
   documentHandlersRef.current.experiment = experimentState.handlers
   evaluationTimeoutMsRef.current = evaluationTimeoutMs
+
+  useEffect(() => {
+    if (structureEvaluationMode !== 'prepared-vars') {
+      disposePreparedStructureState()
+      return
+    }
+    const state = preparedStructureRef.current
+    if (state && (!structure || state.entryFile !== structure.entryFile || state.sourceFiles !== structure.files)) {
+      disposePreparedStructureState(state)
+    }
+  }, [disposePreparedStructureState, structure, structureEvaluationMode])
 
   const cancelProcessForWorkerReset = useCallback(
     (message: string) => {
@@ -742,10 +1059,11 @@ export function useCadWorkspace(
     startWorker()
     return () => {
       Object.keys(evaluationJobs).forEach((key) => clearEvaluationJob(key as CadDocumentType))
+      disposePreparedStructureState()
       workerRef.current?.terminate()
       workerRef.current = null
     }
-  }, [clearEvaluationJob, startWorker])
+  }, [clearEvaluationJob, disposePreparedStructureState, startWorker])
 
   const structureIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'structure') ?? []
   const experimentIssues = preflight?.result.issues.filter((issue) => issue.documentType === 'experiment') ?? []

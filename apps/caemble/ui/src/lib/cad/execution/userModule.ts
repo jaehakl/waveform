@@ -18,10 +18,7 @@ import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 import type { CadDocumentType } from '../worker/protocol'
 import type { EvaluatedRuntimeDocumentSnapshotV2 } from './snapshot'
-import {
-  assertCompiledCadProjectV2,
-  type CompiledCadProjectV2,
-} from '../compiler/types'
+import { assertCompiledCadProjectV2, type CompiledCadProjectV2 } from '../compiler/types'
 
 const coreModuleV2 = Object.freeze({
   experiment,
@@ -40,10 +37,7 @@ export function requireCaembleModule(specifier: string) {
   return coreModuleV2
 }
 
-export function loadCompiledCode(
-  jsCode: string,
-  documentType: CadDocumentType,
-): CadDocumentEntry {
+export function loadCompiledCode(jsCode: string, documentType: CadDocumentType): CadDocumentEntry {
   const exports: Record<string, unknown> = {}
   const module = { exports }
   const runner = new Function(
@@ -71,11 +65,7 @@ function assertDocumentEntry(entry: unknown, documentType: CadDocumentType): Cad
   return entry
 }
 
-function resolveCompiledImport(
-  importer: string,
-  specifier: string,
-  modules: CompiledCadProjectV2['modules'],
-) {
+function resolveCompiledImport(importer: string, specifier: string, modules: CompiledCadProjectV2['modules']) {
   const segments = importer.split('/').slice(0, -1)
   specifier.split('/').forEach((segment) => {
     if (!segment || segment === '.') return
@@ -95,10 +85,7 @@ function resolveCompiledImport(
   return match
 }
 
-export function loadCompiledProject(
-  project: CompiledCadProjectV2,
-  documentType: CadDocumentType,
-): CadDocumentEntry {
+export function loadCompiledProject(project: CompiledCadProjectV2, documentType: CadDocumentType): CadDocumentEntry {
   assertCompiledCadProjectV2(project)
   const cache = new Map<string, unknown>()
 
@@ -131,9 +118,10 @@ export function loadCompiledProject(
   }
 
   const entryModule = executeModule(project.entryFile)
-  const entry = typeof entryModule === 'object' && entryModule !== null
-    ? (entryModule as Record<string, unknown>).default
-    : undefined
+  const entry =
+    typeof entryModule === 'object' && entryModule !== null
+      ? (entryModule as Record<string, unknown>).default
+      : undefined
   return assertDocumentEntry(entry, documentType)
 }
 
@@ -154,41 +142,62 @@ export function evaluateDocumentEntry(
     }
     const variables = entry.resolveExternal(partialVars, seed)
     const experimentModel = entry.createRuntimeFromResolved(variables)
-    return evaluateWithVars(variables, () => {
-      const solver = evaluateExperimentSolver(experimentModel)
-      const scene = evaluateCadScene(experimentModel.geometry(), {
-        geometryGroup: experimentModel.geometryGroup,
-        surfaceGroup: experimentModel.surfaceGroup,
-      }, 'Experiment', experimentModel.lengthUnit)
-      const experimentRules = evaluateExperimentRules(experimentModel)
-      return Object.freeze({
-        kind: 'experiment' as const,
-        sourceHash,
-        apiVersion: 2 as const,
-        seed,
-        scene,
-        variables,
-        experimentRules,
-        solver,
-      })
-    }, seed)
+    return evaluateWithVars(
+      variables,
+      () => {
+        const solver = evaluateExperimentSolver(experimentModel)
+        const scene = evaluateCadScene(
+          experimentModel.geometry(),
+          {
+            geometryGroup: experimentModel.geometryGroup,
+            surfaceGroup: experimentModel.surfaceGroup,
+          },
+          'Experiment',
+          experimentModel.lengthUnit,
+        )
+        const experimentRules = evaluateExperimentRules(experimentModel)
+        return Object.freeze({
+          kind: 'experiment' as const,
+          sourceHash,
+          apiVersion: 2 as const,
+          seed,
+          scene,
+          variables,
+          varsSchema: entry.varsSchema,
+          experimentRules,
+          solver,
+        })
+      },
+      seed,
+    )
   }
 
   if (!(entry instanceof StructureDefinitionV2) || entry instanceof ExperimentDefinitionV2) {
     throw new CadModelError('Structure Source must export default structure({...}).')
   }
   const variables = entry.resolveExternal(partialVars, seed)
-  return evaluateWithVars(variables, () => Object.freeze({
-    kind: 'structure' as const,
-    sourceHash,
-    apiVersion: 2 as const,
-    seed,
-    scene: evaluateCadScene(entry.evaluateResolvedGeometry(variables), {
-      geometryGroup: entry.geometryGroup,
-      surfaceGroup: entry.surfaceGroup,
-    }, 'Structure', entry.lengthUnit),
+  return evaluateWithVars(
     variables,
-  }), seed)
+    () =>
+      Object.freeze({
+        kind: 'structure' as const,
+        sourceHash,
+        apiVersion: 2 as const,
+        seed,
+        scene: evaluateCadScene(
+          entry.evaluateResolvedGeometry(variables),
+          {
+            geometryGroup: entry.geometryGroup,
+            surfaceGroup: entry.surfaceGroup,
+          },
+          'Structure',
+          entry.lengthUnit,
+        ),
+        variables,
+        varsSchema: entry.varsSchema,
+      }),
+    seed,
+  )
 }
 
 export function executeCompiledCode(
@@ -198,13 +207,7 @@ export function executeCompiledCode(
   seed = 0,
   partialVars: ExternalVars = {},
 ) {
-  return evaluateDocumentEntry(
-    loadCompiledCode(jsCode, documentType),
-    documentType,
-    sourceHash,
-    seed,
-    partialVars,
-  )
+  return evaluateDocumentEntry(loadCompiledCode(jsCode, documentType), documentType, sourceHash, seed, partialVars)
 }
 
 export function executeCompiledProject(

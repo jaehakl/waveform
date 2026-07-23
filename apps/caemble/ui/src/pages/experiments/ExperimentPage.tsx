@@ -4,7 +4,7 @@ import { ArrowLeft, Code2, Eye, GitBranch, LoaderCircle, Pencil, Plus, Search, T
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { dbTables, getListRequest, type StructureRecord, type UserData } from '@/api'
+import { dbTables, getListRequest, type ExperimentRecord, type UserData } from '@/api'
 import { DataTable } from '@/components/DataTable'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,22 +20,21 @@ import {
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/use-auth'
 import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
-import { createDocumentMaterialResolver } from '@/features/viewer/persistence/resolveMaterials'
+import { resolveDocumentMaterials } from '@/features/viewer/persistence/resolveMaterials'
 import { saveCadDefinition } from '@/features/viewer/persistence/saveDefinition'
 import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
-import { VarsControls } from '@/features/viewer/workspace/VarsControls'
 import {
   cadEntrySource,
   createCadSourceDocumentV2,
   type CadDocumentType,
   type CadSourceDocumentV2,
-  type Vars,
+  type EvaluatedDocumentSnapshotV2,
 } from '@/lib/cad'
-import { defaultCode } from '@/lib/defaultCode'
+import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
 
-type StructureRow = StructureRecord & { id: number }
+type ExperimentRow = ExperimentRecord & { id: number }
 
 const defaultWorkspaceLeftPercent = 44
 
@@ -44,12 +43,12 @@ function positiveId(value: string | null) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
 }
 
-function compareStructures(left: StructureRow, right: StructureRow) {
+function compareExperiments(left: ExperimentRow, right: ExperimentRow) {
   const updatedDifference = Date.parse(right.updated_at ?? '') - Date.parse(left.updated_at ?? '')
   return Number.isNaN(updatedDifference) || updatedDifference === 0 ? right.id - left.id : updatedDifference
 }
 
-function canManageStructure(row: StructureRow, user: UserData | null) {
+function canManageExperiment(row: ExperimentRow, user: UserData | null) {
   return Boolean(user && (user.roles.includes('admin') || row.user_id === user.id))
 }
 
@@ -68,12 +67,12 @@ function LineageNode({
   row,
   selectedId,
 }: {
-  canManage: (row: StructureRow) => boolean
-  childrenByParent: ReadonlyMap<number, readonly StructureRow[]>
+  canManage: (row: ExperimentRow) => boolean
+  childrenByParent: ReadonlyMap<number, readonly ExperimentRow[]>
   depth: number
-  onDelete: (row: StructureRow) => void
-  onNavigate: (row: StructureRow) => void
-  row: StructureRow
+  onDelete: (row: ExperimentRow) => void
+  onNavigate: (row: ExperimentRow) => void
+  row: ExperimentRow
   selectedId: number
 }) {
   const children = childrenByParent.get(row.id) ?? []
@@ -90,7 +89,7 @@ function LineageNode({
             {children.length === 0 ? <Badge>leaf</Badge> : null}
           </span>
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {row.description || `Structure #${row.id}`}
+            {row.description || `Experiment #${row.id}`}
           </span>
         </button>
         {canManage(row) ? (
@@ -98,7 +97,7 @@ function LineageNode({
             aria-label={`${row.name} 삭제`}
             className="text-destructive hover:text-destructive"
             size="icon"
-            title="Structure 삭제"
+            title="Experiment 삭제"
             variant="ghost"
             onClick={() => onDelete(row)}
           >
@@ -126,29 +125,29 @@ function LineageNode({
   )
 }
 
-function StructureLineage({
+function ExperimentLineage({
   canManage,
   onDelete,
   onNavigate,
   rows,
   selected,
 }: {
-  canManage: (row: StructureRow) => boolean
-  onDelete: (row: StructureRow) => void
-  onNavigate: (row: StructureRow) => void
-  rows: readonly StructureRow[]
-  selected: StructureRow
+  canManage: (row: ExperimentRow) => boolean
+  onDelete: (row: ExperimentRow) => void
+  onNavigate: (row: ExperimentRow) => void
+  rows: readonly ExperimentRow[]
+  selected: ExperimentRow
 }) {
   const { childrenByParent, root } = useMemo(() => {
     const byId = new Map(rows.map((row) => [row.id, row]))
-    const children = new Map<number, StructureRow[]>()
+    const children = new Map<number, ExperimentRow[]>()
     rows.forEach((row) => {
       if (row.parent_id == null || !byId.has(row.parent_id)) return
       const siblings = children.get(row.parent_id) ?? []
       siblings.push(row)
       children.set(row.parent_id, siblings)
     })
-    children.forEach((siblings) => siblings.sort(compareStructures))
+    children.forEach((siblings) => siblings.sort(compareExperiments))
 
     let lineageRoot = selected
     const visited = new Set<number>()
@@ -183,44 +182,45 @@ function StructureLineage({
   )
 }
 
-export function StructurePage() {
+export function ExperimentPage() {
   const auth = useAuth()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
-  const [structure, setStructure] = useState<CadSourceDocumentV2 | null>(null)
-  const [structureVars, setStructureVars] = useState<Readonly<Vars> | undefined>()
-  const [selectedStructureId, setSelectedStructureId] = useState<number | null>(null)
-  const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
-  const [metadataTarget, setMetadataTarget] = useState<StructureRow | null>(null)
+  const [experiment, setExperiment] = useState<CadSourceDocumentV2 | null>(null)
+  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null)
+  const [savedExperimentCode, setSavedExperimentCode] = useState<string | null>(null)
+  const [metadataTarget, setMetadataTarget] = useState<ExperimentRow | null>(null)
   const [metadataName, setMetadataName] = useState('')
   const [metadataDescription, setMetadataDescription] = useState('')
   const [saveMode, setSaveMode] = useState<'create' | 'root' | 'save' | null>(null)
-  const [pendingNavigation, setPendingNavigation] = useState<StructureRow | null>(null)
+  const [pendingNavigation, setPendingNavigation] = useState<ExperimentRow | null>(null)
   const [pendingEditorOpen, setPendingEditorOpen] = useState(false)
   const [pendingCreate, setPendingCreate] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<StructureRow | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ExperimentRow | null>(null)
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
   const initializedFromUrl = useRef(false)
   const workspaceRef = useRef<HTMLDivElement | null>(null)
 
   const visibleRequest = useMemo(() => ({ ...getListRequest('visible'), limit: null }), [])
-  const structuresQuery = useQuery({
-    queryKey: ['structures', 'visible'],
-    queryFn: () => dbTables.Structure.listRows(visibleRequest),
+  const experimentsQuery = useQuery({
+    queryKey: ['experiments', 'visible'],
+    queryFn: () => dbTables.Experiment.listRows(visibleRequest),
   })
   const rows = useMemo(
     () =>
-      (structuresQuery.data?.items ?? [])
-        .filter((row): row is StructureRow => row.id !== undefined)
-        .sort(compareStructures),
-    [structuresQuery.data?.items],
+      (experimentsQuery.data?.items ?? [])
+        .filter((row): row is ExperimentRow => row.id !== undefined)
+        .sort(compareExperiments),
+    [experimentsQuery.data?.items],
   )
-  const selectedStructure = rows.find((row) => row.id === selectedStructureId) ?? null
-  const canManage = useCallback((row: StructureRow) => canManageStructure(row, auth.user), [auth.user])
-  const selectedManageable = Boolean(selectedStructure && canManage(selectedStructure))
-  const dirty = Boolean(structure && (savedStructureCode === null || cadEntrySource(structure) !== savedStructureCode))
+  const selectedExperiment = rows.find((row) => row.id === selectedExperimentId) ?? null
+  const canManage = useCallback((row: ExperimentRow) => canManageExperiment(row, auth.user), [auth.user])
+  const selectedManageable = Boolean(selectedExperiment && canManage(selectedExperiment))
+  const dirty = Boolean(
+    experiment && (savedExperimentCode === null || cadEntrySource(experiment) !== savedExperimentCode),
+  )
 
   const leafRows = useMemo(() => {
     const visibleIds = new Set(rows.map((row) => row.id))
@@ -240,8 +240,8 @@ export function StructurePage() {
       setSearchParams(
         (current) => {
           const next = new URLSearchParams(current)
-          if (id) next.set('structure', String(id))
-          else next.delete('structure')
+          if (id) next.set('experiment', String(id))
+          else next.delete('experiment')
           return next
         },
         { replace: true },
@@ -250,81 +250,72 @@ export function StructurePage() {
     [setSearchParams],
   )
 
-  const applyStructure = useCallback(
-    (row: StructureRow) => {
-      setStructure(createCadSourceDocumentV2('structure', row.code))
-      setStructureVars(undefined)
-      setSelectedStructureId(row.id)
-      setSavedStructureCode(row.code)
+  const applyExperiment = useCallback(
+    (row: ExperimentRow) => {
+      setExperiment(createCadSourceDocumentV2('experiment', row.code))
+      setSelectedExperimentId(row.id)
+      setSavedExperimentCode(row.code)
       updateDeepLink(row.id)
     },
     [updateDeepLink],
   )
 
-  const clearStructure = useCallback(() => {
-    setStructure(null)
-    setStructureVars(undefined)
-    setSelectedStructureId(null)
-    setSavedStructureCode(null)
+  const clearExperiment = useCallback(() => {
+    setExperiment(null)
+    setSelectedExperimentId(null)
+    setSavedExperimentCode(null)
     setEditorOpen(false)
     updateDeepLink(null)
   }, [updateDeepLink])
 
-  const startNewStructure = useCallback(() => {
-    setStructure(createCadSourceDocumentV2('structure', defaultCode))
-    setStructureVars(undefined)
-    setSelectedStructureId(null)
-    setSavedStructureCode(null)
+  const startNewExperiment = useCallback(() => {
+    setExperiment(createCadSourceDocumentV2('experiment', defaultExperimentCode))
+    setSelectedExperimentId(null)
+    setSavedExperimentCode(null)
     setEditorOpen(true)
     updateDeepLink(null)
   }, [updateDeepLink])
 
   useEffect(() => {
-    if (initializedFromUrl.current || !structuresQuery.isSuccess) return
+    if (initializedFromUrl.current || !experimentsQuery.isSuccess) return
     initializedFromUrl.current = true
-    const rawId = searchParams.get('structure')
+    const rawId = searchParams.get('experiment')
     if (rawId === null) return
     const id = positiveId(rawId)
     const row = id === null ? null : rows.find((item) => item.id === id)
     if (!row) {
-      toast.error('Structure를 찾을 수 없습니다.')
+      toast.error('Experiment를 찾을 수 없습니다.')
       updateDeepLink(null)
       return
     }
-    applyStructure(row)
-  }, [applyStructure, rows, searchParams, structuresQuery.isSuccess, updateDeepLink])
+    applyExperiment(row)
+  }, [applyExperiment, rows, searchParams, experimentsQuery.isSuccess, updateDeepLink])
 
-  const resolveMaterials = useMemo(
-    () => createDocumentMaterialResolver(null),
-    // These values intentionally define the lifetime of the session-local Material lookup cache.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [auth.user, selectedStructureId, structure?.files],
+  const resolveMaterials = useCallback(
+    (snapshot: EvaluatedDocumentSnapshotV2) => resolveDocumentMaterials(snapshot, null),
+    [],
   )
-  const handleStructureChange = useCallback((document: CadSourceDocumentV2) => {
-    setStructure(document)
-    setStructureVars(undefined)
-  }, [])
+  const handleExperimentChange = useCallback((document: CadSourceDocumentV2) => setExperiment(document), [])
   const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
-    structure,
     null,
-    auth.isAuthenticated ? handleStructureChange : undefined,
+    experiment,
     undefined,
-    structureVars,
+    auth.isAuthenticated ? handleExperimentChange : undefined,
+    undefined,
     undefined,
     resolveMaterials,
-    'prepared-vars',
   )
 
-  const invalidateStructures = useCallback(async () => {
+  const invalidateExperiments = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['structures'] }),
-      queryClient.invalidateQueries({ queryKey: ['work', 'structures'] }),
+      queryClient.invalidateQueries({ queryKey: ['experiments'] }),
+      queryClient.invalidateQueries({ queryKey: ['work', 'experiments'] }),
     ])
   }, [queryClient])
 
   const metadataMutation = useMutation({
-    mutationFn: ({ description, name, row }: { description: string; name: string; row: StructureRow }) =>
-      dbTables.Structure.upsertRow([
+    mutationFn: ({ description, name, row }: { description: string; name: string; row: ExperimentRow }) =>
+      dbTables.Experiment.upsertRow([
         {
           id: row.id,
           user_id: row.user_id,
@@ -336,94 +327,94 @@ export function StructurePage() {
       ]),
     onSuccess: async () => {
       setMetadataTarget(null)
-      await invalidateStructures()
-      toast.success('Structure 정보를 저장했습니다.')
+      await invalidateExperiments()
+      toast.success('Experiment 정보를 저장했습니다.')
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure 정보를 저장하지 못했습니다.'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Experiment 정보를 저장하지 못했습니다.'),
   })
 
   const definitionMutation = useMutation({
     mutationFn: ({ forceRoot, values }: { forceRoot: boolean; values: DefinitionFormValues }) => {
-      if (!structure) throw new Error('저장할 Structure source가 없습니다.')
+      if (!experiment) throw new Error('저장할 Experiment source가 없습니다.')
       if (!auth.isAuthenticated) throw new Error('로그인이 필요합니다.')
-      if (!forceRoot && (!selectedStructure || !canManage(selectedStructure))) {
-        throw new Error('이 Structure를 수정할 권한이 없습니다.')
+      if (!forceRoot && (!selectedExperiment || !canManage(selectedExperiment))) {
+        throw new Error('이 Experiment를 수정할 권한이 없습니다.')
       }
       return saveCadDefinition({
-        document: structure,
+        document: experiment,
         forceRoot,
-        kind: 'structure',
-        savedCode: savedStructureCode,
-        selectedId: selectedStructureId,
+        kind: 'experiment',
+        savedCode: savedExperimentCode,
+        selectedId: selectedExperimentId,
         values,
       })
     },
     onSuccess: async ({ action, code, id }, { forceRoot }) => {
-      setSelectedStructureId(id)
-      setSavedStructureCode(code)
+      setSelectedExperimentId(id)
+      setSavedExperimentCode(code)
       updateDeepLink(id)
       setSaveMode(null)
-      await invalidateStructures()
+      await invalidateExperiments()
       toast.success(
         forceRoot
-          ? '현재 Structure를 새 root로 저장했습니다.'
+          ? '현재 Experiment를 새 root로 저장했습니다.'
           : action === 'forked'
-            ? '구조 변경을 새 child Structure로 저장했습니다.'
-            : 'Structure를 저장했습니다.',
+            ? '구조 변경을 새 child Experiment로 저장했습니다.'
+            : 'Experiment를 저장했습니다.',
       )
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure를 저장하지 못했습니다.'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Experiment를 저장하지 못했습니다.'),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (row: StructureRow) => {
-      await dbTables.Structure.deleteRows([row.id])
+    mutationFn: async (row: ExperimentRow) => {
+      await dbTables.Experiment.deleteRows([row.id])
       return row
     },
     onSuccess: async (deleted) => {
       const fallback =
         deleted.parent_id == null
-          ? (rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ?? null)
+          ? (rows.filter((row) => row.parent_id === deleted.id).sort(compareExperiments)[0] ?? null)
           : (rows.find((row) => row.id === deleted.parent_id) ??
-            rows.filter((row) => row.parent_id === deleted.id).sort(compareStructures)[0] ??
+            rows.filter((row) => row.parent_id === deleted.id).sort(compareExperiments)[0] ??
             null)
       setDeleteTarget(null)
-      if (selectedStructureId === deleted.id) {
-        if (fallback) applyStructure(fallback)
-        else clearStructure()
+      if (selectedExperimentId === deleted.id) {
+        if (fallback) applyExperiment(fallback)
+        else clearExperiment()
       }
-      await invalidateStructures()
-      toast.success('Structure를 삭제하고 기존 child의 계보를 재연결했습니다.')
+      await invalidateExperiments()
+      toast.success('Experiment를 삭제하고 기존 child의 계보를 재연결했습니다.')
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Structure를 삭제하지 못했습니다.'),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Experiment를 삭제하지 못했습니다.'),
   })
 
   const requestNavigation = useCallback(
-    (row: StructureRow, rerollWhenSelected: boolean) => {
-      if (row.id === selectedStructureId) {
-        if (rerollWhenSelected) structureDocument.handleReroll()
+    (row: ExperimentRow, rerollWhenSelected: boolean) => {
+      if (row.id === selectedExperimentId) {
+        if (rerollWhenSelected) experimentDocument.handleReroll()
         return
       }
       if (dirty) {
         setPendingNavigation(row)
         return
       }
-      applyStructure(row)
+      applyExperiment(row)
     },
-    [applyStructure, dirty, selectedStructureId, structureDocument],
+    [applyExperiment, dirty, selectedExperimentId, experimentDocument],
   )
 
-  const requestNewStructure = useCallback(() => {
+  const requestNewExperiment = useCallback(() => {
     if (dirty) {
       setPendingCreate(true)
       return
     }
-    startNewStructure()
-  }, [dirty, startNewStructure])
+    startNewExperiment()
+  }, [dirty, startNewExperiment])
 
   const requestEditorOpen = useCallback(
-    (row: StructureRow) => {
-      if (row.id === selectedStructureId) {
+    (row: ExperimentRow) => {
+      if (row.id === selectedExperimentId) {
         setEditorOpen(true)
         return
       }
@@ -432,19 +423,19 @@ export function StructurePage() {
         setPendingEditorOpen(true)
         return
       }
-      applyStructure(row)
+      applyExperiment(row)
       setEditorOpen(true)
     },
-    [applyStructure, dirty, selectedStructureId],
+    [applyExperiment, dirty, selectedExperimentId],
   )
 
-  const openMetadata = useCallback((row: StructureRow) => {
+  const openMetadata = useCallback((row: ExperimentRow) => {
     setMetadataTarget(row)
     setMetadataName(row.name)
     setMetadataDescription(row.description ?? '')
   }, [])
 
-  const columns = useMemo<ColumnDef<StructureRow, unknown>[]>(
+  const columns = useMemo<ColumnDef<ExperimentRow, unknown>[]>(
     () => [
       {
         accessorKey: 'name',
@@ -452,7 +443,7 @@ export function StructurePage() {
         cell: ({ row }) => (
           <div className="min-w-40">
             <p className="font-medium">{row.original.name}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Structure #{row.original.id}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Experiment #{row.original.id}</p>
           </div>
         ),
       },
@@ -504,52 +495,52 @@ export function StructurePage() {
     [canManage, openMetadata, requestEditorOpen],
   )
 
-  const structureViewerDocument = useMemo(
+  const experimentViewerDocument = useMemo(
     () =>
-      structure
+      experiment
         ? {
-            scene: structureDocument.scene,
-            sceneHash: structureDocument.sceneHash,
-            variables: structureDocument.variables,
+            scene: experimentDocument.scene,
+            sceneHash: experimentDocument.sceneHash,
+            variables: experimentDocument.variables,
           }
         : null,
-    [structure, structureDocument.scene, structureDocument.sceneHash, structureDocument.variables],
+    [experiment, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
   const viewerSelection = useMemo(
     () =>
-      structureDocument.selection
-        ? { documentType: 'structure' as const, selection: structureDocument.selection }
+      experimentDocument.selection
+        ? { documentType: 'experiment' as const, selection: experimentDocument.selection }
         : null,
-    [structureDocument.selection],
+    [experimentDocument.selection],
   )
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
-      if (sources.includes('structure')) structureDocument.handleRenderStart()
+      if (sources.includes('experiment')) experimentDocument.handleRenderStart()
     },
-    [structureDocument],
+    [experimentDocument],
   )
   const handleRenderEnd = useCallback(
     (sources: readonly CadDocumentType[]) => {
-      if (sources.includes('structure')) structureDocument.handleRenderEnd()
+      if (sources.includes('experiment')) experimentDocument.handleRenderEnd()
     },
-    [structureDocument],
+    [experimentDocument],
   )
   const handleRenderError = useCallback(
     (message: string, sources: readonly CadDocumentType[]) => {
-      if (sources.includes('structure')) structureDocument.handleRenderError(message)
+      if (sources.includes('experiment')) experimentDocument.handleRenderError(message)
     },
-    [structureDocument],
+    [experimentDocument],
   )
 
   const saveDefaults = {
-    name: selectedStructure?.name ?? '새 Structure',
-    description: selectedStructure?.description ?? '',
+    name: selectedExperiment?.name ?? '새 Experiment',
+    description: selectedExperiment?.description ?? '',
   }
   const metadataEditable = Boolean(metadataTarget && canManage(metadataTarget))
 
   return (
     <section
-      aria-label="Structure 관리 페이지"
+      aria-label="Experiment 관리 페이지"
       className="flex h-full min-h-0 flex-col overflow-auto lg:overflow-hidden"
     >
       <div
@@ -558,7 +549,7 @@ export function StructurePage() {
         style={{ '--workspace-left-width': `${workspaceLeftPercent}%` } as CSSProperties}
       >
         <div className="min-h-[420px] min-w-0 border-b lg:h-full lg:min-h-0 lg:overflow-hidden lg:border-b-0">
-          {editorOpen && structure ? (
+          {editorOpen && experiment ? (
             <div className="flex h-full min-h-0 flex-col bg-background">
               <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
                 <Button size="sm" variant="ghost" onClick={() => setEditorOpen(false)}>
@@ -568,40 +559,40 @@ export function StructurePage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-1">
                     <p className="min-w-0 truncate text-sm font-semibold">
-                      {selectedStructure?.name ?? '새 Structure'}
+                      {selectedExperiment?.name ?? '새 Experiment'}
                     </p>
-                    {selectedStructure ? (
+                    {selectedExperiment ? (
                       <Button
-                        aria-label={`${selectedStructure.name} ${selectedManageable ? '정보 편집' : '정보 보기'}`}
+                        aria-label={`${selectedExperiment.name} ${selectedManageable ? '정보 편집' : '정보 보기'}`}
                         className="size-6"
                         size="icon"
                         title={selectedManageable ? '이름과 설명 편집' : '이름과 설명 보기'}
                         variant="ghost"
-                        onClick={() => openMetadata(selectedStructure)}
+                        onClick={() => openMetadata(selectedExperiment)}
                       >
                         {selectedManageable ? <Pencil /> : <Eye />}
                       </Button>
                     ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {selectedStructureId === null
-                      ? '저장 전 새 Structure입니다.'
+                    {selectedExperimentId === null
+                      ? '저장 전 새 Experiment입니다.'
                       : dirty
                         ? '저장되지 않은 코드 변경이 있습니다.'
                         : '저장된 코드와 일치합니다.'}
                   </p>
                 </div>
-                {selectedStructureId === null && auth.isAuthenticated ? (
+                {selectedExperimentId === null && auth.isAuthenticated ? (
                   <Button size="sm" onClick={() => setSaveMode('create')}>
                     <Plus />
-                    Structure 생성
+                    Experiment 생성
                   </Button>
                 ) : selectedManageable ? (
                   <Button size="sm" variant="outline" onClick={() => setSaveMode('save')}>
-                    Structure 저장
+                    Experiment 저장
                   </Button>
                 ) : null}
-                {selectedStructureId !== null && auth.isAuthenticated ? (
+                {selectedExperimentId !== null && auth.isAuthenticated ? (
                   <Button size="sm" onClick={() => setSaveMode('root')}>
                     <Plus />새 root로 저장
                   </Button>
@@ -609,36 +600,22 @@ export function StructurePage() {
               </div>
               <div className="min-h-0 flex-1">
                 <StructureExperimentViewer
-                  activeDocumentType="structure"
-                  experiment={null}
-                  experimentDocument={experimentDocument}
-                  solverCompatibility={simulation.compatibility}
-                  structure={structure}
+                  activeDocumentType="experiment"
+                  structure={null}
                   structureDocument={structureDocument}
-                  structureLineage={
-                    selectedStructure ? (
-                      <StructureLineage
+                  solverCompatibility={simulation.compatibility}
+                  experiment={experiment}
+                  experimentDocument={experimentDocument}
+                  experimentLineage={
+                    selectedExperiment ? (
+                      <ExperimentLineage
                         canManage={canManage}
                         rows={rows}
-                        selected={selectedStructure}
+                        selected={selectedExperiment}
                         onDelete={setDeleteTarget}
                         onNavigate={(row) => requestNavigation(row, false)}
                       />
                     ) : null
-                  }
-                  structureVarsPanel={
-                    <VarsControls
-                      disabled={
-                        structureDocument.status === 'Dirty' ||
-                        structureDocument.status === 'Checking' ||
-                        structureDocument.status === 'Compiling'
-                      }
-                      overridden={structureVars !== undefined}
-                      schema={structureDocument.varsSchema}
-                      variables={structureVars ?? structureDocument.variables}
-                      onChange={setStructureVars}
-                      onReset={() => setStructureVars(undefined)}
-                    />
                   }
                   onActiveDocumentTypeChange={() => undefined}
                 />
@@ -649,15 +626,15 @@ export function StructurePage() {
               <div className="border-b bg-muted/20 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-semibold">Structure</h2>
+                    <h2 className="font-semibold">Experiment</h2>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {leafRows.length.toLocaleString()} leaf / {rows.length.toLocaleString()} visible
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     {auth.isAuthenticated ? (
-                      <Button size="sm" variant="outline" onClick={requestNewStructure}>
-                        <Plus />새 Structure 생성
+                      <Button size="sm" variant="outline" onClick={requestNewExperiment}>
+                        <Plus />새 Experiment 생성
                       </Button>
                     ) : null}
                   </div>
@@ -665,7 +642,7 @@ export function StructurePage() {
                 <div className="relative mt-4">
                   <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    aria-label="Structure 검색"
+                    aria-label="Experiment 검색"
                     className="pl-9"
                     placeholder="이름 또는 설명 검색"
                     value={query}
@@ -674,22 +651,22 @@ export function StructurePage() {
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">
-                {structuresQuery.isLoading ? (
+                {experimentsQuery.isLoading ? (
                   <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
                     <LoaderCircle className="animate-spin" />
-                    Structure 목록을 불러오는 중입니다.
+                    Experiment 목록을 불러오는 중입니다.
                   </div>
-                ) : structuresQuery.isError ? (
+                ) : experimentsQuery.isError ? (
                   <div className="flex min-h-48 items-center justify-center text-sm text-destructive">
-                    Structure 목록을 불러오지 못했습니다.
+                    Experiment 목록을 불러오지 못했습니다.
                   </div>
                 ) : (
                   <DataTable
                     columns={columns}
                     data={leafRows}
-                    emptyLabel="조건에 맞는 leaf Structure가 없습니다."
+                    emptyLabel="조건에 맞는 leaf Experiment가 없습니다."
                     getRowKey={(row) => String(row.id)}
-                    selectedKey={selectedStructureId === null ? undefined : String(selectedStructureId)}
+                    selectedKey={selectedExperimentId === null ? undefined : String(selectedExperimentId)}
                     onRowClick={(row) => requestNavigation(row, true)}
                     onRowDoubleClick={requestEditorOpen}
                   />
@@ -699,7 +676,7 @@ export function StructurePage() {
           )}
         </div>
         <div
-          aria-label="Structure 패널과 Viewer 크기 조절"
+          aria-label="Experiment 패널과 Viewer 크기 조절"
           aria-orientation="vertical"
           aria-valuemax={75}
           aria-valuemin={25}
@@ -732,9 +709,9 @@ export function StructurePage() {
           <span className="w-px bg-border group-hover:bg-neutral-400" />
         </div>
         <CadViewer
-          experiment={null}
+          structure={null}
           selected={viewerSelection}
-          structure={structureViewerDocument}
+          experiment={experimentViewerDocument}
           onRenderEnd={handleRenderEnd}
           onRenderError={handleRenderError}
           onRenderStart={handleRenderStart}
@@ -760,11 +737,11 @@ export function StructurePage() {
             }}
           >
             <DialogHeader>
-              <DialogTitle>{metadataEditable ? 'Structure 정보 편집' : 'Structure 정보'}</DialogTitle>
+              <DialogTitle>{metadataEditable ? 'Experiment 정보 편집' : 'Experiment 정보'}</DialogTitle>
               <DialogDescription>
                 {metadataEditable
                   ? '코드는 변경하지 않고 이름과 설명만 저장합니다.'
-                  : '이 Structure는 읽기 전용입니다.'}
+                  : '이 Experiment는 읽기 전용입니다.'}
               </DialogDescription>
             </DialogHeader>
             <label className="grid gap-1.5 text-sm font-medium">
@@ -806,23 +783,23 @@ export function StructurePage() {
         defaults={saveDefaults}
         description={
           saveMode === 'create'
-            ? '기본 Source code를 내 새 root Structure로 저장합니다.'
+            ? '기본 Source code를 내 새 root Experiment로 저장합니다.'
             : saveMode === 'root'
-              ? '현재 Source code를 선택한 Structure의 parent 없이 내 새 root로 저장합니다.'
+              ? '현재 Source code를 선택한 Experiment의 parent 없이 내 새 root로 저장합니다.'
               : undefined
         }
-        kind="Structure"
+        kind="Experiment"
         open={saveMode !== null}
         pending={definitionMutation.isPending}
         submitLabel={
-          saveMode === 'create' ? 'Structure 생성' : saveMode === 'root' ? '새 root로 저장' : 'Structure 저장'
+          saveMode === 'create' ? 'Experiment 생성' : saveMode === 'root' ? '새 root로 저장' : 'Experiment 저장'
         }
         title={
           saveMode === 'create'
-            ? '새 Structure 생성'
+            ? '새 Experiment 생성'
             : saveMode === 'root'
-              ? '새 Structure root 저장'
-              : 'Structure 저장'
+              ? '새 Experiment root 저장'
+              : 'Experiment 저장'
         }
         onOpenChange={(open) => !open && !definitionMutation.isPending && setSaveMode(null)}
         onSubmit={async (values) => {
@@ -844,8 +821,8 @@ export function StructurePage() {
             <DialogTitle>저장되지 않은 변경을 버릴까요?</DialogTitle>
             <DialogDescription>
               {pendingCreate
-                ? '새 Structure를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
-                : '다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
+                ? '새 Experiment를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                : '다른 Experiment로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -862,9 +839,9 @@ export function StructurePage() {
             <Button
               variant="destructive"
               onClick={() => {
-                if (pendingCreate) startNewStructure()
+                if (pendingCreate) startNewExperiment()
                 else if (pendingNavigation) {
-                  applyStructure(pendingNavigation)
+                  applyExperiment(pendingNavigation)
                   if (pendingEditorOpen) setEditorOpen(true)
                 }
                 setPendingNavigation(null)
@@ -884,15 +861,15 @@ export function StructurePage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Structure를 삭제할까요?</DialogTitle>
+            <DialogTitle>Experiment를 삭제할까요?</DialogTitle>
             <DialogDescription>
-              child는 삭제 노드의 parent로 자동 재연결됩니다. 연결된 Sample과 Designer/Predictor Model도 함께 삭제될 수
+              child는 삭제 노드의 parent로 자동 재연결됩니다. 연결된 Setup과 Designer/Predictor Model도 함께 삭제될 수
               있습니다.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border bg-muted/20 p-3 text-sm">
             <span className="font-medium">{deleteTarget?.name}</span>
-            <span className="ml-2 text-muted-foreground">Structure #{deleteTarget?.id}</span>
+            <span className="ml-2 text-muted-foreground">Experiment #{deleteTarget?.id}</span>
           </div>
           <DialogFooter>
             <Button disabled={deleteMutation.isPending} variant="outline" onClick={() => setDeleteTarget(null)}>
@@ -913,4 +890,4 @@ export function StructurePage() {
   )
 }
 
-export const Component = StructurePage
+export const Component = ExperimentPage

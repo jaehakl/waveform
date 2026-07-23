@@ -1,6 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CAD_COMPILER_VERSION } from '../compiler/types'
-import type { RunnerEvaluationEnvelopeV2 } from './protocol'
+import type {
+  RunnerEvaluationEnvelopeV2,
+  RunnerPreparedEvaluationEnvelopeV2,
+  RunnerPreparedSessionEnvelopeV2,
+} from './protocol'
 
 type WorkerMessageHandler = (event: MessageEvent<unknown>) => void
 
@@ -43,6 +47,12 @@ const request: RunnerEvaluationEnvelopeV2 = {
     },
   },
 }
+const preparedSession: RunnerPreparedSessionEnvelopeV2 = {
+  type: 'caemble-runner-prepare-v2',
+  nonce: '87654321-4321-4321-4321-cba987654321',
+  document: { apiVersion: 2, kind: 'structure' },
+  compiledProject: request.request.compiledProject,
+}
 
 describe('isolated runner frame', () => {
   beforeAll(async () => {
@@ -54,6 +64,10 @@ describe('isolated runner frame', () => {
       },
     })
     await import('./frame')
+  })
+
+  beforeEach(() => {
+    FakeWorker.instances = []
   })
 
   afterAll(() => {
@@ -122,6 +136,93 @@ describe('isolated runner frame', () => {
     } as MessageEvent<unknown>)
 
     expect(messages).toHaveLength(2)
+    expect(worker.terminated).toBe(true)
+    expect(port.closed).toBe(true)
+  })
+
+  it('keeps one prepared Worker alive while vars and reroll seeds change', () => {
+    const messages: unknown[] = []
+    const port = {
+      closed: false,
+      onmessage: null as WorkerMessageHandler | null,
+      postMessage(message: unknown) {
+        messages.push(message)
+      },
+      start: vi.fn(),
+      close() {
+        this.closed = true
+      },
+    }
+
+    windowMessageHandlers[0]({
+      data: preparedSession,
+      origin: 'http://127.0.0.1:5173',
+      ports: [port],
+    } as unknown as MessageEvent<unknown>)
+
+    const worker = FakeWorker.instances[0]
+    worker.onmessage?.({
+      data: { type: 'caemble-runner-worker-ready-v2' },
+    } as MessageEvent<unknown>)
+    expect(worker.messages).toEqual([preparedSession])
+
+    worker.onmessage?.({
+      data: {
+        type: 'caemble-runner-prepared-v2',
+        nonce: preparedSession.nonce,
+        documentType: 'structure',
+        sourceHash: preparedSession.compiledProject.sourceHash,
+      },
+    } as MessageEvent<unknown>)
+    expect(messages).toHaveLength(1)
+
+    const firstEvaluation: RunnerPreparedEvaluationEnvelopeV2 = {
+      type: 'caemble-runner-evaluate-prepared-v2',
+      nonce: preparedSession.nonce,
+      request: {
+        requestId: 'prepared-1',
+        revision: 3,
+        realizationSeed: 7,
+        vars: { width: 2 },
+      },
+    }
+    port.onmessage?.({ data: firstEvaluation } as MessageEvent<unknown>)
+    expect(worker.messages).toEqual([preparedSession, firstEvaluation])
+
+    worker.onmessage?.({
+      data: {
+        type: 'caemble-runner-result-v2',
+        nonce: preparedSession.nonce,
+        response: {
+          type: 'document-error',
+          requestId: firstEvaluation.request.requestId,
+          revision: firstEvaluation.request.revision,
+          documentType: 'structure',
+          errorType: 'model',
+          message: 'first value rejected',
+        },
+      },
+    } as MessageEvent<unknown>)
+    expect(worker.terminated).toBe(false)
+    expect(port.closed).toBe(false)
+
+    const rerollEvaluation: RunnerPreparedEvaluationEnvelopeV2 = {
+      type: 'caemble-runner-evaluate-prepared-v2',
+      nonce: preparedSession.nonce,
+      request: {
+        requestId: 'prepared-reroll',
+        revision: 4,
+        realizationSeed: 11,
+        vars: { width: 3 },
+      },
+    }
+    port.onmessage?.({ data: rerollEvaluation } as MessageEvent<unknown>)
+    expect(FakeWorker.instances).toHaveLength(1)
+    expect(worker.messages).toEqual([preparedSession, firstEvaluation, rerollEvaluation])
+
+    port.onmessage?.({
+      data: { type: 'caemble-runner-cancel-v2', nonce: preparedSession.nonce },
+    } as MessageEvent<unknown>)
     expect(worker.terminated).toBe(true)
     expect(port.closed).toBe(true)
   })

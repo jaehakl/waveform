@@ -2,14 +2,30 @@ import type { CadEvaluationRequestV2, CadEvaluationResponseV2 } from '../worker/
 import {
   assertRunnerEvaluationStartedEnvelopeV2,
   assertRunnerEvaluationResultEnvelopeV2,
+  assertRunnerPreparedSessionErrorEnvelopeV2,
+  assertRunnerPreparedSessionReadyEnvelopeV2,
   type RunnerCancelEnvelopeV2,
   type RunnerEvaluationEnvelopeV2,
+  type RunnerPreparedEvaluationEnvelopeV2,
+  type RunnerPreparedEvaluationRequestV2,
+  type RunnerPreparedSessionEnvelopeV2,
 } from './protocol'
 
 type EvaluationCallbacks = Readonly<{
   onFailure: (message: string) => void
   onResponse: (response: CadEvaluationResponseV2) => void
   onStart: () => void
+}>
+
+type PreparedEvaluationCallbacks = Readonly<{
+  onFailure: (message: string) => void
+  onReady: () => void
+  onResponse: (response: CadEvaluationResponseV2) => void
+}>
+
+export type PreparedEvaluationSession = Readonly<{
+  dispose: () => void
+  evaluate: (request: RunnerPreparedEvaluationRequestV2) => void
 }>
 
 let runnerFrame: Promise<Readonly<{ frame: HTMLIFrameElement; origin: string }>> | null = null
@@ -166,5 +182,135 @@ export function evaluateInIsolatedRunner(request: CadEvaluationRequestV2, callba
     port.postMessage(cancel)
     port.close()
     port = null
+  }
+}
+
+export function createPreparedEvaluationSession(
+  compiledProject: CadEvaluationRequestV2['compiledProject'],
+  documentType: CadEvaluationRequestV2['document']['kind'],
+  callbacks: PreparedEvaluationCallbacks,
+): PreparedEvaluationSession {
+  const nonce = crypto.randomUUID()
+  let activeRequest: RunnerPreparedEvaluationRequestV2 | null = null
+  let disposed = false
+  let port: MessagePort | null = null
+  let ready = false
+
+  const closePort = (sendCancel: boolean) => {
+    if (!port) return
+    if (sendCancel) {
+      const cancel: RunnerCancelEnvelopeV2 = { type: 'caemble-runner-cancel-v2', nonce }
+      port.postMessage(cancel)
+    }
+    port.close()
+    port = null
+  }
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    window.clearTimeout(startupTimeout)
+    activeRequest = null
+    closePort(true)
+  }
+  const fail = (message: string) => {
+    if (disposed) return
+    dispose()
+    callbacks.onFailure(message)
+  }
+  const startupTimeout = window.setTimeout(() => {
+    fail(`The prepared CAD runner did not initialize within ${runnerStartupTimeoutMs / 1000} seconds.`)
+  }, runnerStartupTimeoutMs)
+
+  void loadRunnerFrame()
+    .then(({ frame, origin }) => {
+      if (disposed) return
+      const targetWindow = frame.contentWindow
+      if (!targetWindow) throw new Error('The isolated CAD runner window is unavailable.')
+      const channel = new MessageChannel()
+      port = channel.port1
+      channel.port1.onmessage = (event: MessageEvent<unknown>) => {
+        if (disposed) return
+        try {
+          if (
+            typeof event.data === 'object' &&
+            event.data !== null &&
+            'type' in event.data &&
+            event.data.type === 'caemble-runner-prepared-v2'
+          ) {
+            assertRunnerPreparedSessionReadyEnvelopeV2(event.data)
+            if (
+              ready ||
+              event.data.nonce !== nonce ||
+              event.data.documentType !== documentType ||
+              event.data.sourceHash !== compiledProject.sourceHash
+            ) {
+              throw new Error('The prepared CAD runner identity is invalid.')
+            }
+            ready = true
+            window.clearTimeout(startupTimeout)
+            callbacks.onReady()
+            return
+          }
+          if (
+            typeof event.data === 'object' &&
+            event.data !== null &&
+            'type' in event.data &&
+            event.data.type === 'caemble-runner-session-error-v2'
+          ) {
+            assertRunnerPreparedSessionErrorEnvelopeV2(event.data)
+            if (event.data.nonce !== nonce) throw new Error('The prepared CAD runner error identity is invalid.')
+            fail(event.data.message)
+            return
+          }
+          assertRunnerEvaluationResultEnvelopeV2(event.data)
+          const request = activeRequest
+          if (
+            !ready ||
+            !request ||
+            event.data.nonce !== nonce ||
+            event.data.response.requestId !== request.requestId ||
+            event.data.response.revision !== request.revision ||
+            event.data.response.documentType !== documentType ||
+            (event.data.response.type === 'document-success' &&
+              (event.data.response.snapshot.sourceHash !== compiledProject.sourceHash ||
+                event.data.response.snapshot.seed !== request.realizationSeed))
+          ) {
+            throw new Error('The prepared CAD runner response identity is invalid.')
+          }
+          activeRequest = null
+          callbacks.onResponse(event.data.response)
+        } catch (error) {
+          fail(error instanceof Error ? error.message : String(error))
+        }
+      }
+      channel.port1.onmessageerror = () => {
+        fail('The prepared CAD runner response could not be decoded.')
+      }
+      channel.port1.start()
+      const envelope: RunnerPreparedSessionEnvelopeV2 = {
+        type: 'caemble-runner-prepare-v2',
+        nonce,
+        document: { apiVersion: 2, kind: documentType },
+        compiledProject,
+      }
+      targetWindow.postMessage(envelope, origin, [channel.port2])
+    })
+    .catch((error: unknown) => {
+      fail(error instanceof Error ? error.message : String(error))
+    })
+
+  return {
+    dispose,
+    evaluate(request) {
+      if (disposed || !ready || !port) throw new Error('The prepared CAD runner is not ready.')
+      if (activeRequest) throw new Error('The prepared CAD runner is already evaluating a request.')
+      activeRequest = request
+      const envelope: RunnerPreparedEvaluationEnvelopeV2 = {
+        type: 'caemble-runner-evaluate-prepared-v2',
+        nonce,
+        request,
+      }
+      port.postMessage(envelope)
+    },
   }
 }

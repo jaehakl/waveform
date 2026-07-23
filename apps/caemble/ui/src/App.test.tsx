@@ -10,6 +10,7 @@ describe('페이지 중심 앱 라우팅', () => {
       'index',
       'viewer',
       'structures',
+      'experiments',
       'materials',
       'materials/:materialId',
       'catalog/cad/:tag?',
@@ -23,9 +24,15 @@ describe('페이지 중심 앱 라우팅', () => {
     ])
   })
 
-  it.each([['#viewer', '/viewer'], ['#help', '/docs']])('legacy hash %s를 %s로 이동한다', (hash, target) => {
+  it.each([
+    ['#viewer', '/viewer'],
+    ['#help', '/docs'],
+  ])('legacy hash %s를 %s로 이동한다', (hash, target) => {
     const replaceState = vi.fn()
-    redirectLegacyHash({ hash, pathname: '/', search: '?from=legacy' } as Location, { replaceState } as unknown as History)
+    redirectLegacyHash(
+      { hash, pathname: '/', search: '?from=legacy' } as Location,
+      { replaceState } as unknown as History,
+    )
     expect(replaceState).toHaveBeenCalledWith(null, '', `${target}?from=legacy`)
   })
 

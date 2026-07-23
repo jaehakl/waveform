@@ -120,6 +120,7 @@ function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/viewer')) return 'Code-to-CAD Viewer'
   if (pathname.startsWith('/structures')) return 'Structures'
+  if (pathname.startsWith('/experiments')) return 'Experiments'
   if (pathname.startsWith('/materials')) return 'Materials'
   if (pathname.startsWith('/catalog/cad')) return 'Geometry'
   if (pathname.startsWith('/catalog/materials')) return 'Material Catalog'
@@ -137,7 +138,8 @@ export function AppShell() {
   const navigation = useNavigation()
   const pendingPathname = navigation.location?.pathname
   const displayedPathname = pendingPathname ?? location.pathname
-  const workspace = displayedPathname === '/viewer' || displayedPathname === '/structures'
+  const workspace =
+    displayedPathname === '/viewer' || displayedPathname === '/structures' || displayedPathname === '/experiments'
   const segments = location.pathname.split('/').filter(Boolean)
   const pendingSegments = pendingPathname?.split('/').filter(Boolean)
   const pendingCatalog =

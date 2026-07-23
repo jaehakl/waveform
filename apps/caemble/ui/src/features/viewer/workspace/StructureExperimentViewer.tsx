@@ -11,19 +11,23 @@ export type StructureExperimentViewerProps = {
   activeDocumentType: CadDocumentType | null
   structure?: CadSourceDocumentV2 | null
   experiment?: CadSourceDocumentV2 | null
+  experimentLineage?: ReactNode
   structureDocument: CadDocumentController
   experimentDocument: CadDocumentController
   solverCompatibility: SolverCompatibility
   structureLineage?: ReactNode
+  structureVarsPanel?: ReactNode
   onActiveDocumentTypeChange: (documentType: CadDocumentType) => void
 }
 
 const workspaceTabs = [
   { id: 'structure-source', documentType: 'structure', panel: 'source', label: 'Structure Source' },
+  { id: 'structure-vars', documentType: 'structure', panel: 'vars', label: 'Structure Vars' },
   { id: 'structure-tree', documentType: 'structure', panel: 'tree', label: 'Structure Tree' },
   { id: 'structure-lineage', documentType: 'structure', panel: 'lineage', label: '족보 보기' },
   { id: 'experiment-source', documentType: 'experiment', panel: 'source', label: 'Experiment Source' },
   { id: 'experiment-tree', documentType: 'experiment', panel: 'tree', label: 'Experiment Tree' },
+  { id: 'experiment-lineage', documentType: 'experiment', panel: 'lineage', label: '족보 보기' },
   {
     id: 'experimental-parameters',
     documentType: 'experiment',
@@ -52,18 +56,22 @@ export function StructureExperimentViewer({
   activeDocumentType,
   experiment,
   experimentDocument,
+  experimentLineage,
   onActiveDocumentTypeChange,
   solverCompatibility,
   structure,
   structureDocument,
   structureLineage,
+  structureVarsPanel,
 }: StructureExperimentViewerProps) {
   const hasStructure = structure !== null && structure !== undefined
   const hasExperiment = experiment !== null && experiment !== undefined
   const availableTabs = workspaceTabs.filter(
     (tab) =>
       (tab.documentType === 'structure' ? hasStructure : hasExperiment) &&
-      (tab.panel !== 'lineage' || structureLineage !== undefined),
+      (tab.id !== 'structure-vars' || structureVarsPanel !== undefined) &&
+      (tab.id !== 'structure-lineage' || structureLineage !== undefined) &&
+      (tab.id !== 'experiment-lineage' || experimentLineage !== undefined),
   )
   const [activeTab, setActiveTab] = useState<WorkspaceTab | null>(() =>
     activeDocumentType === 'experiment' && hasExperiment
@@ -191,7 +199,13 @@ export function StructureExperimentViewer({
               role="tabpanel"
             >
               {selectedTab !== tab.id ? null : tab.panel === 'lineage' ? (
-                structureLineage
+                tab.documentType === 'structure' ? (
+                  structureLineage
+                ) : (
+                  experimentLineage
+                )
+              ) : tab.panel === 'vars' ? (
+                structureVarsPanel
               ) : tab.panel === 'source' ? (
                 <CadEditor
                   diagnostics={document.diagnostics.filter(

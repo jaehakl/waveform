@@ -13,49 +13,53 @@ function tabLabels(markup: string) {
 function ViewerHarness({
   activeDocumentType,
   experiment,
+  experimentLineage,
   preflightIssues = [],
   structure,
   structureLineage,
+  structureVarsPanel,
 }: {
   activeDocumentType: CadDocumentType | null
   experiment?: string | null
+  experimentLineage?: React.ReactNode
   preflightIssues?: readonly SolverValidationIssue[]
   structure?: string | null
   structureLineage?: React.ReactNode
+  structureVarsPanel?: React.ReactNode
 }) {
-  const structureSourceDocument = structure == null
-    ? structure
-    : createCadSourceDocumentV2('structure', structure, 1)
-  const experimentSourceDocument = experiment == null
-    ? experiment
-    : createCadSourceDocumentV2('experiment', experiment, 2)
+  const structureSourceDocument = structure == null ? structure : createCadSourceDocumentV2('structure', structure, 1)
+  const experimentSourceDocument =
+    experiment == null ? experiment : createCadSourceDocumentV2('experiment', experiment, 2)
   const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
     structureSourceDocument,
     experimentSourceDocument,
     () => undefined,
     () => undefined,
   )
-  const visibleStructureDocument = preflightIssues.length === 0
-    ? structureDocument
-    : attachPreflightMetadata(
-        structureDocument,
-        preflightIssues,
-        null,
-        structureDocument.evaluationTimeoutMs,
-        structureDocument.setEvaluationTimeoutMs,
-      )
+  const visibleStructureDocument =
+    preflightIssues.length === 0
+      ? structureDocument
+      : attachPreflightMetadata(
+          structureDocument,
+          preflightIssues,
+          null,
+          structureDocument.evaluationTimeoutMs,
+          structureDocument.setEvaluationTimeoutMs,
+        )
 
   return (
     <StructureExperimentViewer
       activeDocumentType={activeDocumentType}
       experiment={experimentSourceDocument}
       experimentDocument={experimentDocument}
-      solverCompatibility={preflightIssues.length === 0
-        ? simulation.compatibility
-        : { status: 'incompatible', issues: preflightIssues }}
+      experimentLineage={experimentLineage}
+      solverCompatibility={
+        preflightIssues.length === 0 ? simulation.compatibility : { status: 'incompatible', issues: preflightIssues }
+      }
       structure={structureSourceDocument}
       structureDocument={visibleStructureDocument}
       structureLineage={structureLineage}
+      structureVarsPanel={structureVarsPanel}
       onActiveDocumentTypeChange={() => undefined}
     />
   )
@@ -64,11 +68,7 @@ function ViewerHarness({
 describe('StructureExperimentViewer', () => {
   it('renders all six tabs from externally owned document controllers', () => {
     const markup = renderToStaticMarkup(
-      <ViewerHarness
-        activeDocumentType="structure"
-        experiment="experiment source"
-        structure="structure source"
-      />,
+      <ViewerHarness activeDocumentType="structure" experiment="experiment source" structure="structure source" />,
     )
 
     expect(tabLabels(markup)).toEqual([
@@ -118,11 +118,41 @@ describe('StructureExperimentViewer', () => {
     expect(markup).toContain('id="structure-lineage-panel" role="tabpanel"')
   })
 
+  it('adds the optional Structure Vars tab directly after Structure Source', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerHarness
+        activeDocumentType="structure"
+        structure="structure source"
+        structureVarsPanel={<div>Vars controls</div>}
+      />,
+    )
+
+    expect(tabLabels(markup)).toEqual(['Structure Source', 'Structure Vars', 'Structure Tree'])
+    expect(markup).toContain('id="structure-vars-panel" role="tabpanel"')
+  })
+
+  it('adds the optional Experiment lineage tab after Experiment Tree', () => {
+    const markup = renderToStaticMarkup(
+      <ViewerHarness
+        activeDocumentType="experiment"
+        experiment="experiment source"
+        experimentLineage={<div>Experiment lineage content</div>}
+      />,
+    )
+
+    expect(tabLabels(markup)).toEqual([
+      'Experiment Source',
+      'Experiment Tree',
+      '족보 보기',
+      'Experimental Parameters',
+      'Solver Spec',
+    ])
+    expect(markup).toContain('id="experiment-lineage-panel" role="tabpanel"')
+  })
+
   it('renders an empty state only for nullish sources', () => {
     const missingMarkup = renderToStaticMarkup(<ViewerHarness activeDocumentType={null} />)
-    const emptySourceMarkup = renderToStaticMarkup(
-      <ViewerHarness activeDocumentType="structure" structure="" />,
-    )
+    const emptySourceMarkup = renderToStaticMarkup(<ViewerHarness activeDocumentType="structure" structure="" />)
 
     expect(missingMarkup).toContain('No modeling source')
     expect(missingMarkup).not.toContain('role="tablist"')
@@ -144,11 +174,13 @@ describe('StructureExperimentViewer', () => {
       <ViewerHarness
         activeDocumentType="structure"
         experiment="experiment source"
-        preflightIssues={[{
-          documentType: 'structure',
-          path: 'rules.initializations[0].target[0]',
-          message: 'references missing structure.geometry.conductor.',
-        }]}
+        preflightIssues={[
+          {
+            documentType: 'structure',
+            path: 'rules.initializations[0].target[0]',
+            message: 'references missing structure.geometry.conductor.',
+          },
+        ]}
         structure="structure source"
       />,
     )

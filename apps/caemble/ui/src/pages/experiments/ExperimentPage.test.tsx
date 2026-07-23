@@ -7,15 +7,15 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserData } from '@/api'
-import { cadEntrySource, rerollCadSourceDocument, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
-import { defaultCode } from '@/lib/defaultCode'
-import { StructurePage } from './StructurePage'
+import { cadEntrySource, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
+import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
+import { ExperimentPage } from './ExperimentPage'
 
 const api = vi.hoisted(() => ({
-  deleteStructures: vi.fn(),
-  listStructures: vi.fn(),
+  deleteExperiments: vi.fn(),
+  listExperiments: vi.fn(),
   saveDefinition: vi.fn(),
-  upsertStructures: vi.fn(),
+  upsertExperiments: vi.fn(),
 }))
 
 const workspace = vi.hoisted(() => ({
@@ -37,11 +37,11 @@ vi.mock('@/api', async (importOriginal) => {
     ...original,
     dbTables: {
       ...original.dbTables,
-      Structure: {
-        ...original.dbTables.Structure,
-        deleteRows: api.deleteStructures,
-        listRows: api.listStructures,
-        upsertRow: api.upsertStructures,
+      Experiment: {
+        ...original.dbTables.Experiment,
+        deleteRows: api.deleteExperiments,
+        listRows: api.listExperiments,
+        upsertRow: api.upsertExperiments,
       },
     },
   }
@@ -52,7 +52,7 @@ vi.mock('@/features/auth/use-auth', () => ({
 }))
 
 vi.mock('@/features/viewer/persistence/resolveMaterials', () => ({
-  createDocumentMaterialResolver: vi.fn(() => vi.fn()),
+  resolveDocumentMaterials: vi.fn(),
 }))
 
 vi.mock('@/features/viewer/persistence/saveDefinition', () => ({
@@ -65,36 +65,30 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', () => ({
 
 vi.mock('@/features/viewer/workspace/StructureExperimentViewer', () => ({
   StructureExperimentViewer: ({
-    structureDocument,
-    structureLineage,
-    structureVarsPanel,
+    experimentDocument,
+    experimentLineage,
   }: {
-    structureDocument: { handleReroll: () => void; handleSourceChange: (source: string) => void }
-    structureLineage?: React.ReactNode
-    structureVarsPanel?: React.ReactNode
+    experimentDocument: { handleSourceChange: (source: string) => void }
+    experimentLineage?: React.ReactNode
   }) => (
     <div>
-      <button type="button" onClick={() => structureDocument.handleSourceChange('changed source')}>
+      <button type="button" onClick={() => experimentDocument.handleSourceChange('changed source')}>
         Source 변경
       </button>
-      <button type="button" onClick={structureDocument.handleReroll}>
-        Vars Reroll
-      </button>
-      {structureVarsPanel}
-      {structureLineage}
+      {experimentLineage}
     </div>
   ),
 }))
 
 vi.mock('@/features/viewer/viewer/CadViewer', () => ({
-  default: ({ structure }: { structure: unknown }) => (
-    <div data-testid="structure-viewer">{structure ? 'Structure rendered' : 'No Structure selected'}</div>
+  default: ({ experiment }: { experiment: unknown }) => (
+    <div data-testid="experiment-viewer">{experiment ? 'Experiment rendered' : 'No Experiment selected'}</div>
   ),
 }))
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
-const structures = [
+const experiments = [
   {
     id: 1,
     parent_id: null,
@@ -142,9 +136,9 @@ const structures = [
   },
 ]
 
-function renderPage(initialEntry = '/structures') {
+function renderPage(initialEntry = '/experiments') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/structures', element: <StructurePage /> }], {
+  const router = createMemoryRouter([{ path: '/experiments', element: <ExperimentPage /> }], {
     initialEntries: [initialEntry],
   })
   render(
@@ -155,55 +149,46 @@ function renderPage(initialEntry = '/structures') {
   return router
 }
 
-function latestWorkspaceCall() {
-  const calls = workspace.useCadWorkspace.mock.calls
-  return calls[calls.length - 1]
-}
-
 beforeEach(() => {
   auth.value = {
     isAuthenticated: true,
     isLoading: false,
     user: { id: 'owner-id', email: 'owner@example.com', is_active: true, roles: ['user'] },
   }
-  api.listStructures.mockResolvedValue({ items: structures, total: structures.length })
-  api.deleteStructures.mockResolvedValue(undefined)
-  api.upsertStructures.mockResolvedValue([{ id: 5 }])
+  api.listExperiments.mockResolvedValue({ items: experiments, total: experiments.length })
+  api.deleteExperiments.mockResolvedValue(undefined)
+  api.upsertExperiments.mockResolvedValue([{ id: 5 }])
   api.saveDefinition.mockResolvedValue({
     id: 10,
     action: 'created',
     parentId: null,
     code: 'owned source',
-    kind: 'structure',
+    kind: 'experiment',
   })
   workspace.useCadWorkspace.mockImplementation(
     (
-      structure: CadSourceDocumentV2 | null,
-      _experiment: null,
-      onStructureChange?: (document: CadSourceDocumentV2) => void,
+      _structure: null,
+      experiment: CadSourceDocumentV2 | null,
+      _onStructureChange: undefined,
+      onExperimentChange?: (document: CadSourceDocumentV2) => void,
     ) => {
-      const structureDocument = {
-        handleReroll: () => {
-          workspace.reroll()
-          if (structure && onStructureChange) onStructureChange(rerollCadSourceDocument(structure))
-        },
+      const experimentDocument = {
+        handleReroll: workspace.reroll,
         handleSourceChange: (source: string) => {
-          if (structure && onStructureChange) onStructureChange(updateCadEntrySource(structure, source))
+          if (experiment && onExperimentChange) onExperimentChange(updateCadEntrySource(experiment, source))
         },
         handleRenderEnd: vi.fn(),
         handleRenderError: vi.fn(),
         handleRenderStart: vi.fn(),
-        scene: structure ? { parts: [] } : null,
-        sceneHash: structure ? 'scene-hash' : null,
+        scene: experiment ? { parts: [] } : null,
+        sceneHash: experiment ? 'scene-hash' : null,
         selection: null,
-        status: 'Ready',
-        variables: structure ? { width: 4 } : null,
-        varsSchema: structure ? { width: { min: 1, max: 10 } } : null,
+        variables: null,
       }
       return {
-        experimentDocument: {},
+        structureDocument: {},
         simulation: { compatibility: { status: 'unavailable', issues: [] } },
-        structureDocument,
+        experimentDocument,
       }
     },
   )
@@ -214,7 +199,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('StructurePage', () => {
+describe('ExperimentPage', () => {
   it('shows only visible leaves and searches leaf names or descriptions', async () => {
     renderPage()
 
@@ -226,7 +211,7 @@ describe('StructurePage', () => {
     expect(screen.queryByRole('button', { name: '코드 에디터 열기' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Public Leaf 코드 에디터 열기' })).toBeInTheDocument()
 
-    await userEvent.type(screen.getByRole('textbox', { name: 'Structure 검색' }), 'BETA')
+    await userEvent.type(screen.getByRole('textbox', { name: 'Experiment 검색' }), 'BETA')
     expect(screen.getByText('Public Leaf')).toBeInTheDocument()
     expect(screen.queryByText('Owned Grandchild')).not.toBeInTheDocument()
   })
@@ -236,8 +221,8 @@ describe('StructurePage', () => {
     await screen.findByText('Owned Grandchild')
 
     await userEvent.click(screen.getByText('Owned Grandchild'))
-    await waitFor(() => expect(screen.getByTestId('structure-viewer')).toHaveTextContent('Structure rendered'))
-    await waitFor(() => expect(router.state.location.search).toBe('?structure=5'))
+    await waitFor(() => expect(screen.getByTestId('experiment-viewer')).toHaveTextContent('Experiment rendered'))
+    await waitFor(() => expect(router.state.location.search).toBe('?experiment=5'))
     await userEvent.click(screen.getByText('Owned Grandchild'))
     await waitFor(() => expect(workspace.reroll).toHaveBeenCalledTimes(1))
 
@@ -249,90 +234,68 @@ describe('StructurePage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Public Leaf/ }))
 
     expect(screen.getByRole('heading', { name: '저장되지 않은 변경을 버릴까요?' })).toBeInTheDocument()
-    expect(router.state.location.search).toBe('?structure=5')
+    expect(router.state.location.search).toBe('?experiment=5')
     await userEvent.click(screen.getByRole('button', { name: '변경 버리고 이동' }))
-    expect(router.state.location.search).toBe('?structure=3')
+    expect(router.state.location.search).toBe('?experiment=3')
   })
 
-  it('opens the double-clicked Structure in the code editor', async () => {
+  it('opens the double-clicked Experiment in the code editor', async () => {
     const router = renderPage()
     await screen.findByText('Public Leaf')
 
-    await userEvent.dblClick(screen.getByRole('row', { name: /Public Leaf Structure #3/ }))
+    await userEvent.dblClick(screen.getByRole('row', { name: /Public Leaf Experiment #3/ }))
 
     expect(screen.getByRole('button', { name: '목록' })).toBeInTheDocument()
     expect(screen.getAllByText('Public Leaf')).not.toHaveLength(0)
-    expect(router.state.location.search).toBe('?structure=3')
+    expect(router.state.location.search).toBe('?experiment=3')
     expect(workspace.reroll).not.toHaveBeenCalled()
   })
 
-  it('previews Structure vars without dirtying source and resets overrides on reroll and source changes', async () => {
-    renderPage('/structures?structure=5')
-    await screen.findByText('Owned Grandchild')
-    await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
-
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'width 숫자 입력' }), { target: { value: '7' } })
-    await waitFor(() => {
-      const call = latestWorkspaceCall()
-      expect(call?.[4]).toEqual({ width: 7 })
-    })
-    expect(screen.getByText('저장된 코드와 일치합니다.')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Vars Reroll' }))
-    await waitFor(() => expect(latestWorkspaceCall()?.[4]).toBeUndefined())
-
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'width 숫자 입력' }), { target: { value: '8' } })
-    await waitFor(() => expect(latestWorkspaceCall()?.[4]).toEqual({ width: 8 }))
-    await userEvent.click(screen.getByRole('button', { name: 'Source 변경' }))
-    await waitFor(() => expect(latestWorkspaceCall()?.[4]).toBeUndefined())
-    expect(screen.getByText('저장되지 않은 코드 변경이 있습니다.')).toBeInTheDocument()
-  })
-
-  it('confirms dirty navigation before opening a double-clicked Structure', async () => {
-    const router = renderPage('/structures?structure=5')
+  it('confirms dirty navigation before opening a double-clicked Experiment', async () => {
+    const router = renderPage('/experiments?experiment=5')
     await screen.findByText('Owned Grandchild')
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
     await userEvent.click(screen.getByRole('button', { name: 'Source 변경' }))
     await userEvent.click(screen.getByRole('button', { name: '목록' }))
 
-    await userEvent.dblClick(screen.getByRole('row', { name: /Public Leaf Structure #3/ }))
+    await userEvent.dblClick(screen.getByRole('row', { name: /Public Leaf Experiment #3/ }))
 
     const confirmDialog = screen.getByRole('dialog')
     expect(within(confirmDialog).getByRole('heading', { name: '저장되지 않은 변경을 버릴까요?' })).toBeInTheDocument()
-    expect(router.state.location.search).toBe('?structure=5')
+    expect(router.state.location.search).toBe('?experiment=5')
 
     await userEvent.click(within(confirmDialog).getByRole('button', { name: '변경 버리고 이동' }))
 
     expect(screen.getByRole('button', { name: '목록' })).toBeInTheDocument()
     expect(screen.getAllByText('Public Leaf')).not.toHaveLength(0)
-    expect(router.state.location.search).toBe('?structure=3')
+    expect(router.state.location.search).toBe('?experiment=3')
   })
 
-  it('starts a default Structure from the list and saves it as a new root', async () => {
+  it('starts a default Experiment from the list and saves it as a new root', async () => {
     api.saveDefinition.mockResolvedValueOnce({
       id: 10,
       action: 'created',
       parentId: null,
-      code: defaultCode,
-      kind: 'structure',
+      code: defaultExperimentCode,
+      kind: 'experiment',
     })
-    renderPage('/structures?structure=5')
+    renderPage('/experiments?experiment=5')
     await screen.findByText('Owned Grandchild')
 
-    await userEvent.click(screen.getByRole('button', { name: '새 Structure 생성' }))
+    await userEvent.click(screen.getByRole('button', { name: '새 Experiment 생성' }))
 
-    expect(screen.getByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Structure 생성' })).toBeInTheDocument()
+    expect(screen.getByText('저장 전 새 Experiment입니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Experiment 생성' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /정보 (편집|보기)/ })).not.toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[0] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultCode)
+    ]?.[1] as CadSourceDocumentV2
+    expect(cadEntrySource(draft)).toBe(defaultExperimentCode)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Structure 생성' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Experiment 생성' }))
     const saveDialog = screen.getByRole('dialog')
-    expect(within(saveDialog).getByRole('heading', { name: '새 Structure 생성' })).toBeInTheDocument()
-    await userEvent.click(within(saveDialog).getByRole('button', { name: 'Structure 생성' }))
+    expect(within(saveDialog).getByRole('heading', { name: '새 Experiment 생성' })).toBeInTheDocument()
+    await userEvent.click(within(saveDialog).getByRole('button', { name: 'Experiment 생성' }))
 
     await waitFor(() =>
       expect(api.saveDefinition).toHaveBeenCalledWith(
@@ -340,37 +303,37 @@ describe('StructurePage', () => {
       ),
     )
     const request = api.saveDefinition.mock.calls[api.saveDefinition.mock.calls.length - 1]?.[0]
-    expect(cadEntrySource(request.document)).toBe(defaultCode)
+    expect(cadEntrySource(request.document)).toBe(defaultExperimentCode)
     await waitFor(() => expect(screen.getByRole('button', { name: '새 root로 저장' })).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: 'Structure 생성' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Experiment 생성' })).not.toBeInTheDocument()
   })
 
-  it('confirms before replacing an unsaved edit with a new Structure', async () => {
-    renderPage('/structures?structure=5')
+  it('confirms before replacing an unsaved edit with a new Experiment', async () => {
+    renderPage('/experiments?experiment=5')
     await screen.findByText('Owned Grandchild')
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
     await userEvent.click(screen.getByRole('button', { name: 'Source 변경' }))
     await userEvent.click(screen.getByRole('button', { name: '목록' }))
 
-    await userEvent.click(screen.getByRole('button', { name: '새 Structure 생성' }))
+    await userEvent.click(screen.getByRole('button', { name: '새 Experiment 생성' }))
 
     const confirmDialog = screen.getByRole('dialog')
-    expect(within(confirmDialog).getByText(/새 Structure를 시작하면/)).toBeInTheDocument()
+    expect(within(confirmDialog).getByText(/새 Experiment를 시작하면/)).toBeInTheDocument()
     await userEvent.click(within(confirmDialog).getByRole('button', { name: '변경 버리고 이동' }))
 
-    expect(screen.getByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
+    expect(screen.getByText('저장 전 새 Experiment입니다.')).toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[0] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultCode)
+    ]?.[1] as CadSourceDocumentV2
+    expect(cadEntrySource(draft)).toBe(defaultExperimentCode)
   })
 
   it('keeps foreign metadata read-only and saves the current code as a new root', async () => {
-    renderPage('/structures?structure=4')
+    renderPage('/experiments?experiment=4')
 
     await screen.findByText('Foreign Leaf')
     await waitFor(() =>
-      expect(screen.getByRole('row', { name: /Foreign Leaf Structure #4/ })).toHaveAttribute('aria-selected', 'true'),
+      expect(screen.getByRole('row', { name: /Foreign Leaf Experiment #4/ })).toHaveAttribute('aria-selected', 'true'),
     )
     expect(screen.getByRole('button', { name: 'Foreign Leaf 정보 보기' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Foreign Leaf 코드 에디터 열기' }))
@@ -380,7 +343,7 @@ describe('StructurePage', () => {
     expect(within(infoDialog).queryByRole('button', { name: '저장' })).not.toBeInTheDocument()
     await userEvent.click(within(infoDialog).getAllByRole('button', { name: '닫기' })[0])
 
-    expect(screen.queryByRole('button', { name: 'Structure 저장' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Experiment 저장' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '새 root로 저장' }))
     const saveDialog = screen.getByRole('dialog')
     await userEvent.click(within(saveDialog).getByRole('button', { name: '새 root로 저장' }))
@@ -389,10 +352,10 @@ describe('StructurePage', () => {
   })
 
   it('edits owned metadata and falls back to the parent after deleting the selected node', async () => {
-    const router = renderPage('/structures?structure=5')
+    const router = renderPage('/experiments?experiment=5')
     await screen.findByText('Owned Grandchild')
     await waitFor(() =>
-      expect(screen.getByRole('row', { name: /Owned Grandchild Structure #5/ })).toHaveAttribute(
+      expect(screen.getByRole('row', { name: /Owned Grandchild Experiment #5/ })).toHaveAttribute(
         'aria-selected',
         'true',
       ),
@@ -406,7 +369,7 @@ describe('StructurePage', () => {
     await userEvent.type(within(infoDialog).getByLabelText('이름'), 'Renamed leaf')
     await userEvent.click(within(infoDialog).getByRole('button', { name: '저장' }))
     await waitFor(() =>
-      expect(api.upsertStructures).toHaveBeenCalledWith([
+      expect(api.upsertExperiments).toHaveBeenCalledWith([
         expect.objectContaining({ id: 5, name: 'Renamed leaf', code: 'owned source' }),
       ]),
     )
@@ -414,17 +377,17 @@ describe('StructurePage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 삭제' }))
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }))
 
-    await waitFor(() => expect(api.deleteStructures).toHaveBeenCalledWith([5]))
-    expect(router.state.location.search).toBe('?structure=2')
+    await waitFor(() => expect(api.deleteExperiments).toHaveBeenCalledWith([5]))
+    expect(router.state.location.search).toBe('?experiment=2')
   })
 
-  it('lets an administrator manage a Structure owned by another user', async () => {
+  it('lets an administrator manage an Experiment owned by another user', async () => {
     auth.value = {
       isAuthenticated: true,
       isLoading: false,
       user: { id: 'admin-id', email: 'admin@example.com', is_active: true, roles: ['admin'] },
     }
-    renderPage('/structures?structure=4')
+    renderPage('/experiments?experiment=4')
 
     await screen.findByText('Foreign Leaf')
     fireEvent.click(screen.getByRole('button', { name: 'Foreign Leaf 정보 편집' }))
@@ -432,33 +395,32 @@ describe('StructurePage', () => {
     await userEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '닫기' })[0])
 
     await userEvent.click(screen.getByRole('button', { name: 'Foreign Leaf 코드 에디터 열기' }))
-    expect(screen.getByRole('button', { name: 'Structure 저장' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Experiment 저장' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Foreign Leaf 삭제' })).toBeInTheDocument()
   })
 
   it('keeps metadata, Source, and Tree read-only for an anonymous visitor', async () => {
     auth.value = { isAuthenticated: false, isLoading: false, user: null }
-    renderPage('/structures?structure=5')
+    renderPage('/experiments?experiment=5')
 
     await screen.findByText('Owned Grandchild')
-    expect(screen.queryByRole('button', { name: '새 Structure 생성' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '새 Experiment 생성' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 정보 보기' }))
     expect(within(await screen.findByRole('dialog')).getByLabelText('이름')).toBeDisabled()
     await userEvent.click(within(screen.getByRole('dialog')).getAllByRole('button', { name: '닫기' })[0])
 
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
-    expect(screen.queryByRole('button', { name: 'Structure 저장' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Experiment 저장' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '새 root로 저장' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Owned Grandchild 삭제' })).not.toBeInTheDocument()
     expect(workspace.useCadWorkspace).toHaveBeenLastCalledWith(
-      expect.anything(),
       null,
+      expect.anything(),
       undefined,
       undefined,
       undefined,
       undefined,
       expect.any(Function),
-      'prepared-vars',
     )
   })
 })

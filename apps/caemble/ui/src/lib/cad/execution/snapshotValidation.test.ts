@@ -3,10 +3,7 @@ import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 import { Material } from '../model/core'
 import { serializeEvaluatedDocumentSnapshotV2 } from './snapshot'
-import {
-  assertEvaluatedDocumentSnapshotV2,
-  assertPlainSnapshotValue,
-} from './snapshotValidation'
+import { assertEvaluatedDocumentSnapshotV2, assertPlainSnapshotValue } from './snapshotValidation'
 
 function Box() {
   return h('box', { size: [1, 1, 1] })
@@ -35,12 +32,14 @@ describe('plain snapshot validation', () => {
 
   it('validates a serialized scene whose parts share one Material realization', () => {
     const material = new Material('Shared', { color: '#2563eb' })
-    const scene = evaluateCadScene(h(
-      Fragment,
-      null,
-      h(Box, { id: 'first', materials: [material] }),
-      h(Box, { id: 'second', pos: [2, 0, 0], materials: [material] }),
-    ))
+    const scene = evaluateCadScene(
+      h(
+        Fragment,
+        null,
+        h(Box, { id: 'first', materials: [material] }),
+        h(Box, { id: 'second', pos: [2, 0, 0], materials: [material] }),
+      ),
+    )
     const snapshot = serializeEvaluatedDocumentSnapshotV2({
       apiVersion: 2,
       kind: 'structure',
@@ -48,6 +47,7 @@ describe('plain snapshot validation', () => {
       seed: 7,
       sourceHash: 'a'.repeat(64),
       variables: {},
+      varsSchema: {},
     })
 
     expect(snapshot.scene.parts[0].material).toBe(snapshot.scene.parts[1].material)
@@ -56,5 +56,27 @@ describe('plain snapshot validation', () => {
     const cloned = structuredClone(snapshot)
     expect(cloned.scene.parts[0].material).toBe(cloned.scene.parts[1].material)
     expect(() => assertEvaluatedDocumentSnapshotV2(cloned)).not.toThrow()
+  })
+
+  it('requires varsSchema and validates variables against it', () => {
+    const snapshot = {
+      apiVersion: 2 as const,
+      kind: 'structure' as const,
+      scene: evaluateCadScene(h(Box, { id: 'box' })),
+      seed: 7,
+      sourceHash: 'a'.repeat(64),
+      variables: { width: 4 },
+      varsSchema: { width: { min: 1, max: 10 } },
+    }
+
+    expect(() => assertEvaluatedDocumentSnapshotV2(serializeEvaluatedDocumentSnapshotV2(snapshot))).not.toThrow()
+    const missingSchema: Record<string, unknown> = { ...snapshot }
+    delete missingSchema.varsSchema
+    expect(() => assertEvaluatedDocumentSnapshotV2(missingSchema)).toThrow(
+      'Evaluated document snapshot varsSchema must be an object',
+    )
+    expect(() => assertEvaluatedDocumentSnapshotV2({ ...snapshot, variables: { width: 20 } })).toThrow(
+      'vars.width must be less than or equal to 10',
+    )
   })
 })

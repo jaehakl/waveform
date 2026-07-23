@@ -47,6 +47,10 @@ describe('compiled user module execution', () => {
 
     expect(execution).toMatchObject({
       variables: { width: 4, epsilon: 12 },
+      varsSchema: {
+        width: { min: 4, max: 4 },
+        epsilon: { min: 12, max: 12 },
+      },
       scene: {
         lengthUnit: 'mm',
         parts: [

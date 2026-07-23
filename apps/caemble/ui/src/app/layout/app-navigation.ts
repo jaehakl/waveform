@@ -9,6 +9,7 @@ import {
   GitBranch,
   Home,
   Layers3,
+  TestTubeDiagonal,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -22,6 +23,7 @@ export const primaryNavigation: readonly AppNavigationItem[] = [
   { href: '/', icon: Home, label: '홈' },
   { href: '/viewer', icon: Box, label: 'Viewer' },
   { href: '/structures', icon: GitBranch, label: 'Structures' },
+  { href: '/experiments', icon: TestTubeDiagonal, label: 'Experiments' },
   { href: '/materials', icon: Database, label: 'Materials' },
   { href: '/docs', icon: BookOpenText, label: 'Manual' },
 ]

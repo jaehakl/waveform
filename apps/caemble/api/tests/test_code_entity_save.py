@@ -138,30 +138,33 @@ async def test_generic_upsert_rejects_code_changes_and_save_rejects_stale_hash(
 
 
 @pytest.mark.asyncio
-async def test_structure_delete_reparents_children_to_closest_surviving_ancestor(
+@pytest.mark.parametrize(("path", "model"), (("structure", Structure), ("experiment", Experiment)))
+async def test_code_entity_delete_reparents_children_to_closest_surviving_ancestor(
     client,
     db_session,
     monkeypatch,
+    path,
+    model,
 ):
     monkeypatch.setattr(settings, "JWT_SECRET", "test-jwt-secret-at-least-32-bytes-long")
     owner = await create_user(db_session)
     headers = auth_headers(owner)
-    root = Structure(name="Root", code="root", user_id=owner.id)
+    root = model(name="Root", code="root", user_id=owner.id)
     db_session.add(root)
     await db_session.flush()
-    middle = Structure(name="Middle", code="middle", user_id=owner.id, parent_id=root.id)
+    middle = model(name="Middle", code="middle", user_id=owner.id, parent_id=root.id)
     db_session.add(middle)
     await db_session.flush()
-    leaf = Structure(name="Leaf", code="leaf", user_id=owner.id, parent_id=middle.id)
+    leaf = model(name="Leaf", code="leaf", user_id=owner.id, parent_id=middle.id)
     db_session.add(leaf)
     await db_session.flush()
-    child = Structure(name="Child", code="child", user_id=owner.id, parent_id=leaf.id)
+    child = model(name="Child", code="child", user_id=owner.id, parent_id=leaf.id)
     db_session.add(child)
     await db_session.commit()
 
     response = await client.request(
         "DELETE",
-        "/structure/",
+        f"/{path}/",
         headers=headers,
         json=[middle.id, leaf.id],
     )
@@ -169,5 +172,5 @@ async def test_structure_delete_reparents_children_to_closest_surviving_ancestor
     assert response.status_code == 200
     await db_session.refresh(child)
     assert child.parent_id == root.id
-    assert await db_session.get(Structure, middle.id) is None
-    assert await db_session.get(Structure, leaf.id) is None
+    assert await db_session.get(model, middle.id) is None
+    assert await db_session.get(model, leaf.id) is None
