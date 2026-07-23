@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/use-auth'
+import { useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
 import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
 import { resolveDocumentMaterials } from '@/features/viewer/persistence/resolveMaterials'
 import { saveCadDefinition } from '@/features/viewer/persistence/saveDefinition'
@@ -185,11 +186,16 @@ function ExperimentLineage({
 export function ExperimentPage() {
   const auth = useAuth()
   const queryClient = useQueryClient()
+  const {
+    currentExperimentId: selectedExperimentId,
+    currentStructureId,
+    setCurrentExperimentId: setSelectedExperimentId,
+    setCurrentStructureId,
+  } = useCurrentCadSelection()
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [experiment, setExperiment] = useState<CadSourceDocumentV2 | null>(null)
-  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null)
   const [savedExperimentCode, setSavedExperimentCode] = useState<string | null>(null)
   const [metadataTarget, setMetadataTarget] = useState<ExperimentRow | null>(null)
   const [metadataName, setMetadataName] = useState('')
@@ -208,6 +214,14 @@ export function ExperimentPage() {
     queryKey: ['experiments', 'visible'],
     queryFn: () => dbTables.Experiment.listRows(visibleRequest),
   })
+  const currentStructureQuery = useQuery({
+    queryKey: ['structures', 'visible', currentStructureId],
+    queryFn: async () => {
+      if (currentStructureId === null) return null
+      return (await dbTables.Structure.listRows(getListRequest('visible', [currentStructureId]))).items[0] ?? null
+    },
+    enabled: currentStructureId !== null,
+  })
   const rows = useMemo(
     () =>
       (experimentsQuery.data?.items ?? [])
@@ -216,6 +230,10 @@ export function ExperimentPage() {
     [experimentsQuery.data?.items],
   )
   const selectedExperiment = rows.find((row) => row.id === selectedExperimentId) ?? null
+  const currentStructure = useMemo(
+    () => (currentStructureQuery.data ? createCadSourceDocumentV2('structure', currentStructureQuery.data.code) : null),
+    [currentStructureQuery.data],
+  )
   const canManage = useCallback((row: ExperimentRow) => canManageExperiment(row, auth.user), [auth.user])
   const selectedManageable = Boolean(selectedExperiment && canManage(selectedExperiment))
   const dirty = Boolean(
@@ -257,7 +275,7 @@ export function ExperimentPage() {
       setSavedExperimentCode(row.code)
       updateDeepLink(row.id)
     },
-    [updateDeepLink],
+    [setSelectedExperimentId, updateDeepLink],
   )
 
   const clearExperiment = useCallback(() => {
@@ -266,7 +284,7 @@ export function ExperimentPage() {
     setSavedExperimentCode(null)
     setEditorOpen(false)
     updateDeepLink(null)
-  }, [updateDeepLink])
+  }, [setSelectedExperimentId, updateDeepLink])
 
   const startNewExperiment = useCallback(() => {
     setExperiment(createCadSourceDocumentV2('experiment', defaultExperimentCode))
@@ -274,22 +292,54 @@ export function ExperimentPage() {
     setSavedExperimentCode(null)
     setEditorOpen(true)
     updateDeepLink(null)
-  }, [updateDeepLink])
+  }, [setSelectedExperimentId, updateDeepLink])
 
   useEffect(() => {
     if (initializedFromUrl.current || !experimentsQuery.isSuccess) return
     initializedFromUrl.current = true
     const rawId = searchParams.get('experiment')
-    if (rawId === null) return
-    const id = positiveId(rawId)
-    const row = id === null ? null : rows.find((item) => item.id === id)
+    const id = rawId === null ? selectedExperimentId : positiveId(rawId)
+    if (id === null) {
+      if (rawId !== null) {
+        toast.error('Experiment를 찾을 수 없습니다.')
+        setSelectedExperimentId(null)
+        updateDeepLink(null)
+      }
+      return
+    }
+    const row = rows.find((item) => item.id === id)
     if (!row) {
       toast.error('Experiment를 찾을 수 없습니다.')
+      setSelectedExperimentId(null)
       updateDeepLink(null)
       return
     }
     applyExperiment(row)
-  }, [applyExperiment, rows, searchParams, experimentsQuery.isSuccess, updateDeepLink])
+  }, [
+    applyExperiment,
+    experimentsQuery.isSuccess,
+    rows,
+    searchParams,
+    selectedExperimentId,
+    setSelectedExperimentId,
+    updateDeepLink,
+  ])
+
+  useEffect(() => {
+    if (currentStructureId === null) return
+    if (currentStructureQuery.isSuccess && currentStructureQuery.data === null) {
+      toast.error('현재 Structure를 찾을 수 없습니다.')
+      setCurrentStructureId(null)
+    } else if (currentStructureQuery.isError) {
+      toast.error('현재 Structure를 불러오지 못했습니다.')
+    }
+  }, [
+    currentStructureId,
+    currentStructureQuery.data,
+    currentStructureQuery.isError,
+    currentStructureQuery.isSuccess,
+    setCurrentStructureId,
+  ])
 
   const resolveMaterials = useCallback(
     (snapshot: EvaluatedDocumentSnapshotV2) => resolveDocumentMaterials(snapshot, null),
@@ -297,7 +347,7 @@ export function ExperimentPage() {
   )
   const handleExperimentChange = useCallback((document: CadSourceDocumentV2) => setExperiment(document), [])
   const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
-    null,
+    currentStructure,
     experiment,
     undefined,
     auth.isAuthenticated ? handleExperimentChange : undefined,
@@ -506,6 +556,17 @@ export function ExperimentPage() {
         : null,
     [experiment, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
+  const structureViewerDocument = useMemo(
+    () =>
+      currentStructure
+        ? {
+            scene: structureDocument.scene,
+            sceneHash: structureDocument.sceneHash,
+            variables: structureDocument.variables,
+          }
+        : null,
+    [currentStructure, structureDocument.scene, structureDocument.sceneHash, structureDocument.variables],
+  )
   const viewerSelection = useMemo(
     () =>
       experimentDocument.selection
@@ -515,21 +576,24 @@ export function ExperimentPage() {
   )
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderStart()
       if (sources.includes('experiment')) experimentDocument.handleRenderStart()
     },
-    [experimentDocument],
+    [experimentDocument, structureDocument],
   )
   const handleRenderEnd = useCallback(
     (sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderEnd()
       if (sources.includes('experiment')) experimentDocument.handleRenderEnd()
     },
-    [experimentDocument],
+    [experimentDocument, structureDocument],
   )
   const handleRenderError = useCallback(
     (message: string, sources: readonly CadDocumentType[]) => {
+      if (sources.includes('structure')) structureDocument.handleRenderError(message)
       if (sources.includes('experiment')) experimentDocument.handleRenderError(message)
     },
-    [experimentDocument],
+    [experimentDocument, structureDocument],
   )
 
   const saveDefaults = {
@@ -709,7 +773,7 @@ export function ExperimentPage() {
           <span className="w-px bg-border group-hover:bg-neutral-400" />
         </div>
         <CadViewer
-          structure={null}
+          structure={structureViewerDocument}
           selected={viewerSelection}
           experiment={experimentViewerDocument}
           onRenderEnd={handleRenderEnd}

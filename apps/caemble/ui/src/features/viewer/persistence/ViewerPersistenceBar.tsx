@@ -1,7 +1,7 @@
 import { Database, Dices, FlaskConical, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { ExperimentRecord, SampleRecord, SetupRecord, StructureRecord } from '@/api'
+import type { SampleRecord, SetupRecord } from '@/api'
 import { caembleExamples } from '@/lib/examples'
 
 function ResourceSelect({
@@ -35,12 +35,11 @@ function ResourceSelect({
 
 export function ViewerPersistenceBar({
   currentExampleId,
-  experiments,
+  currentExperimentName,
+  currentStructureName,
   onExampleChange,
-  onLoadExperiment,
   onLoadSample,
   onLoadSetup,
-  onLoadStructure,
   onSaveExperiment,
   onSaveSample,
   onSaveSetup,
@@ -49,22 +48,18 @@ export function ViewerPersistenceBar({
   sampleReady,
   sampleUnavailableReason,
   samples,
-  selectedExperimentId,
   selectedSampleId,
   selectedSetupId,
-  selectedStructureId,
   setupReady,
   setupUnavailableReason,
   setups,
-  structures,
 }: {
   currentExampleId: string
-  experiments: readonly ExperimentRecord[]
+  currentExperimentName: string | null
+  currentStructureName: string | null
   onExampleChange: (id: string) => void
-  onLoadExperiment: (id: number) => void
   onLoadSample: (id: number) => void
   onLoadSetup: (id: number) => void
-  onLoadStructure: (id: number) => void
   onSaveExperiment: () => void
   onSaveSample: () => void
   onSaveSetup: () => void
@@ -73,14 +68,11 @@ export function ViewerPersistenceBar({
   sampleReady: boolean
   sampleUnavailableReason: string | null
   samples: readonly SampleRecord[]
-  selectedExperimentId: number | null
   selectedSampleId: number | null
   selectedSetupId: number | null
-  selectedStructureId: number | null
   setupReady: boolean
   setupUnavailableReason: string | null
   setups: readonly SetupRecord[]
-  structures: readonly StructureRecord[]
 }) {
   return (
     <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b bg-muted/20 px-3 py-2 text-xs">
@@ -102,14 +94,15 @@ export function ViewerPersistenceBar({
       <div className="flex shrink-0 items-center gap-2 rounded-md border bg-background p-1">
         <span className="flex items-center gap-1 px-1 font-semibold">
           <Database className="size-3.5 text-primary" />
-          Structure
+          현재 Structure
         </span>
-        <ResourceSelect
-          label="Structure"
-          onChange={(value) => onLoadStructure(Number(value))}
-          options={structures.map((row) => ({ id: row.id, label: row.name }))}
-          value={selectedStructureId}
-        />
+        <span
+          aria-label="현재 Structure 이름"
+          className="h-7 max-w-52 min-w-40 truncate rounded border bg-muted/30 px-2 py-1 text-foreground"
+          title={currentStructureName ?? '선택 없음'}
+        >
+          {currentStructureName ?? '선택 없음'}
+        </span>
         <Button className="h-7" size="sm" variant="outline" onClick={onSaveStructure}>
           <Save />
           정의 저장
@@ -138,14 +131,15 @@ export function ViewerPersistenceBar({
       <div className="flex shrink-0 items-center gap-2 rounded-md border bg-background p-1">
         <span className="flex items-center gap-1 px-1 font-semibold">
           <FlaskConical className="size-3.5 text-primary" />
-          Experiment
+          현재 Experiment
         </span>
-        <ResourceSelect
-          label="Experiment"
-          onChange={(value) => onLoadExperiment(Number(value))}
-          options={experiments.map((row) => ({ id: row.id, label: row.name }))}
-          value={selectedExperimentId}
-        />
+        <span
+          aria-label="현재 Experiment 이름"
+          className="h-7 max-w-52 min-w-40 truncate rounded border bg-muted/30 px-2 py-1 text-foreground"
+          title={currentExperimentName ?? '선택 없음'}
+        >
+          {currentExperimentName ?? '선택 없음'}
+        </span>
         <Button className="h-7" size="sm" variant="outline" onClick={onSaveExperiment}>
           <Save />
           정의 저장

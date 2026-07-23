@@ -3,6 +3,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { useAuth } from '@/features/auth/use-auth'
+import { useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
 import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
 import { ViewerPersistenceBar } from '@/features/viewer/persistence/ViewerPersistenceBar'
 import { createSampleRecord, createSetupRecord } from '@/features/viewer/persistence/contracts'
@@ -43,6 +44,12 @@ export function ViewerPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const {
+    currentExperimentId: selectedExperimentId,
+    currentStructureId: selectedStructureId,
+    setCurrentExperimentId: setSelectedExperimentId,
+    setCurrentStructureId: setSelectedStructureId,
+  } = useCurrentCadSelection()
   const [searchParams, setSearchParams] = useSearchParams()
   const [structure, setStructure] = useState(() => createCadSourceDocumentV2('structure', defaultCode))
   const [experiment, setExperiment] = useState(() => createCadSourceDocumentV2('experiment', defaultExperimentCode))
@@ -52,8 +59,8 @@ export function ViewerPage() {
   const [experimentMaterialSnapshot, setExperimentMaterialSnapshot] = useState<unknown | null>(null)
   const [activeDocumentType, setActiveDocumentType] = useState<CadDocumentType>('structure')
   const [workspaceLeftPercent, setWorkspaceLeftPercent] = useState(defaultWorkspaceLeftPercent)
-  const [selectedStructureId, setSelectedStructureId] = useState<number | null>(null)
-  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null)
+  const [selectedStructureMetadata, setSelectedStructureMetadata] = useState<DefinitionFormValues | null>(null)
+  const [selectedExperimentMetadata, setSelectedExperimentMetadata] = useState<DefinitionFormValues | null>(null)
   const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null)
   const [selectedSetupId, setSelectedSetupId] = useState<number | null>(null)
   const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
@@ -63,19 +70,9 @@ export function ViewerPage() {
   const workspaceRef = useRef<HTMLDivElement | null>(null)
 
   const mineRequest = getListRequest('mine')
-  const structuresQuery = useQuery({
-    queryKey: ['work', 'structures'],
-    queryFn: () => dbTables.Structure.listRows(mineRequest),
-    enabled: auth.isAuthenticated,
-  })
   const samplesQuery = useQuery({
     queryKey: ['work', 'samples'],
     queryFn: () => dbTables.Sample.listRows(mineRequest),
-    enabled: auth.isAuthenticated,
-  })
-  const experimentsQuery = useQuery({
-    queryKey: ['work', 'experiments'],
-    queryFn: () => dbTables.Experiment.listRows(mineRequest),
     enabled: auth.isAuthenticated,
   })
   const setupsQuery = useQuery({
@@ -83,9 +80,7 @@ export function ViewerPage() {
     queryFn: () => dbTables.Setup.listRows(mineRequest),
     enabled: auth.isAuthenticated,
   })
-  const structures = useMemo(() => structuresQuery.data?.items ?? [], [structuresQuery.data?.items])
   const samples = useMemo(() => samplesQuery.data?.items ?? [], [samplesQuery.data?.items])
-  const experiments = useMemo(() => experimentsQuery.data?.items ?? [], [experimentsQuery.data?.items])
   const setups = useMemo(() => setupsQuery.data?.items ?? [], [setupsQuery.data?.items])
 
   const updateDeepLink = useCallback(
@@ -149,18 +144,12 @@ export function ViewerPage() {
   )
 
   const fetchStructure = useCallback(
-    async (id: number) => {
-      const local = structures.find((row) => row.id === id)
-      return local ?? (await dbTables.Structure.listRows(getListRequest('visible', [id]))).items[0]
-    },
-    [structures],
+    async (id: number) => (await dbTables.Structure.listRows(getListRequest('visible', [id]))).items[0],
+    [],
   )
   const fetchExperiment = useCallback(
-    async (id: number) => {
-      const local = experiments.find((row) => row.id === id)
-      return local ?? (await dbTables.Experiment.listRows(getListRequest('visible', [id]))).items[0]
-    },
-    [experiments],
+    async (id: number) => (await dbTables.Experiment.listRows(getListRequest('visible', [id]))).items[0],
+    [],
   )
   const fetchSample = useCallback(
     async (id: number) => {
@@ -178,35 +167,41 @@ export function ViewerPage() {
   )
 
   const loadStructure = useCallback(
-    async (id: number) => {
+    async (id: number, updateUrl = true) => {
       const record = await fetchStructure(id)
       if (!record) throw new Error('Structure를 찾을 수 없습니다.')
       setStructure(createCadSourceDocumentV2('structure', record.code))
       setStructureVars(undefined)
       setStructureMaterialSnapshot(null)
       setSelectedStructureId(id)
+      setSelectedStructureMetadata({ description: record.description ?? '', name: record.name })
       setSelectedSampleId(null)
       setSavedStructureCode(record.code)
-      updateDeepLink({ structure: id, sample: null })
+      const selection = { structure: id, sample: null }
+      if (updateUrl) updateDeepLink(selection)
+      return selection
     },
-    [fetchStructure, updateDeepLink],
+    [fetchStructure, setSelectedStructureId, updateDeepLink],
   )
   const loadExperiment = useCallback(
-    async (id: number) => {
+    async (id: number, updateUrl = true) => {
       const record = await fetchExperiment(id)
       if (!record) throw new Error('Experiment를 찾을 수 없습니다.')
       setExperiment(createCadSourceDocumentV2('experiment', record.code))
       setExperimentVars(undefined)
       setExperimentMaterialSnapshot(null)
       setSelectedExperimentId(id)
+      setSelectedExperimentMetadata({ description: record.description ?? '', name: record.name })
       setSelectedSetupId(null)
       setSavedExperimentCode(record.code)
-      updateDeepLink({ experiment: id, setup: null })
+      const selection = { experiment: id, setup: null }
+      if (updateUrl) updateDeepLink(selection)
+      return selection
     },
-    [fetchExperiment, updateDeepLink],
+    [fetchExperiment, setSelectedExperimentId, updateDeepLink],
   )
   const loadSample = useCallback(
-    async (id: number) => {
+    async (id: number, updateUrl = true) => {
       const sample = await fetchSample(id)
       if (!sample) throw new Error('Sample을 찾을 수 없습니다.')
       const parent = await fetchStructure(sample.structure_id)
@@ -215,14 +210,17 @@ export function ViewerPage() {
       setStructureVars(sample.vars as Readonly<Vars>)
       setStructureMaterialSnapshot(sample.material_parameters)
       setSelectedStructureId(sample.structure_id)
+      setSelectedStructureMetadata({ description: parent.description ?? '', name: parent.name })
       setSelectedSampleId(id)
       setSavedStructureCode(parent.code)
-      updateDeepLink({ structure: sample.structure_id, sample: id })
+      const selection = { structure: sample.structure_id, sample: id }
+      if (updateUrl) updateDeepLink(selection)
+      return selection
     },
-    [fetchSample, fetchStructure, updateDeepLink],
+    [fetchSample, fetchStructure, setSelectedStructureId, updateDeepLink],
   )
   const loadSetup = useCallback(
-    async (id: number) => {
+    async (id: number, updateUrl = true) => {
       const setup = await fetchSetup(id)
       if (!setup) throw new Error('Setup을 찾을 수 없습니다.')
       const parent = await fetchExperiment(setup.experiment_id)
@@ -231,11 +229,14 @@ export function ViewerPage() {
       setExperimentVars(setup.vars as Readonly<Vars>)
       setExperimentMaterialSnapshot(setup.material_parameters)
       setSelectedExperimentId(setup.experiment_id)
+      setSelectedExperimentMetadata({ description: parent.description ?? '', name: parent.name })
       setSelectedSetupId(id)
       setSavedExperimentCode(parent.code)
-      updateDeepLink({ experiment: setup.experiment_id, setup: id })
+      const selection = { experiment: setup.experiment_id, setup: id }
+      if (updateUrl) updateDeepLink(selection)
+      return selection
     },
-    [fetchExperiment, fetchSetup, updateDeepLink],
+    [fetchExperiment, fetchSetup, setSelectedExperimentId, updateDeepLink],
   )
 
   useEffect(() => {
@@ -243,16 +244,66 @@ export function ViewerPage() {
     initializedFromUrl.current = true
     const sampleId = positiveId(searchParams.get('sample'))
     const setupId = positiveId(searchParams.get('setup'))
-    const structureId = positiveId(searchParams.get('structure'))
-    const experimentId = positiveId(searchParams.get('experiment'))
-    const tasks = [
-      sampleId ? loadSample(sampleId) : structureId ? loadStructure(structureId) : Promise.resolve(),
-      setupId ? loadSetup(setupId) : experimentId ? loadExperiment(experimentId) : Promise.resolve(),
-    ]
-    void Promise.all(tasks).catch((error: unknown) =>
-      toast.error(error instanceof Error ? error.message : '딥 링크를 불러오지 못했습니다.'),
-    )
-  }, [loadExperiment, loadSample, loadSetup, loadStructure, searchParams])
+    const structureParam = searchParams.get('structure')
+    const experimentParam = searchParams.get('experiment')
+    const structureId = structureParam === null ? selectedStructureId : positiveId(structureParam)
+    const experimentId = experimentParam === null ? selectedExperimentId : positiveId(experimentParam)
+
+    const structureTask =
+      structureParam !== null && structureId === null && sampleId === null
+        ? (() => {
+            setSelectedStructureId(null)
+            setSelectedStructureMetadata(null)
+            toast.error('Structure를 찾을 수 없습니다.')
+            return Promise.resolve({ sample: null, structure: null })
+          })()
+        : (sampleId
+            ? loadSample(sampleId, false)
+            : structureId
+              ? loadStructure(structureId, false)
+              : Promise.resolve({})
+          ).catch((error: unknown) => {
+            setSelectedStructureId(null)
+            setSelectedStructureMetadata(null)
+            toast.error(error instanceof Error ? error.message : 'Structure를 불러오지 못했습니다.')
+            return { sample: null, structure: null }
+          })
+
+    const experimentTask =
+      experimentParam !== null && experimentId === null && setupId === null
+        ? (() => {
+            setSelectedExperimentId(null)
+            setSelectedExperimentMetadata(null)
+            toast.error('Experiment를 찾을 수 없습니다.')
+            return Promise.resolve({ experiment: null, setup: null })
+          })()
+        : (setupId
+            ? loadSetup(setupId, false)
+            : experimentId
+              ? loadExperiment(experimentId, false)
+              : Promise.resolve({})
+          ).catch((error: unknown) => {
+            setSelectedExperimentId(null)
+            setSelectedExperimentMetadata(null)
+            toast.error(error instanceof Error ? error.message : 'Experiment를 불러오지 못했습니다.')
+            return { experiment: null, setup: null }
+          })
+
+    void Promise.all([structureTask, experimentTask]).then(([structureSelection, experimentSelection]) => {
+      updateDeepLink({ ...structureSelection, ...experimentSelection })
+    })
+  }, [
+    loadExperiment,
+    loadSample,
+    loadSetup,
+    loadStructure,
+    searchParams,
+    selectedExperimentId,
+    selectedStructureId,
+    setSelectedExperimentId,
+    setSelectedStructureId,
+    updateDeepLink,
+  ])
 
   const definitionMutation = useMutation({
     mutationFn: ({ kind, values }: { kind: 'experiment' | 'structure'; values: DefinitionFormValues }) =>
@@ -263,13 +314,15 @@ export function ViewerPage() {
         selectedId: kind === 'structure' ? selectedStructureId : selectedExperimentId,
         values,
       }),
-    onSuccess: ({ action, code, id, kind }) => {
+    onSuccess: ({ action, code, id, kind }, { values }) => {
       if (kind === 'structure') {
         setSelectedStructureId(id)
+        setSelectedStructureMetadata(values)
         setSavedStructureCode(code)
         updateDeepLink({ structure: id })
       } else {
         setSelectedExperimentId(id)
+        setSelectedExperimentMetadata(values)
         setSavedExperimentCode(code)
         updateDeepLink({ experiment: id })
       }
@@ -340,8 +393,6 @@ export function ViewerPage() {
     if (requireLogin()) realizationMutation.mutate(kind)
   }
 
-  const selectedStructure = structures.find((row) => row.id === selectedStructureId)
-  const selectedExperiment = experiments.find((row) => row.id === selectedExperimentId)
   const selectedExample = caembleExamples.find((example) => example.code === cadEntrySource(structure))
   const structureViewerDocument = useMemo(
     () => ({
@@ -425,21 +476,18 @@ export function ViewerPage() {
     >
       <ViewerPersistenceBar
         currentExampleId={selectedExample?.id ?? ''}
-        experiments={experiments}
+        currentExperimentName={selectedExperimentMetadata?.name ?? null}
+        currentStructureName={selectedStructureMetadata?.name ?? null}
         onExampleChange={(id) => {
           const example = caembleExamples.find((item) => item.id === id)
           if (!example) return
           setStructure((current) => updateCadEntrySource(current, example.code))
           setSelectedStructureId(null)
+          setSelectedStructureMetadata(null)
           setSavedStructureCode(null)
           clearSampleSelection()
           updateDeepLink({ structure: null })
         }}
-        onLoadExperiment={(id) =>
-          void loadExperiment(id).catch((error: unknown) =>
-            toast.error(error instanceof Error ? error.message : 'Experiment를 열지 못했습니다.'),
-          )
-        }
         onLoadSample={(id) =>
           void loadSample(id).catch((error: unknown) =>
             toast.error(error instanceof Error ? error.message : 'Sample을 열지 못했습니다.'),
@@ -450,11 +498,6 @@ export function ViewerPage() {
             toast.error(error instanceof Error ? error.message : 'Setup을 열지 못했습니다.'),
           )
         }
-        onLoadStructure={(id) =>
-          void loadStructure(id).catch((error: unknown) =>
-            toast.error(error instanceof Error ? error.message : 'Structure를 열지 못했습니다.'),
-          )
-        }
         onSaveExperiment={() => openDefinitionDialog('experiment')}
         onSaveSample={() => saveRealization('sample')}
         onSaveSetup={() => saveRealization('setup')}
@@ -463,14 +506,11 @@ export function ViewerPage() {
         sampleReady={sampleReady}
         sampleUnavailableReason={sampleUnavailableReason}
         samples={samples}
-        selectedExperimentId={selectedExperimentId}
         selectedSampleId={selectedSampleId}
         selectedSetupId={selectedSetupId}
-        selectedStructureId={selectedStructureId}
         setupReady={setupReady}
         setupUnavailableReason={setupUnavailableReason}
         setups={setups}
-        structures={structures}
       />
       <div
         className="grid min-h-0 flex-1 grid-cols-1 lg:h-full lg:grid-cols-[minmax(360px,var(--workspace-left-width))_5px_minmax(0,1fr)] lg:overflow-hidden"
@@ -540,10 +580,7 @@ export function ViewerPage() {
         />
       </div>
       <SaveDefinitionDialog
-        defaults={{
-          name: selectedStructure?.name ?? '새 Structure',
-          description: selectedStructure?.description ?? '',
-        }}
+        defaults={selectedStructureMetadata ?? { name: '새 Structure', description: '' }}
         kind="Structure"
         onOpenChange={(open) => setDefinitionDialog(open ? 'structure' : null)}
         onSubmit={async (values) => {
@@ -553,10 +590,7 @@ export function ViewerPage() {
         pending={definitionMutation.isPending}
       />
       <SaveDefinitionDialog
-        defaults={{
-          name: selectedExperiment?.name ?? '새 Experiment',
-          description: selectedExperiment?.description ?? '',
-        }}
+        defaults={selectedExperimentMetadata ?? { name: '새 Experiment', description: '' }}
         kind="Experiment"
         onOpenChange={(open) => setDefinitionDialog(open ? 'experiment' : null)}
         onSubmit={async (values) => {

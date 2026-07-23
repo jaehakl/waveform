@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserData } from '@/api'
+import { CurrentCadSelectionProvider, useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
 import { cadEntrySource, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
 import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
 import { ExperimentPage } from './ExperimentPage'
@@ -14,12 +15,19 @@ import { ExperimentPage } from './ExperimentPage'
 const api = vi.hoisted(() => ({
   deleteExperiments: vi.fn(),
   listExperiments: vi.fn(),
+  listStructures: vi.fn(),
   saveDefinition: vi.fn(),
   upsertExperiments: vi.fn(),
 }))
 
 const workspace = vi.hoisted(() => ({
+  experimentRenderEnd: vi.fn(),
+  experimentRenderError: vi.fn(),
+  experimentRenderStart: vi.fn(),
   reroll: vi.fn(),
+  structureRenderEnd: vi.fn(),
+  structureRenderError: vi.fn(),
+  structureRenderStart: vi.fn(),
   useCadWorkspace: vi.fn(),
 }))
 
@@ -42,6 +50,10 @@ vi.mock('@/api', async (importOriginal) => {
         deleteRows: api.deleteExperiments,
         listRows: api.listExperiments,
         upsertRow: api.upsertExperiments,
+      },
+      Structure: {
+        ...original.dbTables.Structure,
+        listRows: api.listStructures,
       },
     },
   }
@@ -67,22 +79,53 @@ vi.mock('@/features/viewer/workspace/StructureExperimentViewer', () => ({
   StructureExperimentViewer: ({
     experimentDocument,
     experimentLineage,
+    structure,
   }: {
     experimentDocument: { handleSourceChange: (source: string) => void }
     experimentLineage?: React.ReactNode
+    structure?: CadSourceDocumentV2 | null
   }) => (
     <div>
       <button type="button" onClick={() => experimentDocument.handleSourceChange('changed source')}>
         Source 변경
       </button>
+      <div data-testid="experiment-workspace-counterpart">
+        {structure ? 'Structure source exposed' : 'Structure source hidden'}
+      </div>
       {experimentLineage}
     </div>
   ),
 }))
 
 vi.mock('@/features/viewer/viewer/CadViewer', () => ({
-  default: ({ experiment }: { experiment: unknown }) => (
-    <div data-testid="experiment-viewer">{experiment ? 'Experiment rendered' : 'No Experiment selected'}</div>
+  default: ({
+    experiment,
+    onRenderEnd,
+    onRenderError,
+    onRenderStart,
+    structure,
+  }: {
+    experiment: unknown
+    onRenderEnd: (sources: ('experiment' | 'structure')[]) => void
+    onRenderError: (message: string, sources: ('experiment' | 'structure')[]) => void
+    onRenderStart: (sources: ('experiment' | 'structure')[]) => void
+    structure: unknown
+  }) => (
+    <div>
+      <div data-testid="experiment-viewer">{experiment ? 'Experiment rendered' : 'No Experiment selected'}</div>
+      <div data-testid="experiment-viewer-counterpart">
+        {structure ? 'Structure rendered' : 'No Structure selected'}
+      </div>
+      <button
+        onClick={() => {
+          onRenderStart(['structure', 'experiment'])
+          onRenderEnd(['structure', 'experiment'])
+          onRenderError('render failed', ['structure', 'experiment'])
+        }}
+      >
+        합성 렌더 callback
+      </button>
+    </div>
   ),
 }))
 
@@ -136,17 +179,50 @@ const experiments = [
   },
 ]
 
+const currentStructure = {
+  id: 9,
+  parent_id: null,
+  name: 'Current Structure',
+  description: null,
+  code: 'current structure source',
+  user_id: null,
+  updated_at: '2026-07-06T00:00:00Z',
+}
+
+function CurrentExperimentProbe() {
+  const { currentExperimentId, currentStructureId, setCurrentStructureId } = useCurrentCadSelection()
+  return (
+    <>
+      <output aria-label="전역 Experiment">{currentExperimentId ?? '없음'}</output>
+      <output aria-label="전역 Structure">{currentStructureId ?? '없음'}</output>
+      <button onClick={() => setCurrentStructureId(9)}>상대 Structure 선택</button>
+    </>
+  )
+}
+
 function renderPage(initialEntry = '/experiments') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  const router = createMemoryRouter([{ path: '/experiments', element: <ExperimentPage /> }], {
-    initialEntries: [initialEntry],
-  })
+  const router = createMemoryRouter(
+    [
+      { path: '/experiments', element: <ExperimentPage /> },
+      { path: '/blank', element: <div>Blank</div> },
+    ],
+    { initialEntries: [initialEntry] },
+  )
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <CurrentCadSelectionProvider>
+        <CurrentExperimentProbe />
+        <RouterProvider router={router} />
+      </CurrentCadSelectionProvider>
     </QueryClientProvider>,
   )
   return router
+}
+
+function latestWorkspaceCall() {
+  const calls = workspace.useCadWorkspace.mock.calls
+  return calls[calls.length - 1]
 }
 
 beforeEach(() => {
@@ -156,6 +232,7 @@ beforeEach(() => {
     user: { id: 'owner-id', email: 'owner@example.com', is_active: true, roles: ['user'] },
   }
   api.listExperiments.mockResolvedValue({ items: experiments, total: experiments.length })
+  api.listStructures.mockResolvedValue({ items: [currentStructure], total: 1 })
   api.deleteExperiments.mockResolvedValue(undefined)
   api.upsertExperiments.mockResolvedValue([{ id: 5 }])
   api.saveDefinition.mockResolvedValue({
@@ -167,7 +244,7 @@ beforeEach(() => {
   })
   workspace.useCadWorkspace.mockImplementation(
     (
-      _structure: null,
+      structure: CadSourceDocumentV2 | null,
       experiment: CadSourceDocumentV2 | null,
       _onStructureChange: undefined,
       onExperimentChange?: (document: CadSourceDocumentV2) => void,
@@ -177,16 +254,24 @@ beforeEach(() => {
         handleSourceChange: (source: string) => {
           if (experiment && onExperimentChange) onExperimentChange(updateCadEntrySource(experiment, source))
         },
-        handleRenderEnd: vi.fn(),
-        handleRenderError: vi.fn(),
-        handleRenderStart: vi.fn(),
+        handleRenderEnd: workspace.experimentRenderEnd,
+        handleRenderError: workspace.experimentRenderError,
+        handleRenderStart: workspace.experimentRenderStart,
         scene: experiment ? { parts: [] } : null,
         sceneHash: experiment ? 'scene-hash' : null,
         selection: null,
         variables: null,
       }
+      const structureDocument = {
+        handleRenderEnd: workspace.structureRenderEnd,
+        handleRenderError: workspace.structureRenderError,
+        handleRenderStart: workspace.structureRenderStart,
+        scene: structure ? { parts: [] } : null,
+        sceneHash: structure ? 'structure-scene-hash' : null,
+        variables: structure ? {} : null,
+      }
       return {
-        structureDocument: {},
+        structureDocument,
         simulation: { compatibility: { status: 'unavailable', issues: [] } },
         experimentDocument,
       }
@@ -237,6 +322,65 @@ describe('ExperimentPage', () => {
     expect(router.state.location.search).toBe('?experiment=5')
     await userEvent.click(screen.getByRole('button', { name: '변경 버리고 이동' }))
     expect(router.state.location.search).toBe('?experiment=3')
+  })
+
+  it('restores the global current Experiment when returning without a URL selection', async () => {
+    const router = renderPage()
+    await userEvent.click(await screen.findByText('Owned Grandchild'))
+    await waitFor(() => expect(screen.getByLabelText('전역 Experiment')).toHaveTextContent('5'))
+
+    await act(async () => {
+      await router.navigate('/blank')
+    })
+    expect(screen.getByText('Blank')).toBeInTheDocument()
+    await act(async () => {
+      await router.navigate('/experiments')
+    })
+
+    await waitFor(() => expect(router.state.location.search).toBe('?experiment=5'))
+    expect(screen.getByTestId('experiment-viewer')).toHaveTextContent('Experiment rendered')
+  })
+
+  it('renders the global current Structure only in the 3D Viewer and forwards combined render state', async () => {
+    renderPage('/experiments?experiment=5')
+    await screen.findByText('Owned Grandchild')
+    await userEvent.click(screen.getByRole('button', { name: '상대 Structure 선택' }))
+
+    await waitFor(() => {
+      const structure = latestWorkspaceCall()?.[0] as CadSourceDocumentV2 | null
+      expect(structure && cadEntrySource(structure)).toBe('current structure source')
+      expect(screen.getByTestId('experiment-viewer-counterpart')).toHaveTextContent('Structure rendered')
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
+    expect(screen.getByTestId('experiment-workspace-counterpart')).toHaveTextContent('Structure source hidden')
+
+    await userEvent.click(screen.getByRole('button', { name: '합성 렌더 callback' }))
+    expect(workspace.structureRenderStart).toHaveBeenCalledOnce()
+    expect(workspace.experimentRenderStart).toHaveBeenCalledOnce()
+    expect(workspace.structureRenderEnd).toHaveBeenCalledOnce()
+    expect(workspace.experimentRenderEnd).toHaveBeenCalledOnce()
+    expect(workspace.structureRenderError).toHaveBeenCalledWith('render failed')
+    expect(workspace.experimentRenderError).toHaveBeenCalledWith('render failed')
+  })
+
+  it('clears a missing current Structure without affecting the Experiment Viewer', async () => {
+    api.listStructures.mockResolvedValueOnce({ items: [], total: 0 })
+    renderPage('/experiments?experiment=5')
+    await userEvent.click(screen.getByRole('button', { name: '상대 Structure 선택' }))
+    await waitFor(() => expect(screen.getByLabelText('전역 Structure')).toHaveTextContent('없음'))
+    expect(screen.getByTestId('experiment-viewer')).toHaveTextContent('Experiment rendered')
+    expect(screen.getByTestId('experiment-viewer-counterpart')).toHaveTextContent('No Structure selected')
+  })
+
+  it('preserves the current Structure on a transient counterpart lookup error', async () => {
+    api.listStructures.mockRejectedValueOnce(new Error('temporary'))
+    renderPage('/experiments?experiment=5')
+    await userEvent.click(screen.getByRole('button', { name: '상대 Structure 선택' }))
+    await waitFor(() => expect(api.listStructures).toHaveBeenCalled())
+    expect(screen.getByLabelText('전역 Structure')).toHaveTextContent('9')
+    expect(screen.getByTestId('experiment-viewer')).toHaveTextContent('Experiment rendered')
+    expect(screen.getByTestId('experiment-viewer-counterpart')).toHaveTextContent('No Structure selected')
   })
 
   it('opens the double-clicked Experiment in the code editor', async () => {

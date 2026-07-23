@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/use-auth'
+import { useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
 import { SaveDefinitionDialog, type DefinitionFormValues } from '@/features/viewer/persistence/SaveDefinitionDialog'
 import { createDocumentMaterialResolver } from '@/features/viewer/persistence/resolveMaterials'
 import { saveCadDefinition } from '@/features/viewer/persistence/saveDefinition'
@@ -186,12 +187,17 @@ function StructureLineage({
 export function StructurePage() {
   const auth = useAuth()
   const queryClient = useQueryClient()
+  const {
+    currentExperimentId,
+    currentStructureId: selectedStructureId,
+    setCurrentExperimentId,
+    setCurrentStructureId: setSelectedStructureId,
+  } = useCurrentCadSelection()
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [structure, setStructure] = useState<CadSourceDocumentV2 | null>(null)
   const [structureVars, setStructureVars] = useState<Readonly<Vars> | undefined>()
-  const [selectedStructureId, setSelectedStructureId] = useState<number | null>(null)
   const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
   const [metadataTarget, setMetadataTarget] = useState<StructureRow | null>(null)
   const [metadataName, setMetadataName] = useState('')
@@ -210,6 +216,14 @@ export function StructurePage() {
     queryKey: ['structures', 'visible'],
     queryFn: () => dbTables.Structure.listRows(visibleRequest),
   })
+  const currentExperimentQuery = useQuery({
+    queryKey: ['experiments', 'visible', currentExperimentId],
+    queryFn: async () => {
+      if (currentExperimentId === null) return null
+      return (await dbTables.Experiment.listRows(getListRequest('visible', [currentExperimentId]))).items[0] ?? null
+    },
+    enabled: currentExperimentId !== null,
+  })
   const rows = useMemo(
     () =>
       (structuresQuery.data?.items ?? [])
@@ -218,6 +232,11 @@ export function StructurePage() {
     [structuresQuery.data?.items],
   )
   const selectedStructure = rows.find((row) => row.id === selectedStructureId) ?? null
+  const currentExperiment = useMemo(
+    () =>
+      currentExperimentQuery.data ? createCadSourceDocumentV2('experiment', currentExperimentQuery.data.code) : null,
+    [currentExperimentQuery.data],
+  )
   const canManage = useCallback((row: StructureRow) => canManageStructure(row, auth.user), [auth.user])
   const selectedManageable = Boolean(selectedStructure && canManage(selectedStructure))
   const dirty = Boolean(structure && (savedStructureCode === null || cadEntrySource(structure) !== savedStructureCode))
@@ -258,7 +277,7 @@ export function StructurePage() {
       setSavedStructureCode(row.code)
       updateDeepLink(row.id)
     },
-    [updateDeepLink],
+    [setSelectedStructureId, updateDeepLink],
   )
 
   const clearStructure = useCallback(() => {
@@ -268,7 +287,7 @@ export function StructurePage() {
     setSavedStructureCode(null)
     setEditorOpen(false)
     updateDeepLink(null)
-  }, [updateDeepLink])
+  }, [setSelectedStructureId, updateDeepLink])
 
   const startNewStructure = useCallback(() => {
     setStructure(createCadSourceDocumentV2('structure', defaultCode))
@@ -277,28 +296,60 @@ export function StructurePage() {
     setSavedStructureCode(null)
     setEditorOpen(true)
     updateDeepLink(null)
-  }, [updateDeepLink])
+  }, [setSelectedStructureId, updateDeepLink])
 
   useEffect(() => {
     if (initializedFromUrl.current || !structuresQuery.isSuccess) return
     initializedFromUrl.current = true
     const rawId = searchParams.get('structure')
-    if (rawId === null) return
-    const id = positiveId(rawId)
-    const row = id === null ? null : rows.find((item) => item.id === id)
+    const id = rawId === null ? selectedStructureId : positiveId(rawId)
+    if (id === null) {
+      if (rawId !== null) {
+        toast.error('Structure를 찾을 수 없습니다.')
+        setSelectedStructureId(null)
+        updateDeepLink(null)
+      }
+      return
+    }
+    const row = rows.find((item) => item.id === id)
     if (!row) {
       toast.error('Structure를 찾을 수 없습니다.')
+      setSelectedStructureId(null)
       updateDeepLink(null)
       return
     }
     applyStructure(row)
-  }, [applyStructure, rows, searchParams, structuresQuery.isSuccess, updateDeepLink])
+  }, [
+    applyStructure,
+    rows,
+    searchParams,
+    selectedStructureId,
+    setSelectedStructureId,
+    structuresQuery.isSuccess,
+    updateDeepLink,
+  ])
+
+  useEffect(() => {
+    if (currentExperimentId === null) return
+    if (currentExperimentQuery.isSuccess && currentExperimentQuery.data === null) {
+      toast.error('현재 Experiment를 찾을 수 없습니다.')
+      setCurrentExperimentId(null)
+    } else if (currentExperimentQuery.isError) {
+      toast.error('현재 Experiment를 불러오지 못했습니다.')
+    }
+  }, [
+    currentExperimentId,
+    currentExperimentQuery.data,
+    currentExperimentQuery.isError,
+    currentExperimentQuery.isSuccess,
+    setCurrentExperimentId,
+  ])
 
   const resolveMaterials = useMemo(
     () => createDocumentMaterialResolver(null),
     // These values intentionally define the lifetime of the session-local Material lookup cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [auth.user, selectedStructureId, structure?.files],
+    [auth.user, currentExperiment?.files, currentExperimentId, selectedStructureId, structure?.files],
   )
   const handleStructureChange = useCallback((document: CadSourceDocumentV2) => {
     setStructure(document)
@@ -306,7 +357,7 @@ export function StructurePage() {
   }, [])
   const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
     structure,
-    null,
+    currentExperiment,
     auth.isAuthenticated ? handleStructureChange : undefined,
     undefined,
     structureVars,
@@ -515,6 +566,24 @@ export function StructurePage() {
         : null,
     [structure, structureDocument.scene, structureDocument.sceneHash, structureDocument.variables],
   )
+  const experimentViewerDocument = useMemo(
+    () =>
+      currentExperiment
+        ? {
+            experimentRules: experimentDocument.experimentRules,
+            scene: experimentDocument.scene,
+            sceneHash: experimentDocument.sceneHash,
+            variables: experimentDocument.variables,
+          }
+        : null,
+    [
+      currentExperiment,
+      experimentDocument.experimentRules,
+      experimentDocument.scene,
+      experimentDocument.sceneHash,
+      experimentDocument.variables,
+    ],
+  )
   const viewerSelection = useMemo(
     () =>
       structureDocument.selection
@@ -525,20 +594,23 @@ export function StructurePage() {
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
       if (sources.includes('structure')) structureDocument.handleRenderStart()
+      if (sources.includes('experiment')) experimentDocument.handleRenderStart()
     },
-    [structureDocument],
+    [experimentDocument, structureDocument],
   )
   const handleRenderEnd = useCallback(
     (sources: readonly CadDocumentType[]) => {
       if (sources.includes('structure')) structureDocument.handleRenderEnd()
+      if (sources.includes('experiment')) experimentDocument.handleRenderEnd()
     },
-    [structureDocument],
+    [experimentDocument, structureDocument],
   )
   const handleRenderError = useCallback(
     (message: string, sources: readonly CadDocumentType[]) => {
       if (sources.includes('structure')) structureDocument.handleRenderError(message)
+      if (sources.includes('experiment')) experimentDocument.handleRenderError(message)
     },
-    [structureDocument],
+    [experimentDocument, structureDocument],
   )
 
   const saveDefaults = {
@@ -732,7 +804,7 @@ export function StructurePage() {
           <span className="w-px bg-border group-hover:bg-neutral-400" />
         </div>
         <CadViewer
-          experiment={null}
+          experiment={experimentViewerDocument}
           selected={viewerSelection}
           structure={structureViewerDocument}
           onRenderEnd={handleRenderEnd}
