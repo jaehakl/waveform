@@ -296,6 +296,17 @@ afterEach(() => {
 })
 
 describe('StructurePage', () => {
+  it('opens the explicit new Structure deep link in code mode', async () => {
+    const router = renderPage('/structures?structure=new&mode=code')
+
+    expect(await screen.findByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '목록' })).toBeInTheDocument()
+    expect(screen.getByTestId('structure-viewer')).toHaveTextContent('Structure rendered')
+    expect(screen.getByLabelText('전역 Structure')).toHaveTextContent('없음')
+    expect(router.state.location.search).toBe('?structure=new&mode=code')
+    expect(cadEntrySource(latestWorkspaceCall()[0])).toBe(defaultCode)
+  })
+
   it('opens a selected Structure directly in code mode', async () => {
     renderPage('/structures?structure=5&mode=code')
 

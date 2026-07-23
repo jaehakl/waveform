@@ -1,8 +1,8 @@
 # Caemble UI
 
-Caemble UI는 React 19, React Router Data Mode, Tailwind CSS v4로 구성된 페이지 중심 웹앱이다. 홈과 읽기 전용 카탈로그, 문서는 공개되어 있고 계정 및 Viewer 저장 기능만 Google OAuth 로그인이 필요하다. TSX는 Structure/Experiment 정의의 source of truth이며 preview와 solver는 격리된 runner가 만든 immutable v2 snapshot을 사용한다.
+Caemble UI는 React 19, React Router Data Mode, Tailwind CSS v4로 구성된 페이지 중심 웹앱이다. 홈과 공개 Structure/Experiment, 읽기 전용 카탈로그, 문서는 로그인 없이 열람할 수 있고 저장 기능은 Google OAuth 로그인이 필요하다. TSX는 Structure/Experiment 정의의 source of truth이며 preview와 solver는 격리된 runner가 만든 immutable v2 snapshot을 사용한다.
 
-주요 URL은 `/`, `/viewer`, `/catalog/cad`, `/catalog/materials`, `/catalog/quantity-kinds`, `/catalog/solvers`, `/docs`, `/login`, `/account`다. 기존 `/#viewer`와 `/#help`는 각각 `/viewer`, `/docs`로 이동한다.
+주요 URL은 `/`, `/structures`, `/experiments`, `/measurements`, `/materials`, `/catalog/cad`, `/catalog/materials`, `/catalog/quantity-kinds`, `/catalog/solvers`, `/docs`, `/login`, `/account`다. 기존 `/viewer`와 `/#viewer`는 `/structures?structure=new&mode=code`로 이동하고, `/#help`는 `/docs`로 이동한다.
 
 코드 구조는 다음 경계를 따른다.
 

@@ -219,6 +219,20 @@ describe('snapshot-only Solver Worker', () => {
     dispatch({ type: 'run-solver', requestId: 'valid-run', structureRevision: 2, experimentRevision: 2 })
     const success = await waitForResponse('solver-success', 'valid-run')
     if (success.type !== 'solver-success') throw new Error('Expected solver success.')
+    const validProcesses = responses.filter(
+      (response) => response.type === 'solver-process' && response.requestId === 'valid-run',
+    )
+    expect(
+      validProcesses.map((response) =>
+        response.type === 'solver-process'
+          ? [response.process.status, response.process.runId]
+          : null,
+      ),
+    ).toEqual([
+      ['preparing', 'valid-run'],
+      ['running', 'valid-run'],
+      ['succeeded', 'valid-run'],
+    ])
     expect(success.recordedData['Total current'].value).toBeCloseTo(14.9, 9)
     expect(success.provenance).toEqual({
       structure: { apiVersion: 2, sourceHash: '1'.repeat(64), seed: 1, vars: {} },
@@ -234,6 +248,7 @@ describe('snapshot-only Solver Worker', () => {
           (response) =>
             response.type === 'solver-process' &&
             response.requestId === 'cancelled-run' &&
+            response.process.runId === 'cancelled-run' &&
             response.process.status === 'cancelled',
         ),
       ).toBe(true)

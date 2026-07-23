@@ -124,10 +124,10 @@ export class SolverController {
     this.active?.abortController.abort()
   }
 
-  async run(sample: BuiltSampleV2, setup: BuiltSetupV2): Promise<RecordedData> {
+  async run(sample: BuiltSampleV2, setup: BuiltSetupV2, requestedRunId?: string): Promise<RecordedData> {
     if (this.active) throw new CadModelError('A solver run is already active.')
 
-    const runId = `solver-${Date.now()}-${this.sequence + 1}`
+    const runId = requestedRunId ?? `solver-${Date.now()}-${this.sequence + 1}`
     this.sequence += 1
     const abortController = new AbortController()
     const solver = setup.experiment.solver

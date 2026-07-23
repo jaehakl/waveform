@@ -22,6 +22,7 @@ export type CadViewerProps = {
   experiment: CadViewerDocument | null
   selected: CadViewerActiveSelection | null
   recordedData?: CadViewerRecordedData | null
+  resultsLayout?: 'split' | 'tabs'
   simulation?: CadViewerSimulation | null
   onRenderEnd: (sources: readonly CadDocumentType[]) => void
   onRenderError: (message: string, sources: readonly CadDocumentType[]) => void
@@ -44,6 +45,7 @@ export function CadViewer({
   onRenderError,
   onRenderStart,
   recordedData,
+  resultsLayout,
   simulation,
   selected,
   structure,
@@ -84,6 +86,7 @@ export function CadViewer({
         lengthUnit={content.lengthUnit}
         recordedData={recordedData}
         recordedDataRules={experiment?.experimentRules?.recordedData}
+        resultsLayout={resultsLayout}
         simulation={simulation}
         selected={visibleSelection}
         visibleSources={content.visibleSources}

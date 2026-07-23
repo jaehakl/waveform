@@ -152,6 +152,7 @@ describe('SolverController', () => {
     const previewScene = structureSnapshot.scene
     const originalStructureSnapshot = JSON.stringify(structureSnapshot)
     const states: string[] = []
+    const runIds: Array<string | null> = []
     const controller = new SolverController([
       valueModule(async (input) => {
         expect(Object.isFrozen(input)).toBe(true)
@@ -187,12 +188,16 @@ describe('SolverController', () => {
         return { Value: { value: 20 } }
       }),
     ])
-    controller.subscribe((process) => states.push(process.status))
-
-    await expect(controller.run(sample(structureSnapshot), setup(experimentSnapshot))).resolves.toEqual({
-      Value: { value: 20 },
+    controller.subscribe((process) => {
+      states.push(process.status)
+      runIds.push(process.runId)
     })
+
+    await expect(
+      controller.run(sample(structureSnapshot), setup(experimentSnapshot), 'simulation-request-1'),
+    ).resolves.toEqual({ Value: { value: 20 } })
     expect(states).toEqual(['idle', 'preparing', 'running', 'succeeded'])
+    expect(runIds).toEqual([null, 'simulation-request-1', 'simulation-request-1', 'simulation-request-1'])
     expect(controller.getProcess()).toMatchObject({ status: 'succeeded', error: null })
     expect(structureSnapshot.scene.lengthUnit).toBe('mm')
     expect(JSON.stringify(structureSnapshot)).toBe(originalStructureSnapshot)
@@ -242,9 +247,13 @@ describe('SolverController', () => {
     const controller = new SolverController([valueModule()])
     const unsupported = createPair('test-solver', '2.0.0')
     await expect(
-      controller.run(sample(unsupported.structureSnapshot), setup(unsupported.experimentSnapshot)),
+      controller.run(
+        sample(unsupported.structureSnapshot),
+        setup(unsupported.experimentSnapshot),
+        'unsupported-request',
+      ),
     ).rejects.toThrow('No solver module is registered for test-solver@2.0.0')
-    expect(controller.getProcess().status).toBe('failed')
+    expect(controller.getProcess()).toMatchObject({ runId: 'unsupported-request', status: 'failed' })
   })
 
   it('enforces one active run and cancels through AbortSignal', async () => {
@@ -258,11 +267,19 @@ describe('SolverController', () => {
       ),
     ])
 
-    const active = controller.run(sample(structureSnapshot), setup(experimentSnapshot))
+    const active = controller.run(
+      sample(structureSnapshot),
+      setup(experimentSnapshot),
+      'cancelled-request',
+    )
     await expect(controller.run(sample(structureSnapshot), setup(experimentSnapshot))).rejects.toThrow('already active')
     controller.cancel()
     await expect(active).rejects.toThrow()
-    expect(controller.getProcess()).toMatchObject({ status: 'cancelled', error: 'Solver run was cancelled.' })
+    expect(controller.getProcess()).toMatchObject({
+      runId: 'cancelled-request',
+      status: 'cancelled',
+      error: 'Solver run was cancelled.',
+    })
   })
 
   it('strictly rejects missing, unknown, and invalid RecordedData values', async () => {

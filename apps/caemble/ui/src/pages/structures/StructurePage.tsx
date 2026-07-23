@@ -260,7 +260,7 @@ export function StructurePage() {
   }, [query, rows])
 
   const updateDeepLink = useCallback(
-    (id: number | null) => {
+    (id: number | 'new' | null) => {
       setSearchParams(
         (current) => {
           const next = new URLSearchParams(current)
@@ -315,13 +315,17 @@ export function StructurePage() {
     setSelectedStructureId(null)
     setSavedStructureCode(null)
     updateEditorOpen(true)
-    updateDeepLink(null)
+    updateDeepLink('new')
   }, [setSelectedStructureId, updateDeepLink, updateEditorOpen])
 
   useEffect(() => {
     if (initializedFromUrl.current || !structuresQuery.isSuccess) return
     initializedFromUrl.current = true
     const rawId = searchParams.get('structure')
+    if (rawId === 'new') {
+      startNewStructure()
+      return
+    }
     const id = rawId === null ? selectedStructureId : positiveId(rawId)
     if (id === null) {
       if (rawId !== null) {
@@ -346,6 +350,7 @@ export function StructurePage() {
     searchParams,
     selectedStructureId,
     setSelectedStructureId,
+    startNewStructure,
     structuresQuery.isSuccess,
     updateDeepLink,
     updateEditorOpen,

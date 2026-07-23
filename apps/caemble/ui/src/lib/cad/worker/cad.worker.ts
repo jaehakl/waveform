@@ -115,6 +115,7 @@ async function runSolver(request: Extract<CadWorkerRequest, { type: 'run-solver'
     const recordedData = await solverController.run(
       structure.realization as BuiltSampleV2,
       experiment.realization as BuiltSetupV2,
+      request.requestId,
     )
     const structureSnapshot = (structure.realization as BuiltSampleV2).structure
     const experimentSnapshot = (experiment.realization as BuiltSetupV2).experiment

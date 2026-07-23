@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import * as reglRenderer from '@jscad/regl-renderer'
 import type { CadDocumentType, CadScenePart, RecordedDataRule, UcumUnit } from '@/lib/cad'
 import { materialColor, unassignedGeometryColor } from './materialColor'
@@ -102,6 +102,7 @@ type JscadViewerProps = {
   onToggleSource?: (documentType: CadDocumentType) => void
   recordedData?: CadViewerRecordedData | null
   recordedDataRules?: readonly RecordedDataRule[]
+  resultsLayout?: 'split' | 'tabs'
   selected: JscadViewerSelection | null
   simulation?: CadViewerSimulation | null
   visibleSources?: readonly CadDocumentType[]
@@ -128,6 +129,10 @@ type ViewerToolbarProps = {
 
 const renderer = reglRenderer as unknown as ReglRendererApi
 const materialGridTimeoutMs = 30_000
+const defaultResultsSplitPercent = 50
+const resultsSplitDividerWidth = 5
+const resultsSplitMinimumPanelWidth = 320
+const resultsSplitMinimumViewerWidth = 720
 const cameraViewDirections = {
   default: [1, 1, 1],
   x: [1, 0, 0],
@@ -143,6 +148,13 @@ const solverCompatibilityLabels = Object.freeze({
 
 function formatSpacing(value: number) {
   return Number(value.toPrecision(6)).toString()
+}
+
+function clampResultsSplitPercent(percent: number, viewerWidth: number) {
+  const availableWidth = viewerWidth - resultsSplitDividerWidth
+  if (availableWidth < resultsSplitMinimumPanelWidth * 2) return defaultResultsSplitPercent
+  const minimum = (resultsSplitMinimumPanelWidth / availableWidth) * 100
+  return Math.min(100 - minimum, Math.max(minimum, percent))
 }
 
 function drawPoints(regl: unknown, params: RendererEntity) {
@@ -509,6 +521,7 @@ function JscadViewer({
   onToggleSource,
   recordedData,
   recordedDataRules = [],
+  resultsLayout = 'tabs',
   selected,
   simulation,
   visibleSources,
@@ -547,6 +560,8 @@ function JscadViewer({
   const [spacingError, setSpacingError] = useState<string | null>(null)
   const [recordedDisplayUnits, setRecordedDisplayUnits] = useState<RecordedDataDisplayUnits>({})
   const [viewerMode, setViewerMode] = useState<ViewerMode>('geometry')
+  const [viewerWidth, setViewerWidth] = useState(0)
+  const [resultsSplitPercent, setResultsSplitPercent] = useState(defaultResultsSplitPercent)
   const activeGridRenderRef = useRef<Readonly<{ requestId: string; onRenderEnd: () => void }> | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const cameraRef = useRef<RendererState | null>(null)
@@ -571,6 +586,7 @@ function JscadViewer({
   const rendererEntityCacheRef = useRef(new Map<string, RendererEntityCacheEntry>())
   const recordedDataSchemaSignatureRef = useRef(recordedDataSchemaSignature)
   const renderCallbacksRef = useRef({ onRenderEnd, onRenderStart })
+  const resultsSplitRef = useRef<HTMLDivElement | null>(null)
   const referenceEntitiesRef = useRef<RendererEntity[]>([
     {
       size: [120, 120],
@@ -583,6 +599,7 @@ function JscadViewer({
     },
   ])
   const renderRef = useRef<((options: RendererOptions) => void) | null>(null)
+  const viewerRef = useRef<HTMLDivElement | null>(null)
 
   renderCallbacksRef.current = { onRenderEnd, onRenderStart }
 
@@ -590,10 +607,43 @@ function JscadViewer({
     gridSnapshot?.parts === parts && gridSnapshot.requestedSpacing === requestedSpacing ? gridSnapshot.result : null
   const hasColoredGeometry = parts.some((part) => materialColor(part.material) !== undefined)
   const hasResults = recordedDataRules.length > 0
+  const splitResults = resultsLayout === 'split' && hasResults && viewerWidth >= resultsSplitMinimumViewerWidth
+  const activeViewerMode = splitResults && viewerMode === 'results' ? 'geometry' : viewerMode
+  const availableSplitWidth = Math.max(1, viewerWidth - resultsSplitDividerWidth)
+  const minimumSplitPercent = Math.min(
+    defaultResultsSplitPercent,
+    (resultsSplitMinimumPanelWidth / availableSplitWidth) * 100,
+  )
+  const maximumSplitPercent = 100 - minimumSplitPercent
+  const geometryPanelWidth = (availableSplitWidth * resultsSplitPercent) / 100
 
   useEffect(() => {
     if (!hasResults && viewerMode === 'results') setViewerMode('geometry')
   }, [hasResults, viewerMode])
+
+  useEffect(() => {
+    if (splitResults && viewerMode === 'results') setViewerMode('geometry')
+  }, [splitResults, viewerMode])
+
+  useEffect(() => {
+    if (resultsLayout !== 'split') {
+      setViewerWidth(0)
+      return
+    }
+
+    const viewer = viewerRef.current
+    if (!viewer) return
+    const updateWidth = () => setViewerWidth(viewer.getBoundingClientRect().width)
+    const resizeObserver = new ResizeObserver(updateWidth)
+    resizeObserver.observe(viewer)
+    updateWidth()
+    return () => resizeObserver.disconnect()
+  }, [resultsLayout])
+
+  useEffect(() => {
+    if (!splitResults) return
+    setResultsSplitPercent((current) => clampResultsSplitPercent(current, viewerWidth))
+  }, [splitResults, viewerWidth])
 
   useEffect(() => {
     if (recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature) return
@@ -709,7 +759,7 @@ function JscadViewer({
   }, [])
 
   useEffect(() => {
-    if (viewerMode !== 'material-grid' || parts.length === 0) return
+    if (activeViewerMode !== 'material-grid' || parts.length === 0) return
 
     const cached = gridSnapshotRef.current
     const requestId = `material-grid-${gridRequestSequenceRef.current + 1}`
@@ -808,16 +858,16 @@ function JscadViewer({
         activeRender.onRenderEnd()
       }
     }
-  }, [gridApplyVersion, parts, requestedSpacing, viewerMode])
+  }, [activeViewerMode, gridApplyVersion, parts, requestedSpacing])
 
   useEffect(() => {
-    if (viewerMode === 'results') return
+    if (activeViewerMode === 'results') return
     if (parts.length === 0 || !optionsRef.current || !renderRef.current || !cameraRef.current || !controlsRef.current)
       return
 
     const shouldFit = lastFittedPartsRef.current !== parts
-    const modeChanged = lastRenderedModeRef.current !== viewerMode
-    const shouldReportGeometryRender = viewerMode === 'geometry' && (shouldFit || modeChanged)
+    const modeChanged = lastRenderedModeRef.current !== activeViewerMode
+    const shouldReportGeometryRender = activeViewerMode === 'geometry' && (shouldFit || modeChanged)
     if (shouldReportGeometryRender) onRenderStart()
 
     try {
@@ -870,7 +920,7 @@ function JscadViewer({
         }
       }
       const displayEntities =
-        viewerMode === 'geometry'
+        activeViewerMode === 'geometry'
           ? geometryEntities
           : [
               ...(currentGridResult
@@ -909,10 +959,10 @@ function JscadViewer({
 
       renderRef.current(optionsRef.current)
       if (shouldFit) lastFittedPartsRef.current = parts
-      lastRenderedModeRef.current = viewerMode
+      lastRenderedModeRef.current = activeViewerMode
 
       if (shouldReportGeometryRender) onRenderEnd()
-      if (viewerMode === 'material-grid' && currentGridResult && activeGridRenderRef.current !== null) {
+      if (activeViewerMode === 'material-grid' && currentGridResult && activeGridRenderRef.current !== null) {
         const activeRender = activeGridRenderRef.current
         activeGridRenderRef.current = null
         activeRender.onRenderEnd()
@@ -932,7 +982,7 @@ function JscadViewer({
     onRenderStart,
     parts,
     selected,
-    viewerMode,
+    activeViewerMode,
   ])
 
   const renderWithControls = () => {
@@ -990,16 +1040,184 @@ function JscadViewer({
     renderWithControls()
   }
 
+  const resultsPanel = (
+    <RecordedDataResults
+      displayUnits={recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature ? recordedDisplayUnits : {}}
+      recordedData={recordedData}
+      rules={recordedDataRules}
+      onDisplayUnitChange={(label, target, unit) =>
+        setRecordedDisplayUnits((current) => {
+          const entry = current[label] ?? {}
+          return {
+            ...current,
+            [label]:
+              target === 'result' ? { ...entry, result: unit } : { ...entry, axes: { ...entry.axes, [target]: unit } },
+          }
+        })
+      }
+    />
+  )
+
+  const viewerPanel = (
+    <div
+      aria-labelledby={`viewer-${activeViewerMode}-tab`}
+      className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
+      id="viewer-render-panel"
+      role="tabpanel"
+    >
+      <canvas
+        ref={canvasRef}
+        className={`${activeViewerMode === 'results' ? 'hidden' : 'block'} h-full w-full cursor-grab touch-none active:cursor-grabbing`}
+        data-viewer-canvas="true"
+        onContextMenu={(event) => event.preventDefault()}
+        onPointerDown={(event) => {
+          if (event.button !== 0 && event.button !== 2) return
+
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          lastPointRef.current = {
+            button: event.button,
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+          }
+        }}
+        onPointerMove={(event) => {
+          const lastPoint = lastPointRef.current
+          if (!lastPoint || lastPoint.pointerId !== event.pointerId) return
+
+          const pressedButton = lastPoint.button === 2 ? 2 : 1
+          if ((event.buttons & pressedButton) === 0) {
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+            }
+            lastPointRef.current = null
+            return
+          }
+          if (!cameraRef.current || !controlsRef.current) return
+
+          event.preventDefault()
+          const dx = event.clientX - lastPoint.x
+          const dy = event.clientY - lastPoint.y
+          const controlChange =
+            lastPoint.button === 2
+              ? renderer.controls.orbit.pan({ camera: cameraRef.current, controls: controlsRef.current, speed: 1 }, [
+                  -dx,
+                  dy,
+                ])
+              : renderer.controls.orbit.rotate(
+                  { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
+                  [dx, dy],
+                )
+
+          Object.assign(cameraRef.current, controlChange.camera)
+          Object.assign(controlsRef.current, controlChange.controls)
+          lastPointRef.current = { ...lastPoint, x: event.clientX, y: event.clientY }
+          renderWithControls()
+        }}
+        onPointerUp={(event) => {
+          if (lastPointRef.current?.pointerId !== event.pointerId) return
+
+          event.preventDefault()
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+          lastPointRef.current = null
+        }}
+        onPointerCancel={(event) => {
+          if (lastPointRef.current?.pointerId !== event.pointerId) return
+
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+          lastPointRef.current = null
+        }}
+        onLostPointerCapture={(event) => {
+          if (lastPointRef.current?.pointerId === event.pointerId) {
+            lastPointRef.current = null
+          }
+        }}
+      />
+
+      {!splitResults && activeViewerMode === 'results' ? resultsPanel : null}
+
+      {activeViewerMode !== 'results' && parts.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+          {emptyMessage}
+        </div>
+      ) : null}
+
+      {activeViewerMode === 'material-grid' && gridStatus === 'ready' && !hasColoredGeometry ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+          No colored Material geometry is available for Grid points.
+        </div>
+      ) : null}
+
+      {activeViewerMode === 'material-grid' &&
+      gridStatus === 'ready' &&
+      hasColoredGeometry &&
+      currentGridResult?.visiblePointCount === 0 ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
+          No Grid points fall inside the geometry at this spacing.
+        </div>
+      ) : null}
+
+      {activeViewerMode !== 'results' && parts.length > 0 ? (
+        <div className="pointer-events-none absolute top-3 right-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div className="mb-1.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">Materials</div>
+          {[...new Set(parts.map((part) => part.material))].map((material, index) => {
+            const color = materialColor(material)
+            return (
+              <div
+                key={`${material?.name ?? 'unassigned'}-${index}`}
+                className="flex items-center gap-2 py-0.5 text-xs text-slate-700"
+              >
+                {color ? (
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
+                    data-material-swatch="fill"
+                    style={{ backgroundColor: color }}
+                  />
+                ) : (
+                  <span className="grid h-2.5 w-2.5 shrink-0 items-center" data-material-swatch="wireframe">
+                    <span className="block border-t-2" style={{ borderColor: unassignedGeometryColor }} />
+                  </span>
+                )}
+                <span>{material?.name ?? 'Unassigned'}</span>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
+
+      {activeViewerMode !== 'results' && selection ? (
+        <div className="pointer-events-none absolute top-3 left-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+          <div className="text-[10px] font-semibold tracking-wide text-orange-600 uppercase">Selected</div>
+          <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
+            {selection.kind === 'group'
+              ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
+              : selection.label}
+          </div>
+          <div className="truncate font-mono text-[10px] text-slate-400">{selection.id}</div>
+        </div>
+      ) : null}
+    </div>
+  )
+
   return (
-    <div className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50 lg:min-h-0">
+    <div
+      className="flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-slate-50 lg:min-h-0"
+      data-results-layout={splitResults ? 'split' : 'tabs'}
+      ref={viewerRef}
+    >
       <ViewerToolbar
         availableSources={availableSources}
         gridError={gridError}
         gridResult={currentGridResult}
         gridStatus={gridStatus}
-        hasResults={hasResults}
+        hasResults={hasResults && !splitResults}
         lengthUnit={lengthUnit}
-        mode={viewerMode}
+        mode={activeViewerMode}
         spacingDraft={spacingDraft}
         spacingError={spacingError}
         simulation={simulation}
@@ -1012,166 +1230,53 @@ function JscadViewer({
       />
 
       <div
-        aria-labelledby={`viewer-${viewerMode}-tab`}
-        className="relative min-h-0 flex-1 overflow-hidden"
-        id="viewer-render-panel"
-        role="tabpanel"
+        className={
+          splitResults
+            ? 'grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(320px,var(--viewer-geometry-width))_5px_minmax(320px,1fr)] overflow-hidden'
+            : 'grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden'
+        }
+        ref={resultsSplitRef}
+        style={splitResults ? ({ '--viewer-geometry-width': `${geometryPanelWidth}px` } as CSSProperties) : undefined}
       >
-        <canvas
-          ref={canvasRef}
-          className={`${viewerMode === 'results' ? 'hidden' : 'block'} h-full w-full cursor-grab touch-none active:cursor-grabbing`}
-          data-viewer-canvas="true"
-          onContextMenu={(event) => event.preventDefault()}
-          onPointerDown={(event) => {
-            if (event.button !== 0 && event.button !== 2) return
-
-            event.preventDefault()
-            event.currentTarget.setPointerCapture(event.pointerId)
-            lastPointRef.current = {
-              button: event.button,
-              pointerId: event.pointerId,
-              x: event.clientX,
-              y: event.clientY,
-            }
-          }}
-          onPointerMove={(event) => {
-            const lastPoint = lastPointRef.current
-            if (!lastPoint || lastPoint.pointerId !== event.pointerId) return
-
-            const pressedButton = lastPoint.button === 2 ? 2 : 1
-            if ((event.buttons & pressedButton) === 0) {
+        {viewerPanel}
+        {splitResults ? (
+          <div
+            aria-label="3D Viewer와 Results 크기 조절"
+            aria-orientation="vertical"
+            aria-valuemax={Math.round(maximumSplitPercent)}
+            aria-valuemin={Math.round(minimumSplitPercent)}
+            aria-valuenow={Math.round(resultsSplitPercent)}
+            className="group flex cursor-col-resize touch-none items-stretch justify-center bg-slate-200 outline-none hover:bg-slate-300 focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-inset"
+            role="separator"
+            tabIndex={0}
+            onDoubleClick={() => setResultsSplitPercent(defaultResultsSplitPercent)}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+              event.preventDefault()
+              setResultsSplitPercent((current) =>
+                clampResultsSplitPercent(current + (event.key === 'ArrowLeft' ? -2 : 2), viewerWidth),
+              )
+            }}
+            onPointerDown={(event) => event.currentTarget.setPointerCapture(event.pointerId)}
+            onPointerMove={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+              const bounds = resultsSplitRef.current?.getBoundingClientRect()
+              if (!bounds) return
+              const percent =
+                ((event.clientX - bounds.left) / Math.max(1, bounds.width - resultsSplitDividerWidth)) * 100
+              setResultsSplitPercent(clampResultsSplitPercent(percent, bounds.width))
+            }}
+            onPointerUp={(event) => {
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 event.currentTarget.releasePointerCapture(event.pointerId)
               }
-              lastPointRef.current = null
-              return
-            }
-            if (!cameraRef.current || !controlsRef.current) return
-
-            event.preventDefault()
-            const dx = event.clientX - lastPoint.x
-            const dy = event.clientY - lastPoint.y
-            const controlChange =
-              lastPoint.button === 2
-                ? renderer.controls.orbit.pan({ camera: cameraRef.current, controls: controlsRef.current, speed: 1 }, [
-                    -dx,
-                    dy,
-                  ])
-                : renderer.controls.orbit.rotate(
-                    { camera: cameraRef.current, controls: controlsRef.current, speed: 0.006 },
-                    [dx, dy],
-                  )
-
-            Object.assign(cameraRef.current, controlChange.camera)
-            Object.assign(controlsRef.current, controlChange.controls)
-            lastPointRef.current = { ...lastPoint, x: event.clientX, y: event.clientY }
-            renderWithControls()
-          }}
-          onPointerUp={(event) => {
-            if (lastPointRef.current?.pointerId !== event.pointerId) return
-
-            event.preventDefault()
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId)
-            }
-            lastPointRef.current = null
-          }}
-          onPointerCancel={(event) => {
-            if (lastPointRef.current?.pointerId !== event.pointerId) return
-
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-              event.currentTarget.releasePointerCapture(event.pointerId)
-            }
-            lastPointRef.current = null
-          }}
-          onLostPointerCapture={(event) => {
-            if (lastPointRef.current?.pointerId === event.pointerId) {
-              lastPointRef.current = null
-            }
-          }}
-        />
-
-        {viewerMode === 'results' ? (
-          <RecordedDataResults
-            displayUnits={
-              recordedDataSchemaSignatureRef.current === recordedDataSchemaSignature ? recordedDisplayUnits : {}
-            }
-            recordedData={recordedData}
-            rules={recordedDataRules}
-            onDisplayUnitChange={(label, target, unit) =>
-              setRecordedDisplayUnits((current) => {
-                const entry = current[label] ?? {}
-                return {
-                  ...current,
-                  [label]:
-                    target === 'result'
-                      ? { ...entry, result: unit }
-                      : { ...entry, axes: { ...entry.axes, [target]: unit } },
-                }
-              })
-            }
-          />
-        ) : null}
-
-        {viewerMode !== 'results' && parts.length === 0 ? (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
-            {emptyMessage}
+            }}
+          >
+            <span className="w-px bg-slate-300 group-hover:bg-slate-400" />
           </div>
         ) : null}
-
-        {viewerMode === 'material-grid' && gridStatus === 'ready' && !hasColoredGeometry ? (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
-            No colored Material geometry is available for Grid points.
-          </div>
-        ) : null}
-
-        {viewerMode === 'material-grid' &&
-        gridStatus === 'ready' &&
-        hasColoredGeometry &&
-        currentGridResult?.visiblePointCount === 0 ? (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-slate-500">
-            No Grid points fall inside the geometry at this spacing.
-          </div>
-        ) : null}
-
-        {viewerMode !== 'results' && parts.length > 0 ? (
-          <div className="pointer-events-none absolute top-3 right-3 min-w-32 rounded border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-            <div className="mb-1.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">Materials</div>
-            {[...new Set(parts.map((part) => part.material))].map((material, index) => {
-              const color = materialColor(material)
-              return (
-                <div
-                  key={`${material?.name ?? 'unassigned'}-${index}`}
-                  className="flex items-center gap-2 py-0.5 text-xs text-slate-700"
-                >
-                  {color ? (
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
-                      data-material-swatch="fill"
-                      style={{ backgroundColor: color }}
-                    />
-                  ) : (
-                    <span className="grid h-2.5 w-2.5 shrink-0 items-center" data-material-swatch="wireframe">
-                      <span className="block border-t-2" style={{ borderColor: unassignedGeometryColor }} />
-                    </span>
-                  )}
-                  <span>{material?.name ?? 'Unassigned'}</span>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-
-        {viewerMode !== 'results' && selection ? (
-          <div className="pointer-events-none absolute top-3 left-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-            <div className="text-[10px] font-semibold tracking-wide text-orange-600 uppercase">Selected</div>
-            <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
-              {selection.kind === 'group'
-                ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
-                : selection.label}
-            </div>
-            <div className="truncate font-mono text-[10px] text-slate-400">{selection.id}</div>
-          </div>
+        {splitResults ? (
+          <div className="min-h-0 min-w-0 overflow-hidden border-l border-slate-200">{resultsPanel}</div>
         ) : null}
       </div>
     </div>

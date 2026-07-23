@@ -559,6 +559,17 @@ afterEach(() => {
 })
 
 describe('MeasurementPage', () => {
+  it('requests the split Results layout only for the Measurement viewer', async () => {
+    mockRunWorkflow([])
+    renderPage('/measurements?structure=1&experiment=2')
+
+    await waitFor(() =>
+      expect(cadViewerSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ resultsLayout: 'split' }),
+      ),
+    )
+  })
+
   it('clears a selected Sample snapshot before rerolling a new random Sample', async () => {
     apiMocks.sampleList.mockResolvedValue({
       total: 1,

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Box, Boxes, FlaskConical, Gauge, Layers3 } from 'lucide-react'
+import { ArrowRight, Boxes, FlaskConical, Gauge, GitBranch, Layers3 } from 'lucide-react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,7 +27,7 @@ function RecentWork() {
     return (
       <Card className="border-dashed bg-muted/20">
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div><CardTitle className="text-base">작업을 저장하려면 로그인하세요</CardTitle><CardDescription className="mt-1">공개 Viewer와 카탈로그는 로그인 없이 사용할 수 있습니다.</CardDescription></div>
+          <div><CardTitle className="text-base">작업을 저장하려면 로그인하세요</CardTitle><CardDescription className="mt-1">공개 Structure·Experiment와 카탈로그는 로그인 없이 열람할 수 있습니다.</CardDescription></div>
           <Button asChild variant="outline"><Link to="/login">Google로 로그인</Link></Button>
         </CardContent>
       </Card>
@@ -64,7 +64,7 @@ export function HomePage() {
         <div className="relative max-w-3xl">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">CAD from Code,<br /><span className="text-primary">CAE </span> from Data  </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">통합<br /><span className="text-primary">컴퓨터 기반 엔지니어링 </span>프레임워크</p>
-          <div className="mt-7 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/viewer"><Box />Code to CAD</Link></Button><Button asChild size="lg" variant="outline"><Link to="/docs">사용 설명서<ArrowRight /></Link></Button></div>
+          <div className="mt-7 flex flex-wrap gap-3"><Button asChild size="lg"><Link to="/structures?structure=new&mode=code"><GitBranch />New Structure</Link></Button><Button asChild size="lg" variant="outline"><Link to="/docs">사용 설명서<ArrowRight /></Link></Button></div>
         </div>
       </section>
 

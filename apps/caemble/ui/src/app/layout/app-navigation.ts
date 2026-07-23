@@ -2,7 +2,6 @@ import {
   Activity,
   Atom,
   BookOpenText,
-  Box,
   Boxes,
   Database,
   FlaskConical,
@@ -22,7 +21,6 @@ export type AppNavigationItem = Readonly<{
 
 export const primaryNavigation: readonly AppNavigationItem[] = [
   { href: '/', icon: Home, label: '홈' },
-  { href: '/viewer', icon: Box, label: 'Viewer' },
   { href: '/structures', icon: GitBranch, label: 'Structures' },
   { href: '/experiments', icon: TestTubeDiagonal, label: 'Experiments' },
   { href: '/measurements', icon: Activity, label: 'Measurements' },

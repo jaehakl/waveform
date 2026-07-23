@@ -5,10 +5,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import JscadViewer from './JscadViewer'
 
-const rendererMocks = vi.hoisted(() => ({
-  entitiesFromSolids: vi.fn((_options: unknown, geometry: unknown) => [{ geometry }]),
-  render: vi.fn(),
-}))
+const rendererMocks = vi.hoisted(() => {
+  const render = vi.fn()
+  return {
+    entitiesFromSolids: vi.fn((_options: unknown, geometry: unknown) => [{ geometry }]),
+    prepareRender: vi.fn(() => render),
+    render,
+  }
+})
+let resizeObserverCallbacks: ResizeObserverCallback[] = []
 
 vi.mock('@jscad/regl-renderer', () => ({
   cameras: {
@@ -30,7 +35,7 @@ vi.mock('@jscad/regl-renderer', () => ({
   },
   drawCommands: { drawAxis: {}, drawGrid: {}, drawLines: {}, drawMesh: {} },
   entitiesFromSolids: rendererMocks.entitiesFromSolids,
-  prepareRender: vi.fn(() => rendererMocks.render),
+  prepareRender: rendererMocks.prepareRender,
 }))
 
 class FakeWorker {
@@ -98,6 +103,19 @@ const coloredLayer = {
   sceneHash: 'same-scene',
 }
 const coloredLayers = [coloredLayer]
+const recordedDataRules = [
+  {
+    target: ['experiment.geometry.domain'] as const,
+    label: 'Domain average',
+    methodId: 'field.average',
+    parameters: {},
+    result: {
+      dtype: 'float64' as const,
+      unit: '{fraction}',
+      quantityKind: 'DimensionlessRatio' as const,
+    },
+  },
+]
 
 function GridHarness() {
   const [status, setStatus] = useState('Ready')
@@ -121,12 +139,17 @@ describe('JscadViewer render lifecycle', () => {
     FakeWorker.instances = []
     FakeWorker.constructorError = null
     FakeWorker.postMessageError = null
+    resizeObserverCallbacks = []
     rendererMocks.entitiesFromSolids.mockClear()
+    rendererMocks.prepareRender.mockClear()
     rendererMocks.render.mockClear()
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal(
       'ResizeObserver',
       class {
+        constructor(callback: ResizeObserverCallback) {
+          resizeObserverCallbacks.push(callback)
+        }
         observe() {}
         disconnect() {}
       },
@@ -135,6 +158,7 @@ describe('JscadViewer render lifecycle', () => {
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
@@ -240,5 +264,214 @@ describe('JscadViewer render lifecycle', () => {
     expect(rendererMocks.entitiesFromSolids.mock.calls[1][0]).toMatchObject({
       color: [217 / 255, 119 / 255, 6 / 255, 1],
     })
+  })
+
+  it('shows 3D and Results together in a wide split layout and supports accessible resizing', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      bottom: 500,
+      height: 500,
+      left: 100,
+      right: 1000,
+      top: 0,
+      width: 900,
+      x: 100,
+      y: 0,
+      toJSON: () => undefined,
+    })
+    const callbacks = {
+      onRenderEnd: vi.fn(),
+      onRenderError: vi.fn(),
+      onRenderStart: vi.fn(),
+    }
+    const view = render(
+      <JscadViewer
+        layers={coloredLayers}
+        lengthUnit="mm"
+        recordedData={{ 'Domain average': { value: 0.5 } }}
+        recordedDataRules={recordedDataRules}
+        resultsLayout="split"
+        selected={null}
+        {...callbacks}
+      />,
+    )
+
+    const separator = await screen.findByRole('separator', { name: '3D Viewer와 Results 크기 조절' })
+    const canvas = view.container.querySelector('[data-viewer-canvas="true"]')
+    expect(canvas).toBeVisible()
+    expect(screen.queryByRole('tab', { name: 'Results' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Recorded Data Results')).toBeVisible()
+    expect(screen.getByLabelText('Recorded scalar value')).toHaveTextContent('0.5')
+    expect(separator).toHaveAttribute('aria-valuenow', '50')
+
+    fireEvent.keyDown(separator, { key: 'ArrowRight' })
+    expect(separator).toHaveAttribute('aria-valuenow', '52')
+
+    Object.assign(separator, {
+      hasPointerCapture: () => true,
+      releasePointerCapture: vi.fn(),
+      setPointerCapture: vi.fn(),
+    })
+    fireEvent.pointerDown(separator, { pointerId: 1 })
+    const moveRight = new Event('pointermove', { bubbles: true })
+    Object.defineProperties(moveRight, {
+      clientX: { value: 640 },
+      pointerId: { value: 1 },
+    })
+    fireEvent(separator, moveRight)
+    expect(separator).toHaveAttribute('aria-valuenow', '60')
+    const moveLeft = new Event('pointermove', { bubbles: true })
+    Object.defineProperties(moveLeft, {
+      clientX: { value: 100 },
+      pointerId: { value: 1 },
+    })
+    fireEvent(separator, moveLeft)
+    expect(separator).toHaveAttribute('aria-valuenow', '36')
+
+    fireEvent.doubleClick(separator)
+    expect(separator).toHaveAttribute('aria-valuenow', '50')
+
+    view.rerender(
+      <JscadViewer
+        layers={coloredLayers}
+        lengthUnit="mm"
+        recordedData={{ 'Domain average': { value: 0.75 } }}
+        recordedDataRules={recordedDataRules}
+        resultsLayout="split"
+        selected={null}
+        {...callbacks}
+      />,
+    )
+    expect(view.container.querySelector('[data-viewer-canvas="true"]')).toBe(canvas)
+    expect(screen.getByLabelText('Recorded scalar value')).toHaveTextContent('0.75')
+  })
+
+  it('keeps the initialized Canvas when the first width measurement enables the split layout', async () => {
+    let viewerWidth = 0
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+      bottom: 500,
+      height: 500,
+      left: 0,
+      right: viewerWidth,
+      top: 0,
+      width: viewerWidth,
+      x: 0,
+      y: 0,
+      toJSON: () => undefined,
+    }))
+    const view = render(
+      <JscadViewer
+        layers={coloredLayers}
+        lengthUnit="mm"
+        recordedData={{ 'Domain average': { value: 0.5 } }}
+        recordedDataRules={recordedDataRules}
+        resultsLayout="split"
+        selected={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+    const canvas = view.container.querySelector('[data-viewer-canvas="true"]')
+    expect(canvas).toBeVisible()
+    expect(rendererMocks.prepareRender).toHaveBeenCalledTimes(1)
+
+    viewerWidth = 900
+    act(() => {
+      resizeObserverCallbacks.forEach((callback) => callback([], {} as ResizeObserver))
+    })
+
+    await screen.findByRole('separator', { name: '3D Viewer와 Results 크기 조절' })
+    expect(view.container.querySelector('[data-viewer-canvas="true"]')).toBe(canvas)
+    expect(canvas).toBeVisible()
+    expect(rendererMocks.prepareRender).toHaveBeenCalledTimes(1)
+    expect(rendererMocks.render).toHaveBeenCalled()
+  })
+
+  it('uses Results tabs while narrow and returns to Geometry when the container becomes wide', async () => {
+    let viewerWidth = 600
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({
+      bottom: 500,
+      height: 500,
+      left: 0,
+      right: viewerWidth,
+      top: 0,
+      width: viewerWidth,
+      x: 0,
+      y: 0,
+      toJSON: () => undefined,
+    }))
+    const view = render(
+      <JscadViewer
+        layers={coloredLayers}
+        lengthUnit="mm"
+        recordedData={{ 'Domain average': { value: 0.5 } }}
+        recordedDataRules={recordedDataRules}
+        resultsLayout="split"
+        selected={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+
+    const resultsTab = await screen.findByRole('tab', { name: 'Results' })
+    const canvas = view.container.querySelector('[data-viewer-canvas="true"]')
+    expect(rendererMocks.prepareRender).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+    fireEvent.click(resultsTab)
+    expect(resultsTab).toHaveAttribute('aria-selected', 'true')
+
+    viewerWidth = 900
+    act(() => {
+      resizeObserverCallbacks.forEach((callback) => callback([], {} as ResizeObserver))
+    })
+
+    const separator = await screen.findByRole('separator', { name: '3D Viewer와 Results 크기 조절' })
+    expect(separator).toBeVisible()
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Geometry' })).toHaveAttribute('aria-selected', 'true'))
+    expect(screen.queryByRole('tab', { name: 'Results' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Recorded Data Results')).toBeVisible()
+    expect(view.container.querySelector('[data-viewer-canvas="true"]')).toBe(canvas)
+    expect(rendererMocks.prepareRender).toHaveBeenCalledTimes(1)
+
+    viewerWidth = 600
+    act(() => {
+      resizeObserverCallbacks.forEach((callback) => callback([], {} as ResizeObserver))
+    })
+
+    expect(await screen.findByRole('tab', { name: 'Results' })).toBeInTheDocument()
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+    expect(view.container.querySelector('[data-viewer-canvas="true"]')).toBe(canvas)
+    expect(rendererMocks.prepareRender).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the full-width 3D viewer when no recorded-data rules exist', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      bottom: 500,
+      height: 500,
+      left: 0,
+      right: 900,
+      top: 0,
+      width: 900,
+      x: 0,
+      y: 0,
+      toJSON: () => undefined,
+    })
+    const view = render(
+      <JscadViewer
+        layers={coloredLayers}
+        lengthUnit="mm"
+        resultsLayout="split"
+        selected={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+
+    await waitFor(() => expect(view.container.querySelector('[data-results-layout="tabs"]')).toBeInTheDocument())
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Results' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Recorded Data Results')).not.toBeInTheDocument()
   })
 })

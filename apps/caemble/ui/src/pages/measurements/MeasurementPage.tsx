@@ -1606,6 +1606,7 @@ export function MeasurementPage() {
         <CadViewer
           experiment={experimentViewerDocument}
           recordedData={displayedRecordedData}
+          resultsLayout="split"
           selected={null}
           structure={structureViewerDocument}
           onRenderEnd={handleRenderEnd}

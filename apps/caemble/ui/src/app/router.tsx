@@ -1,6 +1,11 @@
-import { createBrowserRouter, Outlet } from 'react-router'
+import { createBrowserRouter, Outlet, redirect } from 'react-router'
 import { RouteErrorPage } from '@/pages/error/RouteErrorPage'
+import { viewerReplacementPath } from './legacy-routes'
 import { AppShell } from './layout/AppShell'
+
+export function redirectViewerToStructures(request: Request) {
+  return redirect(viewerReplacementPath(new URL(request.url).search))
+}
 
 export const appRoutePaths = [
   'index',
@@ -36,7 +41,7 @@ export function createAppRouter() {
       ),
       children: [
         { index: true, lazy: () => import('@/pages/home/HomePage') },
-        { path: 'viewer', lazy: () => import('@/pages/viewer/ViewerPage') },
+        { path: 'viewer', loader: ({ request }) => redirectViewerToStructures(request) },
         { path: 'structures', lazy: () => import('@/pages/structures/StructurePage') },
         { path: 'experiments', lazy: () => import('@/pages/experiments/ExperimentPage') },
         { path: 'measurements', lazy: () => import('@/pages/measurements/MeasurementPage') },
