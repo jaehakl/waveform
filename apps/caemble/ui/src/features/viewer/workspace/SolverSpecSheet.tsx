@@ -16,11 +16,13 @@ import type {
   SolverSpec,
   SolverValueSpec,
 } from '@/lib/solver'
+import type { SimulationProgramManifestV3 } from '@/lib/simulation'
 
 type SolverSpecSheetProps = Readonly<{
   compatibility: SolverCompatibility
   solver: ResolvedExperimentSolver | null
   spec: SolverSpec | null
+  simulationProgram?: SimulationProgramManifestV3 | null
 }>
 
 const categories: readonly Readonly<{ id: SolverRuleCategory; label: string }>[] = [
@@ -203,7 +205,12 @@ function MethodCard({ category, method }: { category: SolverRuleCategory; method
   )
 }
 
-export default function SolverSpecSheet({ compatibility, solver, spec }: SolverSpecSheetProps) {
+export default function SolverSpecSheet({
+  compatibility,
+  simulationProgram,
+  solver,
+  spec,
+}: SolverSpecSheetProps) {
   const issueGroups = ([
     { documentType: 'structure', label: 'Structure' },
     { documentType: 'experiment', label: 'Experiment' },
@@ -263,7 +270,44 @@ export default function SolverSpecSheet({ compatibility, solver, spec }: SolverS
     <div className="h-full overflow-auto bg-slate-50 px-4 py-4">
       {compatibilityPanel}
 
-      {!solver ? (
+      {simulationProgram ? (
+        <>
+          <header className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-base font-semibold text-slate-900">Experiment Program v3</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Named kernel tasks are configured outside <code>simulate()</code> and executed sequentially by the
+              isolated orchestrator.
+            </p>
+          </header>
+          <section className="mt-5">
+            <h4 className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Kernel Tasks</h4>
+            <dl className="mt-2 space-y-2">
+              {Object.entries(simulationProgram.tasks).map(([taskName, kernel]) => (
+                <div className="rounded border border-slate-200 bg-white p-3" key={taskName}>
+                  <dt className="font-mono text-xs font-semibold text-slate-900">{taskName}</dt>
+                  <dd className="mt-1 font-mono text-xs text-slate-600">{kernel.name}@{kernel.version}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+          <section className="mt-5">
+            <h4 className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Recorded Outputs</h4>
+            <dl className="mt-2 space-y-2">
+              {Object.entries(simulationProgram.outputs).map(([name, output]) => (
+                <div className="rounded border border-slate-200 bg-white p-3" key={name}>
+                  <dt className="font-mono text-xs font-semibold text-slate-900">{name}</dt>
+                  <dd className="mt-1 text-xs text-slate-600">
+                    {output.dtype}
+                    {output.quantityKind ? ` · ${output.quantityKind}` : ''}
+                    {output.unit ? ` · ${output.unit}` : ''}
+                    {output.seriesAxis ? ` · series in ${output.seriesAxis.unit}` : ''}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </>
+      ) : !solver ? (
         <div className="grid min-h-48 place-items-center px-6 text-center text-sm text-slate-500">
           Waiting for Solver metadata.
         </div>

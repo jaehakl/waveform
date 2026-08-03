@@ -4,6 +4,8 @@ import type { Vars } from '../model/types'
 import { normalizeVars, normalizeVarsSchema, type VarsSchemaEntry } from '../model/vars'
 import type { CadDocumentType } from '../worker/protocol'
 import { assertSerializableCadScene, type SerializableCadScene } from './meshValidation'
+import type { SimulationProgramManifestV3 } from '../../simulation/types'
+import { assertSimulationProgramManifestV3 } from '../../simulation/validation'
 
 export type EvaluatedDocumentSnapshotV2 = Readonly<{
   kind: CadDocumentType
@@ -15,6 +17,7 @@ export type EvaluatedDocumentSnapshotV2 = Readonly<{
   scene: SerializableCadScene
   experimentRules?: EvaluatedExperimentRules
   solver?: ResolvedExperimentSolver
+  simulationProgram?: SimulationProgramManifestV3
 }>
 
 export const MAX_CAD_SNAPSHOT_TYPED_ARRAY_BYTES = 128 * 1024 * 1024
@@ -106,12 +109,26 @@ export function assertEvaluatedDocumentSnapshotV2(value: unknown): asserts value
   const schema = normalizeVarsSchema(snapshot.varsSchema, 'Evaluated document snapshot')
   normalizeVars(schema.normalized, snapshot.variables, 'Evaluated document snapshot')
   assertSerializableCadScene(snapshot.scene)
-  if (snapshot.kind === 'experiment' && (!snapshot.experimentRules || !snapshot.solver)) {
-    throw new CadModelError('Experiment snapshots must contain rules and solver settings.')
+  const hasLegacySolver = snapshot.experimentRules !== undefined && snapshot.solver !== undefined
+  const hasSimulationProgram = snapshot.simulationProgram !== undefined
+  if (snapshot.kind === 'experiment' && hasLegacySolver === hasSimulationProgram) {
+    throw new CadModelError('Experiment snapshots must contain exactly one v2 Solver or v3 Simulation Program.')
   }
+  if (snapshot.simulationProgram) assertSimulationProgramManifestV3(snapshot.simulationProgram)
   const allowedKeys =
     snapshot.kind === 'experiment'
-      ? ['kind', 'sourceHash', 'apiVersion', 'seed', 'variables', 'varsSchema', 'scene', 'experimentRules', 'solver']
+      ? [
+          'kind',
+          'sourceHash',
+          'apiVersion',
+          'seed',
+          'variables',
+          'varsSchema',
+          'scene',
+          'experimentRules',
+          'solver',
+          'simulationProgram',
+        ]
       : ['kind', 'sourceHash', 'apiVersion', 'seed', 'variables', 'varsSchema', 'scene']
   const unknownKey = Object.keys(snapshot).find((key) => !allowedKeys.includes(key))
   if (unknownKey) throw new CadModelError(`Evaluated document snapshot.${unknownKey} is not allowed.`)

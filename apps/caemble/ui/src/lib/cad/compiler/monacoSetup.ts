@@ -1,7 +1,9 @@
 import type * as Monaco from 'monaco-editor'
 import coreTypes from '../api/caemble-core.d.ts?raw'
 import coreV2Types from '../api/caemble-core-v2.d.ts?raw'
+import coreV3Types from '../api/caemble-core-v3.d.ts?raw'
 import jsxTypes from '../api/cad-jsx.d.ts?raw'
+import kernelV1Types from '../api/caemble-kernels-v1.d.ts?raw'
 
 let didSetup = false
 
@@ -28,6 +30,8 @@ export function setupMonaco(monaco: typeof Monaco) {
 
   typescript.typescriptDefaults.addExtraLib(coreTypes, 'file:///node_modules/@caemble/core/index.d.ts')
   typescript.typescriptDefaults.addExtraLib(coreV2Types, 'file:///node_modules/@caemble/core/v2/index.d.ts')
+  typescript.typescriptDefaults.addExtraLib(coreV3Types, 'file:///node_modules/@caemble/core/v3/index.d.ts')
+  typescript.typescriptDefaults.addExtraLib(kernelV1Types, 'file:///node_modules/@caemble/kernels/v1/index.d.ts')
   typescript.typescriptDefaults.addExtraLib(jsxTypes, 'file:///node_modules/@caemble/core/v2/cad-jsx.d.ts')
   didSetup = true
 }

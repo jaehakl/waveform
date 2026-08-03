@@ -2,10 +2,13 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { defaultCode } from '../../defaultCode'
 import { defaultExperimentCode } from '../../defaultExperimentCode'
-import { caembleExamples } from '../../examples'
+import { defaultExperimentProgramCode } from '../../defaultExperimentProgramCode'
+import { caembleExamples, caembleProgramExamples } from '../../examples'
 import coreTypes from './caemble-core.d.ts?raw'
 import coreV2Types from './caemble-core-v2.d.ts?raw'
+import coreV3Types from './caemble-core-v3.d.ts?raw'
 import jsxTypes from './cad-jsx.d.ts?raw'
+import kernelV1Types from './caemble-kernels-v1.d.ts?raw'
 
 function diagnosticsFor(source: string) {
   const sourcePath = 'C:/caemble-project/source.tsx'
@@ -13,6 +16,8 @@ function diagnosticsFor(source: string) {
     [sourcePath, source],
     ['C:/node_modules/@caemble/core/index.d.ts', coreTypes],
     ['C:/node_modules/@caemble/core/v2/index.d.ts', coreV2Types],
+    ['C:/node_modules/@caemble/core/v3/index.d.ts', coreV3Types],
+    ['C:/node_modules/@caemble/kernels/v1/index.d.ts', kernelV1Types],
     ['C:/node_modules/@caemble/core/v2/cad-jsx.d.ts', jsxTypes],
   ])
   const options: ts.CompilerOptions = {
@@ -31,6 +36,8 @@ function diagnosticsFor(source: string) {
     paths: {
       '@caemble/core': ['node_modules/@caemble/core/index.d.ts'],
       '@caemble/core/v2': ['node_modules/@caemble/core/v2/index.d.ts'],
+      '@caemble/core/v3': ['node_modules/@caemble/core/v3/index.d.ts'],
+      '@caemble/kernels/v1': ['node_modules/@caemble/kernels/v1/index.d.ts'],
     },
   }
   const host = ts.createCompilerHost(options)
@@ -40,7 +47,7 @@ function diagnosticsFor(source: string) {
   host.fileExists = (path) => virtualFiles.has(path.replace(/\\/g, '/')) || defaultFileExists(path)
   host.readFile = (path) => virtualFiles.get(path.replace(/\\/g, '/')) ?? defaultReadFile(path)
   host.directoryExists = (path) =>
-    path.replace(/\\/g, '/').startsWith('C:/node_modules/@caemble/core') || defaultDirectoryExists?.(path) || false
+    path.replace(/\\/g, '/').startsWith('C:/node_modules/@caemble') || defaultDirectoryExists?.(path) || false
   host.getSourceFile = (path, languageVersion) => {
     const text = host.readFile(path)
     return text === undefined ? undefined : ts.createSourceFile(path, text, languageVersion, true)
@@ -67,8 +74,17 @@ describe('@caemble/core/v2 authoring declaration', () => {
     expect(diagnosticsFor(defaultExperimentCode)).toEqual([])
   })
 
+  it('type-checks the v3 Experiment Program default', () => {
+    expect(diagnosticsFor(defaultExperimentProgramCode)).toEqual([])
+  })
+
   it.each(caembleExamples)('type-checks the $title example', ({ code }) => {
     expect(diagnosticsFor(code)).toEqual([])
+  })
+
+  it.each(caembleProgramExamples)('type-checks the $title Structure–Experiment pair', (example) => {
+    expect(diagnosticsFor(example.structureCode)).toEqual([])
+    expect(diagnosticsFor(example.experimentCode)).toEqual([])
   })
 
   it('rejects unknown vars and tuple shapes', () => {
@@ -82,9 +98,16 @@ describe('@caemble/core/v2 authoring declaration', () => {
   it('rejects unregistered Solver methods and parameter keys', () => {
     const wrongMethod = defaultExperimentCode.replace("methodId: 'dc.voxel-grid'", "methodId: 'dc.unknown'")
     const wrongParameter = defaultExperimentCode.replace('gridShape: {', 'unknownGridShape: {')
+    const wrongTaskMethod = defaultExperimentProgramCode.replace(
+      "methodId: 'dc.voxel-grid'",
+      "methodId: 'dc.unknown'",
+    )
+    const wrongTaskParameter = defaultExperimentProgramCode.replace('gridShape: {', 'unknownGridShape: {')
 
     expect(diagnosticsFor(wrongMethod).join('\n')).toContain('dc.unknown')
     expect(diagnosticsFor(wrongParameter).join('\n')).toContain('unknownGridShape')
+    expect(diagnosticsFor(wrongTaskMethod).join('\n')).toContain('dc.unknown')
+    expect(diagnosticsFor(wrongTaskParameter).join('\n')).toContain('unknownGridShape')
   })
 
   it('generates strict canonical Material property and model authoring types', () => {

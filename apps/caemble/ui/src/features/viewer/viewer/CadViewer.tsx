@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { CadDocumentType, CadSceneSelection } from '@/lib/cad'
+import type { CadDocumentType, CadSceneSelection, RecordedDataResult, RecordedDataRule } from '@/lib/cad'
 import { resolveCadViewerContent, type CadViewerDocument } from './cadViewerContent'
 import JscadViewer from './JscadViewer'
 import type { CadViewerRecordedData } from './recordedData'
 import type { SolverCompatibility, SolverProcess } from '@/lib/solver'
+import type { SimulationProgramManifestV3, SimulationResultV3 } from '@/lib/simulation'
 
 export type { CadViewerDocument } from './cadViewerContent'
 export type {
@@ -34,6 +35,9 @@ export type CadViewerSimulation = Readonly<{
   cancel: () => void
   compatibility: SolverCompatibility
   process: SolverProcess
+  program?: SimulationProgramManifestV3 | null
+  programResult?: SimulationResultV3 | null
+  exportProgramResult?: () => string | null
   run: () => string | null
   solver: Readonly<{ name: string; version: string }> | null
   stale: boolean
@@ -58,6 +62,22 @@ export function CadViewer({
     structureVisible,
     experimentVisible,
   ), [experiment, experimentVisible, structure, structureVisible])
+  const programRecordedDataRules = useMemo<readonly RecordedDataRule[]>(
+    () =>
+      Object.freeze(
+        Object.entries(simulation?.program?.outputs ?? {}).map(([name, result]) =>
+          Object.freeze({
+            target: Object.freeze([]),
+            label: name,
+            methodId: 'simulation.record',
+            parameters: Object.freeze({}),
+            result: result as RecordedDataResult,
+          }),
+        ),
+      ),
+    [simulation?.program],
+  )
+  const recordedDataRules = experiment?.experimentRules?.recordedData ?? programRecordedDataRules
   const visibleSelection = selected && content.visibleSources.includes(selected.documentType)
     ? selected
     : null
@@ -85,7 +105,7 @@ export function CadViewer({
         layers={content.layers}
         lengthUnit={content.lengthUnit}
         recordedData={recordedData}
-        recordedDataRules={experiment?.experimentRules?.recordedData}
+        recordedDataRules={recordedDataRules}
         resultsLayout={resultsLayout}
         simulation={simulation}
         selected={visibleSelection}

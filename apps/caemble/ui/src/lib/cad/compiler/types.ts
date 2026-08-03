@@ -4,7 +4,7 @@ import {
   CAEMBLE_MONACO_VERSION,
 } from '../api/generatedVersions'
 
-export const CAD_COMPILER_VERSION = `monaco-${CAEMBLE_MONACO_VERSION}-core-v${CAEMBLE_CORE_V2_DECLARATION_VERSION}-compiler-v2` as const
+export const CAD_COMPILER_VERSION = `monaco-${CAEMBLE_MONACO_VERSION}-core-v${CAEMBLE_CORE_V2_DECLARATION_VERSION}-simulation-v3-compiler-v2` as const
 
 export type CompiledCadModuleV2 = Readonly<{
   code: string

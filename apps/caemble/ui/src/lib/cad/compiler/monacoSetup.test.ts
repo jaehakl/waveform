@@ -32,6 +32,14 @@ describe('setupMonaco', () => {
       }),
     )
     expect(setEagerModelSync).toHaveBeenCalledWith(true)
-    expect(addExtraLib).toHaveBeenCalledTimes(3)
+    expect(addExtraLib).toHaveBeenCalledTimes(5)
+    expect(addExtraLib).toHaveBeenCalledWith(
+      expect.any(String),
+      'file:///node_modules/@caemble/core/v3/index.d.ts',
+    )
+    expect(addExtraLib).toHaveBeenCalledWith(
+      expect.any(String),
+      'file:///node_modules/@caemble/kernels/v1/index.d.ts',
+    )
   })
 })

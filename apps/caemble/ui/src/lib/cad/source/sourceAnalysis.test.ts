@@ -26,6 +26,17 @@ export default class Model {}`, 'structure')).toThrow('must resolve to structure
 export default structure({})`, 'experiment')).toThrow('experiment must be a named import')
   })
 
+  it('allows v3 kernel imports only for Experiment Programs', () => {
+    const program = `import { experiment } from '@caemble/core/v3'
+import { dcCurrentDensity } from '@caemble/kernels/v1'
+export default experiment({ kernel: dcCurrentDensity })`
+
+    expect(analyzeCadSourceV2(program, 'experiment').factoryName).toBe('experiment')
+    expect(() => analyzeCadSourceV2(program, 'structure')).toThrow(
+      'Structure Source can only use @caemble/core/v2',
+    )
+  })
+
   it('rejects external, URL, dynamic, and source-level require imports', () => {
     expect(() => parseCadSourceV2("import value from 'other-package'"))
       .toThrow('Import is not allowed')

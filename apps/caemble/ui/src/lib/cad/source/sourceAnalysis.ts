@@ -73,7 +73,13 @@ export function resolveSourceBinding(
 
 function importedFactoryNames(statements: readonly Statement[], factoryName: 'experiment' | 'structure') {
   return new Set(statements.flatMap((statement) => {
-    if (statement.type !== 'ImportDeclaration' || statement.source.value !== '@caemble/core/v2') return []
+    if (
+      statement.type !== 'ImportDeclaration'
+      || (
+        statement.source.value !== '@caemble/core/v2'
+        && (factoryName === 'structure' || statement.source.value !== '@caemble/core/v3')
+      )
+    ) return []
     return statement.specifiers.flatMap((specifier) => {
       if (specifier.type !== 'ImportSpecifier') return []
       const imported = specifier.imported.type === 'Identifier' ? specifier.imported.name : specifier.imported.value
@@ -90,8 +96,14 @@ function assertImportPolicy(ast: File) {
       ? statement.source?.value
       : undefined
     if (source === undefined) return
-    if (source !== '@caemble/core/v2' && !source.startsWith('./') && !source.startsWith('../')) {
-      throw new SourceAnalysisV2Error(`Import is not allowed in a v2 CAD project: ${source}`)
+    if (
+      source !== '@caemble/core/v2'
+      && source !== '@caemble/core/v3'
+      && source !== '@caemble/kernels/v1'
+      && !source.startsWith('./')
+      && !source.startsWith('../')
+    ) {
+      throw new SourceAnalysisV2Error(`Import is not allowed in a Caemble CAD project: ${source}`)
     }
   })
 
@@ -146,10 +158,25 @@ export function analyzeCadSourceV2(source: string, documentType: CadDocumentType
   const ast = parseCadSourceV2(source)
 
   const statements = ast.program.body
+  if (
+    documentType === 'structure'
+    && statements.some((statement) => {
+      const moduleSource = statement.type === 'ImportDeclaration'
+        || statement.type === 'ExportAllDeclaration'
+        || statement.type === 'ExportNamedDeclaration'
+        ? statement.source?.value
+        : undefined
+      return moduleSource === '@caemble/core/v3' || moduleSource === '@caemble/kernels/v1'
+    })
+  ) {
+    throw new SourceAnalysisV2Error('Structure Source can only use @caemble/core/v2.')
+  }
   const factoryName = documentType === 'structure' ? 'structure' : 'experiment'
   const factoryNames = importedFactoryNames(statements, factoryName)
   if (factoryNames.size === 0) {
-    throw new SourceAnalysisV2Error(`${factoryName} must be a named import from @caemble/core/v2.`)
+    throw new SourceAnalysisV2Error(
+      `${factoryName} must be a named import from @caemble/core/v2${documentType === 'experiment' ? ' or @caemble/core/v3' : ''}.`,
+    )
   }
 
   const defaultExports = statements.filter((statement) => statement.type === 'ExportDefaultDeclaration')

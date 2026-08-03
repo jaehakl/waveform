@@ -9,6 +9,7 @@ import type {
 type WorkerMessageHandler = (event: MessageEvent<unknown>) => void
 
 const windowMessageHandlers: WorkerMessageHandler[] = []
+const frameReadyMessages: Array<Readonly<{ message: unknown; origin: string }>> = []
 
 class FakeWorker {
   static instances: FakeWorker[] = []
@@ -59,6 +60,11 @@ describe('isolated runner frame', () => {
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal('window', {
       location: { origin: 'http://127.0.0.1:5174', protocol: 'http:', port: '5174' },
+      parent: {
+        postMessage(message: unknown, origin: string) {
+          frameReadyMessages.push({ message, origin })
+        },
+      },
       addEventListener(type: string, handler: WorkerMessageHandler) {
         if (type === 'message') windowMessageHandlers.push(handler)
       },
@@ -75,6 +81,11 @@ describe('isolated runner frame', () => {
   })
 
   it('starts the model timeout phase only after the disposable Worker is ready', () => {
+    expect(frameReadyMessages).toEqual([
+      { message: { type: 'caemble-runner-frame-ready-v2' }, origin: 'http://127.0.0.1:5173' },
+      { message: { type: 'caemble-runner-frame-ready-v2' }, origin: 'http://localhost:5173' },
+      { message: { type: 'caemble-runner-frame-ready-v2' }, origin: 'http://[::1]:5173' },
+    ])
     const messages: unknown[] = []
     const port = {
       closed: false,

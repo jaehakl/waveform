@@ -14,7 +14,11 @@ import type {
   ResolvedExperimentSolver,
   Vars,
 } from '@/lib/cad'
-import { CadCompilationError, compileCadDocument } from '@/lib/cad'
+import {
+  CadCompilationError,
+  compileCadDocument,
+  simulateInIsolatedRunnerV3,
+} from '@/lib/cad'
 import { createPreparedEvaluationSession, evaluateInIsolatedRunner } from '@/lib/cad'
 import type { EvaluatedDocumentSnapshotV2 } from '@/lib/cad'
 import { applyFrozenMaterialParameters, buildRealizationV2 } from '@/lib/cad'
@@ -33,6 +37,12 @@ import type {
   SolverValidationIssue,
   SolverValidationResult,
 } from '@/lib/solver'
+import {
+  exportSimulationResultV3,
+  kernelModulesV3,
+  type SimulationProgramManifestV3,
+  type SimulationResultV3,
+} from '@/lib/simulation'
 import type { DraftSelection } from './groupDraft'
 
 export type AppStatus =
@@ -129,6 +139,7 @@ function useDocumentState({
   const [materialWarnings, setMaterialWarnings] = useState<readonly string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [solver, setSolver] = useState<ResolvedExperimentSolver | null>(null)
+  const [simulationProgram, setSimulationProgram] = useState<SimulationProgramManifestV3 | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [variables, setVariables] = useState<Readonly<Vars> | null>(null)
   const [varsSchema, setVarsSchema] = useState<EvaluatedDocumentSnapshotV2['varsSchema'] | null>(null)
@@ -213,6 +224,7 @@ function useDocumentState({
       setScene(null)
       setSelectedId(null)
       setSolver(null)
+      setSimulationProgram(null)
       setVariables(null)
       setVarsSchema(null)
       updateSuccessfulRevision(-1)
@@ -394,6 +406,7 @@ function useDocumentState({
       setVarsSchema(response.snapshot.varsSchema)
       setExperimentRules(response.snapshot.experimentRules ?? null)
       setSolver(response.snapshot.solver ?? null)
+      setSimulationProgram(response.snapshot.simulationProgram ?? null)
       updateSuccessfulRevision(response.revision)
       setSelectedId((current) => (resolveCadSceneSelection(runtimeScene, current) ? current : null))
     },
@@ -457,6 +470,7 @@ function useDocumentState({
       setDraftSelection,
       setSelectedId,
       solver,
+      simulationProgram,
       status,
       materialParameters: realization?.materialParameters ?? null,
       materialWarnings,
@@ -500,6 +514,8 @@ export type SimulationController = Readonly<{
   compatibility: SolverCompatibility
   process: SolverProcess
   provenance: SolverRunProvenanceV2 | null
+  programResult: SimulationResultV3 | null
+  exportProgramResult: () => string | null
   recordedData: RecordedData | null
   run: () => string | null
   stale: boolean
@@ -549,12 +565,14 @@ export function useCadWorkspace(
     >
   >({})
   const activeSolverRequestIdRef = useRef<string | null>(null)
+  const activeProgramCancelRef = useRef<(() => void) | null>(null)
   const solverStartedAtRef = useRef<number | null>(null)
   const recordedDataRef = useRef<RecordedData | null>(null)
   const preparedStructureRef = useRef<PreparedEvaluationState | null>(null)
   const resolveMaterialsRef = useRef(resolveMaterials)
   const [process, setProcess] = useState<SolverProcess>(idleSolverProcess)
   const [provenance, setProvenance] = useState<SolverRunProvenanceV2 | null>(null)
+  const [programResult, setProgramResult] = useState<SimulationResultV3 | null>(null)
   const [recordedData, setRecordedData] = useState<RecordedData | null>(null)
   const [stale, setStale] = useState(false)
   const [evaluationTimeoutMs, setEvaluationTimeoutMs] = useState<EvaluationTimeoutMs>(3000)
@@ -1023,6 +1041,7 @@ export function useCadWorkspace(
       recordedDataRef.current = response.recordedData
       setRecordedData(response.recordedData)
       setProvenance(response.provenance)
+      setProgramResult(null)
       const structureSnapshot = documentHandlersRef.current.structure?.getSnapshot()
       const experimentSnapshot = documentHandlersRef.current.experiment?.getSnapshot()
       setStale(
@@ -1082,6 +1101,23 @@ export function useCadWorkspace(
     setEvaluationTimeoutMs,
   )
   const compatibility = useMemo<SolverCompatibility>(() => {
+    const program = experimentState.controller.simulationProgram
+    if (program) {
+      const available = new Set(kernelModulesV3.map((module) => `${module.ref.name}@${module.ref.version}`))
+      const issues = Object.entries(program.tasks).flatMap(([taskName, kernel]) =>
+        available.has(`${kernel.name}@${kernel.version}`)
+          ? []
+          : [Object.freeze({
+              documentType: 'experiment' as const,
+              path: `tasks.${taskName}`,
+              message: `No kernel module is registered for ${kernel.name}@${kernel.version}.`,
+            })],
+      )
+      return Object.freeze({
+        status: issues.length === 0 ? 'compatible' as const : 'incompatible' as const,
+        issues: Object.freeze(issues),
+      })
+    }
     if (experimentState.controller.solver === null) {
       return Object.freeze({ status: 'unavailable', issues: Object.freeze([]) })
     }
@@ -1095,7 +1131,11 @@ export function useCadWorkspace(
       return Object.freeze({ status: 'checking', issues: Object.freeze([]) })
     }
     return Object.freeze({ status: 'compatible', issues: Object.freeze([]) })
-  }, [experimentState.controller.solver, preflight])
+  }, [
+    experimentState.controller.simulationProgram,
+    experimentState.controller.solver,
+    preflight,
+  ])
   const processActive = process.status === 'preparing' || process.status === 'running'
   const canRun =
     !processActive &&
@@ -1124,16 +1164,135 @@ export function useCadWorkspace(
     solverStartedAtRef.current = startedAt
     if (recordedDataRef.current) setStale(true)
     const solver = experimentState.controller.solver
+    const program = experimentState.controller.simulationProgram
     setProcess(
       Object.freeze({
         runId: requestId,
         status: 'preparing',
-        solver: solver ? Object.freeze({ name: solver.name, version: solver.version }) : null,
+        solver: program
+          ? Object.freeze({ name: 'experiment-program', version: '3' })
+          : solver
+            ? Object.freeze({ name: solver.name, version: solver.version })
+            : null,
         error: null,
         startedAt,
         finishedAt: null,
       }),
     )
+    if (program) {
+      const experimentDocument = experimentSnapshot.document
+      if (
+        !experimentDocument
+        || structureSnapshot.realization?.kind !== 'sample'
+        || experimentSnapshot.realization?.kind !== 'setup'
+      ) {
+        activeSolverRequestIdRef.current = null
+        setProcess(Object.freeze({
+          runId: requestId,
+          status: 'failed',
+          solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+          error: 'Current Structure and Experiment realizations are required.',
+          startedAt,
+          finishedAt: Date.now(),
+        }))
+        return requestId
+      }
+      void compileCadDocument(experimentDocument)
+        .then((compiledProject) => {
+          if (activeSolverRequestIdRef.current !== requestId) return
+          activeProgramCancelRef.current = simulateInIsolatedRunnerV3(
+            {
+              requestId,
+              structureRevision: structureSnapshot.revision,
+              experimentRevision: experimentSnapshot.revision,
+              compiledProject,
+              sample: structureSnapshot.realization as Extract<BuiltRealizationV2, { kind: 'sample' }>,
+              setup: experimentSnapshot.realization as Extract<BuiltRealizationV2, { kind: 'setup' }>,
+            },
+            {
+              onFailure(message) {
+                if (activeSolverRequestIdRef.current !== requestId) return
+                activeProgramCancelRef.current = null
+                activeSolverRequestIdRef.current = null
+                setProcess(Object.freeze({
+                  runId: requestId,
+                  status: 'failed',
+                  solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+                  error: message,
+                  startedAt,
+                  finishedAt: Date.now(),
+                }))
+              },
+              onStart() {
+                if (activeSolverRequestIdRef.current !== requestId) return
+                setProcess(Object.freeze({
+                  runId: requestId,
+                  status: 'running',
+                  solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+                  error: null,
+                  startedAt,
+                  finishedAt: null,
+                }))
+              },
+              onResponse(response) {
+                if (activeSolverRequestIdRef.current !== requestId) return
+                activeProgramCancelRef.current = null
+                activeSolverRequestIdRef.current = null
+                if (response.type === 'simulation-error-v3') {
+                  setProcess(Object.freeze({
+                    runId: requestId,
+                    status: 'failed',
+                    solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+                    error: response.message,
+                    startedAt,
+                    finishedAt: Date.now(),
+                  }))
+                  return
+                }
+                const latestRecordedData = Object.fromEntries(
+                  Object.entries(response.result.outputs).flatMap(([name, series]) => {
+                    const data = series.samples[series.samples.length - 1]?.data
+                    if (data === undefined) return []
+                    if (typeof data === 'object' && data !== null && 'value' in data) return [[name, data]]
+                    return [[name, Object.freeze({ value: data })]]
+                  }),
+                ) as RecordedData
+                recordedDataRef.current = latestRecordedData
+                setRecordedData(latestRecordedData)
+                setProgramResult(response.result)
+                setProvenance(null)
+                const currentStructure = documentHandlersRef.current.structure?.getSnapshot()
+                const currentExperiment = documentHandlersRef.current.experiment?.getSnapshot()
+                setStale(
+                  currentStructure?.revision !== response.structureRevision
+                  || currentExperiment?.revision !== response.experimentRevision,
+                )
+                setProcess(Object.freeze({
+                  runId: requestId,
+                  status: 'succeeded',
+                  solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+                  error: null,
+                  startedAt,
+                  finishedAt: Date.now(),
+                }))
+              },
+            },
+          )
+        })
+        .catch((error: unknown) => {
+          if (activeSolverRequestIdRef.current !== requestId) return
+          activeSolverRequestIdRef.current = null
+          setProcess(Object.freeze({
+            runId: requestId,
+            status: 'failed',
+            solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+            error: error instanceof Error ? error.message : String(error),
+            startedAt,
+            finishedAt: Date.now(),
+          }))
+        })
+      return requestId
+    }
     postRequest({
       type: 'run-solver',
       requestId,
@@ -1141,13 +1300,37 @@ export function useCadWorkspace(
       experimentRevision: experimentSnapshot.revision,
     })
     return requestId
-  }, [compatibility.status, experimentState.controller.solver, postRequest])
+  }, [
+    compatibility.status,
+    experimentState.controller.simulationProgram,
+    experimentState.controller.solver,
+    postRequest,
+  ])
 
   const cancel = useCallback(() => {
     const requestId = activeSolverRequestIdRef.current
     if (!requestId) return
+    if (activeProgramCancelRef.current || process.solver?.name === 'experiment-program') {
+      activeProgramCancelRef.current?.()
+      activeProgramCancelRef.current = null
+      activeSolverRequestIdRef.current = null
+      setProcess(Object.freeze({
+        runId: requestId,
+        status: 'cancelled',
+        solver: Object.freeze({ name: 'experiment-program', version: '3' }),
+        error: 'Simulation run was cancelled.',
+        startedAt: solverStartedAtRef.current,
+        finishedAt: Date.now(),
+      }))
+      return
+    }
     postRequest({ type: 'cancel-solver', requestId })
-  }, [postRequest])
+  }, [postRequest, process.solver?.name])
+
+  const exportProgramResult = useCallback(
+    () => (programResult ? exportSimulationResultV3(programResult) : null),
+    [programResult],
+  )
 
   const simulation: SimulationController = {
     canRun,
@@ -1155,6 +1338,8 @@ export function useCadWorkspace(
     compatibility,
     process,
     provenance,
+    programResult,
+    exportProgramResult,
     recordedData,
     run,
     stale,

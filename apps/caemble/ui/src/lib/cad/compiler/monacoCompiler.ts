@@ -15,6 +15,7 @@ import {
 
 const compilationCache = new Map<string, Promise<CompiledCadProjectV2>>()
 const maximumCompilationCacheEntries = 32
+const compilationTimeoutMs = 15_000
 
 export class CadCompilationError extends Error {
   readonly diagnostics: readonly CadDiagnosticV2[]
@@ -62,7 +63,11 @@ function assertProjectPolicy(document: CadSourceDocumentV2) {
   analyzeCadSourceV2(cadEntrySource(document), document.kind)
   Object.entries(document.files).forEach(([path, source]) => {
     staticCadSourceImportsV2(source).forEach((specifier) => {
-      if (specifier !== '@caemble/core/v2') resolveVirtualImport(path, specifier, document.files)
+      if (
+        specifier !== '@caemble/core/v2'
+        && specifier !== '@caemble/core/v3'
+        && specifier !== '@caemble/kernels/v1'
+      ) resolveVirtualImport(path, specifier, document.files)
     })
   })
 }
@@ -201,8 +206,8 @@ async function compile(document: CadSourceDocumentV2, sourceHash: string) {
 
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = window.setTimeout(() => {
-        reject(new CadCompilationError('compile', 'TypeScript compilation timed out after 5 seconds.'))
-      }, 5000)
+        reject(new CadCompilationError('compile', 'TypeScript compilation timed out after 15 seconds.'))
+      }, compilationTimeoutMs)
     })
     return await Promise.race([compilation(), timedOut])
   } finally {

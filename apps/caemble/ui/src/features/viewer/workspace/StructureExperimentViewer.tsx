@@ -236,6 +236,7 @@ export function StructureExperimentViewer({
               ) : (
                 <SolverSpecSheet
                   compatibility={solverCompatibility}
+                  simulationProgram={experimentDocument.simulationProgram}
                   solver={experimentDocument.solver}
                   spec={experimentDocument.solverSpec}
                 />

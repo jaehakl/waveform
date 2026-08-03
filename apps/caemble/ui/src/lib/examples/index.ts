@@ -4,6 +4,15 @@ import { shellCutawaysCode } from './shellCutaways'
 import { curvedEdgeCylinderArrayCode } from './curvedEdgeCylinderArray'
 import { curvedSurfaceSphereHcpArrayCode } from './curvedSurfaceSphereHcpArray'
 
+export {
+  CAEMBLE_PROGRAM_EXAMPLE_SEED,
+  caembleProgramExamples,
+  dcNotchedCurrentDensityExample,
+  dcResolutionStudyExample,
+  dcUniformBarExample,
+} from './programs'
+export type { CaembleProgramExample } from './programs'
+
 export type CaembleExample = Readonly<{
   id: string
   title: string

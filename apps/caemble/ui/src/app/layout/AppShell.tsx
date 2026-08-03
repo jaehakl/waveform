@@ -120,6 +120,7 @@ function pageTitle(pathname: string) {
   if (pathname === '/') return '홈'
   if (pathname.startsWith('/structures')) return 'Structures'
   if (pathname.startsWith('/experiments')) return 'Experiments'
+  if (pathname.startsWith('/examples')) return 'Examples Playground'
   if (pathname.startsWith('/measurements')) return 'Measurements'
   if (pathname.startsWith('/analysis')) return 'Analysis'
   if (pathname.startsWith('/materials')) return 'Materials'
@@ -139,7 +140,10 @@ export function AppShell() {
   const navigation = useNavigation()
   const pendingPathname = navigation.location?.pathname
   const displayedPathname = pendingPathname ?? location.pathname
-  const workspace = displayedPathname === '/structures' || displayedPathname === '/experiments'
+  const workspace =
+    displayedPathname === '/structures' ||
+    displayedPathname === '/experiments' ||
+    displayedPathname.startsWith('/examples')
   const segments = location.pathname.split('/').filter(Boolean)
   const pendingSegments = pendingPathname?.split('/').filter(Boolean)
   const pendingCatalog =

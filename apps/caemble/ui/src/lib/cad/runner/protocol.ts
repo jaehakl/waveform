@@ -2,6 +2,13 @@ import { assertCompiledCadProjectV2 } from '../compiler/types'
 import { assertEvaluatedDocumentSnapshotV2 } from '../execution/snapshotValidation'
 import { CadModelError } from '../model/errors'
 import type { CadEvaluationRequestV2, CadEvaluationResponseV2 } from '../worker/protocol'
+import {
+  assertBuiltRealizationV2,
+  type BuiltSampleV2,
+  type BuiltSetupV2,
+} from '../execution/realization'
+import type { SimulationResultV3 } from '../../simulation/types'
+import { assertSimulationResultV3 } from '../../simulation/validation'
 
 export type RunnerEvaluationEnvelopeV2 = Readonly<{
   type: 'caemble-runner-evaluate-v2'
@@ -64,6 +71,52 @@ export type RunnerPreparedSessionErrorEnvelopeV2 = Readonly<{
   message: string
 }>
 
+export type SimulationRunRequestV3 = Readonly<{
+  requestId: string
+  structureRevision: number
+  experimentRevision: number
+  compiledProject: CadEvaluationRequestV2['compiledProject']
+  sample: BuiltSampleV2
+  setup: BuiltSetupV2
+}>
+
+export type SimulationRunResponseV3 =
+  | Readonly<{
+      type: 'simulation-success-v3'
+      requestId: string
+      structureRevision: number
+      experimentRevision: number
+      result: SimulationResultV3
+    }>
+  | Readonly<{
+      type: 'simulation-error-v3'
+      requestId: string
+      structureRevision: number
+      experimentRevision: number
+      message: string
+      stack?: string
+    }>
+
+export type RunnerSimulationEnvelopeV3 = Readonly<{
+  type: 'caemble-runner-simulate-v3'
+  nonce: string
+  request: SimulationRunRequestV3
+}>
+
+export type RunnerSimulationStartedEnvelopeV3 = Readonly<{
+  type: 'caemble-runner-simulation-started-v3'
+  nonce: string
+  requestId: string
+  structureRevision: number
+  experimentRevision: number
+}>
+
+export type RunnerSimulationResultEnvelopeV3 = Readonly<{
+  type: 'caemble-runner-simulation-result-v3'
+  nonce: string
+  response: SimulationRunResponseV3
+}>
+
 function assertNonce(value: unknown) {
   if (typeof value !== 'string' || !/^[a-zA-Z0-9-]{16,128}$/.test(value)) {
     throw new CadModelError('Runner message nonce is invalid.')
@@ -87,6 +140,12 @@ function assertRequestIdentity(requestId: unknown, revision: unknown, path: stri
     (revision as number) < 0
   ) {
     throw new CadModelError(`${path} identity is invalid.`)
+  }
+}
+
+function assertRevision(value: unknown, path: string) {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new CadModelError(`${path} must be a non-negative safe integer.`)
   }
 }
 
@@ -367,4 +426,107 @@ export function assertRunnerEvaluationResultEnvelopeV2(
       throw new CadModelError(`result.response.diagnostics[${index}].range is reversed.`)
     }
   })
+}
+
+export function assertRunnerSimulationEnvelopeV3(value: unknown): asserts value is RunnerSimulationEnvelopeV3 {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new CadModelError('Runner simulation envelope must be an object.')
+  }
+  const envelope = value as Partial<RunnerSimulationEnvelopeV3>
+  assertOnlyKeys(value, ['type', 'nonce', 'request'], 'simulation')
+  if (envelope.type !== 'caemble-runner-simulate-v3') {
+    throw new CadModelError('Runner simulation envelope type is invalid.')
+  }
+  assertNonce(envelope.nonce)
+  if (typeof envelope.request !== 'object' || envelope.request === null || Array.isArray(envelope.request)) {
+    throw new CadModelError('Runner simulation request must be an object.')
+  }
+  assertOnlyKeys(
+    envelope.request,
+    ['requestId', 'structureRevision', 'experimentRevision', 'compiledProject', 'sample', 'setup'],
+    'simulation.request',
+  )
+  if (typeof envelope.request.requestId !== 'string' || !envelope.request.requestId) {
+    throw new CadModelError('Runner simulation request identity is invalid.')
+  }
+  assertRevision(envelope.request.structureRevision, 'simulation.request.structureRevision')
+  assertRevision(envelope.request.experimentRevision, 'simulation.request.experimentRevision')
+  assertCompiledCadProjectV2(envelope.request.compiledProject)
+  assertBuiltRealizationV2(envelope.request.sample)
+  assertBuiltRealizationV2(envelope.request.setup)
+  if (envelope.request.sample.kind !== 'sample' || envelope.request.setup.kind !== 'setup') {
+    throw new CadModelError('Runner simulation requires a Sample and Setup.')
+  }
+  if (envelope.request.setup.experiment.sourceHash !== envelope.request.compiledProject.sourceHash) {
+    throw new CadModelError('Runner simulation Experiment source hash does not match its compiled project.')
+  }
+}
+
+export function assertRunnerSimulationStartedEnvelopeV3(
+  value: unknown,
+): asserts value is RunnerSimulationStartedEnvelopeV3 {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new CadModelError('Runner simulation started envelope must be an object.')
+  }
+  const envelope = value as Partial<RunnerSimulationStartedEnvelopeV3>
+  assertOnlyKeys(
+    value,
+    ['type', 'nonce', 'requestId', 'structureRevision', 'experimentRevision'],
+    'simulationStarted',
+  )
+  if (
+    envelope.type !== 'caemble-runner-simulation-started-v3'
+    || typeof envelope.requestId !== 'string'
+    || !envelope.requestId
+  ) {
+    throw new CadModelError('Runner simulation started identity is invalid.')
+  }
+  assertNonce(envelope.nonce)
+  assertRevision(envelope.structureRevision, 'simulationStarted.structureRevision')
+  assertRevision(envelope.experimentRevision, 'simulationStarted.experimentRevision')
+}
+
+export function assertRunnerSimulationResultEnvelopeV3(
+  value: unknown,
+): asserts value is RunnerSimulationResultEnvelopeV3 {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new CadModelError('Runner simulation result envelope must be an object.')
+  }
+  const envelope = value as Partial<RunnerSimulationResultEnvelopeV3>
+  assertOnlyKeys(value, ['type', 'nonce', 'response'], 'simulationResult')
+  if (envelope.type !== 'caemble-runner-simulation-result-v3') {
+    throw new CadModelError('Runner simulation result type is invalid.')
+  }
+  assertNonce(envelope.nonce)
+  if (typeof envelope.response !== 'object' || envelope.response === null || Array.isArray(envelope.response)) {
+    throw new CadModelError('Runner simulation response must be an object.')
+  }
+  const response = envelope.response
+  if (typeof response.requestId !== 'string' || !response.requestId) {
+    throw new CadModelError('Runner simulation response identity is invalid.')
+  }
+  assertRevision(response.structureRevision, 'simulationResult.response.structureRevision')
+  assertRevision(response.experimentRevision, 'simulationResult.response.experimentRevision')
+  if (response.type === 'simulation-success-v3') {
+    assertOnlyKeys(
+      response,
+      ['type', 'requestId', 'structureRevision', 'experimentRevision', 'result'],
+      'simulationResult.response',
+    )
+    assertSimulationResultV3(response.result)
+    return
+  }
+  if (
+    response.type !== 'simulation-error-v3'
+    || typeof response.message !== 'string'
+    || response.message.length > 65_536
+    || (response.stack !== undefined && typeof response.stack !== 'string')
+  ) {
+    throw new CadModelError('Runner simulation error response is invalid.')
+  }
+  assertOnlyKeys(
+    response,
+    ['type', 'requestId', 'structureRevision', 'experimentRevision', 'message', 'stack'],
+    'simulationResult.response',
+  )
 }

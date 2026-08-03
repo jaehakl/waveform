@@ -5,10 +5,17 @@ import { assertEvaluatedDocumentSnapshotV2, serializeEvaluatedDocumentSnapshotV2
 import { cadSnapshotTransferables } from '../execution/meshValidation'
 import { runtimeDiagnostic } from '../execution/runtimeDiagnostics'
 import { CadModelError } from '../model/core'
+import { ExperimentProgramDefinitionV3 } from '../model/v3'
+import {
+  KernelRegistryV3,
+  kernelModulesV3,
+  runSimulationProgramV3,
+} from '../../simulation'
 import {
   assertRunnerEvaluationEnvelopeV2,
   assertRunnerPreparedEvaluationEnvelopeV2,
   assertRunnerPreparedSessionEnvelopeV2,
+  assertRunnerSimulationEnvelopeV3,
   type RunnerEvaluationResultEnvelopeV2,
   type RunnerPreparedSessionEnvelopeV2,
 } from './protocol'
@@ -17,6 +24,70 @@ let preparedEntry: ReturnType<typeof loadCompiledProject> | null = null
 let preparedSession: RunnerPreparedSessionEnvelopeV2 | null = null
 
 self.onmessage = (event: MessageEvent<unknown>) => {
+  if (
+    typeof event.data === 'object'
+    && event.data !== null
+    && 'type' in event.data
+    && event.data.type === 'caemble-runner-simulate-v3'
+  ) {
+    const envelope = event.data
+    let requestId = 'unknown'
+    let structureRevision = 0
+    let experimentRevision = 0
+    let nonce = 'invalid'
+    void Promise.resolve().then(async () => {
+      assertRunnerSimulationEnvelopeV3(envelope)
+      requestId = envelope.request.requestId
+      structureRevision = envelope.request.structureRevision
+      experimentRevision = envelope.request.experimentRevision
+      nonce = envelope.nonce
+      const entry = loadCompiledProject(envelope.request.compiledProject, 'experiment')
+      if (!(entry instanceof ExperimentProgramDefinitionV3)) {
+        throw new CadModelError('Simulation Run requires an Experiment imported from @caemble/core/v3.')
+      }
+      const definition = entry.createProgramRuntime(envelope.request.setup.experiment.variables)
+      if (
+        JSON.stringify(definition.manifest)
+        !== JSON.stringify(envelope.request.setup.experiment.simulationProgram)
+      ) {
+        throw new CadModelError('Simulation Program manifest changed after the evaluated preview snapshot.')
+      }
+      const result = await runSimulationProgramV3(
+        definition,
+        envelope.request.sample,
+        envelope.request.setup,
+        new KernelRegistryV3(kernelModulesV3),
+        new AbortController().signal,
+        requestId,
+      )
+      self.postMessage({
+        type: 'caemble-runner-simulation-result-v3',
+        nonce,
+        response: {
+          type: 'simulation-success-v3',
+          requestId,
+          structureRevision,
+          experimentRevision,
+          result,
+        },
+      })
+    }).catch((error: unknown) => {
+      self.postMessage({
+        type: 'caemble-runner-simulation-result-v3',
+        nonce,
+        response: {
+          type: 'simulation-error-v3',
+          requestId,
+          structureRevision,
+          experimentRevision,
+          message: error instanceof Error ? error.message : String(error),
+          ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
+        },
+      })
+    })
+    return
+  }
+
   if (
     typeof event.data === 'object' &&
     event.data !== null &&

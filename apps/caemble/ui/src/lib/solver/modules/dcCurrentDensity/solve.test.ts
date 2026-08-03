@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Fragment, h } from '../../../cad/evaluation/jsx'
 import { Material } from '../../../cad/model/core'
 import { experiment, structure } from '../../../cad/model/v2'
+import { experiment as experimentV3 } from '../../../cad/model/v3'
 import { evaluateDocumentEntry } from '../../../cad/execution/userModule'
 import { serializeEvaluatedDocumentSnapshotV2 } from '../../../cad/execution/snapshot'
 import { buildSourceOnlyRealizationV2, type BuiltSampleV2, type BuiltSetupV2 } from '../../../cad/execution/realization'
@@ -9,6 +10,13 @@ import type { EvaluatedDocumentSnapshotV2 } from '../../../cad/execution/snapsho
 import type { Rotation, Vec3 } from '../../../cad/model/types'
 import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
 import type { CartesianBasis } from '../../../quantitykind/runtime'
+import {
+  dcCurrentDensityKernel,
+  dcCurrentDensityKernelRef,
+  defineTask,
+  KernelRegistryV3,
+  runSimulationProgramV3,
+} from '../../../simulation'
 import { SolverController } from '../../controller'
 import type { SolverModule } from '../../types'
 import { dcCurrentDensitySolver } from '.'
@@ -301,6 +309,109 @@ async function runPair(pair: ReturnType<typeof createDcPair>) {
 }
 
 describe('dc-current-density@0.0.0', () => {
+  it('runs through a v3 named task and records the requested artifact', async () => {
+    const pair = createDcPair()
+    const structureSnapshot = evaluatePair(pair).structureSnapshot
+    const solveCurrent = defineTask(dcCurrentDensityKernelRef, () => ({
+      parameters: {
+        relativeTolerance: {
+          dtype: 'float64',
+          value: 1e-10,
+          unit: '{fraction}',
+          quantityKind: 'DimensionlessRatio',
+        },
+        maxIterations: 1000,
+      },
+      initializations: [{
+        target: ['structure.geometry.conductor'],
+        methodId: 'dc.voxel-grid',
+        parameters: {
+          gridShape: {
+            dtype: 'int32',
+            axes: [{ length: 3 }],
+            value: [20, 11, 11],
+          },
+        },
+      }],
+      boundaryConditions: [
+        {
+          target: ['structure.surface.sourceTerminal'],
+          methodId: 'dc.source-potential',
+          parameters: {
+            voltage: {
+              dtype: 'float64',
+              value: 1,
+              unit: 'mV',
+              quantityKind: 'electromagnetism.Voltage',
+            },
+          },
+        },
+        {
+          target: ['structure.surface.referenceTerminal'],
+          methodId: 'dc.reference-potential',
+          parameters: {
+            voltage: {
+              dtype: 'float64',
+              value: 0,
+              unit: 'mV',
+              quantityKind: 'electromagnetism.Voltage',
+            },
+          },
+        },
+      ],
+      recordedData: [{
+        key: 'totalCurrent',
+        target: ['structure.geometry.conductor'],
+        methodId: 'dc.total-current',
+        parameters: {
+          crossSectionPosition: {
+            dtype: 'float64',
+            value: 0.5,
+            unit: '{fraction}',
+            quantityKind: 'DimensionlessRatio',
+          },
+        },
+      }],
+    }) as const)
+    function Probe() {
+      return h('box', { size: [1, 1, 1] })
+    }
+    const program = experimentV3({
+      lengthUnit: 'mm',
+      varsSchema: {},
+      geometry: () => h(Probe, { id: 'probe' }),
+      tasks: { solveCurrent },
+      outputs: {
+        totalCurrent: {
+          dtype: 'float64',
+          unit: 'A',
+          quantityKind: 'electromagnetism.ElectricCurrent',
+        },
+      },
+      simulate: async ({ sim, tasks, initialState }) => {
+        const result = await sim.run(tasks.solveCurrent, { state: initialState })
+        sim.record('totalCurrent', result.artifacts.totalCurrent)
+        return result.state
+      },
+    })
+    const experimentSnapshot = serializeEvaluatedDocumentSnapshotV2(
+      evaluateDocumentEntry(program, 'experiment', '6'.repeat(64), 107),
+    )
+    const result = await runSimulationProgramV3(
+      program.createProgramRuntime(experimentSnapshot.variables),
+      sample(structureSnapshot),
+      setup(experimentSnapshot),
+      new KernelRegistryV3([dcCurrentDensityKernel]),
+      new AbortController().signal,
+      'dc-v3-bridge',
+    )
+
+    expect((result.outputs.totalCurrent.samples[0].data as { value: number }).value).toBeCloseTo(14.9, 9)
+    expect(result.trace.map((entry) => entry.kernel)).toEqual([
+      { name: 'dc-current-density', version: '0.0.0' },
+    ])
+  })
+
   it('converges to the uniform-bar analytic heatmap and total current in SI units', async () => {
     const result = await runPair(createDcPair())
     const heatmap = result['Current density'].value as Vec3[][]

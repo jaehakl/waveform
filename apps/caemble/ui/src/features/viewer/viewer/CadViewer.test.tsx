@@ -122,4 +122,50 @@ describe('CadViewer', () => {
     expect(markup).toContain('id="viewer-results-tab"')
     expect(markup).toContain('>Results</button>')
   })
+
+  it('uses a v3 program output manifest as the Results schema', () => {
+    const markup = renderToStaticMarkup(
+      <CadViewer
+        experiment={{ scene: experimentScene, variables: {} }}
+        recordedData={{ totalCurrent: { value: 14.9 } }}
+        selected={null}
+        simulation={{
+          canRun: false,
+          cancel: () => undefined,
+          compatibility: { status: 'compatible', issues: [] },
+          process: {
+            runId: null,
+            status: 'idle',
+            solver: null,
+            error: null,
+            startedAt: null,
+            finishedAt: null,
+          },
+          program: {
+            version: 3,
+            tasks: {
+              solveCurrent: { name: 'dc-current-density', version: '0.0.0' },
+            },
+            outputs: {
+              totalCurrent: {
+                dtype: 'float64',
+                unit: 'A',
+                quantityKind: 'electromagnetism.ElectricCurrent',
+              },
+            },
+          },
+          run: () => null,
+          solver: { name: 'experiment-program', version: '3' },
+          stale: false,
+        }}
+        structure={null}
+        onRenderEnd={() => undefined}
+        onRenderError={() => undefined}
+        onRenderStart={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('id="viewer-results-tab"')
+    expect(markup).toContain('>Results</button>')
+  })
 })

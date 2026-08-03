@@ -13,14 +13,14 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'npm run dev:app -- --port 4173',
+      command: 'npm run dev:app -- --port 4173 --host 127.0.0.1',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: true,
       timeout: 120_000,
     },
     {
-      command: 'npm run dev:runner -- --port 4174',
-      url: 'http://127.0.0.1:4174/runner.html',
+      command: 'npm run dev:runner -- --port 4174 --host localhost',
+      url: 'http://localhost:4174/runner.html',
       reuseExistingServer: true,
       timeout: 120_000,
     },

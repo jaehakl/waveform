@@ -199,3 +199,36 @@ test('saves a Structure definition before a Ready Sample realization', async ({ 
   await expect(page).toHaveURL(/sample=202/)
   expect(selectWarnings).toEqual([])
 })
+
+test('runs the verified v3 uniform-bar example through the Playground', async ({ page }) => {
+  test.setTimeout(90_000)
+  const pageErrors: string[] = []
+  const consoleProblems: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  page.on('console', (message) => {
+    if (message.type() === 'error' || selectControlWarning.test(message.text())) {
+      consoleProblems.push(message.text())
+    }
+  })
+  await mockApi(page)
+
+  await page.goto('/examples/dc-uniform-bar')
+  await expect(page.getByRole('heading', { name: 'DC Uniform Bar' })).toBeVisible()
+
+  const run = page.getByRole('button', { name: 'Run simulation' })
+  await expect(run).toBeEnabled({ timeout: 60_000 })
+  await run.click()
+
+  await expect(page.getByLabel('Simulation status: succeeded')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByText(/Program trace · 1 kernel call/)).toBeVisible()
+  await page.getByRole('tab', { name: 'Results' }).click()
+  await expect(page.getByLabel('Recorded scalar value')).toContainText('14.9')
+  await expect(page.getByLabel('Recorded scalar value')).toContainText('A')
+
+  expect(pageErrors).toEqual([])
+  expect(
+    consoleProblems.filter(
+      (message) => message !== 'Failed to load resource: the server responded with a status of 401 (Unauthorized)',
+    ),
+  ).toEqual([])
+})

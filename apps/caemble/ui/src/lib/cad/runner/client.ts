@@ -4,11 +4,16 @@ import {
   assertRunnerEvaluationResultEnvelopeV2,
   assertRunnerPreparedSessionErrorEnvelopeV2,
   assertRunnerPreparedSessionReadyEnvelopeV2,
+  assertRunnerSimulationResultEnvelopeV3,
+  assertRunnerSimulationStartedEnvelopeV3,
   type RunnerCancelEnvelopeV2,
   type RunnerEvaluationEnvelopeV2,
   type RunnerPreparedEvaluationEnvelopeV2,
   type RunnerPreparedEvaluationRequestV2,
   type RunnerPreparedSessionEnvelopeV2,
+  type RunnerSimulationEnvelopeV3,
+  type SimulationRunRequestV3,
+  type SimulationRunResponseV3,
 } from './protocol'
 
 type EvaluationCallbacks = Readonly<{
@@ -23,6 +28,12 @@ type PreparedEvaluationCallbacks = Readonly<{
   onResponse: (response: CadEvaluationResponseV2) => void
 }>
 
+type SimulationCallbacksV3 = Readonly<{
+  onFailure: (message: string) => void
+  onResponse: (response: SimulationRunResponseV3) => void
+  onStart: () => void
+}>
+
 export type PreparedEvaluationSession = Readonly<{
   dispose: () => void
   evaluate: (request: RunnerPreparedEvaluationRequestV2) => void
@@ -30,6 +41,7 @@ export type PreparedEvaluationSession = Readonly<{
 
 let runnerFrame: Promise<Readonly<{ frame: HTMLIFrameElement; origin: string }>> | null = null
 const runnerStartupTimeoutMs = 10_000
+const simulationExecutionTimeoutMs = 30_000
 
 function runnerLocation() {
   const configuredOrigin = import.meta.env.VITE_CAEMBLE_RUNNER_ORIGIN?.trim()
@@ -67,11 +79,30 @@ function loadRunnerFrame() {
     frame.setAttribute('aria-hidden', 'true')
     frame.setAttribute('sandbox', 'allow-scripts allow-same-origin')
     frame.referrerPolicy = 'no-referrer'
+    const handleReady = (event: MessageEvent<unknown>) => {
+      if (
+        event.source !== frame.contentWindow
+        || event.origin !== url.origin
+        || typeof event.data !== 'object'
+        || event.data === null
+        || Array.isArray(event.data)
+        || !('type' in event.data)
+        || event.data.type !== 'caemble-runner-frame-ready-v2'
+        || Object.keys(event.data).length !== 1
+      ) {
+        return
+      }
+      window.removeEventListener('message', handleReady)
+      frame.removeEventListener('error', handleError)
+      resolve(Object.freeze({ frame, origin: url.origin }))
+    }
+    const handleError = () => {
+      window.removeEventListener('message', handleReady)
+      reject(new Error('The isolated CAD runner could not be loaded.'))
+    }
+    window.addEventListener('message', handleReady)
+    frame.addEventListener('error', handleError, { once: true })
     frame.src = url.href
-    frame.addEventListener('load', () => resolve(Object.freeze({ frame, origin: url.origin })), { once: true })
-    frame.addEventListener('error', () => reject(new Error('The isolated CAD runner could not be loaded.')), {
-      once: true,
-    })
     document.body.append(frame)
   }).catch((error) => {
     runnerFrame = null
@@ -177,6 +208,124 @@ export function evaluateInIsolatedRunner(request: CadEvaluationRequestV2, callba
   return () => {
     cancelled = true
     window.clearTimeout(startupTimeout)
+    if (!port) return
+    const cancel: RunnerCancelEnvelopeV2 = { type: 'caemble-runner-cancel-v2', nonce }
+    port.postMessage(cancel)
+    port.close()
+    port = null
+  }
+}
+
+export function simulateInIsolatedRunnerV3(request: SimulationRunRequestV3, callbacks: SimulationCallbacksV3) {
+  const nonce = crypto.randomUUID()
+  let cancelled = false
+  let port: MessagePort | null = null
+  let started = false
+  let executionTimeout = 0
+  const startupTimeout = window.setTimeout(() => {
+    if (cancelled || started) return
+    cancelled = true
+    if (port) {
+      const cancel: RunnerCancelEnvelopeV2 = { type: 'caemble-runner-cancel-v2', nonce }
+      port.postMessage(cancel)
+      port.close()
+      port = null
+    }
+    callbacks.onFailure(`The isolated Simulation runner did not initialize within ${runnerStartupTimeoutMs / 1000} seconds.`)
+  }, runnerStartupTimeoutMs)
+
+  void loadRunnerFrame()
+    .then(({ frame, origin }) => {
+      if (cancelled) return
+      const targetWindow = frame.contentWindow
+      if (!targetWindow) throw new Error('The isolated Simulation runner window is unavailable.')
+      const channel = new MessageChannel()
+      port = channel.port1
+      channel.port1.onmessage = (event: MessageEvent<unknown>) => {
+        if (cancelled) return
+        let keepPortOpen = false
+        try {
+          if (
+            typeof event.data === 'object'
+            && event.data !== null
+            && 'type' in event.data
+            && event.data.type === 'caemble-runner-simulation-started-v3'
+          ) {
+            assertRunnerSimulationStartedEnvelopeV3(event.data)
+            if (
+              started
+              || event.data.nonce !== nonce
+              || event.data.requestId !== request.requestId
+              || event.data.structureRevision !== request.structureRevision
+              || event.data.experimentRevision !== request.experimentRevision
+            ) {
+              throw new Error('The isolated Simulation runner start identity is invalid.')
+            }
+            started = true
+            window.clearTimeout(startupTimeout)
+            executionTimeout = window.setTimeout(() => {
+              if (cancelled || !port) return
+              cancelled = true
+              const cancel: RunnerCancelEnvelopeV2 = { type: 'caemble-runner-cancel-v2', nonce }
+              port.postMessage(cancel)
+              port.close()
+              port = null
+              callbacks.onFailure(
+                `The Simulation run exceeded its ${simulationExecutionTimeoutMs / 1000} second execution budget.`,
+              )
+            }, simulationExecutionTimeoutMs)
+            callbacks.onStart()
+            keepPortOpen = true
+            return
+          }
+          assertRunnerSimulationResultEnvelopeV3(event.data)
+          if (
+            event.data.nonce !== nonce
+            || event.data.response.requestId !== request.requestId
+            || event.data.response.structureRevision !== request.structureRevision
+            || event.data.response.experimentRevision !== request.experimentRevision
+          ) {
+            throw new Error('The isolated Simulation runner response identity is invalid.')
+          }
+          callbacks.onResponse(event.data.response)
+        } catch (error) {
+          callbacks.onFailure(error instanceof Error ? error.message : String(error))
+        } finally {
+          if (!keepPortOpen) {
+            window.clearTimeout(startupTimeout)
+            window.clearTimeout(executionTimeout)
+            channel.port1.close()
+            port = null
+          }
+        }
+      }
+      channel.port1.onmessageerror = () => {
+        window.clearTimeout(startupTimeout)
+        window.clearTimeout(executionTimeout)
+        callbacks.onFailure('The isolated Simulation runner response could not be decoded.')
+        channel.port1.close()
+        port = null
+      }
+      channel.port1.start()
+      const envelope: RunnerSimulationEnvelopeV3 = {
+        type: 'caemble-runner-simulate-v3',
+        nonce,
+        request,
+      }
+      targetWindow.postMessage(envelope, origin, [channel.port2])
+    })
+    .catch((error: unknown) => {
+      if (!cancelled) {
+        window.clearTimeout(startupTimeout)
+        window.clearTimeout(executionTimeout)
+        callbacks.onFailure(error instanceof Error ? error.message : String(error))
+      }
+    })
+
+  return () => {
+    cancelled = true
+    window.clearTimeout(startupTimeout)
+    window.clearTimeout(executionTimeout)
     if (!port) return
     const cancel: RunnerCancelEnvelopeV2 = { type: 'caemble-runner-cancel-v2', nonce }
     port.postMessage(cancel)

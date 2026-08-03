@@ -820,9 +820,24 @@ export function ExperimentPage() {
           <span className="w-px bg-border group-hover:bg-neutral-400" />
         </div>
         <CadViewer
-          structure={structureViewerDocument}
-          selected={viewerSelection}
           experiment={experimentViewerDocument}
+          recordedData={simulation.recordedData}
+          selected={viewerSelection}
+          simulation={{
+            canRun: simulation.canRun,
+            cancel: simulation.cancel,
+            compatibility: simulation.compatibility,
+            exportProgramResult: simulation.exportProgramResult,
+            process: simulation.process,
+            program: experimentDocument.simulationProgram,
+            programResult: simulation.programResult,
+            run: simulation.run,
+            solver: experimentDocument.simulationProgram
+              ? { name: 'experiment-program', version: '3' }
+              : experimentDocument.solver,
+            stale: simulation.stale,
+          }}
+          structure={structureViewerDocument}
           onRenderEnd={handleRenderEnd}
           onRenderError={handleRenderError}
           onRenderStart={handleRenderStart}

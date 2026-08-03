@@ -15,6 +15,16 @@ export type {
 } from './evaluation/types'
 export { CadModelError, Mat, Material, isFloatDType } from './model/core'
 export { experiment, ExperimentDefinitionV2, structure, StructureDefinitionV2 } from './model/v2'
+export {
+  experiment as experimentV3,
+  ExperimentProgramDefinitionV3,
+} from './model/v3'
+export type {
+  ExperimentProgramOptionsV3,
+  InferVarsV3,
+  ModelContextV3,
+  VarsSchemaDefinitionV3,
+} from './model/v3'
 export type {
   CadDefinitionV2,
   ExperimentDefinitionOptions,
@@ -120,8 +130,16 @@ export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/reco
 export type { ResolvedRecordedTensor } from './model/recordedData'
 export { CadCompilationError, compileCadDocument } from './compiler/monacoCompiler'
 export { cadSemanticHash, compiledCadSemanticHash, rawCodeHash } from './compiler/semanticHash'
-export { createPreparedEvaluationSession, evaluateInIsolatedRunner } from './runner/client'
+export {
+  createPreparedEvaluationSession,
+  evaluateInIsolatedRunner,
+  simulateInIsolatedRunnerV3,
+} from './runner/client'
 export type { PreparedEvaluationSession } from './runner/client'
+export type {
+  SimulationRunRequestV3,
+  SimulationRunResponseV3,
+} from './runner/protocol'
 export { StructureGroupSyncError, updateModelGroupSource } from './source/structureGroups'
 export type { StructureGroupProperty } from './source/structureGroups'
 export { inspectExperimentTensorSource, updateExperimentTensorSource } from './source/experimentParameters'

@@ -14,11 +14,17 @@ import {
   type CadDefinitionV2,
   type ExternalVars,
 } from '../model/v2'
+import {
+  experiment as experimentV3,
+  ExperimentProgramDefinitionV3,
+  type ExperimentProgramEntryV3,
+} from '../model/v3'
 import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
 import type { CadDocumentType } from '../worker/protocol'
 import type { EvaluatedRuntimeDocumentSnapshotV2 } from './snapshot'
 import { assertCompiledCadProjectV2, type CompiledCadProjectV2 } from '../compiler/types'
+import { dcCurrentDensityKernelRef, defineTask } from '../../simulation'
 
 const coreModuleV2 = Object.freeze({
   experiment,
@@ -27,14 +33,25 @@ const coreModuleV2 = Object.freeze({
   structure,
 })
 
+const coreModuleV3 = Object.freeze({
+  defineTask,
+  experiment: experimentV3,
+  Mat,
+  Material,
+})
+
+const kernelsModuleV1 = Object.freeze({
+  dcCurrentDensity: dcCurrentDensityKernelRef,
+})
+
 export type CadExecutionResult = EvaluatedRuntimeDocumentSnapshotV2
-export type CadDocumentEntry = CadDefinitionV2
+export type CadDocumentEntry = CadDefinitionV2 | ExperimentProgramEntryV3
 
 export function requireCaembleModule(specifier: string) {
-  if (specifier !== '@caemble/core/v2') {
-    throw new CadModelError(`Only @caemble/core/v2 can be imported. Received: ${specifier}`)
-  }
-  return coreModuleV2
+  if (specifier === '@caemble/core/v2') return coreModuleV2
+  if (specifier === '@caemble/core/v3') return coreModuleV3
+  if (specifier === '@caemble/kernels/v1') return kernelsModuleV1
+  throw new CadModelError(`Unsupported Caemble runtime import: ${specifier}`)
 }
 
 export function loadCompiledCode(jsCode: string, documentType: CadDocumentType): CadDocumentEntry {
@@ -54,8 +71,8 @@ export function loadCompiledCode(jsCode: string, documentType: CadDocumentType):
 
 function assertDocumentEntry(entry: unknown, documentType: CadDocumentType): CadDocumentEntry {
   if (documentType === 'experiment') {
-    if (!(entry instanceof ExperimentDefinitionV2)) {
-      throw new CadModelError('Experiment Source must export default experiment({...}).')
+    if (!(entry instanceof ExperimentDefinitionV2) && !(entry instanceof ExperimentProgramDefinitionV3)) {
+      throw new CadModelError('Experiment Source must export default experiment({...}) from core/v2 or core/v3.')
     }
     return entry
   }
@@ -97,7 +114,11 @@ export function loadCompiledProject(project: CompiledCadProjectV2, documentType:
     const module: { exports: unknown } = { exports }
     cache.set(path, exports)
     const localRequire = (specifier: string) => {
-      if (specifier === '@caemble/core/v2') return coreModuleV2
+      if (
+        specifier === '@caemble/core/v2'
+        || specifier === '@caemble/core/v3'
+        || specifier === '@caemble/kernels/v1'
+      ) return requireCaembleModule(specifier)
       if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
         throw new CadModelError(`Compiled CAD import is not allowed: ${specifier}`)
       }
@@ -137,8 +158,33 @@ export function evaluateDocumentEntry(
   }
 
   if (documentType === 'experiment') {
+    if (entry instanceof ExperimentProgramDefinitionV3) {
+      const variables = entry.resolveExternal(partialVars, seed)
+      return evaluateWithVars(
+        variables,
+        () => Object.freeze({
+          kind: 'experiment' as const,
+          sourceHash,
+          apiVersion: 2 as const,
+          seed,
+          scene: evaluateCadScene(
+            entry.evaluateResolvedGeometry(variables),
+            {
+              geometryGroup: entry.geometryGroup,
+              surfaceGroup: entry.surfaceGroup,
+            },
+            'Experiment',
+            entry.lengthUnit,
+          ),
+          variables,
+          varsSchema: entry.varsSchema,
+          simulationProgram: entry.manifest,
+        }),
+        seed,
+      )
+    }
     if (!(entry instanceof ExperimentDefinitionV2)) {
-      throw new CadModelError('Experiment Source must export default experiment({...}).')
+      throw new CadModelError('Experiment Source must export default experiment({...}) from core/v2 or core/v3.')
     }
     const variables = entry.resolveExternal(partialVars, seed)
     const experimentModel = entry.createRuntimeFromResolved(variables)

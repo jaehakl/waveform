@@ -3,6 +3,7 @@ import { transform } from 'esbuild'
 import { booleans, geometries, measurements } from '@jscad/modeling'
 import { defaultCode } from '../../defaultCode'
 import { defaultExperimentCode } from '../../defaultExperimentCode'
+import { defaultExperimentProgramCode } from '../../defaultExperimentProgramCode'
 import { caembleExamples } from '../../examples'
 import { SolverController } from '../../solver'
 import { dcCurrentDensitySolver } from '../../solver/modules/dcCurrentDensity'
@@ -181,6 +182,39 @@ describe('compiled user module execution', () => {
       geometryIds: ['source-electrode', 'reference-electrode'],
     })
     expect(scene.surfaceGroups).toEqual([])
+  })
+
+  it('evaluates a v3 Experiment Program manifest without exposing kernel implementations', async () => {
+    expect(requireCaembleModule('@caemble/core/v3')).toHaveProperty('defineTask')
+    expect(requireCaembleModule('@caemble/kernels/v1')).toHaveProperty('dcCurrentDensity')
+    expect(requireCaembleModule('@caemble/kernels/v1')).not.toHaveProperty('execute')
+    const compiled = await transform(defaultExperimentProgramCode, {
+      format: 'cjs',
+      jsxFactory: 'h',
+      jsxFragment: 'Fragment',
+      loader: 'tsx',
+      platform: 'browser',
+      target: 'es2020',
+    })
+    const execution = executeCompiledCode(compiled.code, 'experiment', 'c'.repeat(64), 17)
+    const snapshot = serializeEvaluatedDocumentSnapshotV2(execution)
+
+    expect(() => assertEvaluatedDocumentSnapshotV2(snapshot)).not.toThrow()
+    expect(snapshot).not.toHaveProperty('experimentRules')
+    expect(snapshot).not.toHaveProperty('solver')
+    expect(snapshot.simulationProgram).toEqual({
+      version: 3,
+      tasks: {
+        solveCurrent: { name: 'dc-current-density', version: '0.0.0' },
+      },
+      outputs: {
+        totalCurrent: {
+          dtype: 'float64',
+          unit: 'A',
+          quantityKind: 'electromagnetism.ElectricCurrent',
+        },
+      },
+    })
   })
 
   it('compiles and evaluates the editor default TSX through the Worker module format', async () => {
@@ -458,9 +492,9 @@ describe('compiled user module execution', () => {
     }
   })
 
-  it('rejects direct module loads outside @caemble/core/v2', () => {
-    expect(() => requireCaembleModule('./Core')).toThrow('Only @caemble/core/v2 can be imported')
-    expect(() => executeCompiledCode(`require('other-package')`)).toThrow('Only @caemble/core/v2 can be imported')
+  it('rejects direct module loads outside registered Caemble capabilities', () => {
+    expect(() => requireCaembleModule('./Core')).toThrow('Unsupported Caemble runtime import')
+    expect(() => executeCompiledCode(`require('other-package')`)).toThrow('Unsupported Caemble runtime import')
   })
 
   it('loads relative modules inside one validated compiled virtual project', () => {

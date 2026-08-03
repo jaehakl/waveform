@@ -2,7 +2,7 @@
 
 Caemble UI는 React 19, React Router Data Mode, Tailwind CSS v4로 구성된 페이지 중심 웹앱이다. 홈과 공개 Structure/Experiment, 읽기 전용 카탈로그, 문서는 로그인 없이 열람할 수 있고 저장 기능은 Google OAuth 로그인이 필요하다. TSX는 Structure/Experiment 정의의 source of truth이며 preview와 solver는 격리된 runner가 만든 immutable v2 snapshot을 사용한다.
 
-주요 URL은 `/`, `/structures`, `/experiments`, `/measurements`, `/materials`, `/catalog/cad`, `/catalog/materials`, `/catalog/quantity-kinds`, `/catalog/solvers`, `/docs`, `/login`, `/account`다. 기존 `/viewer`와 `/#viewer`는 `/structures?structure=new&mode=code`로 이동하고, `/#help`는 `/docs`로 이동한다.
+주요 URL은 `/`, `/structures`, `/experiments`, `/examples/:exampleId?`, `/measurements`, `/materials`, `/catalog/cad`, `/catalog/materials`, `/catalog/quantity-kinds`, `/catalog/solvers`, `/docs`, `/login`, `/account`다. 기존 `/viewer`와 `/#viewer`는 `/structures?structure=new&mode=code`로 이동하고, `/#help`는 `/docs`로 이동한다.
 
 코드 구조는 다음 경계를 따른다.
 
@@ -89,6 +89,12 @@ export default experiment({
 ```
 
 The lowercase functions create model definitions; they are not JSX components or class constructors. v2 does not expose `Structure`, `Experiment`, `Sample`, `Setup`, `VariableObject`, or a global `vars` binding to Source code. `varsSchema` infers scalar and tuple/tensor shapes, so ordinary `vars` access does not need `as number` or `as Vec3` casts.
+
+## Experiment Program v3
+
+v3 Experiment는 `@caemble/core/v3`의 `defineTask()`와 `experiment()`를 사용해 named kernel task를 조합한다. 현재 `@caemble/kernels/v1`은 실제 제품 capability로 `dcCurrentDensity`를 제공한다. Structure는 계속 `@caemble/core/v2`로 작성한다.
+
+상세 저작 규칙, state/artifact 전달, output 기록, DC method 계약과 문제 해결 방법은 [Experiment Program v3 저작 가이드](./docs/experiment-program-v3.md)에 정리되어 있다. `/examples` Playground의 세 Structure–Experiment pair는 문서, TypeScript 검사, source-policy 검사, 실제 DC kernel 통합 테스트가 같은 source fixture를 사용한다.
 
 Every geometry, solver, and rule callback receives the same frozen `{ vars }` context for one evaluation. Module-level helpers may accept values from that context, but cannot read a global `vars` value.
 
