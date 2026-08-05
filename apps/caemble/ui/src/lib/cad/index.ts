@@ -1,6 +1,5 @@
 export { evaluateCad, evaluateCadScene } from './evaluation/evaluator'
 export { cadElementCatalog } from './catalog'
-export { resolveCadSceneDraftSelection, resolveCadSceneSelection } from './evaluation/selection'
 export { applyCadSceneGroups } from './evaluation/groups'
 export { Fragment, h } from './evaluation/jsx'
 export type {
@@ -8,7 +7,6 @@ export type {
   CadSceneGroup,
   CadSceneMaterial,
   CadScenePart,
-  CadSceneSelection,
   CadSceneSurface,
   CadSceneTreeNode,
 } from './evaluation/types'
@@ -107,8 +105,6 @@ export {
 export type { BuiltRealization, BuiltSample, BuiltSetup } from './execution/realization'
 export { assertSerializableCadScene, deserializeCadScene, serializeCadScene } from './execution/mesh'
 export type { SerializableCadMesh, SerializableCadScene, SerializableCadScenePart } from './execution/mesh'
-export { StaleCadSourcePatchError, applyCadSourcePatch, createCadSourcePatch } from './source/sourcePatch'
-export type { CadSourcePatch, CadSourceTextEdit } from './source/sourcePatch'
 export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/recordedData'
 export type { ResolvedRecordedTensor } from './model/recordedData'
 export { CadCompilationError, compileCadDocument } from './compiler/monacoCompiler'
@@ -126,8 +122,6 @@ export type {
   SimulationRunRequest,
   SimulationRunResponse,
 } from './runner/protocol'
-export { StructureGroupSyncError, updateModelGroupSource } from './source/structureGroups'
-export type { StructureGroupProperty } from './source/structureGroups'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { BooleanAttributes } from './elements/operations/booleans/definition'
 export type { ShellAttributes } from './elements/operations/shell/definition'

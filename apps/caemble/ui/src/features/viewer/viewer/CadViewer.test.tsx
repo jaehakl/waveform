@@ -44,7 +44,6 @@ describe('CadViewer', () => {
     const markup = renderToStaticMarkup(
       <CadViewer
         experiment={{ scene: experimentScene, variables: { duration: 1 } }}
-        selected={null}
         structure={{ scene: structureScene, variables: { width: 2 } }}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
@@ -62,7 +61,6 @@ describe('CadViewer', () => {
     const markup = renderToStaticMarkup(
       <CadViewer
         experiment={null}
-        selected={null}
         structure={{ scene: null, variables: null }}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
@@ -115,7 +113,6 @@ describe('CadViewer', () => {
       <CadViewer
         experiment={{ scene: experimentScene, variables: {} }}
         recordedData={{ currentDensity: { value: [1, 2, 3] } }}
-        selected={null}
         structure={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
@@ -135,7 +132,6 @@ describe('CadViewer', () => {
           measuredCurrent: { value: 14.9 },
           currentDensity: { value: [1, 2, 3] },
         }}
-        selected={null}
         simulation={{
           canRun: false,
           cancel: () => undefined,

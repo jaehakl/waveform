@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Material } from '../model/core'
-import { Fragment, evaluateCadScene, h, resolveCadSceneSelection } from '../index'
-import { resolveCadSceneDraftSelection } from './selection'
+import { Fragment, evaluateCadScene, h } from '../index'
 import type { CadSceneTreeNode } from './types'
 
 function flattenTree(node: CadSceneTreeNode): CadSceneTreeNode[] {
@@ -105,25 +104,9 @@ describe('CAD scene identity and evaluated tree', () => {
       })),
     )
     expect(second.tree).toEqual(first.tree)
-
-    expect(resolveCadSceneSelection(first, 'root')).toMatchObject({
-      kind: 'group',
-      label: 'Root',
-      geometryIds: first.parts.map((part) => part.id),
-    })
-    expect(resolveCadSceneSelection(first, 'root.$cell-0-0-0.particle')).toMatchObject({
-      kind: 'geometry',
-      geometryIds: ['root.$cell-0-0-0.particle'],
-    })
-    expect(resolveCadSceneSelection(first, 'root.$part-1/surface-1')).toMatchObject({
-      kind: 'surface',
-      geometryIds: ['root.$part-1'],
-      surfaceIds: ['root.$part-1/surface-1'],
-    })
-    expect(resolveCadSceneSelection(first, 'root.base')).toBeNull()
   })
 
-  it('labels materialless scene parts and selections as Unassigned', () => {
+  it('labels materialless scene parts as Unassigned', () => {
     function Pair() {
       return h(Fragment, null, h('box', { size: [1, 1, 1] }), h('box', { size: [1, 1, 1], pos: [2, 0, 0] }))
     }
@@ -136,9 +119,6 @@ describe('CAD scene identity and evaluated tree', () => {
     expect(nodes.map((node) => node.label)).toEqual(
       expect.arrayContaining(['Part 1 · Unassigned', 'Part 2 · Unassigned']),
     )
-    expect(resolveCadSceneSelection(scene, 'pair.$part-1')).toMatchObject({
-      label: 'pair.$part-1 · Unassigned',
-    })
   })
 
   it('validates local IDs, sibling uniqueness, and the Geometry ownership boundary', () => {
@@ -254,37 +234,6 @@ describe('CAD scene identity and evaluated tree', () => {
       geometryIds: ['assembly.left', 'assembly.right'],
       surfaceIds: ['assembly.left/surface-1', 'assembly.right/surface-2'],
       missingMemberIds: ['missing/surface-1'],
-    })
-    expect(resolveCadSceneSelection(scene, '@geometry-group/%EC%A0%84%EC%B2%B4')).toMatchObject({
-      kind: 'geometry-group',
-      geometryIds: ['assembly.left', 'assembly.right'],
-    })
-    expect(resolveCadSceneSelection(scene, '@surface-group/contacts')).toMatchObject({
-      kind: 'surface-group',
-      surfaceIds: ['assembly.left/surface-1', 'assembly.right/surface-2'],
-    })
-    expect(resolveCadSceneSelection(scene, '@geometry-group/empty')).toMatchObject({
-      kind: 'geometry-group',
-      geometryIds: [],
-    })
-    expect(
-      resolveCadSceneDraftSelection(scene, {
-        kind: 'geometry',
-        memberIds: ['assembly', 'assembly.left', 'missing.geometry'],
-      }),
-    ).toMatchObject({
-      kind: 'geometry-group',
-      geometryIds: ['assembly.left', 'assembly.right'],
-    })
-    expect(
-      resolveCadSceneDraftSelection(scene, {
-        kind: 'surface',
-        memberIds: ['assembly.left/surface-1', 'assembly.right/surface-2', 'missing/surface-1'],
-      }),
-    ).toMatchObject({
-      kind: 'surface-group',
-      geometryIds: ['assembly.left', 'assembly.right'],
-      surfaceIds: ['assembly.left/surface-1', 'assembly.right/surface-2'],
     })
   })
 })

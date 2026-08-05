@@ -92,11 +92,6 @@ export function ExamplesPage() {
     }),
     [experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
-  const viewerSelection = useMemo(() => {
-    const selection = activeDocumentType === 'structure' ? structureDocument.selection : experimentDocument.selection
-    return selection ? { documentType: activeDocumentType, selection } : null
-  }, [activeDocumentType, experimentDocument.selection, structureDocument.selection])
-
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
       if (sources.includes('structure')) structureDocument.handleRenderStart()
@@ -225,7 +220,6 @@ export function ExamplesPage() {
             experiment={experimentViewerDocument}
             recordedData={simulation.recordedData}
             resultsLayout="tabs"
-            selected={viewerSelection}
             simulation={{
               canRun: simulation.canRun,
               cancel: simulation.cancel,

@@ -611,13 +611,6 @@ export function StructurePage() {
         : null,
     [currentExperiment, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
-  const viewerSelection = useMemo(
-    () =>
-      structureDocument.selection
-        ? { documentType: 'structure' as const, selection: structureDocument.selection }
-        : null,
-    [structureDocument.selection],
-  )
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
       if (sources.includes('structure')) structureDocument.handleRenderStart()
@@ -845,7 +838,6 @@ export function StructurePage() {
         <CadViewer
           experiment={experimentViewerDocument}
           recordedData={simulation.recordedData}
-          selected={viewerSelection}
           simulation={{
             canRun: simulation.canRun,
             cancel: simulation.cancel,

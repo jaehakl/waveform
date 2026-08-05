@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import type { CadDocumentType, CadSceneSelection, RecordedDataResult, RecordedDataRule } from '@/lib/cad'
+import type { CadDocumentType, RecordedDataResult, RecordedDataRule } from '@/lib/cad'
 import { resolveCadViewerContent, type CadViewerDocument } from './cadViewerContent'
 import JscadViewer from './JscadViewer'
 import type { CadViewerRecordedData } from './recordedData'
@@ -9,15 +9,9 @@ import type { SimulationCompatibility, SimulationProcess } from '../workspace/si
 export type { CadViewerDocument } from './cadViewerContent'
 export type { CadViewerRecordedAxis, CadViewerRecordedData, CadViewerRecordedTensor } from './recordedData'
 
-export type CadViewerActiveSelection = Readonly<{
-  documentType: CadDocumentType
-  selection: CadSceneSelection
-}>
-
 export type CadViewerProps = {
   structure: CadViewerDocument | null
   experiment: CadViewerDocument | null
-  selected: CadViewerActiveSelection | null
   recordedData?: CadViewerRecordedData | null
   resultsLayout?: 'split' | 'tabs'
   simulation?: CadViewerSimulation | null
@@ -46,7 +40,6 @@ export function CadViewer({
   recordedData,
   resultsLayout,
   simulation,
-  selected,
   structure,
 }: CadViewerProps) {
   const [structureVisible, setStructureVisible] = useState(true)
@@ -71,7 +64,6 @@ export function CadViewer({
     [simulation?.program],
   )
   const recordedDataRules = programRecordedDataRules
-  const visibleSelection = selected && content.visibleSources.includes(selected.documentType) ? selected : null
   const handleRenderStart = useCallback(
     () => onRenderStart(content.visibleSources),
     [content.visibleSources, onRenderStart],
@@ -93,7 +85,6 @@ export function CadViewer({
         recordedDataRules={recordedDataRules}
         resultsLayout={resultsLayout}
         simulation={simulation}
-        selected={visibleSelection}
         visibleSources={content.visibleSources}
         onRenderEnd={handleRenderEnd}
         onRenderError={handleRenderError}

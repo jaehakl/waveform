@@ -4,7 +4,7 @@ import type { CadScenePart } from '@/lib/cad/evaluation/types'
 // eslint-disable-next-line no-restricted-imports
 import { createSolidPointTester, type SolidPointTester } from '@/lib/cad/geometry/solid'
 import { materialColor } from './materialColor'
-import { colorFromHex } from './selection'
+import { colorFromHex } from './renderParts'
 
 const defaultMaximumCandidatePoints = 100_000
 type Vec3 = readonly [number, number, number]

@@ -125,7 +125,6 @@ function GridHarness() {
       <JscadViewer
         layers={coloredLayers}
         lengthUnit="mm"
-        selected={null}
         onRenderEnd={() => setStatus('Ready')}
         onRenderError={() => setStatus('Error')}
         onRenderStart={() => setStatus('Rendering')}
@@ -238,7 +237,7 @@ describe('JscadViewer render lifecycle', () => {
       onRenderError: vi.fn(),
       onRenderStart: vi.fn(),
     }
-    const view = render(<JscadViewer layers={[coloredLayer]} lengthUnit="mm" selected={null} {...callbacks} />)
+    const view = render(<JscadViewer layers={[coloredLayer]} lengthUnit="mm" {...callbacks} />)
     await waitFor(() => expect(rendererMocks.entitiesFromSolids).toHaveBeenCalledTimes(1))
 
     view.rerender(
@@ -255,7 +254,6 @@ describe('JscadViewer render lifecycle', () => {
           },
         ]}
         lengthUnit="mm"
-        selected={null}
         {...callbacks}
       />,
     )
@@ -290,7 +288,6 @@ describe('JscadViewer render lifecycle', () => {
         recordedData={{ 'Domain average': { value: 0.5 } }}
         recordedDataRules={recordedDataRules}
         resultsLayout="split"
-        selected={null}
         {...callbacks}
       />,
     )
@@ -337,7 +334,6 @@ describe('JscadViewer render lifecycle', () => {
         recordedData={{ 'Domain average': { value: 0.75 } }}
         recordedDataRules={recordedDataRules}
         resultsLayout="split"
-        selected={null}
         {...callbacks}
       />,
     )
@@ -365,7 +361,6 @@ describe('JscadViewer render lifecycle', () => {
         recordedData={{ 'Domain average': { value: 0.5 } }}
         recordedDataRules={recordedDataRules}
         resultsLayout="split"
-        selected={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -407,7 +402,6 @@ describe('JscadViewer render lifecycle', () => {
         recordedData={{ 'Domain average': { value: 0.5 } }}
         recordedDataRules={recordedDataRules}
         resultsLayout="split"
-        selected={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -462,7 +456,6 @@ describe('JscadViewer render lifecycle', () => {
         layers={coloredLayers}
         lengthUnit="mm"
         resultsLayout="split"
-        selected={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}

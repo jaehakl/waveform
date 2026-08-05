@@ -1560,7 +1560,6 @@ export function MeasurementPage() {
           experiment={experimentViewerDocument}
           recordedData={displayedRecordedData}
           resultsLayout="split"
-          selected={null}
           structure={structureViewerDocument}
           onRenderEnd={handleRenderEnd}
           onRenderError={handleRenderError}

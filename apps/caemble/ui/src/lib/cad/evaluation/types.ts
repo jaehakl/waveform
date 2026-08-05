@@ -74,14 +74,6 @@ export type CadScene = {
   surfaceGroups: CadSceneGroup[]
 }
 
-export type CadSceneSelection = Readonly<{
-  id: string
-  kind: 'group' | 'geometry' | 'surface' | 'geometry-group' | 'surface-group'
-  label: string
-  geometryIds: readonly string[]
-  surfaceIds?: readonly string[]
-}>
-
 export type NormalizedTransforms = {
   pos: Vec3
   rotate: Rotation | undefined

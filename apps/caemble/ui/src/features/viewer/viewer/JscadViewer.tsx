@@ -6,13 +6,12 @@ import RecordedDataResults from './RecordedDataResults'
 import type { CadViewerRecordedData, RecordedDataDisplayUnits } from './recordedData'
 import type { CadViewerSimulation } from './CadViewer'
 import type { MaterialGridResult, MaterialGridWorkerRequest, MaterialGridWorkerResponse } from './materialGrid'
-import { createWireframeGeometries } from './selection'
+import { createWireframeGeometries } from './renderParts'
 import {
   createLayerRenderParts,
   materialGridPartsFromLayers,
   scaleViewerLayers,
   type JscadViewerLayer,
-  type JscadViewerSelection,
 } from './sourceLayers'
 
 type RendererEntity = Record<string, unknown>
@@ -103,7 +102,6 @@ type JscadViewerProps = {
   recordedData?: CadViewerRecordedData | null
   recordedDataRules?: readonly RecordedDataRule[]
   resultsLayout?: 'split' | 'tabs'
-  selected: JscadViewerSelection | null
   simulation?: CadViewerSimulation | null
   visibleSources?: readonly CadDocumentType[]
 }
@@ -562,7 +560,6 @@ function JscadViewer({
   recordedData,
   recordedDataRules = [],
   resultsLayout = 'tabs',
-  selected,
   simulation,
   visibleSources,
 }: JscadViewerProps) {
@@ -590,7 +587,6 @@ function JscadViewer({
       ),
     [recordedDataRules],
   )
-  const selection = selected?.selection ?? null
   const [gridError, setGridError] = useState<string | null>(null)
   const [gridApplyVersion, setGridApplyVersion] = useState(0)
   const [gridSnapshot, setGridSnapshot] = useState<MaterialGridSnapshot | null>(null)
@@ -919,22 +915,13 @@ function JscadViewer({
               layer.sceneHash,
               layer.parts.map((part) => [part.id, part.material?.name ?? null, materialColor(part.material) ?? null]),
             ]),
-            selection: selected
-              ? [
-                  selected.documentType,
-                  selected.selection.kind,
-                  selected.selection.id,
-                  selected.selection.geometryIds,
-                  selected.selection.surfaceIds,
-                ]
-              : null,
           })
         : null
       const cachedEntities = cacheKey ? rendererEntityCacheRef.current.get(cacheKey) : undefined
       let geometryEntities = cachedEntities?.geometryEntities
       let wireframeEntities = cachedEntities?.wireframeEntities ?? []
       if (!geometryEntities) {
-        const renderParts = createLayerRenderParts(displayLayers, selected)
+        const renderParts = createLayerRenderParts(displayLayers)
         wireframeEntities = renderParts
           .filter((part) => part.wireframe)
           .flatMap((part) =>
@@ -1021,7 +1008,6 @@ function JscadViewer({
     onRenderError,
     onRenderStart,
     parts,
-    selected,
     activeViewerMode,
   ])
 
@@ -1227,18 +1213,6 @@ function JscadViewer({
               </div>
             )
           })}
-        </div>
-      ) : null}
-
-      {activeViewerMode !== 'results' && selection ? (
-        <div className="pointer-events-none absolute top-3 left-3 max-w-64 rounded border border-orange-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-          <div className="text-[10px] font-semibold tracking-wide text-orange-600 uppercase">Selected</div>
-          <div className="mt-0.5 truncate text-xs font-medium text-slate-800">
-            {selection.kind === 'group'
-              ? `${selection.label} · ${selection.geometryIds.length} ${selection.geometryIds.length === 1 ? 'geometry' : 'geometries'}`
-              : selection.label}
-          </div>
-          <div className="truncate font-mono text-[10px] text-slate-400">{selection.id}</div>
         </div>
       ) : null}
     </div>

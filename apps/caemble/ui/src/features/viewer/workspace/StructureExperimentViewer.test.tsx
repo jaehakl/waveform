@@ -66,20 +66,17 @@ function ViewerHarness({
 }
 
 describe('StructureExperimentViewer', () => {
-  it('renders source, tree, and simulation specification tabs from externally owned controllers', () => {
+  it('renders source and simulation specification tabs from externally owned controllers', () => {
     const markup = renderToStaticMarkup(
       <ViewerHarness activeDocumentType="structure" experiment="experiment source" structure="structure source" />,
     )
 
-    expect(tabLabels(markup)).toEqual([
-      'Structure Source',
-      'Structure Tree',
-      'Experiment Source',
-      'Experiment Tree',
-      'Solver Spec',
-    ])
+    expect(tabLabels(markup)).toEqual(['Structure Source', 'Experiment Source', 'Solver Spec'])
     expect(markup).toContain('id="structure-source-panel" role="tabpanel"')
-    expect(markup).toContain('id="experiment-tree-panel" role="tabpanel"')
+    expect(markup).not.toContain('Structure Tree')
+    expect(markup).not.toContain('Experiment Tree')
+    expect(markup).not.toContain('structure-tree-panel')
+    expect(markup).not.toContain('experiment-tree-panel')
     expect(markup).not.toContain('data-viewer-canvas="true"')
     expect(markup).toContain('min-h-[360px] min-w-0 flex-col')
   })
@@ -92,9 +89,9 @@ describe('StructureExperimentViewer', () => {
       <ViewerHarness activeDocumentType="experiment" experiment="experiment source" />,
     )
 
-    expect(tabLabels(structureMarkup)).toEqual(['Structure Source', 'Structure Tree'])
+    expect(tabLabels(structureMarkup)).toEqual(['Structure Source'])
     expect(structureMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="structure-source-tab"/)
-    expect(tabLabels(experimentMarkup)).toEqual(['Experiment Source', 'Experiment Tree', 'Solver Spec'])
+    expect(tabLabels(experimentMarkup)).toEqual(['Experiment Source', 'Solver Spec'])
     expect(experimentMarkup).toMatch(/<button[^>]*aria-selected="true"[^>]*id="experiment-source-tab"/)
   })
 
@@ -115,13 +112,13 @@ describe('StructureExperimentViewer', () => {
       />,
     )
 
-    expect(tabLabels(structureMarkup).slice(0, 3)).toEqual(['Structure Source', 'Structure Vars', 'Structure Tree'])
-    expect(tabLabels(structureMarkup)).toHaveLength(4)
+    expect(tabLabels(structureMarkup)).toEqual(['Structure Source', 'Structure Vars', '족보 보기'])
+    expect(tabLabels(structureMarkup)).toHaveLength(3)
     expect(structureMarkup).toContain('id="structure-lineage-panel" role="tabpanel"')
-    expect(tabLabels(experimentMarkup).slice(0, 2)).toEqual(['Experiment Source', 'Experiment Tree'])
+    expect(tabLabels(experimentMarkup).slice(0, 2)).toEqual(['Experiment Source', '족보 보기'])
     const experimentTabs = tabLabels(experimentMarkup)
     expect(experimentTabs[experimentTabs.length - 1]).toBe('Solver Spec')
-    expect(tabLabels(experimentMarkup)).toHaveLength(4)
+    expect(tabLabels(experimentMarkup)).toHaveLength(3)
     expect(experimentMarkup).toContain('id="experiment-lineage-panel" role="tabpanel"')
   })
 
@@ -134,7 +131,7 @@ describe('StructureExperimentViewer', () => {
 
     expect(missingMarkup).toContain('No modeling source')
     expect(missingMarkup).not.toContain('role="tablist"')
-    expect(tabLabels(emptySourceMarkup)).toEqual(['Structure Source', 'Structure Tree'])
+    expect(tabLabels(emptySourceMarkup)).toEqual(['Structure Source'])
     expect(emptySourceMarkup).not.toContain('No modeling source')
     expect(tabLabels(experimentMarkup)).not.toContain('Result')
     expect(experimentMarkup).not.toContain('result-tab')

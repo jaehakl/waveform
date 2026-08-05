@@ -23,7 +23,6 @@ describe('JscadViewer modes', () => {
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
         layers={[]}
-        selected={null}
       />,
     )
 
@@ -342,7 +341,6 @@ describe('JscadViewer modes', () => {
             },
           },
         ]}
-        selected={null}
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
@@ -367,20 +365,14 @@ describe('JscadViewer source layers', () => {
     surfaces: [],
   }
 
-  it('applies selection only to the active document layer when Geometry IDs collide', () => {
-    const parts = createLayerRenderParts(
-      [
-        { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
-        { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
-      ],
-      {
-        documentType: 'structure',
-        selection: { id: 'shared', kind: 'geometry', label: 'Shared', geometryIds: ['shared'] },
-      },
-    )
+  it('preserves source Material colors when Geometry IDs collide', () => {
+    const parts = createLayerRenderParts([
+      { documentType: 'experiment', lengthUnit: 'mm', parts: [experimentPart] },
+      { documentType: 'structure', lengthUnit: 'mm', parts: [structurePart] },
+    ])
 
     expect(parts[0].color).toEqual([220 / 255, 38 / 255, 38 / 255, 1])
-    expect(parts[1].color).toEqual([249 / 255, 115 / 255, 22 / 255, 1])
+    expect(parts[1].color).toEqual([37 / 255, 99 / 255, 235 / 255, 1])
   })
 
   it('orders Experiment before Structure so Structure wins Material Grid overlap', () => {
@@ -432,7 +424,6 @@ describe('JscadViewer Material legend', () => {
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
-        selected={null}
         layers={[
           {
             documentType: 'structure',
@@ -466,7 +457,6 @@ describe('JscadViewer Material legend', () => {
         onRenderEnd={() => undefined}
         onRenderError={() => undefined}
         onRenderStart={() => undefined}
-        selected={null}
         layers={[
           {
             documentType: 'structure',
@@ -493,87 +483,5 @@ describe('JscadViewer Material legend', () => {
     expect(markup.match(/Core/g)).toHaveLength(2)
     expect(markup).toContain('background-color:#2563eb')
     expect(markup).toContain('background-color:#dc2626')
-  })
-
-  it('shows the selected Surface name and ID', () => {
-    const markup = renderToStaticMarkup(
-      <JscadViewer
-        lengthUnit="mm"
-        onRenderEnd={() => undefined}
-        onRenderError={() => undefined}
-        onRenderStart={() => undefined}
-        selected={{
-          documentType: 'structure',
-          selection: {
-            id: 'assembly.core/surface-1',
-            kind: 'surface',
-            label: 'Top',
-            geometryIds: ['assembly.core'],
-            surfaceIds: ['assembly.core/surface-1'],
-          },
-        }}
-        layers={[
-          {
-            documentType: 'structure',
-            lengthUnit: 'mm',
-            parts: [
-              {
-                id: 'assembly.core',
-                geometry: {},
-                material: { name: 'Core', variables: { color: '#2563eb' } },
-                surfaces: [{ id: 'assembly.core/surface-1', name: 'Top', polygonIndices: [0] }],
-              },
-            ],
-          },
-        ]}
-      />,
-    )
-
-    expect(markup).toContain('Selected')
-    expect(markup).toContain('>Top</div>')
-    expect(markup).toContain('assembly.core/surface-1')
-  })
-
-  it('shows a selected group label, ID, and Geometry count', () => {
-    const markup = renderToStaticMarkup(
-      <JscadViewer
-        lengthUnit="mm"
-        onRenderEnd={() => undefined}
-        onRenderError={() => undefined}
-        onRenderStart={() => undefined}
-        selected={{
-          documentType: 'structure',
-          selection: {
-            id: 'assembly',
-            kind: 'group',
-            label: 'Assembly',
-            geometryIds: ['assembly.first', 'assembly.second'],
-          },
-        }}
-        layers={[
-          {
-            documentType: 'structure',
-            lengthUnit: 'mm',
-            parts: [
-              {
-                id: 'assembly.first',
-                geometry: {},
-                material: { name: 'Core', variables: { color: '#2563eb' } },
-                surfaces: [],
-              },
-              {
-                id: 'assembly.second',
-                geometry: {},
-                material: { name: 'Core', variables: { color: '#2563eb' } },
-                surfaces: [],
-              },
-            ],
-          },
-        ]}
-      />,
-    )
-
-    expect(markup).toContain('Assembly · 2 geometries')
-    expect(markup).toContain('assembly')
   })
 })

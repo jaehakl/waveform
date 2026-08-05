@@ -9,33 +9,22 @@ import type {
   CompiledCadSource,
   EvaluatedDocumentSnapshot,
   RecordedData,
-  StructureGroupMap,
   Vars,
 } from '@/lib/cad'
 import {
-  applyCadSourcePatch,
   applyFrozenMaterialParameters,
   buildRealization,
   CadCompilationError,
-  cadSource,
   compileCadDocument,
-  createCadSourcePatch,
   deserializeCadScene,
   evaluateInIsolatedRunner,
   preflightSimulationInIsolatedRunner,
   rerollCadSourceDocument,
-  resolveCadSceneDraftSelection,
-  resolveCadSceneSelection,
   runSimulationInIsolatedRunner,
-  StructureGroupSyncError,
   updateCadSource,
-  updateModelGroupSource,
-  type CadSourceTextEdit,
-  type StructureGroupProperty,
 } from '@/lib/cad'
 import { sourceOnlyMaterialParameters, type MaterialResolution } from '@/lib/material'
 import { exportSimulationResult, type SimulationProgramManifest, type SimulationResult } from '@/lib/simulation'
-import type { DraftSelection } from './groupDraft'
 import type { SimulationCompatibility, SimulationCompatibilityIssue, SimulationProcess } from './simulationUiTypes'
 
 export type AppStatus =
@@ -122,16 +111,13 @@ function useDocumentState({
   onDocumentChange,
   requestEvaluation,
 }: DocumentStateOptions) {
-  const source = document ? cadSource(document) : null
   const [compiledSource, setCompiledSource] = useState<CompiledCadSource | null>(null)
-  const [draftSelection, setDraftSelection] = useState<DraftSelection | null>(null)
   const [diagnostics, setDiagnostics] = useState<readonly CadDiagnostic[]>([])
   const [error, setError] = useState<RunError | null>(null)
   const [scene, setScene] = useState<CadScene | null>(null)
   const [evaluatedSnapshot, setEvaluatedSnapshot] = useState<EvaluatedDocumentSnapshot | null>(null)
   const [realization, setRealization] = useState<BuiltRealization | null>(null)
   const [materialWarnings, setMaterialWarnings] = useState<readonly string[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [simulationProgram, setSimulationProgram] = useState<SimulationProgramManifest | null>(null)
   const [status, setStatus] = useState<AppStatus>('Ready')
   const [variables, setVariables] = useState<Readonly<Vars> | null>(null)
@@ -195,14 +181,12 @@ function useDocumentState({
     if (!document) {
       latestRequestIdRef.current = ''
       setCompiledSource(null)
-      setDraftSelection(null)
       setDiagnostics([])
       setError(null)
       setEvaluatedSnapshot(null)
       setRealization(null)
       setMaterialWarnings([])
       setScene(null)
-      setSelectedId(null)
       setSimulationProgram(null)
       setVariables(null)
       setVarsSchema(null)
@@ -257,14 +241,6 @@ function useDocumentState({
     status === 'Evaluating' ||
     status === 'Resolving Materials' ||
     status === 'Rendering'
-  const selection = useMemo(
-    () =>
-      draftSelection
-        ? resolveCadSceneDraftSelection(scene, draftSelection)
-        : resolveCadSceneSelection(scene, selectedId),
-    [draftSelection, scene, selectedId],
-  )
-
   const handleReroll = useCallback(() => {
     if (runIsBusy || !document || !onDocumentChange) return
     clearPendingEvaluation()
@@ -277,57 +253,6 @@ function useDocumentState({
       onDocumentChange(updateCadSource(document, nextSource))
     },
     [document, onDocumentChange],
-  )
-
-  const handleSourcePatch = useCallback(
-    (edits: readonly CadSourceTextEdit[], expectedSource: string) => {
-      const baseDocument = documentRef.current
-      if (!baseDocument || !onDocumentChange) return
-      if (cadSource(baseDocument) !== expectedSource) {
-        updateStatus('Error')
-        setError({
-          title: 'Source Patch Error',
-          message: 'The CAD Source changed before this visual edit could be saved.',
-        })
-        return
-      }
-      void createCadSourcePatch(baseDocument, edits)
-        .then((patch) => {
-          const currentDocument = documentRef.current
-          if (!currentDocument) throw new Error('The CAD Source document is no longer available.')
-          return applyCadSourcePatch(currentDocument, patch)
-        })
-        .then(onDocumentChange)
-        .catch((patchError: unknown) => {
-          updateStatus('Error')
-          setError({
-            title: 'Source Patch Error',
-            message: patchError instanceof Error ? patchError.message : String(patchError),
-          })
-        })
-    },
-    [onDocumentChange, updateStatus],
-  )
-
-  const handleGroupsChange = useCallback(
-    (property: StructureGroupProperty, groups: StructureGroupMap) => {
-      if (!document || !onDocumentChange) return
-      try {
-        const update = updateModelGroupSource(source ?? '', documentType, property, groups)
-        handleSourcePatch(update.edits, source ?? '')
-        setError(null)
-      } catch (groupError) {
-        updateStatus('Error')
-        setError({
-          title: 'Group Sync Error',
-          message:
-            groupError instanceof StructureGroupSyncError || groupError instanceof Error
-              ? groupError.message
-              : `The ${documentType} group could not be synchronized with Code Space.`,
-        })
-      }
-    },
-    [document, documentType, handleSourcePatch, onDocumentChange, source, updateStatus],
   )
 
   const handlers: DocumentHandlers = {
@@ -367,7 +292,6 @@ function useDocumentState({
       setVarsSchema(response.snapshot.varsSchema)
       setSimulationProgram(response.snapshot.kind === 'experiment' ? response.snapshot.simulationProgram : null)
       updateSuccessfulRevision(response.revision)
-      setSelectedId((current) => (resolveCadSceneSelection(runtimeScene, current) ? current : null))
     },
     handleError(response) {
       if (
@@ -410,16 +334,13 @@ function useDocumentState({
       compiledSource,
       diagnostics,
       documentType,
-      draftSelection,
       error,
       evaluatedSnapshot,
-      handleGroupsChange,
       handleRenderEnd,
       handleRenderError,
       handleRenderStart,
       handleReroll,
       handleSourceChange,
-      handleSourcePatch,
       materialParameters: realization?.materialParameters ?? null,
       materialWarnings,
       readOnly: !onDocumentChange,
@@ -428,14 +349,9 @@ function useDocumentState({
       runIsBusy,
       scene,
       sceneHash: evaluatedSnapshot?.scene.sceneHash ?? null,
-      selectedId,
-      selection,
-      setDraftSelection,
-      setSelectedId,
       simulationProgram,
       sourceReadOnly: !onDocumentChange,
       status,
-      structuredReadOnly: !onDocumentChange || successfulRevision !== revision,
       successfulRevision,
       variables,
       varsSchema,

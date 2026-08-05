@@ -114,7 +114,6 @@ describe('CAD registry contracts', () => {
       evaluateCad: expect.any(Function),
       evaluateCadScene: expect.any(Function),
       applyCadSceneGroups: expect.any(Function),
-      resolveCadSceneSelection: expect.any(Function),
       h: expect.any(Function),
     })
     expect(cadFacade).not.toHaveProperty('Sample')

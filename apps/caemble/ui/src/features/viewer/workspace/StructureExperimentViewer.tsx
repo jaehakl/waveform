@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { cadSource, type CadDocumentType, type CadSourceDocument } from '@/lib/cad'
 import CadEditor from '../editor/CadEditor'
-import GeometryTree from './GeometryTree'
 import SolverSpecSheet from './SolverSpecSheet'
 import type { CadDocumentController } from './useCadWorkspace'
 import type { SimulationCompatibility } from './simulationUiTypes'
@@ -22,10 +21,8 @@ export type StructureExperimentViewerProps = {
 const workspaceTabs = [
   { id: 'structure-source', documentType: 'structure', panel: 'source', label: 'Structure Source' },
   { id: 'structure-vars', documentType: 'structure', panel: 'vars', label: 'Structure Vars' },
-  { id: 'structure-tree', documentType: 'structure', panel: 'tree', label: 'Structure Tree' },
   { id: 'structure-lineage', documentType: 'structure', panel: 'lineage', label: '족보 보기' },
   { id: 'experiment-source', documentType: 'experiment', panel: 'source', label: 'Experiment Source' },
-  { id: 'experiment-tree', documentType: 'experiment', panel: 'tree', label: 'Experiment Tree' },
   { id: 'experiment-lineage', documentType: 'experiment', panel: 'lineage', label: '족보 보기' },
   { id: 'solver-spec', documentType: 'experiment', panel: 'spec', label: 'Solver Spec' },
 ] as const
@@ -208,16 +205,6 @@ export function StructureExperimentViewer({
                   readOnly={document.sourceReadOnly}
                   value={source}
                   onChange={document.handleSourceChange}
-                />
-              ) : tab.panel === 'tree' ? (
-                <GeometryTree
-                  draftSelection={document.draftSelection}
-                  readOnly={document.structuredReadOnly}
-                  scene={document.scene}
-                  selectedId={document.selectedId}
-                  onDraftSelectionChange={document.setDraftSelection}
-                  onGroupsChange={document.handleGroupsChange}
-                  onSelect={document.setSelectedId}
                 />
               ) : (
                 <SolverSpecSheet
