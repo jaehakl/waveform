@@ -5,7 +5,13 @@ import { serializeEvaluatedDocumentSnapshot } from '../../cad/execution/snapshot
 import { evaluateDocumentEntry, loadCompiledCode } from '../../cad/execution/userModule'
 import { ExperimentDefinition } from '../../cad/model/v3'
 import { analyzeCadSource } from '../../cad/source/sourceAnalysis'
-import { dcCurrentDensityKernel, KernelRegistry, runSimulationProgram, type SimulationResult } from '../../simulation'
+import {
+  dcCurrentDensityKernel,
+  KernelRegistry,
+  runSimulationProgram,
+  steadyStateHeatKernel,
+  type SimulationResult,
+} from '../../simulation'
 import type { CaembleProgramExample } from './types'
 import { CAEMBLE_PROGRAM_EXAMPLE_SEED, caembleProgramExamples } from '.'
 
@@ -54,7 +60,7 @@ async function runExample(example: CaembleProgramExample, runId: string): Promis
     prepared.definition,
     prepared.sample,
     prepared.setup,
-    new KernelRegistry([dcCurrentDensityKernel]),
+    new KernelRegistry([dcCurrentDensityKernel, steadyStateHeatKernel]),
     new AbortController().signal,
     runId,
   )
@@ -135,5 +141,32 @@ describe('verified Experiment Program examples', () => {
     ])
     expect(first.recordedData).toEqual(second.recordedData)
     expect(first.finalStateRevision).toBe(0)
+  })
+
+  it('hands Joule heating from DC to Heat and records the coupled temperature field', async () => {
+    const example = caembleProgramExamples.find(({ id }) => id === 'electro-thermal-uniform-bar')!
+    const result = await runExample(example, 'example-electro-thermal')
+    const temperature = result.recordedData.temperature?.data as
+      | Readonly<{
+          value: readonly (readonly (readonly number[])[])[]
+          axes?: readonly Readonly<{ ticks?: readonly number[] }>[]
+        }>
+      | undefined
+
+    expect(scalarRecordedData(result, 'totalCurrent')).toBeCloseTo(14.9, 6)
+    expect(scalarRecordedData(result, 'maximumTemperature')).toBeCloseTo(293.16853, 4)
+    expect(temperature?.value).toHaveLength(20)
+    expect(temperature?.value[0]).toHaveLength(11)
+    expect(temperature?.value[0][0]).toHaveLength(11)
+    expect(temperature?.axes?.map((axis) => axis.ticks?.length)).toEqual([20, 11, 11])
+    expect(result.trace.map(({ task }) => task)).toEqual(['electric', 'thermal'])
+    expect(result.trace[1].inputArtifacts.heatSource).toMatchObject({
+      artifactType: 'caemble.dc/joule-heating@1',
+    })
+    expect(result.provenance.kernels).toEqual([
+      { name: 'dc-current-density', version: '0.0.0' },
+      { name: 'steady-state-heat', version: '0.0.0' },
+    ])
+    expect(result.finalStateRevision).toBe(0)
   })
 })

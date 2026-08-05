@@ -2,12 +2,9 @@ import { transforms } from '@jscad/modeling'
 import type { CadScene, CadScenePart, CadSceneSurface } from '../../../cad/evaluation/types'
 import { CadModelError, type DataValueDescriptor } from '../../../cad/model/core'
 import { convertUcumValue } from '../../../cad/model/units'
-import { identityCartesianBasis } from '../../../quantitykind/identityBasis'
-import { transformQuantityValue } from '../../../quantitykind/runtime'
 import { normalizeKernelTaskConfig, type KernelPrepareContext, type KernelPrepareResult } from '../../kernelContract'
+import { isotropicIdentityTensorValue, maximumVoxelCount } from '../voxelFiniteVolume'
 import { dcCurrentDensityDescriptor, type DcCurrentDensityTaskConfig } from './descriptor'
-
-const maximumVoxelCount = 250_000
 
 export type ResolvedSurface = Readonly<{
   part: CadScenePart
@@ -24,11 +21,17 @@ export type PreparedDcInput = Readonly<{
   referenceVoltage: number
   relativeTolerance: number
   maxIterations: number
-  outputs: readonly Readonly<{
-    key: string
-    methodId: 'dc.current-density' | 'dc.total-current'
-    crossSectionPosition: number
-  }>[]
+  outputs: readonly (
+    | Readonly<{
+        key: string
+        methodId: 'dc.current-density' | 'dc.total-current'
+        crossSectionPosition: number
+      }>
+    | Readonly<{
+        key: string
+        methodId: 'dc.joule-heating'
+      }>
+  )[]
 }>
 
 function groupName(target: string, source: 'structure', kind: 'geometry' | 'surface') {
@@ -73,43 +76,6 @@ function parameterNumber(value: unknown, path: string) {
     throw new CadModelError(`${path} must be a scalar data descriptor.`)
   }
   return (value as { value: number }).value
-}
-
-function isotropicConductivity(value: unknown) {
-  const path = 'Conductor Material electrical.conductivity'
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    Array.isArray(value) ||
-    !Array.isArray((value as { value?: unknown }).value)
-  ) {
-    throw new CadModelError(`${path} must provide a conductivity tensor with component shape [3,3].`)
-  }
-  const descriptor = value as DataValueDescriptor
-  const transformed = transformQuantityValue(
-    descriptor.value,
-    [3, 3],
-    { unit: descriptor.unit!, basis: descriptor.basis },
-    { unit: 'S.m-1', basis: identityCartesianBasis },
-    `${path}.value`,
-  ) as readonly (readonly number[])[]
-  const diagonal = [transformed[0][0], transformed[1][1], transformed[2][2]]
-  if (diagonal.some((component) => !Number.isFinite(component) || component <= 0)) {
-    throw new CadModelError(`${path} must have positive finite diagonal components.`)
-  }
-  const scale = Math.max(...diagonal)
-  const tolerance = 1e-12 + Number.EPSILON
-  if (diagonal.some((component) => Math.abs(component - diagonal[0]) / scale > tolerance)) {
-    throw new CadModelError(`${path} must be isotropic; diagonal components differ beyond relative tolerance 1e-12.`)
-  }
-  transformed.forEach((row, rowIndex) =>
-    row.forEach((component, columnIndex) => {
-      if (rowIndex !== columnIndex && Math.abs(component) / scale > tolerance) {
-        throw new CadModelError(`${path} must be isotropic; off-diagonal components exceed relative tolerance 1e-12.`)
-      }
-    }),
-  )
-  return (diagonal[0] + diagonal[1] + diagonal[2]) / 3
 }
 
 export function prepareDcCurrentDensity(
@@ -175,7 +141,11 @@ export function prepareDcCurrentDensity(
         part: conductor,
         surface: surfaceById.get(reference.surface.id)!,
       }),
-      conductivity: isotropicConductivity(rawConductor.material.variables['electrical.conductivity']),
+      conductivity: isotropicIdentityTensorValue(
+        rawConductor.material.variables['electrical.conductivity'],
+        'Conductor Material electrical.conductivity',
+        'S.m-1',
+      ),
       gridShape: Object.freeze([...gridShape]) as unknown as readonly [number, number, number],
       sourceVoltage: parameterNumber(sourceRule.parameters.voltage, 'dc.source-potential voltage'),
       referenceVoltage: parameterNumber(referenceRule.parameters.voltage, 'dc.reference-potential voltage'),
@@ -183,14 +153,19 @@ export function prepareDcCurrentDensity(
       maxIterations: parameterNumber(config.parameters.maxIterations, 'dc-current-density maxIterations'),
       outputs: Object.freeze(
         config.outputs.map((output) =>
-          Object.freeze({
-            key: output.key,
-            methodId: output.methodId,
-            crossSectionPosition: parameterNumber(
-              output.parameters.crossSectionPosition,
-              `${output.methodId} crossSectionPosition`,
-            ),
-          }),
+          output.methodId === 'dc.joule-heating'
+            ? Object.freeze({
+                key: output.key,
+                methodId: output.methodId,
+              })
+            : Object.freeze({
+                key: output.key,
+                methodId: output.methodId,
+                crossSectionPosition: parameterNumber(
+                  output.parameters.crossSectionPosition,
+                  `${output.methodId} crossSectionPosition`,
+                ),
+              }),
         ),
       ),
     }),

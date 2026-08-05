@@ -31,6 +31,7 @@ describe('compiled CAD source execution', () => {
     })
     expect(requireCaembleModule('@caemble/kernels')).toEqual({
       dcCurrentDensity: expect.any(Function),
+      steadyStateHeat: expect.any(Function),
     })
     expect(requireCaembleModule('@caemble/kernels')).not.toHaveProperty('execute')
 

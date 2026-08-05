@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { caembleProgramExamples } from '@/lib/examples'
 import { DocsPage } from './DocsPage'
 
 const NativeRequest = globalThis.Request
@@ -36,7 +37,7 @@ describe('DocsPage', () => {
 
     expect(screen.getByRole('heading', { name: /kernel task를 조합해/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Experiment Program' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getAllByRole('link', { name: /Playground에서 열기/ })).toHaveLength(3)
+    expect(screen.getAllByRole('link', { name: /Playground에서 열기/ })).toHaveLength(caembleProgramExamples.length)
     expect(screen.getByText('apps/caemble/ui/docs/experiment-program.md')).toBeInTheDocument()
   })
 

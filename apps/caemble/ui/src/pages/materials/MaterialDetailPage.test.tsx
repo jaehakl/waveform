@@ -157,7 +157,11 @@ describe('MaterialDetailPage permissions and solver guidance', () => {
 
     const solverSection = screen.getByRole('heading', { name: '사용 가능한 Solver' }).parentElement?.parentElement
     expect(solverSection).not.toBeNull()
-    await userEvent.click(within(solverSection!).getByRole('button', { name: '추가' }))
+    const dcSolverCard = within(solverSection!)
+      .getByRole('heading', { name: 'dc-current-density' })
+      .closest('.rounded-xl')
+    if (!(dcSolverCard instanceof HTMLElement)) throw new Error('DC solver card was not rendered.')
+    await userEvent.click(within(dcSolverCard).getByRole('button', { name: '추가' }))
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('electrical.conductivity')).toBeInTheDocument()
     expect(within(dialog).getByRole('combobox', { name: 'Dtype' })).toHaveTextContent('float32')

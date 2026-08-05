@@ -74,6 +74,12 @@ export type DcCurrentDensityOutput =
         crossSectionPosition: FloatParameter<'float64', 'DimensionlessRatio'>
       }>
     }>
+  | Readonly<{
+      key: string
+      methodId: 'dc.joule-heating'
+      target: readonly `structure.geometry.${string}`[]
+      parameters: Readonly<Record<string, never>>
+    }>
 
 export type DcCurrentDensityConductorMaterialVariables = Readonly<{
   'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>
@@ -107,7 +113,9 @@ type DcCurrentDensityArtifactTypes<Outputs extends readonly DcCurrentDensityOutp
     ? 'caemble.dc/current-density@1'
     : Output['methodId'] extends 'dc.total-current'
       ? 'caemble.dc/total-current@1'
-      : never
+      : Output['methodId'] extends 'dc.joule-heating'
+        ? 'caemble.dc/joule-heating@1'
+        : never
 }>
 
 export declare function dcCurrentDensity<
@@ -122,4 +130,77 @@ export declare function dcCurrentDensity<
     relativeResidual: number
   }>,
   Readonly<Record<never, never>>
+>
+
+export type SteadyStateHeatInitialization = Readonly<{
+  methodId: 'heat.voxel-grid'
+  target: readonly `structure.geometry.${string}`[]
+  parameters: Readonly<{
+    gridShape: NonFloatParameter<'int32', readonly [number, number, number]>
+  }>
+}>
+
+export type SteadyStateHeatBoundaryCondition = Readonly<{
+  methodId: 'heat.fixed-temperature'
+  target: readonly `structure.surface.${string}`[]
+  parameters: Readonly<{
+    temperature: FloatParameter<'float64', 'thermodynamics.Temperature'>
+  }>
+}>
+
+export type SteadyStateHeatOutput =
+  | Readonly<{
+      key: string
+      methodId: 'heat.temperature'
+      target: readonly `structure.geometry.${string}`[]
+      parameters: Readonly<Record<string, never>>
+    }>
+  | Readonly<{
+      key: string
+      methodId: 'heat.maximum-temperature'
+      target: readonly `structure.geometry.${string}`[]
+      parameters: Readonly<Record<string, never>>
+    }>
+
+export type SteadyStateHeatThermalDomainMaterialVariables = Readonly<{
+  'thermal.conductivity': MaterialDataValueDescriptor<'thermal.conductivity'>
+}>
+
+export type SteadyStateHeatTaskConfig<
+  Outputs extends readonly [SteadyStateHeatOutput, ...SteadyStateHeatOutput[]] = readonly [
+    SteadyStateHeatOutput,
+    ...SteadyStateHeatOutput[],
+  ],
+> = Readonly<{
+  parameters: Readonly<{
+    relativeTolerance: FloatParameter<'float64', 'DimensionlessRatio'>
+    maxIterations: number | NonFloatParameter<'int32', number>
+  }>
+  initializations: readonly [Extract<SteadyStateHeatInitialization, { methodId: 'heat.voxel-grid' }>]
+  boundaryConditions: readonly SteadyStateHeatBoundaryCondition[]
+  outputs: Outputs
+}>
+
+type SteadyStateHeatArtifactTypes<Outputs extends readonly SteadyStateHeatOutput[]> = Readonly<{
+  [Output in Outputs[number] as Output['key']]: Output['methodId'] extends 'heat.temperature'
+    ? 'caemble.heat/temperature@1'
+    : Output['methodId'] extends 'heat.maximum-temperature'
+      ? 'caemble.heat/maximum-temperature@1'
+      : never
+}>
+
+export declare function steadyStateHeat<
+  const Outputs extends readonly [SteadyStateHeatOutput, ...SteadyStateHeatOutput[]],
+>(
+  config: SteadyStateHeatTaskConfig<Outputs>,
+): DefinedKernelTask<
+  SteadyStateHeatTaskConfig<Outputs>,
+  SteadyStateHeatArtifactTypes<Outputs>,
+  Readonly<{
+    iterations: number
+    relativeResidual: number
+  }>,
+  Readonly<{
+    heatSource: 'caemble.dc/joule-heating@1' | undefined
+  }>
 >

@@ -137,6 +137,7 @@ export function ExamplesPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge>검증된 v3 예제</Badge>
               <Badge className="border bg-white">dc-current-density@0.0.0</Badge>
+              <Badge className="border bg-white">steady-state-heat@0.0.0</Badge>
               {dirty ? <Badge className="bg-amber-100 text-amber-900">수정됨</Badge> : null}
             </div>
             <div className="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">

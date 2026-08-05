@@ -190,39 +190,25 @@ export default experiment({
 
 ## Multiphysics orchestration
 
-향후 kernel도 같은 `tasks` object에 선언한다. 연결 순서와 전달할 artifact는 `simulate()`가 직접 결정한다.
+여러 physics kernel도 같은 `tasks` object에 선언한다. 연결 순서와 전달할 artifact는 `simulate()`가 직접 결정한다.
 
 ```ts
-let state = sim.initialState
-let previousTemperature
+const electric = await sim.run(tasks.electric)
+const thermal = await sim.run(tasks.thermal, {
+  state: electric.state,
+  inputs: {
+    heatSource: electric.artifacts.jouleHeating,
+  },
+})
 
-for (let step = 0; step < maxSteps; step += 1) {
-  const electric = await sim.run(tasks.electric, {
-    state,
-    inputs: previousTemperature ? { temperature: previousTemperature } : {},
-  })
-
-  const thermal = await sim.run(tasks.thermal, {
-    state: electric.state,
-    inputs: {
-      heatSource: electric.artifacts.jouleHeating,
-    },
-  })
-
-  sim.release(electric.artifacts.jouleHeating)
-  if (previousTemperature) sim.release(previousTemperature)
-
-  previousTemperature = thermal.artifacts.temperature
-  state = thermal.state
-
-  if (thermal.observations.residual < tolerance) break
-}
-
-sim.record('temperature', previousTemperature)
+sim.record('totalCurrent', electric.artifacts.totalCurrent)
+sim.record('temperature', thermal.artifacts.temperature)
+sim.record('maximumTemperature', thermal.artifacts.maximumTemperature)
+sim.release(electric.artifacts.jouleHeating)
+return thermal.state
 ```
 
-위 코드는 orchestration 계약의 예시다. 현재 production catalog에는
-`dc-current-density@0.0.0` 하나만 등록되어 있다.
+production catalog에는 `dc-current-density@0.0.0`과 `steady-state-heat@0.0.0`이 등록되어 있다.
 
 ## 실행 규칙
 
@@ -247,9 +233,26 @@ DC task는 다음 method를 지원한다.
 | boundary condition | `dc.reference-potential` |   정확히 1 |
 | output             | `dc.current-density`     |     0 이상 |
 | output             | `dc.total-current`       |     0 이상 |
+| output             | `dc.joule-heating`       |   최대 1회 |
 
 전체 output 요청은 한 개 이상이어야 한다. 실행 결과의 observations는
 `iterations: number`, `relativeResidual: number`이며 DC input port는 비어 있다.
+
+## Heat kernel
+
+정상상태 Heat task는 다음 method를 지원한다.
+
+| Category           | methodId                   | Occurrence |
+| ------------------ | -------------------------- | ---------: |
+| initialization     | `heat.voxel-grid`          |   정확히 1 |
+| boundary condition | `heat.fixed-temperature`   |   정확히 2 |
+| output             | `heat.temperature`         |   최대 1회 |
+| output             | `heat.maximum-temperature` |   최대 1회 |
+
+`heatSource` input port는 선택적으로 `caemble.dc/joule-heating@1` artifact 하나를 받는다.
+두 고정온도 끝면 사이에서 `-∇·(k∇T)=q`를 풀며 나머지 외곽면은 단열이다.
+Material에는 양의 등방성 `thermal.conductivity`가 필요하고, observations는 DC와 동일하게
+`iterations`, `relativeResidual`을 반환한다.
 
 ## 새 kernel 추가
 

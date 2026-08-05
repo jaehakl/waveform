@@ -189,7 +189,7 @@ return electric.state
 - runtime은 kernel을 자동 연결하지 않는다.
 - 일반 JavaScript의 `for`, `if`, `try/catch`를 그대로 사용할 수 있다.
 
-따라서 미래의 multiphysics도 별도 workflow DSL 없이 다음 형태로 작성한다.
+따라서 multiphysics도 별도 workflow DSL 없이 다음 형태로 작성한다.
 
 ```ts
 const electric = await sim.run(tasks.electric)
@@ -200,12 +200,12 @@ const thermal = await sim.run(tasks.thermal, {
   },
 })
 
-if (thermal.observations.residual < tolerance) {
-  sim.record('temperature', thermal.artifacts.temperature)
-}
+sim.record('temperature', thermal.artifacts.temperature)
+sim.record('maximumTemperature', thermal.artifacts.maximumTemperature)
+sim.release(electric.artifacts.jouleHeating)
 ```
 
-현재 production catalog에는 thermal kernel이 없으므로 위 코드는 계약 설명용이다.
+현재 production catalog의 `dc-current-density@0.0.0`과 `steady-state-heat@0.0.0`이 위 흐름을 그대로 실행한다.
 
 ---
 
@@ -636,7 +636,7 @@ semantic type이 맞은 다음에 dtype, quantity kind, unit, basis, axes를 검
 ```text
 State revision 4
 ├─ dc-current-density@0.0.0 → ...
-└─ future-thermal@1.0.0    → ...
+└─ steady-state-heat@0.0.0 → ...
 ```
 
 kernel은 자기 namespace의 state만 받는다.
@@ -787,6 +787,7 @@ src/lib/simulation/kernels/dcCurrentDensity/
 | boundary       | `dc.reference-potential` | 정확히 1 |
 | output         | `dc.current-density`     |   0 이상 |
 | output         | `dc.total-current`       |   0 이상 |
+| output         | `dc.joule-heating`       | 최대 1회 |
 
 전체 output 요청은 최소 한 개다.
 
@@ -795,6 +796,7 @@ output artifact:
 ```text
 dc.current-density → caemble.dc/current-density@1
 dc.total-current   → caemble.dc/total-current@1
+dc.joule-heating   → caemble.dc/joule-heating@1
 ```
 
 DC input port는 현재 비어 있다.
@@ -873,7 +875,22 @@ dcCurrentDensityKernel
 → runtime registry가 사용하는 descriptor/prepare/execute 묶음
 ```
 
-production catalog는 [`kernels/index.ts`](../src/lib/simulation/kernels/index.ts)에 있고 DC entry 하나만 있다.
+production catalog는 [`kernels/index.ts`](../src/lib/simulation/kernels/index.ts)에 있고 DC와 Heat entry를 함께 등록한다.
+
+### 11.6 Heat kernel
+
+[`steadyStateHeat/`](../src/lib/simulation/kernels/steadyStateHeat/)는 같은 terminal-aligned voxel domain을 사용한다.
+
+```text
+heat.voxel-grid          → 정확히 1회
+heat.fixed-temperature   → 정확히 2회
+heat.temperature         → caemble.heat/temperature@1
+heat.maximum-temperature → caemble.heat/maximum-temperature@1
+```
+
+선택적 `heatSource` input은 `caemble.dc/joule-heating@1`을 받고 grid shape와 axis tick을 검사한다.
+`thermal.conductivity`를 SI 단위로 정규화한 뒤 `-∇·(k∇T)=q`를 풀며, 다른 외곽면은 단열이다.
+공통 좌표계, occupancy/connectivity, scalar PCG는 `voxelFiniteVolume.ts`에 있고 physics별 output 계산은 각 kernel에 남는다.
 
 ---
 
@@ -992,7 +1009,7 @@ global RecordedData key 하나가 기존 DB의 RecordedData 행 하나가 된다
 10. 뒤 kernel 실패 시 staged RecordedData 폐기
 11. 같은 local output key의 task 간 격리
 
-mock kernel A/B가 production catalog의 두 번째 kernel은 아니다.
+mock kernel A/B는 production catalog kernel이 아니다.
 테스트 registry에만 주입되어 multiphysics runtime 계약을 검증한다.
 
 ### 14.2 kernel 공통 계약

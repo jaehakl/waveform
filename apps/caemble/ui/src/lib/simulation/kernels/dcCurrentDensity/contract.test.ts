@@ -299,6 +299,30 @@ describe('dc-current-density kernel contract', () => {
     expect((result.artifacts.rightCurrent as { value: number }).value).toBeCloseTo(14.9, 6)
   })
 
+  it('produces a finite uniform 3D Joule-heating field without changing the current solve', async () => {
+    const { result } = await runDc(
+      config([
+        config().outputs[1],
+        {
+          key: 'jouleHeating',
+          methodId: 'dc.joule-heating',
+          target: ['structure.geometry.conductor'],
+          parameters: {},
+        },
+      ]),
+    )
+    const heating = result.artifacts.jouleHeating as {
+      value: readonly (readonly (readonly number[])[])[]
+      axes: readonly { ticks: readonly number[] }[]
+    }
+    expect(heating.value).toHaveLength(20)
+    expect(heating.value[0]).toHaveLength(11)
+    expect(heating.value[0][0]).toHaveLength(11)
+    expect(heating.value.flat(2).every((value) => Math.abs(value - 5960) < 1e-4)).toBe(true)
+    expect(heating.axes.map(({ ticks }) => ticks.length)).toEqual([20, 11, 11])
+    expect((result.artifacts.totalCurrent as { value: number }).value).toBeCloseTo(14.9, 6)
+  })
+
   it('supports arbitrary task-local output keys without prototype collisions', async () => {
     const totalCurrent = config().outputs[1]
     const { result } = await runDc(

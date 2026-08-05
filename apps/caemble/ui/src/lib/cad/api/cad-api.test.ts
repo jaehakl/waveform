@@ -65,9 +65,10 @@ describe('unversioned CAD authoring declarations', () => {
     expect(jsxTypes).not.toContain('const Fragment: unknown')
   })
 
-  it('generates the public declarations from exactly the one production DC kernel', () => {
+  it('generates public declarations from both production kernels', () => {
     expect(KERNEL_AUTHORING_VERSIONS).toEqual({
       'dc-current-density': '0.0.0',
+      'steady-state-heat': '0.0.0',
     })
   })
 
@@ -217,6 +218,7 @@ describe('unversioned CAD authoring declarations', () => {
 
   it('keeps canonical Material property and model authoring types strict', () => {
     expect(kernelTypes).toContain("'electrical.conductivity': MaterialDataValueDescriptor<'electrical.conductivity'>")
+    expect(kernelTypes).toContain("'thermal.conductivity': MaterialDataValueDescriptor<'thermal.conductivity'>")
     expect(coreTypes).toContain("'model.sorption.isotherm': Readonly<{")
     expect(coreTypes).toContain('{ color?: string; errorRate?: number }')
     expect(coreTypes).toContain('readonly errorRate: number')

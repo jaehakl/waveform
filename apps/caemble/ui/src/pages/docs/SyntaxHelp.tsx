@@ -86,17 +86,19 @@ function SyntaxHelp() {
               release한 ref, 다른 run의 ref, undeclared/duplicate/missing RecordedData는 fatal error입니다.
             </p>
 
-            <h3 className="mt-5 font-semibold text-slate-900">DC current density kernel</h3>
+            <h3 className="mt-5 font-semibold text-slate-900">DC current density와 steady-state Heat kernel</h3>
             <p className="mt-2">
-              production catalog에는 <Code>dc-current-density@0.0.0</Code> 하나가 있습니다. <Code>dc.voxel-grid</Code>,{' '}
-              <Code>dc.source-potential</Code>, <Code>dc.reference-potential</Code>은 각각 정확히 한 번 필요하고,{' '}
-              <Code>dc.current-density</Code>와 <Code>dc.total-current</Code> output은 원하는 key와 cross-section으로
-              여러 번 요청할 수 있습니다. 전체 output 요청은 한 개 이상이어야 합니다.
+              production catalog에는 <Code>dc-current-density@0.0.0</Code>과 <Code>steady-state-heat@0.0.0</Code>이
+              있습니다. <Code>dc.voxel-grid</Code>, <Code>dc.source-potential</Code>,{' '}
+              <Code>dc.reference-potential</Code>은 각각 정확히 한 번 필요하고, <Code>dc.current-density</Code>,{' '}
+              <Code>dc.total-current</Code>, <Code>dc.joule-heating</Code> output을 요청할 수 있습니다. Heat는{' '}
+              <Code>heat.voxel-grid</Code> 한 번과 서로 다른 <Code>heat.fixed-temperature</Code> 두 번이 필요합니다.
             </p>
             <p className="mt-2">
               하나의 연결된 homogeneous isotropic conductor, 서로 마주 보는 planar terminal, 최대 250,000 voxel을
-              지원합니다. kernel은 task당 potential field를 한 번 계산하고 요청된 artifact만 생성하며{' '}
-              <Code>iterations</Code>와 <Code>relativeResidual</Code> observation을 반환합니다.
+              지원합니다. Heat의 선택적 <Code>heatSource</Code> port는 DC Joule heating artifact를 받아 3D temperature와
+              maximum temperature를 계산합니다. 두 kernel 모두 <Code>iterations</Code>와 <Code>relativeResidual</Code>{' '}
+              observation을 반환합니다.
             </p>
 
             <h3 className="mt-5 font-semibold text-slate-900">결과와 실행 상태</h3>

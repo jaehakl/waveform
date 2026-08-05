@@ -20,6 +20,11 @@ const dcMethods = [
   ['dc.reference-potential', 'boundaryConditions', 'structure.surface.<group>', 'voltage'],
   ['dc.current-density', 'outputs', 'structure.geometry.<group>', 'crossSectionPosition'],
   ['dc.total-current', 'outputs', 'structure.geometry.<group>', 'crossSectionPosition'],
+  ['dc.joule-heating', 'outputs', 'structure.geometry.<group>', '—'],
+  ['heat.voxel-grid', 'initializations', 'structure.geometry.<group>', 'gridShape'],
+  ['heat.fixed-temperature', 'boundaryConditions', 'structure.surface.<group>', 'temperature'],
+  ['heat.temperature', 'outputs', 'structure.geometry.<group>', '—'],
+  ['heat.maximum-temperature', 'outputs', 'structure.geometry.<group>', '—'],
 ] as const
 
 function Code({ children }: { children: string }) {
@@ -182,25 +187,25 @@ export function ExperimentProgramGuide() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">DC kernel의 현재 한계</CardTitle>
+              <CardTitle className="text-lg">DC·Heat kernel의 현재 한계</CardTitle>
               <CardDescription>브라우저에서 검증할 수 있는 bounded reference kernel입니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-6 text-slate-600">
               <p>하나의 연결된 homogeneous isotropic conductor와 서로 마주 보는 두 planar terminal을 지원합니다.</p>
               <p>
                 Material에는 양의 <Code>electrical.conductivity = σI</Code>가 필요하며 global identity basis만
-                지원합니다.
+                지원합니다. Heat task에는 양의 <Code>thermal.conductivity = kI</Code>가 추가로 필요합니다.
               </p>
               <p>
-                voxel grid의 각 축은 3 이상이고 총 cell 수는 250,000 이하여야 합니다. 길이, 전압, 전도도, 결과는 kernel
-                경계에서 SI로 변환됩니다.
+                voxel grid의 각 축은 3 이상이고 총 cell 수는 250,000 이하여야 합니다. Heat는 두 끝면의 고정온도와 나머지
+                단열면을 사용합니다. 길이, 전압, 온도, 전도도, 결과는 kernel 경계에서 SI로 변환됩니다.
               </p>
             </CardContent>
           </Card>
         </section>
 
         <section>
-          <h3 className="font-semibold text-slate-950">@caemble/kernels · dcCurrentDensity method</h3>
+          <h3 className="font-semibold text-slate-950">@caemble/kernels · DC와 Heat method</h3>
           <div className="mt-4 overflow-x-auto rounded-xl border">
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500">
@@ -233,7 +238,7 @@ export function ExperimentProgramGuide() {
           <div className="mb-4">
             <h3 className="font-semibold text-slate-950">단계별 실행 예제</h3>
             <p className="mt-1 text-sm text-slate-600">
-              모든 예제는 실제 DC kernel과 현재 공개 declaration으로 검증됩니다.
+              모든 예제는 실제 production kernel과 현재 공개 declaration으로 검증됩니다.
             </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
@@ -275,7 +280,7 @@ export function ExperimentProgramGuide() {
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Structure와 Experiment가 모두 Ready인지 확인합니다.</li>
             <li>Kernel descriptor에서 version과 target group 이름을 확인합니다.</li>
-            <li>Material conductivity, grid cell 수, terminal surface와 voltage를 확인합니다.</li>
+            <li>Material conductivity, grid cell 수, terminal surface와 voltage/temperature를 확인합니다.</li>
             <li>task output key, Experiment RecordedData 이름, sim.record 이름을 구분해 확인합니다.</li>
             <li>Source를 수정했다면 Stale 결과를 다시 실행합니다.</li>
           </ol>

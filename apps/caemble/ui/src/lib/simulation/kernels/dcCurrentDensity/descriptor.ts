@@ -186,13 +186,44 @@ export const dcCurrentDensityDescriptor = Object.freeze({
           unit: 'A',
         }),
       }),
+      Object.freeze({
+        methodId: 'dc.joule-heating',
+        description: 'Produces volumetric Joule heating on the conductor voxel grid.',
+        minimumOccurrences: 0,
+        maximumOccurrences: 1,
+        target: oneStructureGeometry,
+        parameters: Object.freeze({}),
+        artifactType: 'caemble.dc/joule-heating@1',
+        data: Object.freeze({
+          dtype: 'float64',
+          quantityKind: 'PowerDensity',
+          unit: 'W.m-3',
+          axes: Object.freeze([
+            Object.freeze({
+              name: 'axial position',
+              quantityKind: 'Length',
+              unit: 'm',
+            }),
+            Object.freeze({
+              name: 'cross-section v',
+              quantityKind: 'Length',
+              unit: 'm',
+            }),
+            Object.freeze({
+              name: 'cross-section u',
+              quantityKind: 'Length',
+              unit: 'm',
+            }),
+          ]),
+        }),
+      }),
     ]),
   }),
 } as const satisfies KernelDescriptor)
 
 export type DcCurrentDensityOutputRequest = KernelOutputRequest &
   Readonly<{
-    methodId: 'dc.current-density' | 'dc.total-current'
+    methodId: 'dc.current-density' | 'dc.total-current' | 'dc.joule-heating'
   }>
 
 export type DcCurrentDensityInitialization = KernelMethodCall &
@@ -217,5 +248,7 @@ export type DcCurrentDensityTaskConfig<
 export type DcArtifactTypes<Config extends DcCurrentDensityTaskConfig> = Readonly<{
   [Request in Config['outputs'][number] as Request['key']]: Request['methodId'] extends 'dc.current-density'
     ? 'caemble.dc/current-density@1'
-    : 'caemble.dc/total-current@1'
+    : Request['methodId'] extends 'dc.total-current'
+      ? 'caemble.dc/total-current@1'
+      : 'caemble.dc/joule-heating@1'
 }>

@@ -1,4 +1,4 @@
-import { kernelModules, type SimulationProgramManifest } from '@/lib/simulation'
+import { kernelModules, type KernelDescriptor, type SimulationProgramManifest } from '@/lib/simulation'
 import type { SimulationCompatibility } from './simulationUiTypes'
 
 type SolverSpecSheetProps = Readonly<{
@@ -18,7 +18,7 @@ export default function SolverSpecSheet({ compatibility, simulationProgram }: So
   }))
   const generalIssues = compatibility.issues.filter((issue) => issue.documentType === undefined)
   const taskEntries = Object.entries(simulationProgram?.tasks ?? {})
-  const descriptors = [
+  const descriptors: KernelDescriptor[] = [
     ...new Map(
       taskEntries.flatMap(([, task]) => {
         const kernel = kernelModules.find(
