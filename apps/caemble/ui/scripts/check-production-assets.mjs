@@ -6,6 +6,19 @@ import { gzipSync } from 'node:zlib'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'dist')
 const assets = path.join(dist, 'assets')
+
+async function productionSources(directory) {
+  const entries = await readdir(directory, { withFileTypes: true })
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const resolved = path.join(directory, entry.name)
+      if (entry.isDirectory()) return productionSources(resolved)
+      return /\.(?:ts|tsx)$/.test(entry.name) && !/\.test\.(?:ts|tsx)$/.test(entry.name) ? [resolved] : []
+    }),
+  )
+  return files.flat()
+}
+
 const [indexHtml, packageJson, authoringManifest, runnerHeaders] = await Promise.all([
   readFile(path.join(dist, 'index.html'), 'utf8'),
   readFile(path.join(root, 'package.json'), 'utf8').then(JSON.parse),
@@ -16,8 +29,30 @@ const [indexHtml, packageJson, authoringManifest, runnerHeaders] = await Promise
 if (!/^\d+\.\d+\.\d+$/.test(packageJson.dependencies['monaco-editor'])) {
   throw new Error('monaco-editor must be pinned to an exact version.')
 }
-if (!/^\d+\.\d+\.\d+$/.test(authoringManifest.coreV2DeclarationVersion)) {
-  throw new Error('@caemble/core/v2 declaration version must be pinned.')
+if (!/^\d+\.\d+\.\d+$/.test(authoringManifest.coreDeclarationVersion)) {
+  throw new Error('@caemble/core declaration version must be pinned.')
+}
+if (!/^\d+\.\d+\.\d+$/.test(authoringManifest.kernelDeclarationVersion)) {
+  throw new Error('@caemble/kernels declaration version must be pinned.')
+}
+
+const legacyExecutionSymbols = [
+  'ExperimentDefinitionV2',
+  'experimentRules',
+  'SolverController',
+  'solverModules',
+  'run-solver',
+  'cancel-solver',
+  'solver-preflight',
+]
+const legacySourceMatches = []
+for (const file of await productionSources(path.join(root, 'src'))) {
+  const source = await readFile(file, 'utf8')
+  const symbol = legacyExecutionSymbols.find((candidate) => source.includes(candidate))
+  if (symbol) legacySourceMatches.push(`${path.relative(root, file)}: ${symbol}`)
+}
+if (legacySourceMatches.length > 0) {
+  throw new Error(`Legacy CAD execution symbols remain:\n${legacySourceMatches.join('\n')}`)
 }
 
 const assetNames = await readdir(assets)

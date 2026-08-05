@@ -1,11 +1,11 @@
 import { dbTables, type SaveCodeEntityResponse } from '@/api'
 import {
-  cadEntrySource,
+  cadSource,
   cadSemanticHash,
-  createCadSourceDocumentV2,
+  createCadSourceDocument,
   rawCodeHash,
   type CadDocumentType,
-  type CadSourceDocumentV2,
+  type CadSourceDocument,
 } from '@/lib/cad'
 import type { DefinitionFormValues } from './SaveDefinitionDialog'
 
@@ -17,7 +17,7 @@ export async function saveCadDefinition({
   selectedId,
   values,
 }: {
-  document: CadSourceDocumentV2
+  document: CadSourceDocument
   forceRoot?: boolean
   kind: CadDocumentType
   savedCode: string | null
@@ -26,7 +26,7 @@ export async function saveCadDefinition({
 }): Promise<SaveCodeEntityResponse & { code: string; kind: CadDocumentType }> {
   if (!forceRoot && selectedId && savedCode === null) throw new Error('저장 기준 source를 찾을 수 없습니다.')
 
-  const code = cadEntrySource(document)
+  const code = cadSource(document)
   const activeId = forceRoot ? null : selectedId
   const baseCode = forceRoot ? null : savedCode
 
@@ -47,8 +47,7 @@ export async function saveCadDefinition({
     return { ...result, code, kind }
   }
 
-  const baseDocument =
-    baseCode === null ? null : createCadSourceDocumentV2(kind, baseCode, document.realizationSeed)
+  const baseDocument = baseCode === null ? null : createCadSourceDocument(kind, baseCode, document.realizationSeed)
   const [nextRawHash, semanticHash, baseRawHash, baseSemanticHash] = await Promise.all([
     rawCodeHash(code),
     cadSemanticHash(document),
@@ -66,7 +65,6 @@ export async function saveCadDefinition({
     ...(baseRawHash ? { baseRawCodeHash: baseRawHash } : {}),
     ...(baseSemanticHash ? { baseSemanticHash } : {}),
   }
-  const result =
-    kind === 'structure' ? await dbTables.Structure.save(payload) : await dbTables.Experiment.save(payload)
+  const result = kind === 'structure' ? await dbTables.Structure.save(payload) : await dbTables.Experiment.save(payload)
   return { ...result, code, kind }
 }

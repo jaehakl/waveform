@@ -8,7 +8,7 @@ import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserData } from '@/api'
 import { CurrentCadSelectionProvider, useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
-import { cadEntrySource, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
+import { cadSource, updateCadSource, type CadSourceDocument } from '@/lib/cad'
 import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
 import { ExperimentPage } from './ExperimentPage'
 
@@ -83,7 +83,7 @@ vi.mock('@/features/viewer/workspace/StructureExperimentViewer', () => ({
   }: {
     experimentDocument: { handleSourceChange: (source: string) => void }
     experimentLineage?: React.ReactNode
-    structure?: CadSourceDocumentV2 | null
+    structure?: CadSourceDocument | null
   }) => (
     <div>
       <button type="button" onClick={() => experimentDocument.handleSourceChange('changed source')}>
@@ -244,15 +244,15 @@ beforeEach(() => {
   })
   workspace.useCadWorkspace.mockImplementation(
     (
-      structure: CadSourceDocumentV2 | null,
-      experiment: CadSourceDocumentV2 | null,
+      structure: CadSourceDocument | null,
+      experiment: CadSourceDocument | null,
       _onStructureChange: undefined,
-      onExperimentChange?: (document: CadSourceDocumentV2) => void,
+      onExperimentChange?: (document: CadSourceDocument) => void,
     ) => {
       const experimentDocument = {
         handleReroll: workspace.reroll,
         handleSourceChange: (source: string) => {
-          if (experiment && onExperimentChange) onExperimentChange(updateCadEntrySource(experiment, source))
+          if (experiment && onExperimentChange) onExperimentChange(updateCadSource(experiment, source))
         },
         handleRenderEnd: workspace.experimentRenderEnd,
         handleRenderError: workspace.experimentRenderError,
@@ -315,8 +315,19 @@ describe('ExperimentPage', () => {
     await userEvent.click(screen.getByText('Owned Grandchild'))
     await waitFor(() => expect(screen.getByTestId('experiment-viewer')).toHaveTextContent('Experiment rendered'))
     await waitFor(() => expect(router.state.location.search).toBe('?experiment=5'))
-    await userEvent.click(screen.getByText('Owned Grandchild'))
-    await waitFor(() => expect(workspace.reroll).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByText('Owned Grandchild').closest('tr')).toHaveAttribute('aria-selected', 'true'),
+    )
+    vi.useFakeTimers()
+    try {
+      fireEvent.click(screen.getByText('Owned Grandchild'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(251)
+      })
+      expect(workspace.reroll).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
 
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
     expect(screen.getByText('Root')).toBeInTheDocument()
@@ -354,8 +365,8 @@ describe('ExperimentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '상대 Structure 선택' }))
 
     await waitFor(() => {
-      const structure = latestWorkspaceCall()?.[0] as CadSourceDocumentV2 | null
-      expect(structure && cadEntrySource(structure)).toBe('current structure source')
+      const structure = latestWorkspaceCall()?.[0] as CadSourceDocument | null
+      expect(structure && cadSource(structure)).toBe('current structure source')
       expect(screen.getByTestId('experiment-viewer-counterpart')).toHaveTextContent('Structure rendered')
     })
 
@@ -440,8 +451,8 @@ describe('ExperimentPage', () => {
     expect(screen.queryByRole('button', { name: /정보 (편집|보기)/ })).not.toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[1] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultExperimentCode)
+    ]?.[1] as CadSourceDocument
+    expect(cadSource(draft)).toBe(defaultExperimentCode)
 
     await userEvent.click(screen.getByRole('button', { name: 'Experiment 생성' }))
     const saveDialog = screen.getByRole('dialog')
@@ -454,7 +465,7 @@ describe('ExperimentPage', () => {
       ),
     )
     const request = api.saveDefinition.mock.calls[api.saveDefinition.mock.calls.length - 1]?.[0]
-    expect(cadEntrySource(request.document)).toBe(defaultExperimentCode)
+    expect(cadSource(request.document)).toBe(defaultExperimentCode)
     await waitFor(() => expect(screen.getByRole('button', { name: '새 root로 저장' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Experiment 생성' })).not.toBeInTheDocument()
   })
@@ -475,8 +486,8 @@ describe('ExperimentPage', () => {
     expect(screen.getByText('저장 전 새 Experiment입니다.')).toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[1] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultExperimentCode)
+    ]?.[1] as CadSourceDocument
+    expect(cadSource(draft)).toBe(defaultExperimentCode)
   })
 
   it('keeps foreign metadata read-only and saves the current code as a new root', async () => {

@@ -1,56 +1,43 @@
-import {
-  CadModelError,
-  evaluateExperimentRules,
-  evaluateExperimentSolver,
-  evaluateWithVars,
-  Mat,
-  Material,
-} from '../model/core'
+import { CadModelError, evaluateWithVars, isFloatDType, Mat, Material, Structure } from '../model/core'
 import {
   experiment,
-  ExperimentDefinitionV2,
+  ExperimentDefinition,
   structure,
-  StructureDefinitionV2,
-  type CadDefinitionV2,
+  StructureDefinition,
+  type CadDefinition,
   type ExternalVars,
-} from '../model/v2'
-import {
-  experiment as experimentV3,
-  ExperimentProgramDefinitionV3,
-  type ExperimentProgramEntryV3,
 } from '../model/v3'
 import { evaluateCadScene } from '../evaluation/evaluator'
 import { Fragment, h } from '../evaluation/jsx'
-import type { CadDocumentType } from '../worker/protocol'
-import type { EvaluatedRuntimeDocumentSnapshotV2 } from './snapshot'
-import { assertCompiledCadProjectV2, type CompiledCadProjectV2 } from '../compiler/types'
-import { dcCurrentDensityKernelRef, defineTask } from '../../simulation'
+import type { CadDocumentType } from '../source/document'
+import type { EvaluatedRuntimeDocumentSnapshot } from './snapshot'
+import { assertCompiledCadSource, type CompiledCadSource } from '../compiler/types'
+import { kernelAuthoring } from '../../simulation/kernels'
+import { assertUcumUnitComparable, convertUcumValue, normalizeUcumUnit } from '../model/units'
 
-const coreModuleV2 = Object.freeze({
+const coreModule = Object.freeze({
+  assertUcumUnitComparable,
+  CadModelError,
+  convertUcumValue,
   experiment,
+  ExperimentDefinition,
+  isFloatDType,
   Mat,
   Material,
+  normalizeUcumUnit,
   structure,
+  Structure,
+  StructureDefinition,
 })
 
-const coreModuleV3 = Object.freeze({
-  defineTask,
-  experiment: experimentV3,
-  Mat,
-  Material,
-})
+const kernelsModule = kernelAuthoring
 
-const kernelsModuleV1 = Object.freeze({
-  dcCurrentDensity: dcCurrentDensityKernelRef,
-})
-
-export type CadExecutionResult = EvaluatedRuntimeDocumentSnapshotV2
-export type CadDocumentEntry = CadDefinitionV2 | ExperimentProgramEntryV3
+export type CadExecutionResult = EvaluatedRuntimeDocumentSnapshot
+export type CadDocumentEntry = CadDefinition
 
 export function requireCaembleModule(specifier: string) {
-  if (specifier === '@caemble/core/v2') return coreModuleV2
-  if (specifier === '@caemble/core/v3') return coreModuleV3
-  if (specifier === '@caemble/kernels/v1') return kernelsModuleV1
+  if (specifier === '@caemble/core') return coreModule
+  if (specifier === '@caemble/kernels') return kernelsModule
   throw new CadModelError(`Unsupported Caemble runtime import: ${specifier}`)
 }
 
@@ -71,79 +58,24 @@ export function loadCompiledCode(jsCode: string, documentType: CadDocumentType):
 
 function assertDocumentEntry(entry: unknown, documentType: CadDocumentType): CadDocumentEntry {
   if (documentType === 'experiment') {
-    if (!(entry instanceof ExperimentDefinitionV2) && !(entry instanceof ExperimentProgramDefinitionV3)) {
-      throw new CadModelError('Experiment Source must export default experiment({...}) from core/v2 or core/v3.')
+    if (!(entry instanceof ExperimentDefinition)) {
+      throw new CadModelError('Experiment Source must export default experiment({...}) from @caemble/core.')
     }
     return entry
   }
-  if (!(entry instanceof StructureDefinitionV2) || entry instanceof ExperimentDefinitionV2) {
-    throw new CadModelError('Structure Source must export default structure({...}).')
+  if (!(entry instanceof StructureDefinition) || entry instanceof ExperimentDefinition) {
+    throw new CadModelError('Structure Source must export default structure({...}) from @caemble/core.')
   }
   return entry
 }
 
-function resolveCompiledImport(importer: string, specifier: string, modules: CompiledCadProjectV2['modules']) {
-  const segments = importer.split('/').slice(0, -1)
-  specifier.split('/').forEach((segment) => {
-    if (!segment || segment === '.') return
-    if (segment === '..') {
-      if (segments.length === 0) throw new CadModelError(`Import escapes the compiled project: ${specifier}`)
-      segments.pop()
-    } else {
-      segments.push(segment)
-    }
-  })
-  const resolved = segments.join('/')
-  const candidates = /\.(?:ts|tsx)$/.test(resolved)
-    ? [resolved]
-    : [`${resolved}.ts`, `${resolved}.tsx`, `${resolved}/index.ts`, `${resolved}/index.tsx`]
-  const match = candidates.find((candidate) => Object.prototype.hasOwnProperty.call(modules, candidate))
-  if (!match) throw new CadModelError(`Compiled project import was not found: ${importer} -> ${specifier}`)
-  return match
-}
-
-export function loadCompiledProject(project: CompiledCadProjectV2, documentType: CadDocumentType): CadDocumentEntry {
-  assertCompiledCadProjectV2(project)
-  const cache = new Map<string, unknown>()
-
-  const executeModule = (path: string): unknown => {
-    if (cache.has(path)) return cache.get(path)
-    const compiledModule = project.modules[path]
-    if (!compiledModule) throw new CadModelError(`Compiled CAD module was not found: ${path}`)
-    const exports: Record<string, unknown> = {}
-    const module: { exports: unknown } = { exports }
-    cache.set(path, exports)
-    const localRequire = (specifier: string) => {
-      if (
-        specifier === '@caemble/core/v2'
-        || specifier === '@caemble/core/v3'
-        || specifier === '@caemble/kernels/v1'
-      ) return requireCaembleModule(specifier)
-      if (!specifier.startsWith('./') && !specifier.startsWith('../')) {
-        throw new CadModelError(`Compiled CAD import is not allowed: ${specifier}`)
-      }
-      return executeModule(resolveCompiledImport(path, specifier, project.modules))
-    }
-    const runner = new Function(
-      'h',
-      'Fragment',
-      'require',
-      'exports',
-      'module',
-      `${compiledModule.code}\nreturn module.exports;`,
-    )
-    const result = runner(h, Fragment, localRequire, exports, module) as unknown
-    const moduleExports = result ?? module.exports
-    cache.set(path, moduleExports)
-    return moduleExports
+export function loadCompiledSource(compiledSource: CompiledCadSource, documentType: CadDocumentType): CadDocumentEntry {
+  assertCompiledCadSource(compiledSource)
+  const expectedEntry = `${documentType}.tsx`
+  if (compiledSource.entryFile !== expectedEntry) {
+    throw new CadModelError(`Compiled CAD source entry ${compiledSource.entryFile} does not match ${documentType}.`)
   }
-
-  const entryModule = executeModule(project.entryFile)
-  const entry =
-    typeof entryModule === 'object' && entryModule !== null
-      ? (entryModule as Record<string, unknown>).default
-      : undefined
-  return assertDocumentEntry(entry, documentType)
+  return loadCompiledCode(compiledSource.code, documentType)
 }
 
 export function evaluateDocumentEntry(
@@ -158,14 +90,17 @@ export function evaluateDocumentEntry(
   }
 
   if (documentType === 'experiment') {
-    if (entry instanceof ExperimentProgramDefinitionV3) {
-      const variables = entry.resolveExternal(partialVars, seed)
-      return evaluateWithVars(
-        variables,
-        () => Object.freeze({
+    if (!(entry instanceof ExperimentDefinition)) {
+      throw new CadModelError('Experiment Source must export default experiment({...}) from @caemble/core.')
+    }
+    const variables = entry.resolveExternal(partialVars, seed)
+    return evaluateWithVars(
+      variables,
+      () => {
+        const runtime = entry.createProgramRuntime(variables, sourceHash)
+        return Object.freeze({
           kind: 'experiment' as const,
           sourceHash,
-          apiVersion: 2 as const,
           seed,
           scene: evaluateCadScene(
             entry.evaluateResolvedGeometry(variables),
@@ -178,48 +113,15 @@ export function evaluateDocumentEntry(
           ),
           variables,
           varsSchema: entry.varsSchema,
-          simulationProgram: entry.manifest,
-        }),
-        seed,
-      )
-    }
-    if (!(entry instanceof ExperimentDefinitionV2)) {
-      throw new CadModelError('Experiment Source must export default experiment({...}) from core/v2 or core/v3.')
-    }
-    const variables = entry.resolveExternal(partialVars, seed)
-    const experimentModel = entry.createRuntimeFromResolved(variables)
-    return evaluateWithVars(
-      variables,
-      () => {
-        const solver = evaluateExperimentSolver(experimentModel)
-        const scene = evaluateCadScene(
-          experimentModel.geometry(),
-          {
-            geometryGroup: experimentModel.geometryGroup,
-            surfaceGroup: experimentModel.surfaceGroup,
-          },
-          'Experiment',
-          experimentModel.lengthUnit,
-        )
-        const experimentRules = evaluateExperimentRules(experimentModel)
-        return Object.freeze({
-          kind: 'experiment' as const,
-          sourceHash,
-          apiVersion: 2 as const,
-          seed,
-          scene,
-          variables,
-          varsSchema: entry.varsSchema,
-          experimentRules,
-          solver,
+          simulationProgram: runtime.manifest,
         })
       },
       seed,
     )
   }
 
-  if (!(entry instanceof StructureDefinitionV2) || entry instanceof ExperimentDefinitionV2) {
-    throw new CadModelError('Structure Source must export default structure({...}).')
+  if (!(entry instanceof StructureDefinition) || entry instanceof ExperimentDefinition) {
+    throw new CadModelError('Structure Source must export default structure({...}) from @caemble/core.')
   }
   const variables = entry.resolveExternal(partialVars, seed)
   return evaluateWithVars(
@@ -228,7 +130,6 @@ export function evaluateDocumentEntry(
       Object.freeze({
         kind: 'structure' as const,
         sourceHash,
-        apiVersion: 2 as const,
         seed,
         scene: evaluateCadScene(
           entry.evaluateResolvedGeometry(variables),
@@ -256,16 +157,16 @@ export function executeCompiledCode(
   return evaluateDocumentEntry(loadCompiledCode(jsCode, documentType), documentType, sourceHash, seed, partialVars)
 }
 
-export function executeCompiledProject(
-  project: CompiledCadProjectV2,
+export function executeCompiledSource(
+  compiledSource: CompiledCadSource,
   documentType: CadDocumentType,
   seed: number,
   partialVars: ExternalVars = {},
 ) {
   return evaluateDocumentEntry(
-    loadCompiledProject(project, documentType),
+    loadCompiledSource(compiledSource, documentType),
     documentType,
-    project.sourceHash,
+    compiledSource.sourceHash,
     seed,
     partialVars,
   )

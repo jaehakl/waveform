@@ -1,20 +1,19 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { cadEntrySource, type CadDocumentType, type CadSourceDocumentV2 } from '@/lib/cad'
+import { cadSource, type CadDocumentType, type CadSourceDocument } from '@/lib/cad'
 import CadEditor from '../editor/CadEditor'
-import ExperimentalParameters from './ExperimentalParameters'
 import GeometryTree from './GeometryTree'
 import SolverSpecSheet from './SolverSpecSheet'
-import type { SolverCompatibility } from '@/lib/solver'
 import type { CadDocumentController } from './useCadWorkspace'
+import type { SimulationCompatibility } from './simulationUiTypes'
 
 export type StructureExperimentViewerProps = {
   activeDocumentType: CadDocumentType | null
-  structure?: CadSourceDocumentV2 | null
-  experiment?: CadSourceDocumentV2 | null
+  structure?: CadSourceDocument | null
+  experiment?: CadSourceDocument | null
   experimentLineage?: ReactNode
   structureDocument: CadDocumentController
   experimentDocument: CadDocumentController
-  solverCompatibility: SolverCompatibility
+  solverCompatibility: SimulationCompatibility
   structureLineage?: ReactNode
   structureVarsPanel?: ReactNode
   onActiveDocumentTypeChange: (documentType: CadDocumentType) => void
@@ -28,12 +27,6 @@ const workspaceTabs = [
   { id: 'experiment-source', documentType: 'experiment', panel: 'source', label: 'Experiment Source' },
   { id: 'experiment-tree', documentType: 'experiment', panel: 'tree', label: 'Experiment Tree' },
   { id: 'experiment-lineage', documentType: 'experiment', panel: 'lineage', label: '족보 보기' },
-  {
-    id: 'experimental-parameters',
-    documentType: 'experiment',
-    panel: 'parameters',
-    label: 'Experimental Parameters',
-  },
   { id: 'solver-spec', documentType: 'experiment', panel: 'spec', label: 'Solver Spec' },
 ] as const
 
@@ -187,7 +180,7 @@ export function StructureExperimentViewer({
         {availableTabs.map((tab) => {
           const document = tab.documentType === 'structure' ? structureDocument : experimentDocument
           const sourceDocument = tab.documentType === 'structure' ? structure : experiment
-          const source = sourceDocument ? cadEntrySource(sourceDocument) : ''
+          const source = sourceDocument ? cadSource(sourceDocument) : ''
 
           return (
             <div
@@ -209,7 +202,7 @@ export function StructureExperimentViewer({
               ) : tab.panel === 'source' ? (
                 <CadEditor
                   diagnostics={document.diagnostics.filter(
-                    (diagnostic) => diagnostic.file === sourceDocument?.entryFile,
+                    (diagnostic) => diagnostic.file === `${tab.documentType}.tsx`,
                   )}
                   modelPath={`file:///${tab.documentType}.tsx`}
                   readOnly={document.sourceReadOnly}
@@ -226,19 +219,10 @@ export function StructureExperimentViewer({
                   onGroupsChange={document.handleGroupsChange}
                   onSelect={document.setSelectedId}
                 />
-              ) : tab.panel === 'parameters' ? (
-                <ExperimentalParameters
-                  onSourceChange={experimentDocument.handleSourcePatch}
-                  readOnly={experimentDocument.structuredReadOnly}
-                  rules={experimentDocument.experimentRules}
-                  source={experiment ? cadEntrySource(experiment) : ''}
-                />
               ) : (
                 <SolverSpecSheet
                   compatibility={solverCompatibility}
                   simulationProgram={experimentDocument.simulationProgram}
-                  solver={experimentDocument.solver}
-                  spec={experimentDocument.solverSpec}
                 />
               )}
             </div>

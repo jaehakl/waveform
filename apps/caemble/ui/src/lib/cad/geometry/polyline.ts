@@ -30,7 +30,13 @@ export function resamplePolyline(points: readonly Vec3[], segments: number, path
 
     const startLength = cumulative[sourceIndex - 1]
     const endLength = cumulative[sourceIndex]
-    sampled.push(interpolate(points[sourceIndex - 1], points[sourceIndex], (targetLength - startLength) / (endLength - startLength)))
+    sampled.push(
+      interpolate(
+        points[sourceIndex - 1],
+        points[sourceIndex],
+        (targetLength - startLength) / (endLength - startLength),
+      ),
+    )
   }
 
   sampled[0] = [...points[0]] as MutableVec3

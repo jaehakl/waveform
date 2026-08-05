@@ -7,8 +7,7 @@ export type DraftSelection = Readonly<{
 
 export function shouldClearGeometryTreeSelection(target: EventTarget | null) {
   const element = target as Element | null
-  return typeof element?.closest === 'function'
-    && element.closest('button, input, select, textarea, a') === null
+  return typeof element?.closest === 'function' && element.closest('button, input, select, textarea, a') === null
 }
 
 export function updateDraftSelection(

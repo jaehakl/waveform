@@ -24,13 +24,16 @@ export function createFiberGeometry(attributes: FiberAttributes) {
     return extrusions.slice.fromPoints(ring)
   })
 
-  return extrusions.extrudeFromSlices({
-    numberOfSlices: slices.length,
-    capStart: true,
-    capEnd: true,
-    close: false,
-    callback: (_progress, index, base) => (index === 0 ? base : slices[index]),
-  }, slices[0])
+  return extrusions.extrudeFromSlices(
+    {
+      numberOfSlices: slices.length,
+      capStart: true,
+      capEnd: true,
+      close: false,
+      callback: (_progress, index, base) => (index === 0 ? base : slices[index]),
+    },
+    slices[0],
+  )
 }
 
 export const fiberDefinition = {
@@ -42,7 +45,7 @@ export const fiberDefinition = {
   },
   createSurfaces(geometry, props) {
     const polygons = geometries.geom3.toPolygons(geometry as ReturnType<typeof geometries.geom3.create>)
-    const radialSegments = props.radialSegments === undefined ? 12 : props.radialSegments as number
+    const radialSegments = props.radialSegments === undefined ? 12 : (props.radialSegments as number)
     const capPolygonCount = radialSegments - 2
     const endCapStart = polygons.length - capPolygonCount * 2
     const startCapStart = polygons.length - capPolygonCount

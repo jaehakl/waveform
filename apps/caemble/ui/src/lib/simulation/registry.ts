@@ -1,34 +1,52 @@
-import { SimulationKernelErrorV3 } from './errors'
-import type { KernelModuleV3, KernelRefV3 } from './types'
+import type { KernelDefinition, KernelDescriptor } from './kernelContract'
+import { assertValidKernelDescriptor } from './kernelContract'
+import { SimulationKernelError } from './errors'
+import type { KernelIdentity } from './types'
 
-export class KernelRegistryV3 {
-  private readonly modules = new Map<string, Map<string, KernelModuleV3>>()
+type RegisteredKernel = Readonly<{
+  descriptor: KernelDescriptor
+  prepare: unknown
+  execute: unknown
+}>
 
-  constructor(modules: readonly KernelModuleV3[]) {
-    modules.forEach((module) => {
-      const { name, version } = module.ref
-      if (!name.trim() || !version.trim() || module.ref.kind !== 'caemble-kernel-ref-v3') {
-        throw new Error('Kernel modules require a valid capability reference.')
+export class KernelRegistry {
+  private readonly definitions = new Map<string, Map<string, RegisteredKernel>>()
+
+  constructor(definitions: readonly RegisteredKernel[]) {
+    definitions.forEach((definition) => {
+      assertValidKernelDescriptor(definition.descriptor)
+      if (typeof definition.prepare !== 'function' || typeof definition.execute !== 'function') {
+        throw new Error('Kernel definitions require prepare and execute functions.')
       }
-      const versions = this.modules.get(name) ?? new Map<string, KernelModuleV3>()
-      if (versions.has(version)) throw new Error(`Kernel ${name}@${version} is registered more than once.`)
-      versions.set(version, Object.freeze(module))
-      this.modules.set(name, versions)
+      const { name, version } = definition.descriptor
+      const versions = this.definitions.get(name) ?? new Map<string, RegisteredKernel>()
+      if (versions.has(version)) {
+        throw new Error(`Kernel ${name}@${version} is registered more than once.`)
+      }
+      versions.set(version, definition)
+      this.definitions.set(name, versions)
     })
   }
 
-  get(ref: KernelRefV3) {
-    return this.modules.get(ref.name)?.get(ref.version)
+  get(identity: KernelIdentity) {
+    return this.definitions.get(identity.name)?.get(identity.version) as unknown as KernelDefinition | undefined
   }
 
-  require(ref: KernelRefV3) {
-    const module = this.get(ref)
-    if (module) return module
-    throw new SimulationKernelErrorV3(
+  require(identity: KernelIdentity) {
+    const definition = this.get(identity)
+    if (definition) return definition
+    throw new SimulationKernelError(
       'backend',
-      { name: ref.name, version: ref.version },
-      `No kernel module is registered for ${ref.name}@${ref.version}.`,
+      identity,
+      `No kernel is registered for ${identity.name}@${identity.version}.`,
+    )
+  }
+
+  identities() {
+    return Object.freeze(
+      [...this.definitions.entries()].flatMap(([name, versions]) =>
+        [...versions.keys()].map((version) => Object.freeze({ name, version })),
+      ),
     )
   }
 }
-

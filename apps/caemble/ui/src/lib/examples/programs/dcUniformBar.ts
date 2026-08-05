@@ -6,7 +6,7 @@ export const dcUniformBarStructureCode = `import {
   structure,
   type Geometry,
   type Vec3,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const Conductor: Geometry<{ size: Vec3 }> = ({ size }) => <box size={size} />
 
@@ -47,10 +47,11 @@ export default structure({
 })
 `
 
-export const dcUniformBarExperimentCode = `import { defineTask, experiment } from '@caemble/core/v3'
-import { dcCurrentDensity } from '@caemble/kernels/v1'
+export const dcUniformBarExperimentCode = `import { experiment } from '@caemble/core'
+import { dcCurrentDensity } from '@caemble/kernels'
 
-const solveCurrent = defineTask(dcCurrentDensity, ({ vars }) => ({
+function currentTask(sourceVoltage: number, referenceVoltage: number) {
+  return dcCurrentDensity({
   parameters: {
     relativeTolerance: {
       dtype: 'float64',
@@ -82,7 +83,7 @@ const solveCurrent = defineTask(dcCurrentDensity, ({ vars }) => ({
       parameters: {
         voltage: {
           dtype: 'float64',
-          value: vars.sourceVoltage,
+          value: sourceVoltage,
           unit: 'mV',
           quantityKind: 'electromagnetism.Voltage',
         },
@@ -94,7 +95,7 @@ const solveCurrent = defineTask(dcCurrentDensity, ({ vars }) => ({
       parameters: {
         voltage: {
           dtype: 'float64',
-          value: vars.referenceVoltage,
+          value: referenceVoltage,
           unit: 'mV',
           quantityKind: 'electromagnetism.Voltage',
         },
@@ -102,7 +103,7 @@ const solveCurrent = defineTask(dcCurrentDensity, ({ vars }) => ({
     },
   ],
 
-  recordedData: [
+  outputs: [
     {
       key: 'totalCurrent',
       target: ['structure.geometry.conductor'],
@@ -117,7 +118,8 @@ const solveCurrent = defineTask(dcCurrentDensity, ({ vars }) => ({
       },
     },
   ],
-}))
+  })
+}
 
 function Probe() {
   return <box size={[2, 2, 2]} />
@@ -133,11 +135,11 @@ export default experiment({
 
   geometry: () => <Probe id="probe" pos={[0, -10, 0]} />,
 
-  tasks: {
-    solveCurrent,
-  },
+  tasks: ({ vars }) => ({
+    solveCurrent: currentTask(vars.sourceVoltage, vars.referenceVoltage),
+  }),
 
-  outputs: {
+  recordedData: {
     totalCurrent: {
       dtype: 'float64',
       unit: 'A',
@@ -145,10 +147,8 @@ export default experiment({
     },
   },
 
-  simulate: async ({ sim, tasks, initialState }) => {
-    const result = await sim.run(tasks.solveCurrent, {
-      state: initialState,
-    })
+  simulate: async ({ sim, tasks }) => {
+    const result = await sim.run(tasks.solveCurrent)
 
     sim.record('totalCurrent', result.artifacts.totalCurrent)
     return result.state
@@ -159,21 +159,21 @@ export default experiment({
 export const dcUniformBarExample = Object.freeze({
   id: 'dc-uniform-bar',
   title: 'DC Uniform Bar',
-  description: '가장 작은 v3 Experiment Program으로 균일 구리 막대의 전체 전류를 계산합니다.',
+  description: '가장 작은 Experiment Program으로 균일 구리 막대의 전체 전류를 계산합니다.',
   concepts: Object.freeze([
     'Structure group과 surface target',
-    'defineTask()와 단일 sim.run()',
-    'ArtifactRef를 output으로 기록',
+    'task factory와 단일 sim.run()',
+    '중간 ArtifactRef를 RecordedData로 승격',
   ]),
   structureCode: dcUniformBarStructureCode,
   experimentCode: dcUniformBarExperimentCode,
   verification: Object.freeze({
     kernelTasks: Object.freeze(['solveCurrent']),
-    outputs: Object.freeze(['totalCurrent']),
+    recordedData: Object.freeze(['totalCurrent']),
     expectations: Object.freeze([
       'totalCurrent = 14.9 A ± 1e-6',
       'dc-current-density@0.0.0 호출 1회',
-      '최종 state revision = 1, body 수 = 2',
+      'stateless DC 실행은 입력 state revision 유지',
     ]),
   }),
 }) satisfies CaembleProgramExample

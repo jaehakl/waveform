@@ -1,11 +1,7 @@
 import type { Expression, ObjectExpression } from '@babel/types'
 import type { StructureGroupMap } from '../model/core'
-import type { CadDocumentType } from '../worker/protocol'
-import {
-  analyzeCadSourceV2,
-  resolveSourceBinding,
-  sourceExpression,
-} from './sourceAnalysis'
+import type { CadDocumentType } from './document'
+import { analyzeCadSource, resolveSourceBinding, sourceExpression } from './sourceAnalysis'
 
 export type StructureGroupProperty = 'geometryGroup' | 'surfaceGroup'
 
@@ -29,9 +25,11 @@ export class StructureGroupSyncError extends Error {
 
 function findObjectOptions(source: string, documentType: CadDocumentType) {
   try {
-    return analyzeCadSourceV2(source, documentType)
+    return analyzeCadSource(source, documentType)
   } catch (error) {
-    throw new StructureGroupSyncError(error instanceof Error ? error.message : 'The Code Space source could not be parsed.')
+    throw new StructureGroupSyncError(
+      error instanceof Error ? error.message : 'The Code Space source could not be parsed.',
+    )
   }
 }
 
@@ -56,9 +54,12 @@ function serializeGroups(groups: StructureGroupMap, propertyIndent: string, newl
   const entries = Object.entries(groups)
   if (entries.length === 0) return '{}'
   const memberIndent = `${propertyIndent}${indentUnit}`
-  return `{${newline}${entries.map(([name, memberIds]) => (
-    `${memberIndent}${JSON.stringify(name)}: [${memberIds.map((id) => JSON.stringify(id)).join(', ')}],`
-  )).join(newline)}${newline}${propertyIndent}}`
+  return `{${newline}${entries
+    .map(
+      ([name, memberIds]) =>
+        `${memberIndent}${JSON.stringify(name)}: [${memberIds.map((id) => JSON.stringify(id)).join(', ')}],`,
+    )
+    .join(newline)}${newline}${propertyIndent}}`
 }
 
 function applySourceEdits(source: string, edits: readonly StructureGroupSourceEdit[]) {
@@ -94,22 +95,19 @@ function propertyEdits(
   const closingIndex = position(options.end, `${objectName} options`) - 1
   const closingIndent = lineIndent(source, closingIndex)
   const firstProperty = options.properties[0]
-  const existingPropertyIndent = firstProperty?.start === null || firstProperty?.start === undefined
-    ? ''
-    : lineIndent(source, firstProperty.start)
-  const indentUnit = existingPropertyIndent.startsWith(closingIndent) && existingPropertyIndent.length > closingIndent.length
-    ? existingPropertyIndent.slice(closingIndent.length)
-    : '  '
+  const existingPropertyIndent =
+    firstProperty?.start === null || firstProperty?.start === undefined ? '' : lineIndent(source, firstProperty.start)
+  const indentUnit =
+    existingPropertyIndent.startsWith(closingIndent) && existingPropertyIndent.length > closingIndent.length
+      ? existingPropertyIndent.slice(closingIndent.length)
+      : '  '
 
   if (matching.length === 1) {
     const property = matching[0]
     if (property.type !== 'ObjectProperty') {
       throw new StructureGroupSyncError(`${target} must be an object property.`)
     }
-    const resolved = resolveSourceBinding(
-      sourceExpression(property.value, `${target} value`),
-      bindings,
-    ).expression
+    const resolved = resolveSourceBinding(sourceExpression(property.value, `${target} value`), bindings).expression
     if (resolved.type !== 'ObjectExpression') {
       throw new StructureGroupSyncError(
         `${target} must be an object literal or a directly connected top-level const object for group editing.`,
@@ -118,11 +116,13 @@ function propertyEdits(
     const valueStart = position(resolved.start, `${target} value`)
     const valueEnd = position(resolved.end, `${target} value`)
     const propertyIndent = lineIndent(source, valueStart)
-    return [{
-      start: valueStart,
-      end: valueEnd,
-      text: serializeGroups(groups, propertyIndent, newline, indentUnit),
-    }]
+    return [
+      {
+        start: valueStart,
+        end: valueEnd,
+        text: serializeGroups(groups, propertyIndent, newline, indentUnit),
+      },
+    ]
   }
 
   const propertyIndent = `${closingIndent}${indentUnit}`

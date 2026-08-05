@@ -1,16 +1,14 @@
-import type { EvaluatedDocumentSnapshotV2 } from '../execution/snapshot'
-import type { BuiltRealizationV2 } from '../execution/realization'
-import type { RecordedData } from '../model/core'
+import type { CompiledCadSource } from '../compiler/types'
+import type { EvaluatedDocumentSnapshot } from '../execution/snapshot'
 import type { Tensor } from '../model/types'
-import type { CadSourceDocumentV2 } from '../source/document'
-import type { CompiledCadProjectV2 } from '../compiler/types'
-import type { SolverProcess, SolverRunProvenanceV2, SolverValidationResult } from '../../solver'
+import type { CadDocumentType } from '../source/document'
 
-export type CadDocumentType = 'structure' | 'experiment'
+export type { CadDocumentType } from '../source/document'
+
 export type CadWorkerErrorType = 'compile' | 'type' | 'policy' | 'runtime' | 'model'
 export type CadDiagnosticPhase = 'syntax' | 'semantic' | 'policy' | 'runtime' | 'model'
 
-export type CadDiagnosticV2 = Readonly<{
+export type CadDiagnostic = Readonly<{
   file: string
   range: Readonly<{
     startLineNumber: number
@@ -24,75 +22,33 @@ export type CadDiagnosticV2 = Readonly<{
   message: string
 }>
 
-export type CadEvaluationRequestV2 = Readonly<{
-  type: 'evaluate-document'
+export type CadEvaluationRequest = Readonly<{
+  type: 'evaluate'
   requestId: string
   revision: number
-  document: Pick<CadSourceDocumentV2, 'apiVersion' | 'kind' | 'realizationSeed'>
-  compiledProject: CompiledCadProjectV2
+  document: Readonly<{
+    kind: CadDocumentType
+    realizationSeed: number
+  }>
+  compiledSource: CompiledCadSource
   vars?: Readonly<Record<string, Tensor>>
 }>
 
-export type CadWorkerRequest =
+export type CadEvaluationResponse =
   | Readonly<{
-      type: 'cache-realization'
-      requestId: string
-      revision: number
-      realization: BuiltRealizationV2
-    }>
-  | Readonly<{
-      type: 'run-solver'
-      requestId: string
-      structureRevision: number
-      experimentRevision: number
-    }>
-  | Readonly<{
-      type: 'cancel-solver'
-      requestId: string
-    }>
-
-export type CadEvaluationResponseV2 =
-  | Readonly<{
-      type: 'document-success'
+      type: 'evaluation-success'
       requestId: string
       revision: number
       documentType: CadDocumentType
-      snapshot: EvaluatedDocumentSnapshotV2
+      snapshot: EvaluatedDocumentSnapshot
     }>
   | Readonly<{
-      type: 'document-error'
+      type: 'evaluation-error'
       requestId: string
       revision: number
       documentType: CadDocumentType
       errorType: CadWorkerErrorType
       message: string
-      diagnostics?: readonly CadDiagnosticV2[]
+      diagnostics?: readonly CadDiagnostic[]
       stack?: string
-    }>
-
-export type CadWorkerResponse =
-  | Readonly<{
-      type: 'solver-preflight'
-      requestId: string
-      structureRevision?: number
-      experimentRevision: number
-      result: SolverValidationResult
-    }>
-  | Readonly<{
-      type: 'solver-process'
-      requestId: string
-      process: SolverProcess
-    }>
-  | Readonly<{
-      type: 'solver-success'
-      requestId: string
-      structureRevision: number
-      experimentRevision: number
-      recordedData: RecordedData
-      provenance: SolverRunProvenanceV2
-    }>
-  | Readonly<{
-      type: 'solver-error'
-      requestId: string
-      message: string
     }>

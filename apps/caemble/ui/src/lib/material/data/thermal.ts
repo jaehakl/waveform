@@ -5,17 +5,13 @@ export const thermalMaterialParameters = defineMaterialParameterDomain('thermal'
     key: 'thermal.conductivity',
     label_ko: '열전도율',
     quantity_kind: 'thermodynamics.ThermalConductivity',
-    special_qualifiers: [
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['coordinate_frame'],
   },
   {
     key: 'thermal.diffusivity',
     label_ko: '열확산도',
     quantity_kind: 'thermodynamics.ThermalDiffusivity',
-    special_qualifiers: [
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['coordinate_frame'],
   },
   {
     key: 'thermal.specific_heat_capacity',
@@ -46,9 +42,7 @@ export const thermalMaterialParameters = defineMaterialParameterDomain('thermal'
     key: 'thermal.linear_expansion_coefficient',
     label_ko: '선팽창계수',
     quantity_kind: 'thermodynamics.ThermalExpansionCoefficient',
-    special_qualifiers: [
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['coordinate_frame'],
   },
   {
     key: 'thermal.volumetric_expansion_coefficient',
@@ -74,42 +68,31 @@ export const thermalMaterialParameters = defineMaterialParameterDomain('thermal'
     key: 'thermal.boiling_temperature',
     label_ko: '비점',
     quantity_kind: 'thermodynamics.BoilingPoint',
-    special_qualifiers: [
-      'ambient_pressure',
-    ],
+    special_qualifiers: ['ambient_pressure'],
   },
   {
     key: 'thermal.glass_transition_temperature',
     label_ko: '유리전이온도',
     quantity_kind: 'thermodynamics.ThermodynamicTemperature',
-    special_qualifiers: [
-      'measurement_method',
-    ],
+    special_qualifiers: ['measurement_method'],
   },
   {
     key: 'thermal.solidus_temperature',
     label_ko: '고상선 온도',
     quantity_kind: 'thermodynamics.ThermodynamicTemperature',
-    special_qualifiers: [
-      'composition',
-    ],
+    special_qualifiers: ['composition'],
   },
   {
     key: 'thermal.liquidus_temperature',
     label_ko: '액상선 온도',
     quantity_kind: 'thermodynamics.ThermodynamicTemperature',
-    special_qualifiers: [
-      'composition',
-    ],
+    special_qualifiers: ['composition'],
   },
   {
     key: 'thermal.decomposition_temperature',
     label_ko: '분해온도',
     quantity_kind: 'thermodynamics.ThermodynamicTemperature',
-    special_qualifiers: [
-      'environment',
-      'heating_rate',
-    ],
+    special_qualifiers: ['environment', 'heating_rate'],
   },
   {
     key: 'thermal.latent_heat_fusion',
@@ -120,17 +103,12 @@ export const thermalMaterialParameters = defineMaterialParameterDomain('thermal'
     key: 'thermal.latent_heat_vaporization',
     label_ko: '기화 잠열',
     quantity_kind: 'SpecificEnergy',
-    special_qualifiers: [
-      'pressure',
-    ],
+    special_qualifiers: ['pressure'],
   },
   {
     key: 'thermal.thermal_insulance',
     label_ko: '열관류 저항',
     quantity_kind: 'thermodynamics.ThermalInsulance',
-    special_qualifiers: [
-      'thickness',
-    ],
+    special_qualifiers: ['thickness'],
   },
 ] as const)
-

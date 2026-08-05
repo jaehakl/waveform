@@ -1,5 +1,5 @@
 import { dbTables, getListRequest } from '@/api'
-import { deserializeCadScene, type EvaluatedDocumentSnapshotV2 } from '@/lib/cad'
+import { deserializeCadScene, type EvaluatedDocumentSnapshot } from '@/lib/cad'
 import {
   readFrozenMaterialParameters,
   resolveMaterialParameters,
@@ -12,7 +12,7 @@ export function createDocumentMaterialResolver(storedSnapshot: unknown | null) {
   const materialQueries = new Map<string, ReturnType<typeof dbTables.Material.listRows>>()
   const parameterQueries = new Map<string, ReturnType<typeof dbTables.MaterialParameter.listRows>>()
 
-  return async (snapshot: EvaluatedDocumentSnapshotV2): Promise<MaterialResolution> => {
+  return async (snapshot: EvaluatedDocumentSnapshot): Promise<MaterialResolution> => {
     const scene = deserializeCadScene(snapshot.scene)
     const materials = scene.parts.flatMap((part) => (part.material ? [part.material] : []))
 
@@ -89,7 +89,7 @@ export function createDocumentMaterialResolver(storedSnapshot: unknown | null) {
 }
 
 export function resolveDocumentMaterials(
-  snapshot: EvaluatedDocumentSnapshotV2,
+  snapshot: EvaluatedDocumentSnapshot,
   storedSnapshot: unknown | null,
 ): Promise<MaterialResolution> {
   return createDocumentMaterialResolver(storedSnapshot)(snapshot)

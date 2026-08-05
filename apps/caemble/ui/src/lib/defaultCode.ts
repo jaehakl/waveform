@@ -4,7 +4,7 @@ export const defaultCode = `import {
   structure,
   type Geometry,
   type Vec3,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const Conductor: Geometry<{
   notchPosition: Vec3

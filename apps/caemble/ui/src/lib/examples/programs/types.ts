@@ -7,7 +7,7 @@ export type CaembleProgramExample = Readonly<{
   experimentCode: string
   verification: Readonly<{
     kernelTasks: readonly string[]
-    outputs: readonly string[]
+    recordedData: readonly string[]
     expectations: readonly string[]
   }>
 }>

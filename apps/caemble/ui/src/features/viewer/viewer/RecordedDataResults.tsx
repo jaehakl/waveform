@@ -14,19 +14,11 @@ import {
   type RecordedDataDisplayUnitTarget,
   type ResolvedRecordedTensor,
 } from './recordedData'
-import {
-  componentIndexPaths,
-  componentLabel,
-  projectRecordedComponents,
-} from './recordedComponents'
+import { componentIndexPaths, componentLabel, projectRecordedComponents } from './recordedComponents'
 
 type RecordedDataResultsProps = {
   displayUnits?: RecordedDataDisplayUnits
-  onDisplayUnitChange?: (
-    label: string,
-    target: RecordedDataDisplayUnitTarget,
-    unit: UcumUnit,
-  ) => void
+  onDisplayUnitChange?: (label: string, target: RecordedDataDisplayUnitTarget, unit: UcumUnit) => void
   recordedData?: CadViewerRecordedData | null
   rules: readonly RecordedDataRule[]
 }
@@ -45,11 +37,7 @@ function unitLabel(unit: string | undefined) {
   return unit ?? 'unitless'
 }
 
-function axisTitle(
-  rule: RecordedDataRule,
-  axisIndex: number,
-  axisUnits?: readonly (UcumUnit | undefined)[],
-) {
+function axisTitle(rule: RecordedDataRule, axisIndex: number, axisUnits?: readonly (UcumUnit | undefined)[]) {
   const axis = schemaAxis(rule, axisIndex)
   return `${axis.name} (${unitLabel(axisUnits?.[axisIndex] ?? axis.unit)})`
 }
@@ -61,13 +49,7 @@ function visualizationKind(rule: RecordedDataRule) {
   return axisCount === 1 ? 'line chart' : 'heatmap'
 }
 
-function EmptyPlot({
-  axisUnits,
-  rule,
-}: {
-  axisUnits: readonly (UcumUnit | undefined)[]
-  rule: RecordedDataRule
-}) {
+function EmptyPlot({ axisUnits, rule }: { axisUnits: readonly (UcumUnit | undefined)[]; rule: RecordedDataRule }) {
   const kind = visualizationKind(rule)
   const axisCount = rule.result.axes?.length ?? 0
   return (
@@ -77,19 +59,18 @@ function EmptyPlot({
       data-result-visualization={kind}
     >
       <div className="absolute inset-x-4 bottom-3 truncate text-center text-[10px] text-slate-400">
-        {axisCount === 0
-          ? 'scalar result'
-          : axisTitle(rule, axisCount - 1, axisUnits)}
+        {axisCount === 0 ? 'scalar result' : axisTitle(rule, axisCount - 1, axisUnits)}
       </div>
       {axisCount >= 2 ? (
-        <div className="absolute bottom-8 left-2 top-2 flex items-center text-[10px] text-slate-400 [writing-mode:vertical-rl]">
+        <div className="absolute top-2 bottom-8 left-2 flex items-center text-[10px] text-slate-400 [writing-mode:vertical-rl]">
           {axisTitle(rule, axisCount - 2, axisUnits)}
         </div>
       ) : null}
       <div className="text-center">
         <div className="text-sm font-semibold text-slate-500">No recorded data</div>
         <div className="mt-1 text-xs text-slate-400">
-          Empty {kind} · expected axis lengths {JSON.stringify(rule.result.axes?.map((axis) => axis.length ?? 'dynamic') ?? [])}
+          Empty {kind} · expected axis lengths{' '}
+          {JSON.stringify(rule.result.axes?.map((axis) => axis.length ?? 'dynamic') ?? [])}
         </div>
       </div>
     </div>
@@ -103,9 +84,7 @@ function numericExtent(values: readonly number[]) {
     minimum = Math.min(minimum, value)
     maximum = Math.max(maximum, value)
   })
-  return minimum === maximum
-    ? { minimum: minimum - 0.5, maximum: maximum + 0.5 }
-    : { minimum, maximum }
+  return minimum === maximum ? { minimum: minimum - 0.5, maximum: maximum + 0.5 } : { minimum, maximum }
 }
 
 function LineChart({
@@ -130,8 +109,8 @@ function LineChart({
   if (pointIndices[pointIndices.length - 1] !== values.length - 1) pointIndices.push(values.length - 1)
   const points = pointIndices.map((index) => {
     const value = values[index]
-    const x = left + (values.length === 1 ? width / 2 : index * width / (values.length - 1))
-    const y = top + (maximum - value) * height / (maximum - minimum)
+    const x = left + (values.length === 1 ? width / 2 : (index * width) / (values.length - 1))
+    const y = top + ((maximum - value) * height) / (maximum - minimum)
     return { index, value, x, y }
   })
   const tickStep = Math.max(1, Math.ceil(ticks.length / 8))
@@ -140,7 +119,10 @@ function LineChart({
   if (tickIndices[tickIndices.length - 1] !== ticks.length - 1) tickIndices.push(ticks.length - 1)
 
   return (
-    <div className="h-80 w-full overflow-hidden rounded border border-slate-200 bg-white" data-result-visualization="line chart">
+    <div
+      className="h-80 w-full overflow-hidden rounded border border-slate-200 bg-white"
+      data-result-visualization="line chart"
+    >
       <svg aria-label="Recorded line chart" className="h-full w-full" role="img" viewBox="0 0 800 320">
         <rect fill="#f8fafc" height={height} width={width} x={left} y={top} />
         <line stroke="#94a3b8" x1={left} x2={left} y1={top} y2={top + height} />
@@ -162,18 +144,24 @@ function LineChart({
             fontSize="10"
             key={index}
             textAnchor="middle"
-            x={left + (ticks.length === 1 ? width / 2 : index * width / (ticks.length - 1))}
+            x={left + (ticks.length === 1 ? width / 2 : (index * width) / (ticks.length - 1))}
             y={top + height + 18}
           >
             {String(ticks[index])}
           </text>
         ))}
-        <text fill="#475569" fontSize="11" textAnchor="middle" x={left + width / 2} y="307">{xTitle}</text>
+        <text fill="#475569" fontSize="11" textAnchor="middle" x={left + width / 2} y="307">
+          {xTitle}
+        </text>
         <text fill="#475569" fontSize="11" textAnchor="middle" transform="rotate(-90 16 138)" x="16" y="138">
           Value ({unitLabel(resultUnit)})
         </text>
-        <text fill="#64748b" fontSize="10" textAnchor="end" x={left - 8} y={top + 4}>{maximum.toPrecision(4)}</text>
-        <text fill="#64748b" fontSize="10" textAnchor="end" x={left - 8} y={top + height}>{minimum.toPrecision(4)}</text>
+        <text fill="#64748b" fontSize="10" textAnchor="end" x={left - 8} y={top + 4}>
+          {maximum.toPrecision(4)}
+        </text>
+        <text fill="#64748b" fontSize="10" textAnchor="end" x={left - 8} y={top + height}>
+          {minimum.toPrecision(4)}
+        </text>
       </svg>
     </div>
   )
@@ -203,10 +191,12 @@ function Heatmap({
 }) {
   let minimum = Number.POSITIVE_INFINITY
   let maximum = Number.NEGATIVE_INFINITY
-  matrix.forEach((row) => row.forEach((value) => {
-    minimum = Math.min(minimum, value)
-    maximum = Math.max(maximum, value)
-  }))
+  matrix.forEach((row) =>
+    row.forEach((value) => {
+      minimum = Math.min(minimum, value)
+      maximum = Math.max(maximum, value)
+    }),
+  )
   const left = 72
   const top = 20
   const width = 680
@@ -225,7 +215,7 @@ function Heatmap({
   if (rowLabelIndices[rowLabelIndices.length - 1] !== rowTicks.length - 1) rowLabelIndices.push(rowTicks.length - 1)
   const rowStride = Math.max(1, Math.ceil(rowTicks.length / 100))
   const renderedRowCount = Math.ceil(rowTicks.length / rowStride)
-  const columnStride = Math.max(1, Math.ceil(columnTicks.length * renderedRowCount / 10_000))
+  const columnStride = Math.max(1, Math.ceil((columnTicks.length * renderedRowCount) / 10_000))
   const cells: ReactNode[] = []
   for (let rowIndex = 0; rowIndex < matrix.length; rowIndex += rowStride) {
     for (let columnIndex = 0; columnIndex < matrix[rowIndex].length; columnIndex += columnStride) {
@@ -246,23 +236,48 @@ function Heatmap({
   }
 
   return (
-    <div className="h-80 w-full overflow-hidden rounded border border-slate-200 bg-white" data-result-visualization="heatmap">
+    <div
+      className="h-80 w-full overflow-hidden rounded border border-slate-200 bg-white"
+      data-result-visualization="heatmap"
+    >
       <svg aria-label="Recorded heatmap" className="h-full w-full" role="img" viewBox="0 0 800 320">
         {cells}
         {columnLabelIndices.map((index) => (
-          <text fill="#64748b" fontSize="10" key={index} textAnchor="middle" x={left + (index + 0.5) * cellWidth} y={top + height + 18}>
+          <text
+            fill="#64748b"
+            fontSize="10"
+            key={index}
+            textAnchor="middle"
+            x={left + (index + 0.5) * cellWidth}
+            y={top + height + 18}
+          >
             {String(columnTicks[index])}
           </text>
         ))}
         {rowLabelIndices.map((index) => (
-          <text fill="#64748b" fontSize="10" key={index} textAnchor="end" x={left - 7} y={top + (index + 0.65) * cellHeight}>
+          <text
+            fill="#64748b"
+            fontSize="10"
+            key={index}
+            textAnchor="end"
+            x={left - 7}
+            y={top + (index + 0.65) * cellHeight}
+          >
             {String(rowTicks[index])}
           </text>
         ))}
-        <text fill="#475569" fontSize="11" textAnchor="middle" x={left + width / 2} y="307">{xTitle}</text>
-        <text fill="#475569" fontSize="11" textAnchor="middle" transform="rotate(-90 16 138)" x="16" y="138">{yTitle}</text>
-        <text fill="#64748b" fontSize="10" x="758" y={top + 10}>{maximum.toPrecision(4)}</text>
-        <text fill="#64748b" fontSize="10" x="758" y={top + height}>{minimum.toPrecision(4)}</text>
+        <text fill="#475569" fontSize="11" textAnchor="middle" x={left + width / 2} y="307">
+          {xTitle}
+        </text>
+        <text fill="#475569" fontSize="11" textAnchor="middle" transform="rotate(-90 16 138)" x="16" y="138">
+          {yTitle}
+        </text>
+        <text fill="#64748b" fontSize="10" x="758" y={top + 10}>
+          {maximum.toPrecision(4)}
+        </text>
+        <text fill="#64748b" fontSize="10" x="758" y={top + height}>
+          {minimum.toPrecision(4)}
+        </text>
       </svg>
     </div>
   )
@@ -320,7 +335,11 @@ function MatrixTable({
               {axisTitle(rule, tensor.axes.length - 2, axisUnits)} /{' '}
               {axisTitle(rule, tensor.axes.length - 1, axisUnits)}
             </th>
-            {columnAxis.ticks.map((tick, index) => <th className="px-3 py-2" key={index}>{String(tick)}</th>)}
+            {columnAxis.ticks.map((tick, index) => (
+              <th className="px-3 py-2" key={index}>
+                {String(tick)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -328,7 +347,9 @@ function MatrixTable({
             <tr className="border-t border-slate-100" key={rowIndex}>
               <th className="sticky left-0 bg-white px-3 py-2 text-slate-600">{String(rowAxis.ticks[rowIndex])}</th>
               {row.map((item, columnIndex) => (
-                <td className="px-3 py-2 font-mono" key={columnIndex}>{String(item)}</td>
+                <td className="px-3 py-2 font-mono" key={columnIndex}>
+                  {String(item)}
+                </td>
               ))}
             </tr>
           ))}
@@ -351,7 +372,9 @@ function TensorVisualization({
 }) {
   const leadingAxisCount = Math.max(0, tensor.axes.length - 2)
   const [sliceIndices, setSliceIndices] = useState(() => Array.from({ length: leadingAxisCount }, () => 0))
-  const safeIndices = sliceIndices.map((index, axisIndex) => Math.min(index, Math.max(0, tensor.axes[axisIndex].length - 1)))
+  const safeIndices = sliceIndices.map((index, axisIndex) =>
+    Math.min(index, Math.max(0, tensor.axes[axisIndex].length - 1)),
+  )
   const value = getSlice(tensor.value, safeIndices)
 
   if (tensor.axes.length === 0) {
@@ -372,50 +395,51 @@ function TensorVisualization({
       <div className="grid min-h-56 place-items-center rounded border border-dashed border-slate-300 bg-slate-50 text-center">
         <div>
           <div className="text-sm font-semibold text-slate-500">No recorded values</div>
-          <div className="mt-1 text-xs text-slate-400">Resolved empty data · actual axis lengths {JSON.stringify(tensor.axes.map((axis) => axis.length))}</div>
+          <div className="mt-1 text-xs text-slate-400">
+            Resolved empty data · actual axis lengths {JSON.stringify(tensor.axes.map((axis) => axis.length))}
+          </div>
         </div>
       </div>
     )
   }
 
-  const controls = leadingAxisCount > 0 ? (
-    <div className="mb-3 flex flex-wrap gap-3">
-      {Array.from({ length: leadingAxisCount }, (_, axisIndex) => {
-        const axis = tensor.axes[axisIndex]
-        return (
-          <label className="text-xs font-medium text-slate-600" key={axisIndex}>
-            <span className="mr-2">{axisTitle(rule, axisIndex, axisUnits)}</span>
-            <select
-              aria-label={`Select ${axis.name} slice`}
-              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
-              disabled={axis.ticks.length === 0}
-              value={safeIndices[axisIndex] ?? 0}
-              onChange={(event) => setSliceIndices((current) => current.map(
-                (index, indexAxis) => indexAxis === axisIndex ? Number(event.target.value) : index,
-              ))}
-            >
-              {axis.ticks.length === 0 ? <option value={0}>No values</option> : null}
-              {axis.ticks.map((tick, index) => (
-                <option key={index} value={index}>{index}: {String(tick)}</option>
-              ))}
-            </select>
-          </label>
-        )
-      })}
-    </div>
-  ) : null
+  const controls =
+    leadingAxisCount > 0 ? (
+      <div className="mb-3 flex flex-wrap gap-3">
+        {Array.from({ length: leadingAxisCount }, (_, axisIndex) => {
+          const axis = tensor.axes[axisIndex]
+          return (
+            <label className="text-xs font-medium text-slate-600" key={axisIndex}>
+              <span className="mr-2">{axisTitle(rule, axisIndex, axisUnits)}</span>
+              <select
+                aria-label={`Select ${axis.name} slice`}
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
+                disabled={axis.ticks.length === 0}
+                value={safeIndices[axisIndex] ?? 0}
+                onChange={(event) =>
+                  setSliceIndices((current) =>
+                    current.map((index, indexAxis) => (indexAxis === axisIndex ? Number(event.target.value) : index)),
+                  )
+                }
+              >
+                {axis.ticks.length === 0 ? <option value={0}>No values</option> : null}
+                {axis.ticks.map((tick, index) => (
+                  <option key={index} value={index}>
+                    {index}: {String(tick)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )
+        })}
+      </div>
+    ) : null
 
   if (!isNumericRecordedDType(tensor.dtype)) {
     return (
       <>
         {controls}
-        <MatrixTable
-          axisUnits={axisUnits}
-          resultUnit={resultUnit}
-          rule={rule}
-          tensor={tensor}
-          value={value}
-        />
+        <MatrixTable axisUnits={axisUnits} resultUnit={resultUnit} rule={rule} tensor={tensor} value={value} />
       </>
     )
   }
@@ -424,12 +448,7 @@ function TensorVisualization({
     const axis = tensor.axes[0]
     const values = value as readonly number[]
     return (
-      <LineChart
-        resultUnit={resultUnit}
-        ticks={axis.ticks}
-        values={values}
-        xTitle={axisTitle(rule, 0, axisUnits)}
-      />
+      <LineChart resultUnit={resultUnit} ticks={axis.ticks} values={values} xTitle={axisTitle(rule, 0, axisUnits)} />
     )
   }
 
@@ -461,24 +480,19 @@ function RecordedResultCard({
   onDisplayUnitChange: RecordedDataResultsProps['onDisplayUnitChange']
 }) {
   const { error, rule, tensor } = entry
-  const tensorOrder = rule.result.quantityKind
-    ? QuantityKind[rule.result.quantityKind].tensorOrder()
-    : 0
-  const componentShape = rule.result.quantityKind
-    ? QuantityKind[rule.result.quantityKind].componentShape()
-    : []
+  const tensorOrder = rule.result.quantityKind ? QuantityKind[rule.result.quantityKind].tensorOrder() : 0
+  const componentShape = rule.result.quantityKind ? QuantityKind[rule.result.quantityKind].componentShape() : []
   const componentOptions = componentIndexPaths(tensorOrder)
   const identityBasis = JSON.stringify(rule.result.basis) === JSON.stringify(identityCartesianBasis)
   const [componentSelection, setComponentSelection] = useState('norm')
   const display = useMemo(() => {
     const conversionErrors: string[] = []
-    const resultUnitOptions = rule.result.quantityKind && rule.result.unit
-      ? recordedDisplayUnitOptions(rule.result.quantityKind, rule.result.unit)
-      : []
-    const requestedResultUnit = displayUnits?.result
-      && resultUnitOptions.includes(displayUnits.result)
-      ? displayUnits.result
-      : rule.result.unit
+    const resultUnitOptions =
+      rule.result.quantityKind && rule.result.unit
+        ? recordedDisplayUnitOptions(rule.result.quantityKind, rule.result.unit)
+        : []
+    const requestedResultUnit =
+      displayUnits?.result && resultUnitOptions.includes(displayUnits.result) ? displayUnits.result : rule.result.unit
     let resultUnit = requestedResultUnit
     let resultValue = tensor?.value
 
@@ -502,12 +516,10 @@ function RecordedResultCard({
     const axes = Array.from({ length: rule.result.axes?.length ?? 0 }, (_, axisIndex) => {
       const axis = schemaAxis(rule, axisIndex)
       const sourceTicks = tensor?.axes[axisIndex].ticks ?? axis.ticks
-      const numericTicks = sourceTicks !== undefined
-        && sourceTicks.length > 0
-        && sourceTicks.every((tick) => typeof tick === 'number')
-      const unitOptions = numericTicks && axis.quantityKind && axis.unit
-        ? recordedDisplayUnitOptions(axis.quantityKind, axis.unit)
-        : []
+      const numericTicks =
+        sourceTicks !== undefined && sourceTicks.length > 0 && sourceTicks.every((tick) => typeof tick === 'number')
+      const unitOptions =
+        numericTicks && axis.quantityKind && axis.unit ? recordedDisplayUnitOptions(axis.quantityKind, axis.unit) : []
       const selectedUnit = displayUnits?.axes?.[axisIndex]
       const requestedUnit = selectedUnit && unitOptions.includes(selectedUnit) ? selectedUnit : axis.unit
       let ticks = sourceTicks
@@ -527,19 +539,25 @@ function RecordedResultCard({
 
       return { ...axis, ticks, unit, unitOptions }
     })
-    const displayedTensor = tensor ? Object.freeze({
-      ...tensor,
-      axes: Object.freeze(tensor.axes.map((axis, axisIndex) => Object.freeze({
-        ...axis,
-        ticks: axes[axisIndex].ticks ?? axis.ticks,
-      }))),
-      value: projectRecordedComponents(
-        resultValue ?? tensor.value,
-        tensor.axes.length,
-        tensor.tensorOrder,
-        componentSelection,
-      ) as ResolvedRecordedTensor['value'],
-    }) : null
+    const displayedTensor = tensor
+      ? Object.freeze({
+          ...tensor,
+          axes: Object.freeze(
+            tensor.axes.map((axis, axisIndex) =>
+              Object.freeze({
+                ...axis,
+                ticks: axes[axisIndex].ticks ?? axis.ticks,
+              }),
+            ),
+          ),
+          value: projectRecordedComponents(
+            resultValue ?? tensor.value,
+            tensor.axes.length,
+            tensor.tensorOrder,
+            componentSelection,
+          ) as ResolvedRecordedTensor['value'],
+        })
+      : null
 
     return {
       axes,
@@ -561,9 +579,13 @@ function RecordedResultCard({
         <div className="flex flex-col items-end gap-2 text-right text-xs text-slate-500">
           <div className="font-mono">
             <div>
-              {rule.result.dtype} · axes {rule.result.axes?.map((axis) => axis.length ?? 'dynamic').join(' × ') ?? 'none'} · {unitLabel(display.resultUnit)}
+              {rule.result.dtype} · axes{' '}
+              {rule.result.axes?.map((axis) => axis.length ?? 'dynamic').join(' × ') ?? 'none'} ·{' '}
+              {unitLabel(display.resultUnit)}
             </div>
-            <div>tensor order {tensorOrder} · components {JSON.stringify(componentShape)}</div>
+            <div>
+              tensor order {tensorOrder} · components {JSON.stringify(componentShape)}
+            </div>
             {rule.result.basis ? <div>basis {JSON.stringify(rule.result.basis)}</div> : null}
             {tensor ? <div>actual axis lengths {JSON.stringify(tensor.axes.map((axis) => axis.length))}</div> : null}
           </div>
@@ -576,7 +598,11 @@ function RecordedResultCard({
                 value={display.resultUnit}
                 onChange={(event) => onDisplayUnitChange?.(rule.label, 'result', event.target.value)}
               >
-                {display.resultUnitOptions.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                {display.resultUnitOptions.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
               </select>
             </label>
           ) : null}
@@ -607,7 +633,8 @@ function RecordedResultCard({
           const axis = display.axes[axisIndex]
           return (
             <div className="rounded bg-slate-50 px-3 py-2" key={axisIndex}>
-              <span className="font-semibold text-slate-700">{axis.name}</span>{' · '}
+              <span className="font-semibold text-slate-700">{axis.name}</span>
+              {' · '}
               {axis.unit && axis.unitOptions.length > 0 ? (
                 <select
                   aria-label={`${rule.label} ${axis.name} axis display unit`}
@@ -615,19 +642,29 @@ function RecordedResultCard({
                   value={axis.unit}
                   onChange={(event) => onDisplayUnitChange?.(rule.label, axisIndex, event.target.value)}
                 >
-                  {axis.unitOptions.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                  {axis.unitOptions.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
                 </select>
-              ) : <span>{unitLabel(axis.unit)}</span>}{' · '}
-              <span>length {axis.length ?? 'dynamic'}</span>{' · '}
-              <span className="font-mono">
-                {axis.ticks ? JSON.stringify(axis.ticks) : 'dynamic ticks from result'}
-              </span>
+              ) : (
+                <span>{unitLabel(axis.unit)}</span>
+              )}
+              {' · '}
+              <span>length {axis.length ?? 'dynamic'}</span>
+              {' · '}
+              <span className="font-mono">{axis.ticks ? JSON.stringify(axis.ticks) : 'dynamic ticks from result'}</span>
             </div>
           )
         })}
       </div>
 
-      {error ? <div className="mt-3 rounded bg-rose-50 p-3 text-xs text-rose-700" role="alert">{error}</div> : null}
+      {error ? (
+        <div className="mt-3 rounded bg-rose-50 p-3 text-xs text-rose-700" role="alert">
+          {error}
+        </div>
+      ) : null}
       {display.conversionErrors.length > 0 ? (
         <div className="mt-3 rounded bg-rose-50 p-3 text-xs text-rose-700" role="alert">
           Display unit conversion failed. {display.conversionErrors.join(' ')}
@@ -642,7 +679,9 @@ function RecordedResultCard({
             rule={rule}
             tensor={display.tensor}
           />
-        ) : <EmptyPlot axisUnits={display.axisUnits} rule={rule} />}
+        ) : (
+          <EmptyPlot axisUnits={display.axisUnits} rule={rule} />
+        )}
       </div>
     </article>
   )
@@ -654,10 +693,7 @@ export function RecordedDataResults({
   recordedData,
   rules,
 }: RecordedDataResultsProps) {
-  const resolved = useMemo(
-    () => resolveCadViewerRecordedData(rules, recordedData),
-    [recordedData, rules],
-  )
+  const resolved = useMemo(() => resolveCadViewerRecordedData(rules, recordedData), [recordedData, rules])
 
   return (
     <section aria-label="Recorded Data Results" className="h-full overflow-auto bg-slate-50 p-4 sm:p-5">
@@ -669,7 +705,11 @@ export function RecordedDataResults({
           </p>
         </div>
 
-        {resolved.error ? <div className="mb-4 rounded bg-rose-50 p-3 text-sm text-rose-700" role="alert">{resolved.error}</div> : null}
+        {resolved.error ? (
+          <div className="mb-4 rounded bg-rose-50 p-3 text-sm text-rose-700" role="alert">
+            {resolved.error}
+          </div>
+        ) : null}
         {resolved.unknownLabels.length > 0 ? (
           <div className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-800" role="alert">
             Unknown recordedData labels: {resolved.unknownLabels.join(', ')}

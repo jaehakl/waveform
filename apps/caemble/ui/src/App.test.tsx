@@ -36,23 +36,13 @@ describe('페이지 중심 앱 라우팅', () => {
       { hash, pathname: '/', search: '?from=legacy' } as Location,
       { replaceState } as unknown as History,
     )
-    expect(replaceState).toHaveBeenCalledWith(
-      null,
-      '',
-      hash === '#viewer' ? target : `${target}?from=legacy`,
-    )
+    expect(replaceState).toHaveBeenCalledWith(null, '', hash === '#viewer' ? target : `${target}?from=legacy`)
   })
 
   it.each([
     ['https://caemble.test/viewer', '/structures?structure=new&mode=code'],
-    [
-      'https://caemble.test/viewer?structure=111&experiment=112&sample=113',
-      '/structures?structure=new&mode=code',
-    ],
-    [
-      'https://caemble.test/viewer?from=bookmark&measurement=114',
-      '/structures?from=bookmark&structure=new&mode=code',
-    ],
+    ['https://caemble.test/viewer?structure=111&experiment=112&sample=113', '/structures?structure=new&mode=code'],
+    ['https://caemble.test/viewer?from=bookmark&measurement=114', '/structures?from=bookmark&structure=new&mode=code'],
   ])('retired Viewer URL %s를 새 Structure 코드 모드로 이동한다', (url, target) => {
     const response = redirectViewerToStructures(new Request(url))
     expect(response.status).toBe(302)
@@ -61,8 +51,10 @@ describe('페이지 중심 앱 라우팅', () => {
 
   it('카탈로그 수와 독립 Experiment 예제를 유지한다', () => {
     expect(catalogCounts).toEqual({ cad: 11, materials: 260, quantityKinds: 1_216, solvers: 1 })
-    expect(defaultExperimentCode).toContain("name: 'dc-current-density'")
+    expect(defaultExperimentCode).toContain("import { dcCurrentDensity } from '@caemble/kernels'")
+    expect(defaultExperimentCode).toContain('electric: dcCurrentDensity({')
     expect(defaultExperimentCode).toContain("methodId: 'dc.voxel-grid'")
-    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrentDensity'")
+    expect(defaultExperimentCode).toContain("quantityKind: 'electromagnetism.ElectricCurrent'")
+    expect(defaultExperimentCode).toContain("sim.record('measuredCurrent', electric.artifacts.totalCurrent)")
   })
 })

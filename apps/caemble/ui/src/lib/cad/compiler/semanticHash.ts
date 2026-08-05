@@ -1,7 +1,7 @@
 import { parse } from '@babel/parser'
-import type { CadSourceDocumentV2 } from '../source/document'
+import type { CadSourceDocument } from '../source/document'
 import { compileCadDocument } from './monacoCompiler'
-import type { CompiledCadProjectV2 } from './types'
+import type { CompiledCadSource } from './types'
 
 const ignoredAstFields = new Set([
   'comments',
@@ -36,17 +36,12 @@ export function rawCodeHash(code: string) {
   return sha256(code)
 }
 
-export async function compiledCadSemanticHash(project: CompiledCadProjectV2) {
-  const modules = Object.entries(project.modules)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([path, module]) => {
-      const code = module.code.replace(/\r?\n\/\/# sourceURL=caemble:\/\/[^\r\n]+\/?$/, '')
-      const ast = parse(code, { attachComment: false, sourceType: 'script' })
-      return [path, canonicalAstValue(ast.program)]
-    })
-  return sha256(JSON.stringify(modules))
+export async function compiledCadSemanticHash(compiled: CompiledCadSource) {
+  const code = compiled.code.replace(/\r?\n\/\/# sourceURL=caemble:\/\/[^\r\n]+\/?$/, '')
+  const ast = parse(code, { attachComment: false, sourceType: 'script' })
+  return sha256(JSON.stringify(canonicalAstValue(ast.program)))
 }
 
-export async function cadSemanticHash(document: CadSourceDocumentV2) {
+export async function cadSemanticHash(document: CadSourceDocument) {
   return compiledCadSemanticHash(await compileCadDocument(document))
 }

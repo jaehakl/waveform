@@ -99,20 +99,27 @@ export const arrayDefinition = {
     }
 
     const shapeValue = node.props.shape
-    if (!Array.isArray(shapeValue) || shapeValue.length !== 3 || shapeValue.some((size) => !Number.isSafeInteger(size) || size <= 0)) {
+    if (
+      !Array.isArray(shapeValue) ||
+      shapeValue.length !== 3 ||
+      shapeValue.some((size) => !Number.isSafeInteger(size) || size <= 0)
+    ) {
       throw new CadModelError('<array> shape must be an array of exactly three positive integers.')
     }
     const shape = [shapeValue[0], shapeValue[1], shapeValue[2]] as [number, number, number]
     const period = normalizeVec3(node.props.period, '<array> period')
     period.forEach((spacing, axis) => {
       if (spacing < 0 || (shape[axis] > 1 && spacing === 0)) {
-        throw new CadModelError(`<array> period[${axis}] must be positive when shape[${axis}] is greater than one, and non-negative otherwise.`)
+        throw new CadModelError(
+          `<array> period[${axis}] must be positive when shape[${axis}] is greater than one, and non-negative otherwise.`,
+        )
       }
     })
 
     let axes: readonly [Vec3, Vec3, Vec3] = standardAxes
     if (node.props.axes !== undefined) {
-      if (!isRecord(node.props.axes)) throw new CadModelError('<array> axes must be an object with x, y, and z direction vectors.')
+      if (!isRecord(node.props.axes))
+        throw new CadModelError('<array> axes must be an object with x, y, and z direction vectors.')
       axes = [
         normalizeDirection(node.props.axes.x, '<array> axes.x'),
         normalizeDirection(node.props.axes.y, '<array> axes.y'),
@@ -131,8 +138,11 @@ export const arrayDefinition = {
             (y - (shape[1] - 1) / 2) * period[1],
             (z - (shape[2] - 1) / 2) * period[2],
           ]
-          const offset = axes[0].map((_coordinate, coordinate) =>
-            axes[0][coordinate] * distances[0] + axes[1][coordinate] * distances[1] + axes[2][coordinate] * distances[2],
+          const offset = axes[0].map(
+            (_coordinate, coordinate) =>
+              axes[0][coordinate] * distances[0] +
+              axes[1][coordinate] * distances[1] +
+              axes[2][coordinate] * distances[2],
           ) as [number, number, number]
           if (offset.some((coordinate) => !Number.isFinite(coordinate))) {
             throw new CadModelError('<array> calculated a non-finite cell position.')
@@ -143,15 +153,20 @@ export const arrayDefinition = {
             props: { ...child.props, ...injectedPropsAt(inject, x, y, z) },
             children: child.children,
           }
-          parts.push(...applyTransforms(context.evaluate(cell, context.inheritedMaterials, {
-            key: `cell-${x}-${y}-${z}`,
-            label: `Cell [${x}, ${y}, ${z}]`,
-            identitySegment: `$cell-${x}-${y}-${z}`,
-          }), {
-            scale: unitScale,
-            rotate: undefined,
-            pos: offset,
-          }))
+          parts.push(
+            ...applyTransforms(
+              context.evaluate(cell, context.inheritedMaterials, {
+                key: `cell-${x}-${y}-${z}`,
+                label: `Cell [${x}, ${y}, ${z}]`,
+                identitySegment: `$cell-${x}-${y}-${z}`,
+              }),
+              {
+                scale: unitScale,
+                rotate: undefined,
+                pos: offset,
+              },
+            ),
+          )
         }
       }
     }

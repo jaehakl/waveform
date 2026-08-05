@@ -8,7 +8,7 @@ import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UserData } from '@/api'
 import { CurrentCadSelectionProvider, useCurrentCadSelection } from '@/features/viewer/current-cad-selection'
-import { cadEntrySource, rerollCadSourceDocument, updateCadEntrySource, type CadSourceDocumentV2 } from '@/lib/cad'
+import { cadSource, rerollCadSourceDocument, updateCadSource, type CadSourceDocument } from '@/lib/cad'
 import { defaultCode } from '@/lib/defaultCode'
 import { StructurePage } from './StructurePage'
 
@@ -82,7 +82,7 @@ vi.mock('@/features/viewer/workspace/StructureExperimentViewer', () => ({
     structureLineage,
     structureVarsPanel,
   }: {
-    experiment?: CadSourceDocumentV2 | null
+    experiment?: CadSourceDocument | null
     structureDocument: { handleReroll: () => void; handleSourceChange: (source: string) => void }
     structureLineage?: React.ReactNode
     structureVarsPanel?: React.ReactNode
@@ -250,9 +250,9 @@ beforeEach(() => {
   })
   workspace.useCadWorkspace.mockImplementation(
     (
-      structure: CadSourceDocumentV2 | null,
-      experiment: CadSourceDocumentV2 | null,
-      onStructureChange?: (document: CadSourceDocumentV2) => void,
+      structure: CadSourceDocument | null,
+      experiment: CadSourceDocument | null,
+      onStructureChange?: (document: CadSourceDocument) => void,
     ) => {
       const structureDocument = {
         handleReroll: () => {
@@ -260,7 +260,7 @@ beforeEach(() => {
           if (structure && onStructureChange) onStructureChange(rerollCadSourceDocument(structure))
         },
         handleSourceChange: (source: string) => {
-          if (structure && onStructureChange) onStructureChange(updateCadEntrySource(structure, source))
+          if (structure && onStructureChange) onStructureChange(updateCadSource(structure, source))
         },
         handleRenderEnd: workspace.structureRenderEnd,
         handleRenderError: workspace.structureRenderError,
@@ -273,7 +273,6 @@ beforeEach(() => {
         varsSchema: structure ? { width: { min: 1, max: 10 } } : null,
       }
       const experimentDocument = {
-        experimentRules: null,
         handleRenderEnd: workspace.experimentRenderEnd,
         handleRenderError: workspace.experimentRenderError,
         handleRenderStart: workspace.experimentRenderStart,
@@ -304,7 +303,7 @@ describe('StructurePage', () => {
     expect(screen.getByTestId('structure-viewer')).toHaveTextContent('Structure rendered')
     expect(screen.getByLabelText('전역 Structure')).toHaveTextContent('없음')
     expect(router.state.location.search).toBe('?structure=new&mode=code')
-    expect(cadEntrySource(latestWorkspaceCall()[0])).toBe(defaultCode)
+    expect(cadSource(latestWorkspaceCall()[0])).toBe(defaultCode)
   })
 
   it('opens a selected Structure directly in code mode', async () => {
@@ -337,8 +336,19 @@ describe('StructurePage', () => {
     await userEvent.click(screen.getByText('Owned Grandchild'))
     await waitFor(() => expect(screen.getByTestId('structure-viewer')).toHaveTextContent('Structure rendered'))
     await waitFor(() => expect(router.state.location.search).toBe('?structure=5'))
-    await userEvent.click(screen.getByText('Owned Grandchild'))
-    await waitFor(() => expect(workspace.reroll).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(screen.getByText('Owned Grandchild').closest('tr')).toHaveAttribute('aria-selected', 'true'),
+    )
+    vi.useFakeTimers()
+    try {
+      fireEvent.click(screen.getByText('Owned Grandchild'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(251)
+      })
+      expect(workspace.reroll).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
 
     await userEvent.click(screen.getByRole('button', { name: 'Owned Grandchild 코드 에디터 열기' }))
     expect(screen.getByText('Root')).toBeInTheDocument()
@@ -376,8 +386,8 @@ describe('StructurePage', () => {
     await userEvent.click(screen.getByRole('button', { name: '상대 Experiment 선택' }))
 
     await waitFor(() => {
-      const experiment = latestWorkspaceCall()?.[1] as CadSourceDocumentV2 | null
-      expect(experiment && cadEntrySource(experiment)).toBe('current experiment source')
+      const experiment = latestWorkspaceCall()?.[1] as CadSourceDocument | null
+      expect(experiment && cadSource(experiment)).toBe('current experiment source')
       expect(screen.getByTestId('structure-viewer-counterpart')).toHaveTextContent('Experiment rendered')
     })
 
@@ -484,8 +494,8 @@ describe('StructurePage', () => {
     expect(screen.queryByRole('button', { name: /정보 (편집|보기)/ })).not.toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[0] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultCode)
+    ]?.[0] as CadSourceDocument
+    expect(cadSource(draft)).toBe(defaultCode)
 
     await userEvent.click(screen.getByRole('button', { name: 'Structure 생성' }))
     const saveDialog = screen.getByRole('dialog')
@@ -498,7 +508,7 @@ describe('StructurePage', () => {
       ),
     )
     const request = api.saveDefinition.mock.calls[api.saveDefinition.mock.calls.length - 1]?.[0]
-    expect(cadEntrySource(request.document)).toBe(defaultCode)
+    expect(cadSource(request.document)).toBe(defaultCode)
     await waitFor(() => expect(screen.getByRole('button', { name: '새 root로 저장' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Structure 생성' })).not.toBeInTheDocument()
   })
@@ -519,8 +529,8 @@ describe('StructurePage', () => {
     expect(screen.getByText('저장 전 새 Structure입니다.')).toBeInTheDocument()
     const draft = workspace.useCadWorkspace.mock.calls[
       workspace.useCadWorkspace.mock.calls.length - 1
-    ]?.[0] as CadSourceDocumentV2
-    expect(cadEntrySource(draft)).toBe(defaultCode)
+    ]?.[0] as CadSourceDocument
+    expect(cadSource(draft)).toBe(defaultCode)
   })
 
   it('keeps foreign metadata read-only and saves the current code as a new root', async () => {
@@ -616,7 +626,7 @@ describe('StructurePage', () => {
       undefined,
       undefined,
       expect.any(Function),
-      'prepared-vars',
+      'fast-reroll',
     )
   })
 })

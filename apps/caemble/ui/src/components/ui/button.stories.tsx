@@ -15,4 +15,13 @@ type Story = StoryObj<typeof meta>
 export const Primary: Story = {}
 export const Secondary: Story = { args: { variant: 'outline' } }
 export const Disabled: Story = { args: { disabled: true } }
-export const WithIcon: Story = { args: { children: <><span>카탈로그 보기</span><ArrowRight /></> } }
+export const WithIcon: Story = {
+  args: {
+    children: (
+      <>
+        <span>카탈로그 보기</span>
+        <ArrowRight />
+      </>
+    ),
+  },
+}

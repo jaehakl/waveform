@@ -33,9 +33,10 @@ async function send<T>(method: HttpMethod, url: string, data?: unknown): Promise
   })
   const body = await responseBody(response)
   if (!response.ok) {
-    const detail = typeof body === 'object' && body !== null && 'detail' in body
-      ? String(body.detail)
-      : `API 요청에 실패했습니다. (${response.status})`
+    const detail =
+      typeof body === 'object' && body !== null && 'detail' in body
+        ? String(body.detail)
+        : `API 요청에 실패했습니다. (${response.status})`
     throw new ApiError(response.status, detail, body)
   }
   return body as T

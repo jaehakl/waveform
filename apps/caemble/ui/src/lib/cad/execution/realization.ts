@@ -8,31 +8,33 @@ import type { CadScene } from '../evaluation/types'
 import { deserializeCadScene } from './mesh'
 import { CadModelError } from '../model/errors'
 import {
-  assertEvaluatedDocumentSnapshotV2,
+  assertEvaluatedDocumentSnapshot,
   assertPlainSnapshotValue,
-  type EvaluatedDocumentSnapshotV2,
+  type EvaluatedDocumentSnapshot,
+  type EvaluatedExperimentSnapshot,
+  type EvaluatedStructureSnapshot,
 } from './snapshotValidation'
 
-export type BuiltSampleV2 = Readonly<{
+export type BuiltSample = Readonly<{
   kind: 'sample'
-  structure: EvaluatedDocumentSnapshotV2
+  structure: EvaluatedStructureSnapshot
   materialParameters: FrozenMaterialParameters
   materialWarnings: readonly string[]
 }>
 
-export type BuiltSetupV2 = Readonly<{
+export type BuiltSetup = Readonly<{
   kind: 'setup'
-  experiment: EvaluatedDocumentSnapshotV2
+  experiment: EvaluatedExperimentSnapshot
   materialParameters: FrozenMaterialParameters
   materialWarnings: readonly string[]
 }>
 
-export type BuiltRealizationV2 = BuiltSampleV2 | BuiltSetupV2
+export type BuiltRealization = BuiltSample | BuiltSetup
 
-export function buildRealizationV2(
-  snapshot: EvaluatedDocumentSnapshotV2,
+export function buildRealization(
+  snapshot: EvaluatedDocumentSnapshot,
   resolution: MaterialResolution,
-): BuiltRealizationV2 {
+): BuiltRealization {
   if (snapshot.kind === 'structure') {
     return Object.freeze({
       kind: 'sample',
@@ -49,24 +51,24 @@ export function buildRealizationV2(
   })
 }
 
-export function buildSourceOnlyRealizationV2(snapshot: EvaluatedDocumentSnapshotV2) {
+export function buildSourceOnlyRealization(snapshot: EvaluatedDocumentSnapshot) {
   const scene = deserializeCadScene(snapshot.scene)
   const materials = scene.parts.flatMap((part) => (part.material ? [part.material] : []))
-  return buildRealizationV2(snapshot, sourceOnlyMaterialParameters(materials))
+  return buildRealization(snapshot, sourceOnlyMaterialParameters(materials))
 }
 
-export function assertBuiltRealizationV2(value: unknown): asserts value is BuiltRealizationV2 {
+export function assertBuiltRealization(value: unknown): asserts value is BuiltRealization {
   assertPlainSnapshotValue(value, 'built realization')
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new CadModelError('Built realization must be an object.')
   }
-  const realization = value as Partial<BuiltRealizationV2>
+  const realization = value as Partial<BuiltRealization>
   const snapshot =
     realization.kind === 'sample' ? realization.structure : realization.kind === 'setup' ? realization.experiment : null
   if (!snapshot || (realization.kind === 'sample' ? snapshot.kind !== 'structure' : snapshot.kind !== 'experiment')) {
     throw new CadModelError('Built realization kind does not match its evaluated document.')
   }
-  assertEvaluatedDocumentSnapshotV2(snapshot)
+  assertEvaluatedDocumentSnapshot(snapshot)
   if (!readFrozenMaterialParameters(realization.materialParameters)) {
     throw new CadModelError('Built realization Material snapshot is invalid.')
   }

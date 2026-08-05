@@ -1,3 +1,4 @@
+// @caemble/core declaration version: 0.0.0
 export type Tensor = number | readonly Tensor[]
 export type Vars = Readonly<Record<string, Tensor>>
 export type Vec3 = readonly [number, number, number]
@@ -2702,15 +2703,6 @@ export type RecordedDataResult = RecordedDataResultBase &
         basis?: never
       }
   >
-export type ExperimentRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<{
-  target: readonly ExperimentTarget[]
-  label: string
-  methodId: string
-  parameters: TParameters
-}>
-export type RecordedDataRule<TParameters extends ExperimentParameters = ExperimentParameters> = Readonly<
-  ExperimentRule<TParameters> & { result: RecordedDataResult }
->
 export type RecordedDataAxis = Readonly<{
   ticks?: readonly (number | string)[]
 }>
@@ -2719,6 +2711,8 @@ export type RecordedDataTensor = Readonly<{
   axes?: readonly RecordedDataAxis[]
 }>
 export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
+export type RecordedDataSpec = RecordedDataResult
+export type DataTensor = RecordedDataTensor
 
 export type BoxAttributes = Readonly<{
   size: Vec3
@@ -3100,8 +3094,7 @@ export type MaterialPropertyQuantityKindMap = Readonly<{
   'interface.mass_transfer_coefficient': 'kinematics.Speed'
 }>
 export type MaterialPropertyKey = keyof MaterialPropertyQuantityKindMap
-export type MaterialPropertyQuantityKind<Key extends MaterialPropertyKey> =
-  MaterialPropertyQuantityKindMap[Key]
+export type MaterialPropertyQuantityKind<Key extends MaterialPropertyKey> = MaterialPropertyQuantityKindMap[Key]
 export type MaterialPropertyDefinitionFor<Key extends MaterialPropertyKey> = Readonly<{
   key: Key
   quantity_kind: MaterialPropertyQuantityKind<Key>
@@ -3129,36 +3122,38 @@ export type MaterialModelKey = keyof MaterialModelDefinitionMap
 export type MaterialModelDefinitionFor<Key extends MaterialModelKey> = MaterialModelDefinitionMap[Key]
 export type MaterialCatalogKey = MaterialPropertyKey | MaterialModelKey
 
-type MaterialAuthoringBasis<Name extends QuantityKindName> =
-  Name extends ScalarQuantityKindName
-    ? Readonly<{ basis?: never }>
-    : Readonly<{ basis?: CartesianBasis }>
-type MaterialNormalizedBasis<Name extends QuantityKindName> =
-  Name extends ScalarQuantityKindName
-    ? Readonly<{ basis?: never }>
-    : Readonly<{ basis: CartesianBasis }>
+type MaterialAuthoringBasis<Name extends QuantityKindName> = Name extends ScalarQuantityKindName
+  ? Readonly<{ basis?: never }>
+  : Readonly<{ basis?: CartesianBasis }>
+type MaterialNormalizedBasis<Name extends QuantityKindName> = Name extends ScalarQuantityKindName
+  ? Readonly<{ basis?: never }>
+  : Readonly<{ basis: CartesianBasis }>
 
-export type MaterialDataValueDescriptor<
-  Key extends MaterialPropertyKey = MaterialPropertyKey,
-> = Key extends MaterialPropertyKey ? Readonly<{
-  dtype: FloatDataDType
-  value: number | readonly unknown[]
-  unit: UcumUnit
-  errorRate?: number
-  axes?: never
-  quantityKind?: never
-}> & MaterialAuthoringBasis<MaterialPropertyQuantityKind<Key>> : never
+export type MaterialDataValueDescriptor<Key extends MaterialPropertyKey = MaterialPropertyKey> =
+  Key extends MaterialPropertyKey
+    ? Readonly<{
+        dtype: FloatDataDType
+        value: number | readonly unknown[]
+        unit: UcumUnit
+        errorRate?: number
+        axes?: never
+        quantityKind?: never
+      }> &
+        MaterialAuthoringBasis<MaterialPropertyQuantityKind<Key>>
+    : never
 
-export type NormalizedMaterialDataValueDescriptor<
-  Key extends MaterialPropertyKey = MaterialPropertyKey,
-> = Key extends MaterialPropertyKey ? Readonly<{
-  dtype: FloatDataDType
-  value: number | readonly unknown[]
-  unit: UcumUnit
-  quantityKind: MaterialPropertyQuantityKind<Key>
-  errorRate: number
-  axes?: never
-}> & MaterialNormalizedBasis<MaterialPropertyQuantityKind<Key>> : never
+export type NormalizedMaterialDataValueDescriptor<Key extends MaterialPropertyKey = MaterialPropertyKey> =
+  Key extends MaterialPropertyKey
+    ? Readonly<{
+        dtype: FloatDataDType
+        value: number | readonly unknown[]
+        unit: UcumUnit
+        quantityKind: MaterialPropertyQuantityKind<Key>
+        errorRate: number
+        axes?: never
+      }> &
+        MaterialNormalizedBasis<MaterialPropertyQuantityKind<Key>>
+    : never
 
 type MaterialModelInputQuantityKind<Key extends MaterialModelKey> =
   MaterialModelDefinitionFor<Key>['input']['quantity_kind']
@@ -3167,44 +3162,33 @@ type MaterialModelOutputQuantityKind<Key extends MaterialModelKey> =
 export type MaterialQuantitySeries<Name extends QuantityKindName> = Readonly<{
   unit: UcumUnit
   values: readonly unknown[]
-}> & MaterialAuthoringBasis<Name>
-export type MaterialSampledRelation<
-  Key extends MaterialModelKey = MaterialModelKey,
-> = Key extends MaterialModelKey ? Readonly<{
-  kind: 'sampled_relation'
-  input: MaterialQuantitySeries<MaterialModelInputQuantityKind<Key>>
-  output: MaterialQuantitySeries<MaterialModelOutputQuantityKind<Key>>
-}> : never
+}> &
+  MaterialAuthoringBasis<Name>
+export type MaterialSampledRelation<Key extends MaterialModelKey = MaterialModelKey> = Key extends MaterialModelKey
+  ? Readonly<{
+      kind: 'sampled_relation'
+      input: MaterialQuantitySeries<MaterialModelInputQuantityKind<Key>>
+      output: MaterialQuantitySeries<MaterialModelOutputQuantityKind<Key>>
+    }>
+  : never
 
 export type MaterialVariable = string | MaterialDataValueDescriptor | MaterialSampledRelation
 export type MaterialVariables = Readonly<
-  { color?: string; errorRate?: number }
-  & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string; errorRate?: number } & { [Key in MaterialPropertyKey]?: MaterialDataValueDescriptor<Key> } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 export type NormalizedMaterialVariables = Readonly<
-  { color?: string }
-  & { [Key in MaterialPropertyKey]?: NormalizedMaterialDataValueDescriptor<Key> }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string } & { [Key in MaterialPropertyKey]?: NormalizedMaterialDataValueDescriptor<Key> } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 export type ResolvedMaterialVariables = Readonly<
-  { color?: string }
-  & { [Key in MaterialPropertyKey]?: DataValueDescriptor }
-  & { [Key in MaterialModelKey]?: MaterialSampledRelation<Key> }
+  { color?: string } & { [Key in MaterialPropertyKey]?: DataValueDescriptor } & {
+    [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
+  }
 >
 // </generated:material-catalog-types>
-export type SolverParameterValue = ScalarValue | DataValueDescriptor
-export type SolverParameters = Readonly<Record<string, SolverParameterValue>>
-export type ExperimentSolver = Readonly<{
-  name: string
-  version: string
-  parameters: () => SolverParameters
-}>
-export type ResolvedExperimentSolver = Readonly<{
-  name: string
-  version: string
-  parameters: SolverParameters
-}>
 
 export class CadModelError extends Error {
   constructor(message: string)
@@ -3253,47 +3237,269 @@ export class Structure {
   randomVars(seed?: number): Vars
 }
 
-export class Experiment<
-  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
-  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
-  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
+export type VarsSchemaDefinition = Readonly<Record<string, Readonly<VarsSchemaEntry>>>
+
+type ShapeSource<Entry extends VarsSchemaEntry> = Entry['min'] extends readonly unknown[] ? Entry['min'] : Entry['max']
+
+type WidenTensor<Value> = Value extends number
+  ? number
+  : Value extends readonly unknown[]
+    ? { readonly [Index in keyof Value]: WidenTensor<Value[Index]> }
+    : never
+
+export type InferVars<Schema extends VarsSchemaDefinition> = Readonly<{
+  [Key in keyof Schema]: WidenTensor<ShapeSource<Schema[Key]>>
+}>
+
+export type ModelContext<Schema extends VarsSchemaDefinition> = Readonly<{
+  vars: InferVars<Schema>
+}>
+
+export type StructureDefinitionOptions<Schema extends VarsSchemaDefinition> = Readonly<{
+  geometry: (context: ModelContext<Schema>) => unknown
+  lengthUnit: UcumUnit
+  varsSchema: Schema
+  geometryGroup?: StructureGroupMap
+  surfaceGroup?: StructureGroupMap
+}>
+
+export type ArtifactType = `${string}@${number}`
+export type SimulationObservation = boolean | number | string
+
+declare const stateRefBrand: unique symbol
+declare const artifactRefBrand: unique symbol
+
+export type StateRef = Readonly<{
+  runId: string
+  revision: number
+  [stateRefBrand]: true
+}>
+
+export type ArtifactRef<Type extends ArtifactType = ArtifactType> = Readonly<{
+  runId: string
+  id: string
+  artifactType: Type
+  [artifactRefBrand]: true
+}>
+
+export type KernelIdentity = Readonly<{
+  name: string
+  version: string
+}>
+
+export type KernelArtifactTypes = Readonly<Record<string, ArtifactType>>
+export type KernelInputTypes = Readonly<Record<string, ArtifactType | readonly ArtifactType[] | undefined>>
+export type KernelObservationTypes = Readonly<Record<string, SimulationObservation | undefined>>
+
+export type DefinedKernelTask<
+  Config = unknown,
+  Artifacts extends KernelArtifactTypes = KernelArtifactTypes,
+  Observations extends KernelObservationTypes = KernelObservationTypes,
+  Inputs extends KernelInputTypes = KernelInputTypes,
+> = Readonly<{
+  kind: 'caemble-kernel-task'
+  kernel: KernelIdentity
+  config: Config
+  __artifacts?: Artifacts
+  __observations?: Observations
+  __inputs?: Inputs
+}>
+
+export type ResolvedKernelTask<
+  Config = unknown,
+  Artifacts extends KernelArtifactTypes = KernelArtifactTypes,
+  Observations extends KernelObservationTypes = KernelObservationTypes,
+  Inputs extends KernelInputTypes = KernelInputTypes,
+> = Readonly<{
+  kind: 'caemble-resolved-kernel-task'
+  kernel: KernelIdentity
+  config: Config
+  taskName: string
+  __artifacts?: Artifacts
+  __observations?: Observations
+  __inputs?: Inputs
+}>
+
+type ArtifactRefsFor<Value> = Value extends ArtifactType
+  ? ArtifactRef<Value>
+  : Value extends readonly unknown[]
+    ? Readonly<{ [Index in keyof Value]: ArtifactRefsFor<Value[Index]> }>
+    : never
+
+type RequiredInputKeys<Inputs extends KernelInputTypes> = {
+  [Key in keyof Inputs]-?: undefined extends Inputs[Key] ? never : Key
+}[keyof Inputs]
+
+type OptionalInputKeys<Inputs extends KernelInputTypes> = {
+  [Key in keyof Inputs]-?: undefined extends Inputs[Key] ? Key : never
+}[keyof Inputs]
+
+export type KernelRunInputs<Inputs extends KernelInputTypes> = Readonly<
+  {
+    [Key in RequiredInputKeys<Inputs>]-?: ArtifactRefsFor<Inputs[Key]>
+  } & {
+    [Key in OptionalInputKeys<Inputs>]?: ArtifactRefsFor<Exclude<Inputs[Key], undefined>>
+  }
+>
+
+export type KernelRunArguments<Inputs extends KernelInputTypes> = [RequiredInputKeys<Inputs>] extends [never]
+  ? [input?: Readonly<{ state?: StateRef; inputs?: KernelRunInputs<Inputs> }>]
+  : [input: Readonly<{ state?: StateRef; inputs: KernelRunInputs<Inputs> }>]
+
+export type KernelRunResult<
+  Artifacts extends KernelArtifactTypes = KernelArtifactTypes,
+  Observations extends KernelObservationTypes = KernelObservationTypes,
+> = Readonly<{
+  state: StateRef
+  artifacts: Readonly<{
+    [Key in keyof Artifacts]: ArtifactRef<Artifacts[Key]>
+  }>
+  observations: Observations
+}>
+
+export type SimulationWorld = Readonly<{
+  scenes: Readonly<{
+    structure: unknown
+    experiment: unknown
+  }>
+}>
+
+type ResolvedTasks<Tasks extends Readonly<Record<string, DefinedKernelTask>>> = Readonly<{
+  [Key in keyof Tasks]: Tasks[Key] extends DefinedKernelTask<
+    infer Config,
+    infer Artifacts,
+    infer Observations,
+    infer Inputs
+  >
+    ? ResolvedKernelTask<Config, Artifacts, Observations, Inputs>
+    : never
+}>
+
+export type SimulationApi<Recorded extends Readonly<Record<string, RecordedDataSpec>>> = Readonly<{
+  initialState: StateRef
+  run: <
+    Config,
+    Artifacts extends KernelArtifactTypes,
+    Observations extends KernelObservationTypes,
+    Inputs extends KernelInputTypes,
+  >(
+    task: ResolvedKernelTask<Config, Artifacts, Observations, Inputs>,
+    ...args: KernelRunArguments<Inputs>
+  ) => Promise<KernelRunResult<Artifacts, Observations>>
+  record: (name: Extract<keyof Recorded, string>, artifact: ArtifactRef) => void
+  release: (artifact: ArtifactRef) => void
+  random: () => number
+}>
+
+export type ExperimentDefinitionOptions<
+  Schema extends VarsSchemaDefinition,
+  Tasks extends Readonly<Record<string, DefinedKernelTask>>,
+  Recorded extends Readonly<Record<string, RecordedDataSpec>>,
+> = Omit<StructureDefinitionOptions<Schema>, 'geometry' | 'lengthUnit'> &
+  Readonly<{
+    geometry?: StructureDefinitionOptions<Schema>['geometry']
+    lengthUnit?: UcumUnit
+    tasks: (context: ModelContext<Schema>) => Tasks
+    recordedData: Recorded
+    simulate: (
+      context: Readonly<{
+        sim: SimulationApi<Recorded>
+        tasks: ResolvedTasks<Tasks>
+        vars: InferVars<Schema>
+        world: SimulationWorld
+      }>,
+    ) => Promise<StateRef> | StateRef
+  }>
+
+export class StructureDefinition<Schema extends VarsSchemaDefinition = VarsSchemaDefinition> extends Structure {
+  constructor(options: StructureDefinitionOptions<Schema>)
+  readonly apiVersion: 3
+  readonly documentType: 'structure'
+  readonly varsSchema: Schema
+}
+
+export class ExperimentDefinition<
+  Schema extends VarsSchemaDefinition = VarsSchemaDefinition,
+  Tasks extends Readonly<Record<string, DefinedKernelTask>> = Readonly<Record<string, DefinedKernelTask>>,
+  Recorded extends Readonly<Record<string, RecordedDataSpec>> = Readonly<Record<string, RecordedDataSpec>>,
 > extends Structure {
-  constructor(options: {
-    solver: ExperimentSolver
-    geometry: () => unknown
-    lengthUnit: UcumUnit
-    varsSchema: Record<string, VarsSchemaEntry>
-    geometryGroup?: StructureGroupMap
-    surfaceGroup?: StructureGroupMap
-    initializations?: () => readonly ExperimentRule<TInitializationParameters>[]
-    boundaryConditions?: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
-    recordedData?: () => readonly RecordedDataRule<TRecordedDataParameters>[]
-  })
-  readonly solver: ExperimentSolver
-  readonly initializations: () => readonly ExperimentRule<TInitializationParameters>[]
-  readonly boundaryConditions: () => readonly ExperimentRule<TBoundaryConditionParameters>[]
-  readonly recordedData: () => readonly RecordedDataRule<TRecordedDataParameters>[]
+  constructor(options: ExperimentDefinitionOptions<Schema, Tasks, Recorded>)
+  readonly apiVersion: 3
+  readonly documentType: 'experiment'
+  readonly varsSchema: Schema
+  readonly recordedData: Recorded
 }
 
-export abstract class VariableObject<TObject extends Structure> {
-  protected constructor(object: TObject, partialVars?: Record<string, Tensor>)
-  readonly object: TObject
-  readonly vars: Vars
-}
+export declare function structure<const Schema extends VarsSchemaDefinition>(
+  options: StructureDefinitionOptions<Schema>,
+): StructureDefinition<Schema>
 
-export class Sample extends VariableObject<Structure> {
-  constructor(structure: Structure, partialVars?: Record<string, Tensor>)
-  readonly structure: Structure
-}
+export declare function experiment<
+  const Schema extends VarsSchemaDefinition,
+  const Tasks extends Readonly<Record<string, DefinedKernelTask>>,
+  const Recorded extends Readonly<Record<string, RecordedDataSpec>>,
+>(options: ExperimentDefinitionOptions<Schema, Tasks, Recorded>): ExperimentDefinition<Schema, Tasks, Recorded>
 
-export class Setup<
-  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
-  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
-  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
-> extends VariableObject<Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>> {
-  constructor(
-    experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>,
-    partialVars?: Record<string, Tensor>,
-  )
-  readonly experiment: Experiment<TInitializationParameters, TBoundaryConditionParameters, TRecordedDataParameters>
-}
+export type SimulationTraceArtifact = Readonly<{
+  id: string
+  artifactType: string
+}>
+
+export type SimulationTraceEntry = Readonly<{
+  sequence: number
+  task: string
+  kernel: KernelIdentity
+  inputStateRevision: number
+  outputStateRevision: number | null
+  inputArtifacts: Readonly<Record<string, SimulationTraceArtifact | readonly SimulationTraceArtifact[]>>
+  status: 'succeeded' | 'failed'
+  error?: string
+  startedAt: number
+  finishedAt: number
+}>
+
+export type SimulationProvenance = Readonly<{
+  programHash: string
+  structureSourceHash: string
+  experimentSourceHash: string
+  structureSeed: number
+  experimentSeed: number
+  structureVars: Vars
+  experimentVars: Vars
+  kernels: readonly KernelIdentity[]
+}>
+
+export type SimulationProgramManifest = Readonly<{
+  formatVersion: 1
+  programHash: string
+  tasks: Readonly<
+    Record<
+      string,
+      Readonly<{
+        kernel: KernelIdentity
+        configHash: string
+      }>
+    >
+  >
+  recordedData: Readonly<Record<string, RecordedDataSpec>>
+}>
+
+export type SimulationResult = Readonly<{
+  format: 'caemble-run'
+  formatVersion: 1
+  runId: string
+  finalStateRevision: number
+  recordedData: Readonly<
+    Record<
+      string,
+      Readonly<{
+        spec: RecordedDataSpec
+        data: DataTensor
+      }>
+    >
+  >
+  trace: readonly SimulationTraceEntry[]
+  provenance: SimulationProvenance
+}>
+
+export type ExternalVars = Readonly<Record<string, Tensor>>

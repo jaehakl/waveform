@@ -1,275 +1,989 @@
 import { h } from '../cad/evaluation/jsx'
-import { buildSourceOnlyRealizationV2, type BuiltSampleV2, type BuiltSetupV2 } from '../cad/execution/realization'
-import { serializeEvaluatedDocumentSnapshotV2 } from '../cad/execution/snapshot'
-import { evaluateDocumentEntry } from '../cad/execution/userModule'
-import { structure } from '../cad/model/v2'
-import { experiment } from '../cad/model/v3'
-import { defineTask, kernelRefV3 } from './authoring'
-import { SimulationKernelErrorV3 } from './errors'
-import { KernelRegistryV3 } from './registry'
-import { runSimulationProgramV3 } from './runtime'
+import { evaluateCadScene } from '../cad/evaluation/evaluator'
+import { buildSourceOnlyRealization, type BuiltSample, type BuiltSetup } from '../cad/execution/realization'
+import { serializeEvaluatedDocumentSnapshot } from '../cad/execution/snapshot'
+import { experiment, structure, type ExperimentDefinition, type VarsSchemaDefinition } from '../cad/model/v3'
+import { identityCartesianBasis } from '../quantitykind/identityBasis'
+import { defineKernelTask } from './authoring'
+import { SimulationKernelError } from './errors'
 import type {
-  KernelModuleV3,
-  KernelRefV3,
-  SimulationObservationV3,
-} from './types'
+  KernelDataSpec,
+  KernelDefinition,
+  KernelDescriptor,
+  KernelInputPortDescriptor,
+  KernelObservationDescriptor,
+  KernelTaskConfig,
+} from './kernelContract'
+import { KernelRegistry } from './registry'
+import { runSimulationProgram } from './runtime'
+import { assertSimulationResult } from './validation'
+import type { ArtifactRef, DefinedKernelTask, RecordedDataSpec } from './types'
 import { describe, expect, it } from 'vitest'
 
-const rigidRef = kernelRefV3<Readonly<{ timeStep: number }>>(
-  'test.rigid-step',
-  '1.0.0',
-) as KernelRefV3<
-  Readonly<{ timeStep: number }>,
-  Readonly<Record<string, never>>,
-  Readonly<{ contact: SimulationObservationV3 }>
->
-const projectionRef = kernelRefV3('test.rigid-to-elastic', '1.0.0') as KernelRefV3<
-  Readonly<Record<string, never>>,
-  Readonly<{ mesh: unknown }>
->
-const failingRef = kernelRefV3('test.failing-fea', '1.0.0')
-const elasticRef = kernelRefV3('test.elastic-step', '1.0.0') as KernelRefV3<
-  Readonly<Record<string, never>>,
-  Readonly<{ displacement: unknown }>
->
-const corruptRef = kernelRefV3('test.corrupt-body-set', '1.0.0')
-const invalidArtifactRef = kernelRefV3('test.invalid-artifact', '1.0.0') as KernelRefV3<
-  Readonly<Record<string, never>>,
-  Readonly<{ displacement: unknown }>
->
+const milliampSpec = Object.freeze({
+  dtype: 'float64',
+  unit: 'mA',
+  quantityKind: 'electromagnetism.ElectricCurrent',
+}) satisfies KernelDataSpec
 
-const rigidTask = defineTask(rigidRef, () => ({ timeStep: 0.1 }))
-const projectionTask = defineTask(projectionRef, () => ({}))
-const failingTask = defineTask(failingRef, () => ({}))
-const elasticTask = defineTask(elasticRef, () => ({}))
-const corruptTask = defineTask(corruptRef, () => ({}))
-const invalidArtifactTask = defineTask(invalidArtifactRef, () => ({}))
+const ampSpec = Object.freeze({
+  dtype: 'float64',
+  unit: 'A',
+  quantityKind: 'electromagnetism.ElectricCurrent',
+}) satisfies KernelDataSpec
 
-function createRealizations(mode: 'normal' | 'corrupt-state' | 'invalid-output' = 'normal') {
-  function Specimen() {
-    return h('box', { size: [10, 2, 2] })
-  }
-  function Fixture() {
-    return h('box', { size: [1, 1, 1] })
-  }
+function Specimen() {
+  return h('box', { size: [10, 2, 2] })
+}
+
+function Fixture() {
+  return h('box', { size: [1, 1, 1] })
+}
+
+function kernelDescriptor(
+  name: string,
+  artifactType: `${string}@${number}`,
+  data: KernelDataSpec,
+  inputPorts: Readonly<Record<string, KernelInputPortDescriptor>> = {},
+  observations: Readonly<Record<string, KernelObservationDescriptor>> = {},
+): KernelDescriptor {
+  return Object.freeze({
+    name,
+    version: '1.0.0',
+    description: `${name} test kernel`,
+    referenceLengthUnit: 'm',
+    minimumOutputs: 1,
+    parameters: Object.freeze({}),
+    materials: Object.freeze([]),
+    inputPorts: Object.freeze(inputPorts),
+    observations: Object.freeze(observations),
+    methods: Object.freeze({
+      initializations: Object.freeze([]),
+      boundaryConditions: Object.freeze([]),
+      outputs: Object.freeze([
+        Object.freeze({
+          methodId: `${name}.value`,
+          description: 'Test scalar output',
+          minimumOccurrences: 0,
+          maximumOccurrences: 10,
+          target: Object.freeze({
+            source: 'structure' as const,
+            kind: 'geometry' as const,
+            minimumTargets: 0,
+            maximumTargets: 0,
+            minimumResolved: 0,
+            maximumResolved: 0,
+          }),
+          parameters: Object.freeze({}),
+          artifactType,
+          data,
+        }),
+      ]),
+    }),
+  })
+}
+
+function taskConfig(descriptor: KernelDescriptor, key = 'value'): KernelTaskConfig {
+  return Object.freeze({
+    parameters: Object.freeze({}),
+    initializations: Object.freeze([]),
+    boundaryConditions: Object.freeze([]),
+    outputs: Object.freeze([
+      Object.freeze({
+        key,
+        methodId: descriptor.methods.outputs[0].methodId,
+        target: Object.freeze([]),
+        parameters: Object.freeze({}),
+      }),
+    ]),
+  })
+}
+
+function createRealizations<
+  Schema extends VarsSchemaDefinition,
+  Tasks extends Readonly<Record<string, DefinedKernelTask>>,
+  Recorded extends Readonly<Record<string, RecordedDataSpec>>,
+>(definition: ExperimentDefinition<Schema, Tasks, Recorded>) {
   const structureDefinition = structure({
     lengthUnit: 'mm',
     geometry: () => h(Specimen, { id: 'specimen' }),
-    geometryGroup: { specimen: ['specimen'] },
     varsSchema: {},
   })
-  const experimentDefinition = experiment({
-    lengthUnit: 'mm',
-    geometry: () => h(Fixture, { id: 'fixture' }),
-    varsSchema: {},
-    tasks:
-      mode === 'corrupt-state'
-        ? { corrupt: corruptTask }
-        : mode === 'invalid-output'
-          ? { invalidArtifact: invalidArtifactTask }
-          : {
-          rigid: rigidTask,
-          project: projectionTask,
-          failing: failingTask,
-          elastic: elasticTask,
-        },
-    outputs: {
-      displacement: {
-        dtype: 'float64',
-        unit: '{fraction}',
-        quantityKind: 'DimensionlessRatio',
-        seriesAxis: { unit: 's', quantityKind: 'Time' },
+  const structureVars = structureDefinition.resolveExternal({}, 11)
+  const experimentVars = definition.resolveExternal({}, 13)
+  const runtime = definition.createProgramRuntime(experimentVars, '2'.repeat(64))
+  const structureSnapshot = serializeEvaluatedDocumentSnapshot({
+    kind: 'structure',
+    sourceHash: '1'.repeat(64),
+    seed: 11,
+    scene: evaluateCadScene(
+      structureDefinition.evaluateResolvedGeometry(structureVars),
+      {
+        geometryGroup: structureDefinition.geometryGroup,
+        surfaceGroup: structureDefinition.surfaceGroup,
       },
-    },
-    initialState: ({ world }) => ({
-      bodies: world.bodies.map((body) => ({
-        body,
-        pose: body.referencePose,
-        velocity: [0, 0, 0],
-      })),
-    }),
-    simulate:
-      mode === 'corrupt-state'
-        ? async ({ sim, tasks, initialState }) => {
-          const result = await sim.run(tasks.corrupt, { state: initialState })
-          return result.state
-        }
-        : mode === 'invalid-output'
-          ? async ({ sim, tasks, initialState }) => {
-              const result = await sim.run(tasks.invalidArtifact, { state: initialState })
-              try {
-                sim.record('displacement', result.artifacts.displacement, { time: 0.1 })
-              } catch {
-                // Fatal orchestration errors remain latched even when user code catches them.
-              }
-              return result.state
-            }
-          : async ({ sim, tasks, initialState }) => {
-          const rigid = await sim.run(tasks.rigid, { state: initialState })
-          expect(rigid.observations.contact.value).toBe(true)
-          const projected = await sim.run(tasks.project, { state: rigid.state })
-          let elastic
-          try {
-            elastic = await sim.run(tasks.failing, { state: projected.state })
-          } catch (error) {
-            expect(error).toBeInstanceOf(SimulationKernelErrorV3)
-            elastic = await sim.run(tasks.elastic, {
-              state: projected.state,
-              artifacts: { mesh: projected.artifacts.mesh },
-            })
-          }
-          sim.record('displacement', elastic.artifacts.displacement, { time: 0.2 })
-          return elastic.state
-        },
+      'Structure',
+      structureDefinition.lengthUnit,
+    ),
+    variables: structureVars,
+    varsSchema: structureDefinition.varsSchema,
   })
-  const structureSnapshot = serializeEvaluatedDocumentSnapshotV2(
-    evaluateDocumentEntry(structureDefinition, 'structure', '1'.repeat(64), 11),
-  )
-  const experimentSnapshot = serializeEvaluatedDocumentSnapshotV2(
-    evaluateDocumentEntry(experimentDefinition, 'experiment', '2'.repeat(64), 13),
-  )
+  const experimentSnapshot = serializeEvaluatedDocumentSnapshot({
+    kind: 'experiment',
+    sourceHash: '2'.repeat(64),
+    seed: 13,
+    scene: evaluateCadScene(
+      definition.evaluateResolvedGeometry(experimentVars),
+      {
+        geometryGroup: definition.geometryGroup,
+        surfaceGroup: definition.surfaceGroup,
+      },
+      'Experiment',
+      definition.lengthUnit,
+    ),
+    variables: experimentVars,
+    varsSchema: definition.varsSchema,
+    simulationProgram: runtime.manifest,
+  })
   return {
-    definition: experimentDefinition.createProgramRuntime(experimentSnapshot.variables),
-    sample: buildSourceOnlyRealizationV2(structureSnapshot) as BuiltSampleV2,
-    setup: buildSourceOnlyRealizationV2(experimentSnapshot) as BuiltSetupV2,
+    definition: runtime,
+    sample: buildSourceOnlyRealization(structureSnapshot) as BuiltSample,
+    setup: buildSourceOnlyRealization(experimentSnapshot) as BuiltSetup,
   }
 }
 
-const modules: readonly KernelModuleV3[] = [
-  {
-    ref: rigidRef,
-    async execute(input) {
-      return {
-        state: {
-          ...input.state,
-          values: { mode: 'rigid' },
+describe('multiphysics simulation runtime', () => {
+  it('exchanges a typed artifact, converts its unit, loops on scalar observations, and records only final data', async () => {
+    const sourceDescriptor = kernelDescriptor('test.source', 'test/current@1', milliampSpec)
+    const sinkDescriptor = kernelDescriptor(
+      'test.sink',
+      'test/current@1',
+      ampSpec,
+      {
+        current: Object.freeze({
+          description: 'Current from another physics kernel',
+          artifactTypes: Object.freeze(['test/current@1'] as const),
+          minimumOccurrences: 1,
+          maximumOccurrences: 1,
+          data: ampSpec,
+        }),
+      },
+      {
+        residual: Object.freeze({
+          description: 'Iteration residual',
+          type: 'number',
+        }),
+      },
+    )
+    let sinkCalls = 0
+    const sourceKernel: KernelDefinition = Object.freeze({
+      descriptor: sourceDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1500 } } }
+      },
+    })
+    const sinkKernel: KernelDefinition = Object.freeze({
+      descriptor: sinkDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ inputs }) {
+        expect(inputs.current).toEqual({ value: 1.5 })
+        sinkCalls += 1
+        return {
+          artifacts: { value: inputs.current },
+          observations: { residual: sinkCalls === 1 ? 0.5 : 0.01 },
+        }
+      },
+    })
+    const source = defineKernelTask<
+      KernelTaskConfig,
+      { value: 'test/current@1' },
+      Record<string, never>,
+      Record<string, never>
+    >(sourceDescriptor, taskConfig(sourceDescriptor))
+    const sink = defineKernelTask<
+      KernelTaskConfig,
+      { value: 'test/current@1' },
+      { residual: number },
+      { current: 'test/current@1' }
+    >(sinkDescriptor, taskConfig(sinkDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ source, sink }),
+      recordedData: { measuredCurrent: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.source)
+        let previous
+        for (;;) {
+          const current = await sim.run(tasks.sink, {
+            inputs: { current: produced.artifacts.value },
+          })
+          if (previous) sim.release(previous.artifacts.value)
+          previous = current
+          if (current.observations.residual < 0.1) break
+        }
+        sim.record('measuredCurrent', previous!.artifacts.value)
+        sim.release(produced.artifacts.value)
+        return previous!.state
+      },
+    })
+    const { definition: runtime, sample, setup } = createRealizations(definition)
+    const result = await runSimulationProgram(
+      runtime,
+      sample,
+      setup,
+      new KernelRegistry([sourceKernel, sinkKernel]),
+      new AbortController().signal,
+      'handoff-run',
+    )
+
+    expect(result.finalStateRevision).toBe(0)
+    expect(result.recordedData).toEqual({
+      measuredCurrent: {
+        spec: ampSpec,
+        data: { value: 1.5 },
+      },
+    })
+    expect(result.trace).toHaveLength(3)
+    expect(result.trace[1].inputArtifacts.current).toEqual({
+      id: 'artifact-1',
+      artifactType: 'test/current@1',
+    })
+    expect(JSON.stringify(result)).not.toContain('1500')
+    expect(() => assertSimulationResult(result)).not.toThrow()
+  })
+
+  it('normalizes unit and basis at the RecordedData boundary before allowing release', async () => {
+    const rotatedBasis = Object.freeze([
+      Object.freeze([0, 1, 0]),
+      Object.freeze([-1, 0, 0]),
+      Object.freeze([0, 0, 1]),
+    ]) as typeof identityCartesianBasis
+    const vectorSourceSpec = Object.freeze({
+      dtype: 'float64',
+      unit: 'A.m-2',
+      quantityKind: 'electromagnetism.ElectricCurrentDensity',
+      basis: rotatedBasis,
+    }) satisfies KernelDataSpec
+    const vectorTargetSpec = Object.freeze({
+      ...vectorSourceSpec,
+      basis: identityCartesianBasis,
+    }) satisfies KernelDataSpec
+    const scalarDescriptor = kernelDescriptor('test.record-unit', 'test/milliamp@1', milliampSpec)
+    const vectorDescriptor = kernelDescriptor('test.record-basis', 'test/vector@1', vectorSourceSpec)
+    const scalarKernel: KernelDefinition = {
+      descriptor: scalarDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1500 } } }
+      },
+    }
+    const vectorKernel: KernelDefinition = {
+      descriptor: vectorDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: [1, 0, 0] } } }
+      },
+    }
+    const scalar = defineKernelTask(scalarDescriptor, taskConfig(scalarDescriptor))
+    const vector = defineKernelTask(vectorDescriptor, taskConfig(vectorDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ scalar, vector }),
+      recordedData: { current: ampSpec, currentDensity: vectorTargetSpec },
+      simulate: async ({ sim, tasks }) => {
+        const scalarResult = await sim.run(tasks.scalar)
+        const vectorResult = await sim.run(tasks.vector)
+        sim.record('current', scalarResult.artifacts.value)
+        sim.record('currentDensity', vectorResult.artifacts.value)
+        sim.release(scalarResult.artifacts.value)
+        sim.release(vectorResult.artifacts.value)
+        return vectorResult.state
+      },
+    })
+    const realization = createRealizations(definition)
+    const result = await runSimulationProgram(
+      realization.definition,
+      realization.sample,
+      realization.setup,
+      new KernelRegistry([scalarKernel, vectorKernel]),
+      new AbortController().signal,
+      'record-normalization',
+    )
+
+    expect(result.recordedData.current.data).toEqual({ value: 1.5 })
+    expect(result.recordedData.currentDensity.data).toEqual({ value: [0, 1, 0] })
+  })
+
+  it('rejects semantic axis and RecordedData schema mismatches', async () => {
+    const timeSeries = Object.freeze({
+      dtype: 'float64',
+      unit: 'A',
+      quantityKind: 'electromagnetism.ElectricCurrent',
+      axes: Object.freeze([Object.freeze({ name: 'time', unit: 's', quantityKind: 'Time' })]),
+    }) satisfies KernelDataSpec
+    const renamedAxis = Object.freeze({
+      ...timeSeries,
+      axes: Object.freeze([Object.freeze({ name: 'frequency', unit: 's', quantityKind: 'Time' })]),
+    }) satisfies KernelDataSpec
+    const producerDescriptor = kernelDescriptor('test.axis-source', 'test/series@1', timeSeries)
+    const consumerDescriptor = kernelDescriptor('test.axis-sink', 'test/output@1', ampSpec, {
+      series: Object.freeze({
+        description: 'A semantically named time-series axis.',
+        artifactTypes: Object.freeze(['test/series@1'] as const),
+        minimumOccurrences: 1,
+        maximumOccurrences: 1,
+        data: renamedAxis,
+      }),
+    })
+    const producerKernel: KernelDefinition = {
+      descriptor: producerDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: [1], axes: [{ ticks: [0] }] } } }
+      },
+    }
+    const consumerKernel: KernelDefinition = {
+      descriptor: consumerDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const producer = defineKernelTask(producerDescriptor, taskConfig(producerDescriptor))
+    const consumer = defineKernelTask(consumerDescriptor, taskConfig(consumerDescriptor))
+    const handoffDefinition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ producer, consumer }),
+      recordedData: {},
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.producer)
+        const consumed = await sim.run(tasks.consumer, { inputs: { series: produced.artifacts.value } })
+        return consumed.state
+      },
+    })
+    const handoff = createRealizations(handoffDefinition)
+    await expect(
+      runSimulationProgram(
+        handoff.definition,
+        handoff.sample,
+        handoff.setup,
+        new KernelRegistry([producerKernel, consumerKernel]),
+        new AbortController().signal,
+        'axis-mismatch',
+      ),
+    ).rejects.toThrow('incompatible metadata')
+
+    const recordedDefinition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ producer }),
+      recordedData: {
+        voltage: {
+          dtype: 'float64',
+          unit: 'V',
+          quantityKind: 'electromagnetism.Voltage',
+          axes: [{ name: 'time', unit: 's', quantityKind: 'Time' }],
         },
-        observations: {
-          contact: { value: true },
+      },
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.producer)
+        sim.record('voltage', produced.artifacts.value)
+        return produced.state
+      },
+    })
+    const recorded = createRealizations(recordedDefinition)
+    await expect(
+      runSimulationProgram(
+        recorded.definition,
+        recorded.sample,
+        recorded.setup,
+        new KernelRegistry([producerKernel]),
+        new AbortController().signal,
+        'record-schema-mismatch',
+      ),
+    ).rejects.toThrow('incompatible dtype, Quantity Kind, or axis rank')
+  })
+
+  it('keeps kernel state namespaced and rolls back state and artifacts from a failed invocation', async () => {
+    const descriptor = kernelDescriptor('test.stateful', 'test/count@1', ampSpec)
+    let call = 0
+    const kernel: KernelDefinition = Object.freeze({
+      descriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ state }) {
+        call += 1
+        const current = (state as { count?: number } | undefined)?.count ?? 0
+        if (call === 2) {
+          if (state) (state as { count: number }).count = 99
+          return {
+            state,
+            artifacts: {},
+          }
+        }
+        if (call === 4) {
+          return {
+            artifacts: { value: { value: current } },
+          }
+        }
+        const count = current + 1
+        return {
+          state: { count },
+          artifacts: { value: { value: count } },
+        }
+      },
+    })
+    const step = defineKernelTask<
+      KernelTaskConfig,
+      { value: 'test/count@1' },
+      Record<string, never>,
+      Record<string, never>
+    >(descriptor, taskConfig(descriptor))
+    let recoveredArtifactId = ''
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ step }),
+      recordedData: { count: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const first = await sim.run(tasks.step)
+        await expect(sim.run(tasks.step, { state: first.state })).rejects.toBeInstanceOf(SimulationKernelError)
+        const recovered = await sim.run(tasks.step, { state: first.state })
+        recoveredArtifactId = recovered.artifacts.value.id
+        const unchanged = await sim.run(tasks.step, { state: recovered.state })
+        sim.release(first.artifacts.value)
+        sim.release(recovered.artifacts.value)
+        sim.record('count', unchanged.artifacts.value)
+        return unchanged.state
+      },
+    })
+    const { definition: runtime, sample, setup } = createRealizations(definition)
+    const result = await runSimulationProgram(
+      runtime,
+      sample,
+      setup,
+      new KernelRegistry([kernel]),
+      new AbortController().signal,
+      'atomic-run',
+    )
+
+    expect(result.finalStateRevision).toBe(2)
+    expect(recoveredArtifactId).toBe('artifact-2')
+    expect(result.recordedData.count.data).toEqual({ value: 2 })
+    expect(result.trace.map((entry) => [entry.status, entry.outputStateRevision])).toEqual([
+      ['succeeded', 1],
+      ['failed', null],
+      ['succeeded', 2],
+      ['succeeded', 2],
+    ])
+  })
+
+  it('accepts any structured-cloneable opaque state and uses omission as the unchanged signal', async () => {
+    const descriptor = kernelDescriptor('test.opaque-state', 'test/opaque@1', ampSpec)
+    let call = 0
+    const kernel: KernelDefinition = {
+      descriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ state }) {
+        call += 1
+        if (call === 1) {
+          return {
+            state: new Blob(['opaque state']),
+            artifacts: { value: { value: 1 } },
+          }
+        }
+        expect(state).toBeInstanceOf(Blob)
+        expect(await (state as Blob).text()).toBe('opaque state')
+        return {
+          artifacts: { value: { value: 2 } },
+        }
+      },
+    }
+    const task = defineKernelTask(descriptor, taskConfig(descriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ task }),
+      recordedData: { final: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const initialized = await sim.run(tasks.task)
+        const unchanged = await sim.run(tasks.task, { state: initialized.state })
+        sim.record('final', unchanged.artifacts.value)
+        return unchanged.state
+      },
+    })
+    const realization = createRealizations(definition)
+    const result = await runSimulationProgram(
+      realization.definition,
+      realization.sample,
+      realization.setup,
+      new KernelRegistry([kernel]),
+      new AbortController().signal,
+      'opaque-state-run',
+    )
+
+    expect(result.finalStateRevision).toBe(1)
+    expect(result.recordedData.final.data).toEqual({ value: 2 })
+  })
+
+  it('keeps kernel identities collision-free when names and versions contain delimiters', async () => {
+    const firstDescriptor = Object.freeze({
+      ...kernelDescriptor('test@identity', 'test/identity@1', ampSpec),
+      version: 'one',
+    })
+    const secondDescriptor = Object.freeze({
+      ...kernelDescriptor('test', 'test/identity@1', ampSpec),
+      version: 'identity@one',
+    })
+    const seenStates: unknown[] = []
+    const createKernel = (descriptor: KernelDescriptor): KernelDefinition => ({
+      descriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ state }) {
+        seenStates.push(state)
+        const count = ((state as { count?: number } | undefined)?.count ?? 0) + 1
+        return {
+          state: { count },
+          artifacts: { value: { value: count } },
+        }
+      },
+    })
+    const first = defineKernelTask(firstDescriptor, taskConfig(firstDescriptor))
+    const second = defineKernelTask(secondDescriptor, taskConfig(secondDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ first, second }),
+      recordedData: { final: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const firstRun = await sim.run(tasks.first)
+        const secondRun = await sim.run(tasks.second, { state: firstRun.state })
+        const finalRun = await sim.run(tasks.first, { state: secondRun.state })
+        sim.record('final', finalRun.artifacts.value)
+        return finalRun.state
+      },
+    })
+    const realization = createRealizations(definition)
+    const result = await runSimulationProgram(
+      realization.definition,
+      realization.sample,
+      realization.setup,
+      new KernelRegistry([createKernel(firstDescriptor), createKernel(secondDescriptor)]),
+      new AbortController().signal,
+      'identity-run',
+    )
+
+    expect(seenStates).toEqual([undefined, undefined, { count: 1 }])
+    expect(result.finalStateRevision).toBe(3)
+    expect(result.recordedData.final.data).toEqual({ value: 2 })
+    expect(result.provenance.kernels).toEqual([
+      { name: 'test@identity', version: 'one' },
+      { name: 'test', version: 'identity@one' },
+    ])
+  })
+
+  it('latches use-after-release even when orchestration code catches it', async () => {
+    const sourceDescriptor = kernelDescriptor('test.release-source', 'test/released@1', ampSpec)
+    const sinkDescriptor = kernelDescriptor('test.release-sink', 'test/released@1', ampSpec, {
+      value: Object.freeze({
+        description: 'Released input',
+        artifactTypes: Object.freeze(['test/released@1'] as const),
+        minimumOccurrences: 1,
+        maximumOccurrences: 1,
+      }),
+    })
+    const sourceKernel: KernelDefinition = {
+      descriptor: sourceDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const sinkKernel: KernelDefinition = {
+      descriptor: sinkDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ inputs }) {
+        return { artifacts: { value: inputs.value } }
+      },
+    }
+    const source = defineKernelTask(sourceDescriptor, taskConfig(sourceDescriptor))
+    const sink = defineKernelTask(sinkDescriptor, taskConfig(sinkDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ source, sink }),
+      recordedData: {},
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.source)
+        sim.release(produced.artifacts.value)
+        try {
+          await sim.run(tasks.sink, { inputs: { value: produced.artifacts.value } })
+        } catch {
+          // Fatal orchestration failures stay latched.
+        }
+        return produced.state
+      },
+    })
+    const { definition: runtime, sample, setup } = createRealizations(definition)
+    await expect(
+      runSimulationProgram(
+        runtime,
+        sample,
+        setup,
+        new KernelRegistry([sourceKernel, sinkKernel]),
+        new AbortController().signal,
+        'release-run',
+      ),
+    ).rejects.toThrow('already been released')
+  })
+
+  it('rejects required, unknown, and wrong-type input handoffs before kernel execution', async () => {
+    const producerDescriptor = kernelDescriptor('test.input-source', 'test/other@1', ampSpec)
+    const consumerDescriptor = kernelDescriptor('test.input-consumer', 'test/current@1', ampSpec, {
+      current: Object.freeze({
+        description: 'Required current',
+        artifactTypes: Object.freeze(['test/current@1'] as const),
+        minimumOccurrences: 1,
+        maximumOccurrences: 1,
+        data: ampSpec,
+      }),
+    })
+    const producerKernel: KernelDefinition = {
+      descriptor: producerDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const consumerKernel: KernelDefinition = {
+      descriptor: consumerDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute({ inputs }) {
+        return { artifacts: { value: inputs.current } }
+      },
+    }
+    const producer = defineKernelTask(producerDescriptor, taskConfig(producerDescriptor))
+    const consumer = defineKernelTask(consumerDescriptor, taskConfig(consumerDescriptor))
+    const makeDefinition = (mode: 'required' | 'unknown' | 'prototype' | 'wrong-type') =>
+      experiment({
+        lengthUnit: 'mm',
+        geometry: () => h(Fixture, { id: 'fixture' }),
+        varsSchema: {},
+        tasks: () => ({ producer, consumer }),
+        recordedData: {},
+        simulate: async ({ sim, tasks }) => {
+          if (mode === 'required') {
+            await sim.run(tasks.consumer, { inputs: {} })
+            return sim.initialState
+          }
+          const produced = await sim.run(tasks.producer)
+          await sim.run(tasks.consumer, {
+            inputs:
+              mode === 'unknown'
+                ? { unexpected: produced.artifacts.value }
+                : mode === 'prototype'
+                  ? { toString: produced.artifacts.value }
+                  : { current: produced.artifacts.value },
+          })
+          return produced.state
         },
-      }
-    },
-  },
-  {
-    ref: projectionRef,
-    async execute(input) {
-      return {
-        state: {
-          ...input.state,
-          values: { mode: 'elastic' },
-        },
-        artifacts: {
-          mesh: { bodyIds: input.state.bodies.map((body) => body.body) },
-        },
-      }
-    },
-  },
-  {
-    ref: failingRef,
-    async execute(input) {
-      const mutableValues = input.state.values as { mode: string }
-      mutableValues.mode = 'corrupted'
-      throw new SimulationKernelErrorV3('convergence', failingRef, 'Mock FEA did not converge.')
-    },
-  },
-  {
-    ref: elasticRef,
-    async execute(input) {
-      expect(input.state.values).toEqual({ mode: 'elastic' })
-      expect(input.artifacts.mesh).toEqual({
-        bodyIds: input.state.bodies.map((body) => body.body),
       })
-      return {
-        state: input.state,
-        artifacts: {
-          displacement: { value: 0.25 },
-        },
-      }
-    },
-  },
-  {
-    ref: corruptRef,
-    async execute(input) {
-      return {
-        state: {
-          ...input.state,
-          bodies: input.state.bodies.slice(1),
-        },
-      }
-    },
-  },
-  {
-    ref: invalidArtifactRef,
-    async execute(input) {
-      return {
-        state: input.state,
-        artifacts: {
-          displacement: { value: [0.1, 0.2] },
-        },
-      }
-    },
-  },
-]
 
-describe('Simulation Program v3 runtime', () => {
-  it('runs deterministic branching, preserves atomic failure state, records output, and traces every call', async () => {
-    const { definition, sample, setup } = createRealizations()
-    const registry = new KernelRegistryV3(modules)
-    const first = await runSimulationProgramV3(
-      definition,
-      sample,
-      setup,
-      registry,
-      new AbortController().signal,
-      'program-test-1',
-    )
-    const second = await runSimulationProgramV3(
-      definition,
-      sample,
-      setup,
-      registry,
-      new AbortController().signal,
-      'program-test-2',
-    )
-
-    expect(first.finalState).toEqual({ revision: 3, bodyCount: 2 })
-    expect(first.trace.map((entry) => [entry.task, entry.status])).toEqual([
-      ['rigid', 'succeeded'],
-      ['project', 'succeeded'],
-      ['failing', 'failed'],
-      ['elastic', 'fallback'],
-    ])
-    expect(first.trace[2].outputStateRevision).toBeNull()
-    expect(first.trace[2].inputStateRevision).toBe(2)
-    expect(first.trace[3].inputStateRevision).toBe(2)
-    expect(first.outputs.displacement.samples).toEqual([
-      expect.objectContaining({ time: 0.2, data: { value: 0.25 } }),
-    ])
-    expect(first.trace.map((entry) => entry.inputHash)).toEqual(second.trace.map((entry) => entry.inputHash))
-    expect(first.trace.map((entry) => entry.outputHash)).toEqual(second.trace.map((entry) => entry.outputHash))
+    for (const [mode, message] of [
+      ['required', 'requires 1..1 artifacts'],
+      ['unknown', 'is not declared'],
+      ['prototype', '"toString" is not declared'],
+      ['wrong-type', 'does not accept artifact type test/other@1'],
+    ] as const) {
+      const realization = createRealizations(makeDefinition(mode))
+      await expect(
+        runSimulationProgram(
+          realization.definition,
+          realization.sample,
+          realization.setup,
+          new KernelRegistry([producerKernel, consumerKernel]),
+          new AbortController().signal,
+          `inputs-${mode}`,
+        ),
+      ).rejects.toThrow(message)
+    }
   })
 
-  it('rejects a kernel state that creates or removes stable bodies', async () => {
-    const { definition, sample, setup } = createRealizations('corrupt-state')
-    await expect(runSimulationProgramV3(
-      definition,
-      sample,
-      setup,
-      new KernelRegistryV3(modules),
+  it('rejects foreign-run and same-run forged artifact references and concurrent sim.run calls', async () => {
+    const descriptor = kernelDescriptor('test.sequential', 'test/sequential@1', ampSpec, {
+      value: Object.freeze({
+        description: 'Input',
+        artifactTypes: Object.freeze(['test/sequential@1'] as const),
+        minimumOccurrences: 0,
+        maximumOccurrences: 1,
+      }),
+    })
+    const kernel: KernelDefinition = {
+      descriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        await Promise.resolve()
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const task = defineKernelTask(descriptor, taskConfig(descriptor))
+    let foreignRef: ArtifactRef<'test/sequential@1'> | undefined
+    const originDefinition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ task }),
+      recordedData: {},
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.task)
+        foreignRef = produced.artifacts.value as ArtifactRef<'test/sequential@1'>
+        return produced.state
+      },
+    })
+    const origin = createRealizations(originDefinition)
+    await runSimulationProgram(
+      origin.definition,
+      origin.sample,
+      origin.setup,
+      new KernelRegistry([kernel]),
       new AbortController().signal,
-      'program-corrupt',
-    )).rejects.toThrow('preserve the world body identities')
+      'origin-run',
+    )
+    const foreignDefinition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ task }),
+      recordedData: {},
+      simulate: async ({ sim, tasks }) => {
+        await sim.run(tasks.task, { inputs: { value: foreignRef! } })
+        return sim.initialState
+      },
+    })
+    const foreign = createRealizations(foreignDefinition)
+    await expect(
+      runSimulationProgram(
+        foreign.definition,
+        foreign.sample,
+        foreign.setup,
+        new KernelRegistry([kernel]),
+        new AbortController().signal,
+        'foreign-target-run',
+      ),
+    ).rejects.toThrow('belongs to another run')
+
+    for (const referenceRunId of ['another-run', 'forged-run']) {
+      const forgedDefinition = experiment({
+        lengthUnit: 'mm',
+        geometry: () => h(Fixture, { id: 'fixture' }),
+        varsSchema: {},
+        tasks: () => ({ task }),
+        recordedData: {},
+        simulate: async ({ sim, tasks }) => {
+          try {
+            await sim.run(tasks.task, {
+              inputs: {
+                value: {
+                  runId: referenceRunId,
+                  id: 'artifact-1',
+                  artifactType: 'test/sequential@1',
+                } as ArtifactRef<'test/sequential@1'>,
+              },
+            })
+          } catch {
+            // Fatal reference failures stay latched.
+          }
+          return sim.initialState
+        },
+      })
+      const forged = createRealizations(forgedDefinition)
+      await expect(
+        runSimulationProgram(
+          forged.definition,
+          forged.sample,
+          forged.setup,
+          new KernelRegistry([kernel]),
+          new AbortController().signal,
+          'forged-run',
+        ),
+      ).rejects.toThrow('forged, uncommitted, or belongs to another run')
+    }
+
+    const concurrentDefinition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ task }),
+      recordedData: {},
+      simulate: async ({ sim, tasks }) => {
+        await Promise.all([sim.run(tasks.task), sim.run(tasks.task)])
+        return sim.initialState
+      },
+    })
+    const concurrent = createRealizations(concurrentDefinition)
+    await expect(
+      runSimulationProgram(
+        concurrent.definition,
+        concurrent.sample,
+        concurrent.setup,
+        new KernelRegistry([kernel]),
+        new AbortController().signal,
+        'concurrent-run',
+      ),
+    ).rejects.toThrow('executed sequentially')
   })
 
-  it('validates output dtype and shape when an artifact is recorded', async () => {
-    const { definition, sample, setup } = createRealizations('invalid-output')
-    await expect(runSimulationProgramV3(
-      definition,
-      sample,
-      setup,
-      new KernelRegistryV3(modules),
+  it('requires every global RecordedData key exactly once and rejects undeclared names', async () => {
+    const descriptor = kernelDescriptor('test.record', 'test/record@1', ampSpec)
+    const kernel: KernelDefinition = {
+      descriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const task = defineKernelTask(descriptor, taskConfig(descriptor))
+    const makeDefinition = (mode: 'missing' | 'duplicate' | 'undeclared' | 'prototype') =>
+      experiment({
+        lengthUnit: 'mm',
+        geometry: () => h(Fixture, { id: 'fixture' }),
+        varsSchema: {},
+        tasks: () => ({ task }),
+        recordedData: { final: ampSpec },
+        simulate: async ({ sim, tasks }) => {
+          const result = await sim.run(tasks.task)
+          if (mode !== 'missing') {
+            sim.record(
+              mode === 'undeclared' ? 'other' : mode === 'prototype' ? 'toString' : 'final',
+              result.artifacts.value,
+            )
+          }
+          if (mode === 'duplicate') sim.record('final', result.artifacts.value)
+          return result.state
+        },
+      })
+
+    for (const [mode, message] of [
+      ['missing', 'did not record required RecordedData'],
+      ['duplicate', 'recorded more than once'],
+      ['undeclared', 'is not declared'],
+      ['prototype', '"toString" is not declared'],
+    ] as const) {
+      const realization = createRealizations(makeDefinition(mode))
+      await expect(
+        runSimulationProgram(
+          realization.definition,
+          realization.sample,
+          realization.setup,
+          new KernelRegistry([kernel]),
+          new AbortController().signal,
+          `record-${mode}`,
+        ),
+      ).rejects.toThrow(message)
+    }
+  })
+
+  it('discards staged RecordedData when a later kernel fails', async () => {
+    const firstDescriptor = kernelDescriptor('test.staged', 'test/staged@1', ampSpec)
+    const failingDescriptor = kernelDescriptor('test.after-record', 'test/after-record@1', ampSpec)
+    const firstKernel: KernelDefinition = {
+      descriptor: firstDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 4 } } }
+      },
+    }
+    const failingKernel: KernelDefinition = {
+      descriptor: failingDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        throw new SimulationKernelError('backend', failingDescriptor, 'downstream failure')
+      },
+    }
+    const first = defineKernelTask(firstDescriptor, taskConfig(firstDescriptor))
+    const failing = defineKernelTask(failingDescriptor, taskConfig(failingDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ first, failing }),
+      recordedData: { final: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const produced = await sim.run(tasks.first)
+        sim.record('final', produced.artifacts.value)
+        await sim.run(tasks.failing)
+        return produced.state
+      },
+    })
+    const realization = createRealizations(definition)
+
+    await expect(
+      runSimulationProgram(
+        realization.definition,
+        realization.sample,
+        realization.setup,
+        new KernelRegistry([firstKernel, failingKernel]),
+        new AbortController().signal,
+        'staging-rollback',
+      ),
+    ).rejects.toThrow('downstream failure')
+  })
+
+  it('keeps equal task-local output keys isolated when recording different global names', async () => {
+    const firstDescriptor = kernelDescriptor('test.first-local', 'test/local@1', ampSpec)
+    const secondDescriptor = kernelDescriptor('test.second-local', 'test/local@1', ampSpec)
+    const firstKernel: KernelDefinition = {
+      descriptor: firstDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 1 } } }
+      },
+    }
+    const secondKernel: KernelDefinition = {
+      descriptor: secondDescriptor,
+      prepare: () => ({ prepared: null }),
+      async execute() {
+        return { artifacts: { value: { value: 2 } } }
+      },
+    }
+    const first = defineKernelTask(firstDescriptor, taskConfig(firstDescriptor))
+    const second = defineKernelTask(secondDescriptor, taskConfig(secondDescriptor))
+    const definition = experiment({
+      lengthUnit: 'mm',
+      geometry: () => h(Fixture, { id: 'fixture' }),
+      varsSchema: {},
+      tasks: () => ({ first, second }),
+      recordedData: { first: ampSpec, second: ampSpec },
+      simulate: async ({ sim, tasks }) => {
+        const firstResult = await sim.run(tasks.first)
+        const secondResult = await sim.run(tasks.second)
+        sim.record('first', firstResult.artifacts.value)
+        sim.record('second', secondResult.artifacts.value)
+        return secondResult.state
+      },
+    })
+    const realization = createRealizations(definition)
+    const result = await runSimulationProgram(
+      realization.definition,
+      realization.sample,
+      realization.setup,
+      new KernelRegistry([firstKernel, secondKernel]),
       new AbortController().signal,
-      'program-invalid-output',
-    )).rejects.toThrow('does not match its declared schema')
+      'local-keys',
+    )
+
+    expect(result.recordedData.first.data).toEqual({ value: 1 })
+    expect(result.recordedData.second.data).toEqual({ value: 2 })
   })
 })

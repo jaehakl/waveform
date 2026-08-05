@@ -5,68 +5,49 @@ export const magneticMaterialParameters = defineMaterialParameterDomain('magneti
     key: 'magnetic.permeability',
     label_ko: '투자율',
     quantity_kind: 'electromagnetism.ElectromagneticPermeability',
-    special_qualifiers: [
-      'frequency',
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['frequency', 'coordinate_frame'],
   },
   {
     key: 'magnetic.relative_permeability',
     label_ko: '상대투자율',
     quantity_kind: 'electromagnetism.ElectromagneticPermeabilityRatio',
-    special_qualifiers: [
-      'frequency',
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['frequency', 'coordinate_frame'],
   },
   {
     key: 'magnetic.susceptibility',
     label_ko: '자기 감수율',
     quantity_kind: 'electromagnetism.MagneticSusceptability',
-    special_qualifiers: [
-      'coordinate_frame',
-    ],
+    special_qualifiers: ['coordinate_frame'],
   },
   {
     key: 'magnetic.coercivity',
     label_ko: '보자력',
     quantity_kind: 'electromagnetism.Coercivity',
-    special_qualifiers: [
-      'hysteresis_branch',
-      'field_direction',
-    ],
+    special_qualifiers: ['hysteresis_branch', 'field_direction'],
   },
   {
     key: 'magnetic.remanent_flux_density',
     label_ko: '잔류 자속밀도',
     quantity_kind: 'electromagnetism.MagneticFluxDensity',
-    special_qualifiers: [
-      'field_direction',
-    ],
+    special_qualifiers: ['field_direction'],
   },
   {
     key: 'magnetic.saturation_flux_density',
     label_ko: '포화 자속밀도',
     quantity_kind: 'electromagnetism.MagneticFluxDensity',
-    special_qualifiers: [
-      'field_direction',
-    ],
+    special_qualifiers: ['field_direction'],
   },
   {
     key: 'magnetic.remanent_magnetization',
     label_ko: '잔류 자화',
     quantity_kind: 'electromagnetism.Magnetization',
-    special_qualifiers: [
-      'field_direction',
-    ],
+    special_qualifiers: ['field_direction'],
   },
   {
     key: 'magnetic.saturation_magnetization',
     label_ko: '포화 자화',
     quantity_kind: 'electromagnetism.Magnetization',
-    special_qualifiers: [
-      'field_direction',
-    ],
+    special_qualifiers: ['field_direction'],
   },
   {
     key: 'magnetic.curie_temperature',
@@ -107,9 +88,6 @@ export const magneticMaterialParameters = defineMaterialParameterDomain('magneti
     key: 'magnetic.hysteresis_loss_density',
     label_ko: '자기 이력 손실 에너지밀도',
     quantity_kind: 'EnergyDensity',
-    special_qualifiers: [
-      'cycle',
-      'frequency',
-    ],
+    special_qualifiers: ['cycle', 'frequency'],
   },
 ] as const)

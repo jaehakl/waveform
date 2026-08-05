@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { updateModelGroupSource, updateStructureGroupSource } from './structureGroups'
 
 describe('Structure group source synchronization', () => {
   it('inserts a group property into the structure used by the default export', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 const unused = structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 const active = structure({ lengthUnit: 'mm',
   geometry: () => null,
@@ -21,7 +21,7 @@ export default active
   })
 
   it('traces an aliased factory and top-level options binding', () => {
-const source = `import { structure as defineStructure } from '@caemble/core/v2'
+    const source = `import { structure as defineStructure } from '@caemble/core'
 const oldGroups = {}
 const options = { geometry: () => null, varsSchema: {}, surfaceGroup: oldGroups }
 const active = defineStructure(options)
@@ -36,7 +36,7 @@ export default active
   })
 
   it('keeps an empty group property instead of removing it', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 export default structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 `
     const updated = updateStructureGroupSource(source, 'geometryGroup', {}).source
@@ -45,7 +45,7 @@ export default structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {
   })
 
   it('rejects duplicate target properties without changing source', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 const active = structure({ lengthUnit: 'mm',
   geometry: () => null,
   varsSchema: {},
@@ -55,13 +55,11 @@ const active = structure({ lengthUnit: 'mm',
 export default active
 `
 
-    expect(() => updateStructureGroupSource(source, 'geometryGroup', {})).toThrow(
-      'duplicate geometryGroup properties',
-    )
+    expect(() => updateStructureGroupSource(source, 'geometryGroup', {})).toThrow('duplicate geometryGroup properties')
   })
 
   it('rejects dynamic structure selection', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 const first = structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 const second = structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 export default Math.random() ? first : second
@@ -73,27 +71,31 @@ export default Math.random() ? first : second
   })
 
   it('makes spread-based options read-only for round-trip edits', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 const common = { lengthUnit: 'mm', geometry: () => null, varsSchema: {} }
 export default structure({ ...common })
 `
 
-    expect(() => updateStructureGroupSource(source, 'geometryGroup', {})).toThrow(
-      'spread or computed options',
-    )
+    expect(() => updateStructureGroupSource(source, 'geometryGroup', {})).toThrow('spread or computed options')
   })
 })
 
 describe('Experiment group source synchronization', () => {
   it('updates only the experiment used by the default export', () => {
-    const source = `import { experiment } from '@caemble/core/v2'
+    const source = `import { defineKernelTask, experiment } from '@caemble/core'
+const unusedTask = defineKernelTask({ name: 'unused', version: '1' }, {})
+const activeTask = defineKernelTask({ name: 'active', version: '1' }, {})
 const unused = experiment({ lengthUnit: 'mm',
-  solver: { name: 'unused', version: '1', parameters: () => ({}) },
+  tasks: () => ({ unused: unusedTask }),
+  recordedData: {},
+  simulate: ({ sim }) => sim.initialState,
   geometry: () => null,
   varsSchema: {},
 })
 const active = experiment({ lengthUnit: 'mm',
-  solver: { name: 'active', version: '1', parameters: () => ({}) },
+  tasks: () => ({ active: activeTask }),
+  recordedData: {},
+  simulate: ({ sim }) => sim.initialState,
   geometry: () => null,
   varsSchema: {},
 })
@@ -105,14 +107,17 @@ export default active
 
     expect(updated).toContain('geometryGroup: {\n    "domain": ["experiment-domain"],\n  },')
     expect(updated.match(/geometryGroup/g)).toHaveLength(1)
-    expect(updated).toContain("solver: { name: 'unused', version: '1', parameters: () => ({}) }")
+    expect(updated).toContain('tasks: () => ({ unused: unusedTask })')
   })
 
   it('traces an aliased experiment factory and options binding', () => {
-    const source = `import { experiment as defineExperiment } from '@caemble/core/v2'
+    const source = `import { defineKernelTask, experiment as defineExperiment } from '@caemble/core'
+const activeTask = defineKernelTask({ name: 'active', version: '1' }, {})
 const oldGroups = {}
 const options = {
-  solver: { name: 'active', version: '1', parameters: () => ({}) },
+  tasks: () => ({ active: activeTask }),
+  recordedData: {},
+  simulate: ({ sim }) => sim.initialState,
   geometry: () => null,
   varsSchema: {},
   surfaceGroup: oldGroups,
@@ -129,7 +134,7 @@ export default active
   })
 
   it('requires the matching experiment factory entry path', () => {
-    const source = `import { structure } from '@caemble/core/v2'
+    const source = `import { structure } from '@caemble/core'
 export default structure({ lengthUnit: 'mm', geometry: () => null, varsSchema: {} })
 `
 

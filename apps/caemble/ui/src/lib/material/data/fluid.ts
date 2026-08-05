@@ -15,9 +15,7 @@ export const fluidMaterialParameters = defineMaterialParameterDomain('fluid', [
     key: 'fluid.bulk_viscosity',
     label_ko: '체적점도',
     quantity_kind: 'fluidDynamics.DynamicViscosity',
-    special_qualifiers: [
-      'definition',
-    ],
+    special_qualifiers: ['definition'],
   },
   {
     key: 'fluid.fluidity',
@@ -38,17 +36,12 @@ export const fluidMaterialParameters = defineMaterialParameterDomain('fluid', [
     key: 'fluid.speed_of_sound',
     label_ko: '음속',
     quantity_kind: 'acoustics.SpeedOfSound',
-    special_qualifiers: [
-      'wave_mode',
-    ],
+    special_qualifiers: ['wave_mode'],
   },
   {
     key: 'fluid.yield_stress',
     label_ko: '유변학적 항복응력',
     quantity_kind: 'mechanics.Stress',
-    special_qualifiers: [
-      'rheology_model',
-    ],
+    special_qualifiers: ['rheology_model'],
   },
 ] as const)
-

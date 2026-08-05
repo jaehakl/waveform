@@ -1,6 +1,6 @@
 import { measurements } from '@jscad/modeling'
-import { describe, expect, it, vi } from 'vitest'
-import { evaluateWithVars, Material, Sample, Structure } from '../model/core'
+import { describe, expect, it } from 'vitest'
+import { evaluateWithVars, Material, Structure } from '../model/core'
 import { Fragment, evaluateCad, evaluateCadScene, h } from '../index'
 
 const size = [2, 2, 2]
@@ -204,55 +204,49 @@ describe('CAD transforms-materials', () => {
   })
 
   it('shares one realization per Material instance and samples distinct instances independently', () => {
-    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
-    try {
-      const shared = new Material('Shared', {
-        'general.mass_density': {
-          dtype: 'float64',
-          value: 10,
-          errorRate: 0.2,
-          unit: 'kg.m-3',
-        },
-      })
-      const first = new Material('Separate', {
-        'general.mass_density': {
-          dtype: 'float64',
-          value: 10,
-          errorRate: 0.2,
-          unit: 'kg.m-3',
-        },
-      })
-      const second = new Material('Separate', {
-        'general.mass_density': {
-          dtype: 'float64',
-          value: 10,
-          errorRate: 0.2,
-          unit: 'kg.m-3',
-        },
-      })
-      const structure = new Structure({
-        lengthUnit: 'mm',
-        geometry: () =>
-          h(
-            Fragment,
-            null,
-            h(Box, { id: 'shared-first', materials: [shared] }),
-            h(Box, { id: 'shared-second', pos: [3, 0, 0], materials: [shared] }),
-            h(Box, { id: 'separate-first', pos: [6, 0, 0], materials: [first] }),
-            h(Box, { id: 'separate-second', pos: [9, 0, 0], materials: [second] }),
-          ),
-        varsSchema: {},
-      })
-      const sample = new Sample(structure)
-      const scene = evaluateWithVars(sample.vars, () => evaluateCadScene(structure.geometry()))
-      const applied = scene.parts.map((part) => part.material?.variables['general.mass_density'] as { value: number })
+    const shared = new Material('Shared', {
+      'general.mass_density': {
+        dtype: 'float64',
+        value: 10,
+        errorRate: 0.2,
+        unit: 'kg.m-3',
+      },
+    })
+    const first = new Material('Separate', {
+      'general.mass_density': {
+        dtype: 'float64',
+        value: 10,
+        errorRate: 0.2,
+        unit: 'kg.m-3',
+      },
+    })
+    const second = new Material('Separate', {
+      'general.mass_density': {
+        dtype: 'float64',
+        value: 10,
+        errorRate: 0.2,
+        unit: 'kg.m-3',
+      },
+    })
+    const structure = new Structure({
+      lengthUnit: 'mm',
+      geometry: () =>
+        h(
+          Fragment,
+          null,
+          h(Box, { id: 'shared-first', materials: [shared] }),
+          h(Box, { id: 'shared-second', pos: [3, 0, 0], materials: [shared] }),
+          h(Box, { id: 'separate-first', pos: [6, 0, 0], materials: [first] }),
+          h(Box, { id: 'separate-second', pos: [9, 0, 0], materials: [second] }),
+        ),
+      varsSchema: {},
+    })
+    const scene = evaluateWithVars({}, () => evaluateCadScene(structure.geometry()), 0)
+    const applied = scene.parts.map((part) => part.material?.variables['general.mass_density'] as { value: number })
 
-      expect(scene.parts[0].material).toBe(scene.parts[1].material)
-      expect(applied[0]).toEqual(applied[1])
-      expect(applied[2].value).not.toBe(applied[3].value)
-      applied.forEach((density) => expect(density).not.toHaveProperty('errorRate'))
-    } finally {
-      random.mockRestore()
-    }
+    expect(scene.parts[0].material).toBe(scene.parts[1].material)
+    expect(applied[0]).toEqual(applied[1])
+    expect(applied[2].value).not.toBe(applied[3].value)
+    applied.forEach((density) => expect(density).not.toHaveProperty('errorRate'))
   })
 })

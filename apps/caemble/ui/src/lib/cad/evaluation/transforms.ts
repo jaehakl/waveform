@@ -78,4 +78,3 @@ export function applyTransforms(parts: EvaluatedPart[], values: NormalizedTransf
     return { ...part, geometry }
   })
 }
-

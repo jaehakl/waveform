@@ -88,8 +88,16 @@ function prepareTriangle(anchor: Vec3, second: Vec3, third: Vec3): PreparedTrian
 }
 
 function triangleBounds(triangles: readonly PreparedTriangle[]): Bounds {
-  const minimum: [number, number, number] = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
-  const maximum: [number, number, number] = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY]
+  const minimum: [number, number, number] = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+  ]
+  const maximum: [number, number, number] = [
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ]
   for (const triangle of triangles) {
     for (let axis = 0; axis < 3; axis += 1) {
       minimum[axis] = Math.min(minimum[axis], triangle.bounds[0][axis])
@@ -114,9 +122,9 @@ function buildTriangleTree(triangles: readonly PreparedTriangle[]): TriangleTree
 }
 
 function pointIsWithinBounds(point: Vec3, bounds: Bounds, epsilon: number) {
-  return point.every((coordinate, axis) => (
-    coordinate >= bounds[0][axis] - epsilon && coordinate <= bounds[1][axis] + epsilon
-  ))
+  return point.every(
+    (coordinate, axis) => coordinate >= bounds[0][axis] - epsilon && coordinate <= bounds[1][axis] + epsilon,
+  )
 }
 
 function pointIsOnTriangle(point: Vec3, triangle: PreparedTriangle, epsilon: number) {
@@ -135,9 +143,11 @@ function pointIsOnTriangle(point: Vec3, triangle: PreparedTriangle, epsilon: num
   const firstWeight = (edge2LengthSquared * offsetEdge1Dot - edgeDot * offsetEdge2Dot) / denominator
   const secondWeight = (edge1LengthSquared * offsetEdge2Dot - edgeDot * offsetEdge1Dot) / denominator
   const weightTolerance = epsilon / triangle.maximumEdgeLength
-  return firstWeight >= -weightTolerance
-    && secondWeight >= -weightTolerance
-    && firstWeight + secondWeight <= 1 + weightTolerance
+  return (
+    firstWeight >= -weightTolerance &&
+    secondWeight >= -weightTolerance &&
+    firstWeight + secondWeight <= 1 + weightTolerance
+  )
 }
 
 function rayIntersectionDistance(point: Vec3, triangle: PreparedTriangle) {
@@ -211,11 +221,7 @@ export function createSolidPointTester(geometry: unknown): SolidPointTester | nu
     if (polygon.vertices.length < 3) continue
     const anchor = polygon.vertices[0] as Vec3
     for (let index = 1; index < polygon.vertices.length - 1; index += 1) {
-      const triangle = prepareTriangle(
-        anchor,
-        polygon.vertices[index] as Vec3,
-        polygon.vertices[index + 1] as Vec3,
-      )
+      const triangle = prepareTriangle(anchor, polygon.vertices[index] as Vec3, polygon.vertices[index + 1] as Vec3)
       if (triangle) triangles.push(triangle)
     }
   }

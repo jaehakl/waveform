@@ -1,25 +1,25 @@
+import type { KernelIdentity } from './types'
+
 export type SimulationKernelErrorKind = 'input' | 'convergence' | 'backend' | 'resource'
 
-export class SimulationKernelErrorV3 extends Error {
+export class SimulationKernelError extends Error {
   readonly kind: SimulationKernelErrorKind
-  readonly kernel: Readonly<{ name: string; version: string }>
+  readonly kernel: KernelIdentity
 
-  constructor(
-    kind: SimulationKernelErrorKind,
-    kernel: Readonly<{ name: string; version: string }>,
-    message: string,
-  ) {
+  constructor(kind: SimulationKernelErrorKind, kernel: KernelIdentity, message: string) {
     super(message)
-    this.name = 'SimulationKernelErrorV3'
+    this.name = 'SimulationKernelError'
     this.kind = kind
-    this.kernel = kernel
+    this.kernel = Object.freeze({
+      name: kernel.name,
+      version: kernel.version,
+    })
   }
 }
 
-export class SimulationFatalErrorV3 extends Error {
+export class SimulationFatalError extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'SimulationFatalErrorV3'
+    this.name = 'SimulationFatalError'
   }
 }
-

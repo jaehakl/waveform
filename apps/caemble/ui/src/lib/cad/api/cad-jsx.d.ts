@@ -9,7 +9,7 @@ import type {
   FiberAttributes,
   ShellAttributes,
   SphereAttributes,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 declare global {
   function h(type: unknown, attributes: unknown, ...children: unknown[]): unknown

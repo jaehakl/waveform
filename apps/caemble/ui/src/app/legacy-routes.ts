@@ -9,7 +9,10 @@ export function viewerReplacementPath(search: string) {
   return `/structures?${searchParams}`
 }
 
-export function redirectLegacyHash(location: Pick<Location, 'hash' | 'pathname' | 'search'>, history: Pick<History, 'replaceState'>) {
+export function redirectLegacyHash(
+  location: Pick<Location, 'hash' | 'pathname' | 'search'>,
+  history: Pick<History, 'replaceState'>,
+) {
   if (location.pathname !== '/') return
   if (location.hash === '#viewer') {
     history.replaceState(null, '', viewerReplacementPath(location.search))

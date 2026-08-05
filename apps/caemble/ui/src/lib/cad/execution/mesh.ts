@@ -8,16 +8,8 @@ import {
   type SerializableCadScene,
 } from './meshValidation'
 
-export {
-  assertSerializableCadScene,
-  cadSceneHash,
-  cadSnapshotTransferables,
-} from './meshValidation'
-export type {
-  SerializableCadMesh,
-  SerializableCadScene,
-  SerializableCadScenePart,
-} from './meshValidation'
+export { assertSerializableCadScene, cadSceneHash, cadSnapshotTransferables } from './meshValidation'
+export type { SerializableCadMesh, SerializableCadScene, SerializableCadScenePart } from './meshValidation'
 
 const runtimeMeshCache = new WeakMap<SerializableCadMesh, unknown>()
 const runtimeSceneCache = new Map<string, CadScene>()
@@ -44,7 +36,7 @@ export function serializeCadScene(scene: CadScene): SerializableCadScene {
     polygonOffsets[polygons.length] = vertexOffset
     return {
       id: part.id,
-      geometry: { kind: 'mesh-v2' as const, positions, polygonOffsets },
+      geometry: { kind: 'mesh' as const, positions, polygonOffsets },
       ...(part.material ? { material: part.material } : {}),
       surfaces: part.surfaces,
     }

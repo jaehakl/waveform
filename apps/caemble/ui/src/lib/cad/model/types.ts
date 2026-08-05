@@ -5,4 +5,3 @@ export type Rotation = Readonly<{
   axis: Vec3
   angle: number
 }>
-

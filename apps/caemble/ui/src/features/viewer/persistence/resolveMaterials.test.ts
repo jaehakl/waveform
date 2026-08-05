@@ -1,12 +1,11 @@
 import { primitives } from '@jscad/modeling'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dbTables } from '@/api'
-import { serializeCadScene, type EvaluatedDocumentSnapshotV2 } from '@/lib/cad'
+import { serializeCadScene, type EvaluatedDocumentSnapshot } from '@/lib/cad'
 import { createDocumentMaterialResolver } from './resolveMaterials'
 
-function materialSnapshot(seed: number): EvaluatedDocumentSnapshotV2 {
+function materialSnapshot(seed: number): EvaluatedDocumentSnapshot {
   return {
-    apiVersion: 2,
     kind: 'structure',
     scene: serializeCadScene({
       geometryGroups: [],

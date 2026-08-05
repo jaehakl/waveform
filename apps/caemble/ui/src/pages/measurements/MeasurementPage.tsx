@@ -43,15 +43,15 @@ import { resolveDocumentMaterials } from '@/features/viewer/persistence/resolveM
 import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
 import {
-  createCadSourceDocumentV2,
-  normalizeRecordedDataTensor,
+  createCadSourceDocument,
   type CadDocumentType,
-  type CadSourceDocumentV2,
-  type EvaluatedDocumentSnapshotV2,
+  type CadSourceDocument,
+  type EvaluatedDocumentSnapshot,
   type RecordedData,
   type Vars,
 } from '@/lib/cad'
 import type { MaterialResolution } from '@/lib/material'
+import { getQuantityKindTensorOrder } from '@/lib/quantitykind/runtime'
 
 function positiveId(value: string | null) {
   const parsed = Number(value)
@@ -93,8 +93,8 @@ export function MeasurementPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { currentExperimentId, currentStructureId, setCurrentExperimentId, setCurrentStructureId } =
     useCurrentCadSelection()
-  const [structure, setStructure] = useState<CadSourceDocumentV2 | null>(null)
-  const [experiment, setExperiment] = useState<CadSourceDocumentV2 | null>(null)
+  const [structure, setStructure] = useState<CadSourceDocument | null>(null)
+  const [experiment, setExperiment] = useState<CadSourceDocument | null>(null)
   const [structureRecord, setStructureRecord] = useState<StructureRecord | null>(null)
   const [experimentRecord, setExperimentRecord] = useState<ExperimentRecord | null>(null)
   const [structureVars, setStructureVars] = useState<Readonly<Vars> | undefined>()
@@ -199,16 +199,14 @@ export function MeasurementPage() {
         : samples.filter(
             (sample) =>
               !measurements.some(
-                (measurement) =>
-                  measurement.sample_id === sample.id &&
-                  measurement.setup_id === selectedSetupId,
+                (measurement) => measurement.sample_id === sample.id && measurement.setup_id === selectedSetupId,
               ),
           ),
     [measurements, samples, selectedSetupId],
   )
 
   const resolveMaterials = useCallback(
-    (snapshot: EvaluatedDocumentSnapshotV2): Promise<MaterialResolution> =>
+    (snapshot: EvaluatedDocumentSnapshot): Promise<MaterialResolution> =>
       resolveDocumentMaterials(
         snapshot,
         snapshot.kind === 'structure' ? structureMaterialSnapshot : experimentMaterialSnapshot,
@@ -223,7 +221,7 @@ export function MeasurementPage() {
     structureVars,
     experimentVars,
     resolveMaterials,
-    'prepared-vars',
+    'fast-reroll',
   )
   const structureRevisionRef = useRef(structureDocument.revision)
   structureRevisionRef.current = structureDocument.revision
@@ -247,7 +245,7 @@ export function MeasurementPage() {
   const applyStructure = useCallback(
     (record: StructureRecord, resetRealization: boolean) => {
       if (!record.id) throw new Error('Structure ID가 없습니다.')
-      setStructure(createCadSourceDocumentV2('structure', record.code))
+      setStructure(createCadSourceDocument('structure', record.code))
       setStructureRecord(record)
       setCurrentStructureId(record.id)
       if (resetRealization) {
@@ -261,7 +259,7 @@ export function MeasurementPage() {
   const applyExperiment = useCallback(
     (record: ExperimentRecord, resetRealization: boolean) => {
       if (!record.id) throw new Error('Experiment ID가 없습니다.')
-      setExperiment(createCadSourceDocumentV2('experiment', record.code))
+      setExperiment(createCadSourceDocument('experiment', record.code))
       setExperimentRecord(record)
       setCurrentExperimentId(record.id)
       if (resetRealization) {
@@ -314,14 +312,7 @@ export function MeasurementPage() {
       if (updateUrl) updateDeepLink({ structure: sample.structure_id, sample: id, measurement: null })
       return sample
     },
-    [
-      applyStructure,
-      currentStructureId,
-      fetchSample,
-      fetchStructure,
-      structure,
-      updateDeepLink,
-    ],
+    [applyStructure, currentStructureId, fetchSample, fetchStructure, structure, updateDeepLink],
   )
   const loadSetup = useCallback(
     async (id: number, updateUrl = true, loadedSetup?: SetupRecord) => {
@@ -340,14 +331,7 @@ export function MeasurementPage() {
       if (updateUrl) updateDeepLink({ experiment: setup.experiment_id, setup: id, measurement: null })
       return setup
     },
-    [
-      applyExperiment,
-      currentExperimentId,
-      experiment,
-      fetchExperiment,
-      fetchSetup,
-      updateDeepLink,
-    ],
+    [applyExperiment, currentExperimentId, experiment, fetchExperiment, fetchSetup, updateDeepLink],
   )
   const loadMeasurement = useCallback(
     async (id: number, updateUrl = true) => {
@@ -448,10 +432,8 @@ export function MeasurementPage() {
     const selectDefaults = async () => {
       if (selectedMeasurementId !== null) return
 
-      const preferredSampleId =
-        selectedSampleId ?? (isInitialContext ? initialDeepLinkSelection.sampleId : null)
-      const preferredSetupId =
-        selectedSetupId ?? (isInitialContext ? initialDeepLinkSelection.setupId : null)
+      const preferredSampleId = selectedSampleId ?? (isInitialContext ? initialDeepLinkSelection.sampleId : null)
+      const preferredSetupId = selectedSetupId ?? (isInitialContext ? initialDeepLinkSelection.setupId : null)
 
       if (preferredSampleId === null && preferredSetupId === null && measurements[0]) {
         await loadMeasurement(measurements[0].id)
@@ -459,22 +441,16 @@ export function MeasurementPage() {
       }
 
       const [sample, setup] = await Promise.all([
-        preferredSampleId === null && samples[0]
-          ? loadSample(samples[0].id, false, samples[0])
-          : Promise.resolve(null),
-        preferredSetupId === null && setups[0]
-          ? loadSetup(setups[0].id, false, setups[0])
-          : Promise.resolve(null),
+        preferredSampleId === null && samples[0] ? loadSample(samples[0].id, false, samples[0]) : Promise.resolve(null),
+        preferredSetupId === null && setups[0] ? loadSetup(setups[0].id, false, setups[0]) : Promise.resolve(null),
       ])
       if (!sample && !setup) return
 
       const sampleId = sample?.id ?? preferredSampleId
       const setupId = setup?.id ?? preferredSetupId
       const matchingMeasurementId =
-        measurements.find(
-          (measurement) =>
-            measurement.sample_id === sampleId && measurement.setup_id === setupId,
-        )?.id ?? null
+        measurements.find((measurement) => measurement.sample_id === sampleId && measurement.setup_id === setupId)
+          ?.id ?? null
       setSelectedMeasurementId(matchingMeasurementId)
       setHideLiveRecordedData(true)
       updateDeepLink({
@@ -530,19 +506,12 @@ export function MeasurementPage() {
   }, [auth.isAuthenticated, auth.isLoading, updateDeepLink])
 
   useEffect(() => {
-    if (
-      !auth.isAuthenticated ||
-      selectedSampleId === null ||
-      selectedSetupId === null ||
-      !measurementsQuery.data
-    )
+    if (!auth.isAuthenticated || selectedSampleId === null || selectedSetupId === null || !measurementsQuery.data)
       return
 
     const matchingMeasurement =
       measurements.find(
-        (measurement) =>
-          measurement.sample_id === selectedSampleId &&
-          measurement.setup_id === selectedSetupId,
+        (measurement) => measurement.sample_id === selectedSampleId && measurement.setup_id === selectedSetupId,
       ) ?? null
     const matchingMeasurementId = matchingMeasurement?.id ?? null
     if (selectedMeasurementId === matchingMeasurementId) return
@@ -591,41 +560,22 @@ export function MeasurementPage() {
         successes: [],
       })
     },
-    [
-      selectedMeasurementId,
-      selectedSampleId,
-      selectedSetupId,
-      structureDocument.revision,
-      updateDeepLink,
-    ],
+    [selectedMeasurementId, selectedSampleId, selectedSetupId, structureDocument.revision, updateDeepLink],
   )
 
   const advanceRunQueue = useCallback(
-    (
-      sampleId: number,
-      result:
-        | { measurementId: number; type: 'success' }
-        | { message: string; type: 'failure' },
-    ) => {
+    (sampleId: number, result: { measurementId: number; type: 'success' } | { message: string; type: 'failure' }) => {
       setRunQueue((current) => {
-        if (
-          !current ||
-          current.stage === 'complete' ||
-          current.sampleIds[current.index] !== sampleId
-        )
-          return current
+        if (!current || current.stage === 'complete' || current.sampleIds[current.index] !== sampleId) return current
 
         const successes =
           result.type === 'success'
             ? [...current.successes, { measurementId: result.measurementId, sampleId }]
             : current.successes
         const failures =
-          result.type === 'failure'
-            ? [...current.failures, { message: result.message, sampleId }]
-            : current.failures
+          result.type === 'failure' ? [...current.failures, { message: result.message, sampleId }] : current.failures
         const nextIndex = current.index + 1
-        const complete =
-          current.cancelRequested || nextIndex >= current.sampleIds.length
+        const complete = current.cancelRequested || nextIndex >= current.sampleIds.length
         return {
           ...current,
           failures,
@@ -685,13 +635,7 @@ export function MeasurementPage() {
         updateDeepLink({ structure: record.structure_id, sample: id, measurement: null })
         await queryClient.invalidateQueries({ queryKey: ['measurements', 'samples', record.structure_id] })
         if (pending.runSetupId !== null && pending.originalSelection) {
-          startRunQueue(
-            [id],
-            pending.runSetupId,
-            'generated',
-            true,
-            pending.originalSelection,
-          )
+          startRunQueue([id], pending.runSetupId, 'generated', true, pending.originalSelection)
         }
       } else {
         queryClient.setQueryData<GetListResponse<SetupRecord>>(
@@ -847,8 +791,7 @@ export function MeasurementPage() {
       .then(() => {
         if (!active) return
         setRunQueue((current) =>
-          current?.stage === 'load' &&
-          current.sampleIds[current.index] === currentRunSampleId
+          current?.stage === 'load' && current.sampleIds[current.index] === currentRunSampleId
             ? {
                 ...current,
                 minimumStructureRevision,
@@ -861,20 +804,10 @@ export function MeasurementPage() {
       .catch((error: unknown) => {
         if (!active) return
         setRunQueue((current) => {
-          if (
-            current?.stage !== 'load' ||
-            current.sampleIds[current.index] !== currentRunSampleId
-          )
-            return current
+          if (current?.stage !== 'load' || current.sampleIds[current.index] !== currentRunSampleId) return current
           if (current.cancelRequested) return { ...current, stage: 'complete' }
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Sample을 불러오지 못했습니다.'
-          const failures = [
-            ...current.failures,
-            { message, sampleId: currentRunSampleId },
-          ]
+          const message = error instanceof Error ? error.message : 'Sample을 불러오지 못했습니다.'
+          const failures = [...current.failures, { message, sampleId: currentRunSampleId }]
           const nextIndex = current.index + 1
           const complete = nextIndex >= current.sampleIds.length
           return {
@@ -890,11 +823,7 @@ export function MeasurementPage() {
     return () => {
       active = false
     }
-  }, [
-    currentRunSampleId,
-    loadSample,
-    runQueue?.stage,
-  ])
+  }, [currentRunSampleId, loadSample, runQueue?.stage])
 
   useEffect(() => {
     if (
@@ -905,10 +834,7 @@ export function MeasurementPage() {
     )
       return
 
-    if (
-      structureDocument.status === 'Error' ||
-      experimentDocument.status === 'Error'
-    ) {
+    if (structureDocument.status === 'Error' || experimentDocument.status === 'Error') {
       advanceRunQueue(currentRunSampleId, {
         message: 'CAD 문서 평가에 실패했습니다.',
         type: 'failure',
@@ -926,10 +852,7 @@ export function MeasurementPage() {
     )
       return
 
-    if (
-      simulation.compatibility.status === 'incompatible' ||
-      simulation.compatibility.status === 'unavailable'
-    ) {
+    if (simulation.compatibility.status === 'incompatible' || simulation.compatibility.status === 'unavailable') {
       advanceRunQueue(currentRunSampleId, {
         message: '현재 Sample과 Setup이 Solver 계약과 호환되지 않습니다.',
         type: 'failure',
@@ -942,8 +865,7 @@ export function MeasurementPage() {
     if (!runId) return
     runPreviousRecordedData.current = simulation.recordedData
     setRunQueue((current) =>
-      current?.stage === 'evaluate' &&
-      current.sampleIds[current.index] === currentRunSampleId
+      current?.stage === 'evaluate' && current.sampleIds[current.index] === currentRunSampleId
         ? { ...current, runId, stage: 'running' }
         : current,
     )
@@ -967,14 +889,9 @@ export function MeasurementPage() {
   useEffect(() => {
     if (runQueue?.stage !== 'running' || currentRunSampleId === null) return
     if (!runQueue.runId || simulation.process.runId !== runQueue.runId) return
-    if (
-      simulation.process.status === 'failed' ||
-      simulation.process.status === 'cancelled'
-    ) {
+    if (simulation.process.status === 'failed' || simulation.process.status === 'cancelled') {
       if (runQueue.cancelRequested) {
-        setRunQueue((current) =>
-          current?.stage === 'running' ? { ...current, stage: 'complete' } : current,
-        )
+        setRunQueue((current) => (current?.stage === 'running' ? { ...current, stage: 'complete' } : current))
       } else {
         advanceRunQueue(currentRunSampleId, {
           message:
@@ -990,32 +907,30 @@ export function MeasurementPage() {
     if (
       simulation.process.status !== 'succeeded' ||
       !simulation.recordedData ||
+      !simulation.programResult ||
       simulation.stale ||
       simulation.recordedData === runPreviousRecordedData.current
     )
       return
 
-    const rules = experimentDocument.experimentRules?.recordedData ?? []
-    const recordedData = simulation.recordedData
+    const result = simulation.programResult
     const request: MeasurementSaveRequest = {
       sample_id: currentRunSampleId,
       setup_id: runQueue.setupId,
-      recorded_data: rules.map((rule) => {
-        const data = recordedData[rule.label]
-        const normalized = normalizeRecordedDataTensor(rule, data)
+      recorded_data: Object.entries(result.recordedData).map(([name, entry]) => {
+        const quantityKind = entry.spec.quantityKind
         return {
-          name: rule.label,
-          quantity_kind: normalized.quantityKind ?? 'Dimensionless',
-          tensor_order: normalized.tensorOrder,
-          dtype: normalized.dtype,
-          data,
+          name,
+          quantity_kind: quantityKind ?? 'Dimensionless',
+          tensor_order: quantityKind === undefined ? 0 : getQuantityKindTensorOrder(quantityKind),
+          dtype: entry.spec.dtype,
+          data: entry.data,
         }
       }),
     }
     setHideLiveRecordedData(false)
     setRunQueue((current) =>
-      current?.stage === 'running' &&
-      current.sampleIds[current.index] === currentRunSampleId
+      current?.stage === 'running' && current.sampleIds[current.index] === currentRunSampleId
         ? { ...current, stage: 'saving' }
         : current,
     )
@@ -1029,17 +944,13 @@ export function MeasurementPage() {
       )
       .catch((error: unknown) =>
         advanceRunQueue(currentRunSampleId, {
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Measurement를 저장하지 못했습니다.',
+          message: error instanceof Error ? error.message : 'Measurement를 저장하지 못했습니다.',
           type: 'failure',
         }),
       )
   }, [
     advanceRunQueue,
     currentRunSampleId,
-    experimentDocument.experimentRules,
     measurementMutation,
     runQueue?.cancelRequested,
     runQueue?.runId,
@@ -1048,6 +959,7 @@ export function MeasurementPage() {
     simulation.process.error,
     simulation.process.runId,
     simulation.process.status,
+    simulation.programResult,
     simulation.recordedData,
     simulation.stale,
   ])
@@ -1067,8 +979,7 @@ export function MeasurementPage() {
     }
 
     const restoreSelection = async () => {
-      const lastSuccess =
-        completedQueue.successes[completedQueue.successes.length - 1]
+      const lastSuccess = completedQueue.successes[completedQueue.successes.length - 1]
       if (lastSuccess) {
         await loadMeasurement(lastSuccess.measurementId)
         return
@@ -1079,12 +990,8 @@ export function MeasurementPage() {
         return
       }
       const [sample, setup] = await Promise.all([
-        original.sampleId
-          ? loadSample(original.sampleId, false)
-          : Promise.resolve(null),
-        original.setupId
-          ? loadSetup(original.setupId, false)
-          : Promise.resolve(null),
+        original.sampleId ? loadSample(original.sampleId, false) : Promise.resolve(null),
+        original.setupId ? loadSetup(original.setupId, false) : Promise.resolve(null),
       ])
       updateDeepLink({
         experiment: setup?.experiment_id ?? currentExperimentId ?? null,
@@ -1096,17 +1003,11 @@ export function MeasurementPage() {
     }
 
     void restoreSelection().catch((error: unknown) =>
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : '실행 후 선택 상태를 복원하지 못했습니다.',
-      ),
+      toast.error(error instanceof Error ? error.message : '실행 후 선택 상태를 복원하지 못했습니다.'),
     )
 
     if (completedQueue.mode === 'batch') {
-      const prefix = completedQueue.cancelRequested
-        ? '일괄 실행을 취소했습니다.'
-        : '일괄 실행을 완료했습니다.'
+      const prefix = completedQueue.cancelRequested ? '일괄 실행을 취소했습니다.' : '일괄 실행을 완료했습니다.'
       const message = `${prefix} 성공 ${completedQueue.successes.length}개, 실패 ${completedQueue.failures.length}개`
       if (completedQueue.failures.length > 0) toast.error(message)
       else toast.success(message)
@@ -1117,20 +1018,9 @@ export function MeasurementPage() {
           : 'Measurement와 Recorded Data를 저장했습니다.',
       )
     } else {
-      toast.error(
-        completedQueue.failures[0]?.message ??
-          'Measurement 실행을 완료하지 못했습니다.',
-      )
+      toast.error(completedQueue.failures[0]?.message ?? 'Measurement 실행을 완료하지 못했습니다.')
     }
-  }, [
-    currentExperimentId,
-    currentStructureId,
-    loadMeasurement,
-    loadSample,
-    loadSetup,
-    runQueue,
-    updateDeepLink,
-  ])
+  }, [currentExperimentId, currentStructureId, loadMeasurement, loadSample, loadSetup, runQueue, updateDeepLink])
 
   const persistedRecordedData = useMemo<RecordedData | null>(() => {
     if (!selectedMeasurementId || !recordedDataQuery.data) return null
@@ -1148,10 +1038,7 @@ export function MeasurementPage() {
       ? null
       : simulation.recordedData
 
-  const startRealization = (
-    kind: 'sample' | 'setup',
-    runSetupId: number | null = null,
-  ) => {
+  const startRealization = (kind: 'sample' | 'setup', runSetupId: number | null = null) => {
     if (!auth.isAuthenticated) {
       navigate('/login', { state: { from: `${location.pathname}${location.search}` } })
       return
@@ -1190,20 +1077,10 @@ export function MeasurementPage() {
       return
     }
     if (!simulation.canRun || !selectedSampleId || !selectedSetupId) return
-    startRunQueue(
-      [selectedSampleId],
-      selectedSetupId,
-      'single',
-      true,
-    )
+    startRunQueue([selectedSampleId], selectedSetupId, 'single', true)
   }
   const startBatchMeasurements = () => {
-    if (
-      !auth.isAuthenticated ||
-      !selectedSetupId ||
-      unmeasuredSamples.length === 0
-    )
-      return
+    if (!auth.isAuthenticated || !selectedSetupId || unmeasuredSamples.length === 0) return
     const firstSampleIsLoaded = unmeasuredSamples[0]?.id === selectedSampleId
     startRunQueue(
       unmeasuredSamples.map((sample) => sample.id),
@@ -1216,33 +1093,19 @@ export function MeasurementPage() {
     if (runQueue?.mode !== 'batch') return
     if (runQueue.stage === 'running') {
       simulation.cancel()
-      setRunQueue((current) =>
-        current?.mode === 'batch'
-          ? { ...current, cancelRequested: true }
-          : current,
-      )
+      setRunQueue((current) => (current?.mode === 'batch' ? { ...current, cancelRequested: true } : current))
       return
     }
     if (runQueue.stage === 'saving') {
-      setRunQueue((current) =>
-        current?.mode === 'batch'
-          ? { ...current, cancelRequested: true }
-          : current,
-      )
+      setRunQueue((current) => (current?.mode === 'batch' ? { ...current, cancelRequested: true } : current))
       return
     }
     if (runQueue.stage === 'load') {
-      setRunQueue((current) =>
-        current?.mode === 'batch'
-          ? { ...current, cancelRequested: true }
-          : current,
-      )
+      setRunQueue((current) => (current?.mode === 'batch' ? { ...current, cancelRequested: true } : current))
       return
     }
     setRunQueue((current) =>
-      current?.mode === 'batch'
-        ? { ...current, cancelRequested: true, stage: 'complete' }
-        : current,
+      current?.mode === 'batch' ? { ...current, cancelRequested: true, stage: 'complete' } : current,
     )
   }
   const openManager = (kind: 'experiment' | 'structure', mode: 'code' | 'list') => {
@@ -1270,19 +1133,12 @@ export function MeasurementPage() {
     () =>
       experiment
         ? {
-            experimentRules: experimentDocument.experimentRules,
             scene: experimentDocument.scene,
             sceneHash: experimentDocument.sceneHash,
             variables: experimentDocument.variables,
           }
         : null,
-    [
-      experiment,
-      experimentDocument.experimentRules,
-      experimentDocument.scene,
-      experimentDocument.sceneHash,
-      experimentDocument.variables,
-    ],
+    [experiment, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
   const handleRenderStart = useCallback(
     (sources: readonly CadDocumentType[]) => {
@@ -1306,20 +1162,14 @@ export function MeasurementPage() {
     [experimentDocument, structureDocument],
   )
 
-  const savingRealization = realizationMutation.isPending
-    ? realizationMutation.variables
-    : null
+  const savingRealization = realizationMutation.isPending ? realizationMutation.variables : null
   const savingRealizationKind = savingRealization?.kind ?? null
-  const creatingSample =
-    pendingRealization?.kind === 'sample' || savingRealizationKind === 'sample'
+  const creatingSample = pendingRealization?.kind === 'sample' || savingRealizationKind === 'sample'
   const creatingSampleAndRun =
-    (pendingRealization?.kind === 'sample' &&
-      pendingRealization.runSetupId !== null) ||
-    (savingRealization?.kind === 'sample' &&
-      savingRealization.runSetupId !== null) ||
+    (pendingRealization?.kind === 'sample' && pendingRealization.runSetupId !== null) ||
+    (savingRealization?.kind === 'sample' && savingRealization.runSetupId !== null) ||
     runQueue?.mode === 'generated'
-  const creatingSetup =
-    pendingRealization?.kind === 'setup' || savingRealizationKind === 'setup'
+  const creatingSetup = pendingRealization?.kind === 'setup' || savingRealizationKind === 'setup'
   const measurementBusy =
     runQueue !== null ||
     measurementMutation.isPending ||
@@ -1419,11 +1269,7 @@ export function MeasurementPage() {
                 if (selectedSetupId) startRealization('sample', selectedSetupId)
               }}
             >
-              {creatingSampleAndRun ? (
-                <LoaderCircle className="animate-spin" />
-              ) : (
-                <Play />
-              )}
+              {creatingSampleAndRun ? <LoaderCircle className="animate-spin" /> : <Play />}
               Sample 생성 + Run
             </Button>
           </CardHeader>
@@ -1601,11 +1447,7 @@ export function MeasurementPage() {
                   variant="secondary"
                   onClick={startBatchMeasurements}
                 >
-                  {runQueue?.mode === 'batch' ? (
-                    <LoaderCircle className="animate-spin" />
-                  ) : (
-                    <Rows3 />
-                  )}
+                  {runQueue?.mode === 'batch' ? <LoaderCircle className="animate-spin" /> : <Rows3 />}
                   미측정 Sample 모두 실행 ({unmeasuredSamples.length})
                 </Button>
                 <Button
@@ -1614,19 +1456,16 @@ export function MeasurementPage() {
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    navigate(
-                      `/analysis?structure=${currentStructureId}&experiment=${currentExperimentId}`,
-                    )
+                    navigate(`/analysis?structure=${currentStructureId}&experiment=${currentExperimentId}`)
                   }
                 >
-                  <ChartNoAxesCombined />
-                  이 조합 분석
+                  <ChartNoAxesCombined />이 조합 분석
                 </Button>
                 {runQueue?.mode === 'batch' ? (
                   <div className="rounded-md border bg-muted/40 p-2 text-xs" aria-live="polite">
                     <p className="font-medium">
-                      Sample #{currentRunSampleId ?? '-'} ·{' '}
-                      {runQueue.successes.length + runQueue.failures.length}/{runQueue.sampleIds.length} 완료
+                      Sample #{currentRunSampleId ?? '-'} · {runQueue.successes.length + runQueue.failures.length}/
+                      {runQueue.sampleIds.length} 완료
                     </p>
                     <p className="mt-0.5 text-muted-foreground">
                       성공 {runQueue.successes.length} · 실패 {runQueue.failures.length}
@@ -1656,13 +1495,12 @@ export function MeasurementPage() {
                 ) : runSummary ? (
                   <div className="rounded-md border bg-muted/40 p-2 text-xs" role="status">
                     <p className="font-medium">
-                      {runSummary.cancelled ? '일괄 실행 취소됨' : '일괄 실행 완료'} · 성공{' '}
-                      {runSummary.successCount} · 실패 {runSummary.failures.length}
+                      {runSummary.cancelled ? '일괄 실행 취소됨' : '일괄 실행 완료'} · 성공 {runSummary.successCount} ·
+                      실패 {runSummary.failures.length}
                     </p>
                     {runSummary.failures.length > 0 ? (
                       <p className="mt-0.5 text-destructive">
-                        실패 Sample:{' '}
-                        {runSummary.failures.map((failure) => `#${failure.sampleId}`).join(', ')}
+                        실패 Sample: {runSummary.failures.map((failure) => `#${failure.sampleId}`).join(', ')}
                       </p>
                     ) : null}
                   </div>

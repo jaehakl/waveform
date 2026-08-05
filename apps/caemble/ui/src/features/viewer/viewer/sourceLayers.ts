@@ -29,12 +29,7 @@ export function scaleViewerLayers(
     geometry: unknown,
   ) => unknown
   return layers.map((layer) => {
-    const factor = convertUcumValue(
-      1,
-      layer.lengthUnit,
-      displayLengthUnit,
-      `${layer.documentType} viewer lengthUnit`,
-    )
+    const factor = convertUcumValue(1, layer.lengthUnit, displayLengthUnit, `${layer.documentType} viewer lengthUnit`)
     if (factor === 1) return layer
     return {
       ...layer,
@@ -48,17 +43,13 @@ export function scaleViewerLayers(
 }
 
 export function materialGridPartsFromLayers(layers: readonly JscadViewerLayer[]) {
-  return (['experiment', 'structure'] as const).flatMap((documentType) => (
-    layers.filter((layer) => layer.documentType === documentType).flatMap((layer) => layer.parts)
-  ))
+  return (['experiment', 'structure'] as const).flatMap((documentType) =>
+    layers.filter((layer) => layer.documentType === documentType).flatMap((layer) => layer.parts),
+  )
 }
 
-export function createLayerRenderParts(
-  layers: readonly JscadViewerLayer[],
-  selected: JscadViewerSelection | null,
-) {
-  return layers.flatMap((layer) => createRenderParts(
-    layer.parts,
-    selected?.documentType === layer.documentType ? selected.selection : null,
-  ))
+export function createLayerRenderParts(layers: readonly JscadViewerLayer[], selected: JscadViewerSelection | null) {
+  return layers.flatMap((layer) =>
+    createRenderParts(layer.parts, selected?.documentType === layer.documentType ? selected.selection : null),
+  )
 }

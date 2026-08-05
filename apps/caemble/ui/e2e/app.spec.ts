@@ -42,14 +42,14 @@ test('supports direct public routes, legacy hashes, filters, and mobile navigati
   page.on('pageerror', (error) => pageErrors.push(error.message))
   await mockApi(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /코드로 정의하고/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /CAD from Code/ })).toBeVisible()
   const accessibility = await new AxeBuilder({ page }).analyze()
   expect(accessibility.violations).toEqual([])
 
   await page.goto('/catalog/cad')
   await expect(page.getByText('11 entries')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 2, name: 'CAD 요소' })).toBeVisible()
-  const cadSearch = page.getByLabel('CAD 요소 검색')
+  await expect(page.getByRole('heading', { level: 2, name: 'Primitives & Operations' })).toBeVisible()
+  const cadSearch = page.getByLabel('Geometry 검색')
   await cadSearch.evaluate((element) => {
     const input = element as HTMLInputElement
     const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
@@ -58,27 +58,27 @@ test('supports direct public routes, legacy hashes, filters, and mobile navigati
   })
   await expect(page.getByRole('cell', { name: 'subtract' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Material', exact: true }).click()
+  await page.getByRole('link', { name: 'Material Catalog', exact: true }).click()
   await expect(page).toHaveURL(/\/catalog\/materials$/)
   await expect(page.getByText('260 entries')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 2, name: 'Material 카탈로그' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Material Parameters' })).toBeVisible()
   await expect(page.getByText('11 entries')).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Quantity Kind', exact: true }).click()
+  await page.getByRole('link', { name: 'Quantity', exact: true }).click()
   await expect(page).toHaveURL(/\/catalog\/quantity-kinds$/)
   await expect(page.getByText('1,216 entries')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 2, name: 'Quantity Kind 카탈로그' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Physical Quantity Kinds' })).toBeVisible()
   await expect(page.getByText('260 entries')).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Solver', exact: true }).click()
+  await page.getByRole('link', { name: 'Physics', exact: true }).click()
   await expect(page).toHaveURL(/\/catalog\/solvers$/)
   await expect(page.getByText('1 entries')).toBeVisible()
-  await expect(page.getByRole('heading', { level: 2, name: 'Solver 카탈로그' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 2, name: 'Simulations & Analysis' })).toBeVisible()
   await expect(page.getByText('1,216 entries')).toHaveCount(0)
 
   await page.goto('/catalog/cad/subtract')
   await expect(page.getByText('<subtract />')).toBeVisible()
-  await page.getByRole('link', { name: 'CAD 요소', exact: true }).click()
+  await page.getByRole('link', { name: 'Geometry', exact: true }).click()
   await expect(page).toHaveURL(/\/catalog\/cad$/)
   await expect(page.getByText('요소를 선택하세요')).toBeVisible()
 
@@ -88,7 +88,7 @@ test('supports direct public routes, legacy hashes, filters, and mobile navigati
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await page.getByRole('button', { name: '메뉴 열기' }).click()
-  await page.getByRole('link', { name: 'Material' }).click()
+  await page.getByRole('link', { name: 'Material Catalog' }).click()
   await expect(page).toHaveURL(/\/catalog\/materials$/)
   await expect(page.getByText('260 entries')).toBeVisible()
   expect(pageErrors).toEqual([])
@@ -121,7 +121,7 @@ test('restores an expired authenticated account through one refresh', async ({ p
   expect(refreshCalls).toBe(1)
 })
 
-test('Viewer editor and isolated runner survive delayed Monaco loading and remounts', async ({ page }) => {
+test('Structure editor and isolated runner survive delayed Monaco loading and remounts', async ({ page }) => {
   test.setTimeout(90_000)
   const isolationProblems: string[] = []
   const pageErrors: string[] = []
@@ -155,9 +155,10 @@ test('Viewer editor and isolated runner survive delayed Monaco loading and remou
   expect(runnerSource).not.toBeNull()
   expect(new URL(runnerSource!).origin).not.toBe(new URL(page.url()).origin)
 
-  await page.getByRole('link', { name: '문서', exact: true }).click()
+  await page.getByRole('link', { name: 'Manual', exact: true }).click()
   await expect(page).toHaveURL(/\/docs$/)
-  await page.getByRole('link', { name: 'Viewer', exact: true }).click()
+  await page.goto('/viewer')
+  await expect(page).toHaveURL(/\/structures\?.*structure=new.*mode=code/)
   await expect(page.getByRole('textbox', { name: 'Editor content' }).first()).toBeVisible({ timeout: 20_000 })
   await page.reload()
   await expect(page.getByRole('textbox', { name: 'Editor content' }).first()).toBeVisible({ timeout: 20_000 })
@@ -166,8 +167,8 @@ test('Viewer editor and isolated runner survive delayed Monaco loading and remou
   expect(isolationProblems).toEqual([])
 })
 
-test('saves a Structure definition before a Ready Sample realization', async ({ page }) => {
-  let samplePayload: unknown = null
+test('creates a Structure definition from the legacy Viewer redirect', async ({ page }) => {
+  let structurePayload: unknown = null
   const selectWarnings: string[] = []
   page.on('console', (message) => {
     if (selectControlWarning.test(message.text())) selectWarnings.push(message.text())
@@ -176,27 +177,30 @@ test('saves a Structure definition before a Ready Sample realization', async ({ 
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, '')
     if (path === '/auth/me') return json(route, user)
     if (path.endsWith('/list')) return json(route, { total: 0, items: [] })
-    if (path === '/structure/upsert') return json(route, [{ id: 101, fk_not_found: null }])
-    if (path === '/sample/upsert') {
-      samplePayload = route.request().postDataJSON()
-      return json(route, [{ id: 202, fk_not_found: null }])
+    if (path === '/structure/save') {
+      structurePayload = route.request().postDataJSON()
+      return json(route, { id: 101, action: 'created', parentId: null })
     }
     return json(route, { detail: 'Unexpected mocked endpoint' }, 404)
   })
 
   await page.goto('/viewer')
-  await page.getByRole('button', { name: '정의 저장' }).first().click()
-  const dialog = page.getByRole('dialog', { name: 'Structure 정의 저장' })
+  await page.getByRole('button', { name: 'Structure 생성' }).click()
+  const dialog = page.getByRole('dialog', { name: '새 Structure 생성' })
   await dialog.getByLabel('이름').fill('E2E Structure')
-  await dialog.getByRole('button', { name: '정의 저장' }).click()
+  await dialog.getByRole('button', { name: 'Structure 생성' }).click()
+  await expect.poll(() => structurePayload).not.toBeNull()
+  expect(structurePayload).toEqual(
+    expect.objectContaining({
+      name: 'E2E Structure',
+      description: null,
+      code: expect.any(String),
+      rawCodeHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      semanticHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      semanticHashVersion: 1,
+    }),
+  )
   await expect(page).toHaveURL(/structure=101/)
-
-  const saveSample = page.getByRole('button', { name: 'Sample 저장' })
-  await expect(saveSample).toBeEnabled({ timeout: 20_000 })
-  await saveSample.click()
-  await expect.poll(() => samplePayload).not.toBeNull()
-  expect(samplePayload).toEqual([expect.objectContaining({ structure_id: 101, material_parameters: {} })])
-  await expect(page).toHaveURL(/sample=202/)
   expect(selectWarnings).toEqual([])
 })
 

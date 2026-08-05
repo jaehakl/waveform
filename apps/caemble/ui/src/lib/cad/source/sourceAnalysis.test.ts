@@ -1,50 +1,69 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeCadSourceV2, parseCadSourceV2, staticCadSourceImportsV2 } from './sourceAnalysis'
+import { analyzeCadSource, parseCadSource, staticCadSourceImports } from './sourceAnalysis'
 
-describe('SourceAnalysisV2 policy', () => {
+describe('CAD source policy', () => {
   it('resolves one lowercase factory through direct top-level const bindings', () => {
-    const source = `import { structure as define } from '@caemble/core/v2'
-import { size } from './size'
-const options = { lengthUnit: 'mm', varsSchema: {}, geometry: () => <box size={size} /> }
+    const source = `import { structure as define } from '@caemble/core'
+const options = { lengthUnit: 'mm', varsSchema: {}, geometry: () => <box size={[1, 1, 1]} /> }
 const active = define(options)
 export default active
 `
-    const analysis = analyzeCadSourceV2(source, 'structure')
+    const analysis = analyzeCadSource(source, 'structure')
 
     expect(analysis.factoryName).toBe('structure')
     expect(analysis.options.type).toBe('ObjectExpression')
-    expect(staticCadSourceImportsV2(source)).toEqual(['@caemble/core/v2', './size'])
+    expect(staticCadSourceImports(source)).toEqual(['@caemble/core'])
   })
 
   it('requires exactly one matching default factory export', () => {
-    expect(() => analyzeCadSourceV2(`import { structure } from '@caemble/core/v2'
+    expect(() =>
+      analyzeCadSource(
+        `import { structure } from '@caemble/core'
 export default structure({})
-export default structure({})`, 'structure')).toThrow('Exactly one default export')
-    expect(() => analyzeCadSourceV2(`import { structure } from '@caemble/core/v2'
-export default class Model {}`, 'structure')).toThrow('must resolve to structure({...})')
-    expect(() => analyzeCadSourceV2(`import { structure } from '@caemble/core/v2'
-export default structure({})`, 'experiment')).toThrow('experiment must be a named import')
+export default structure({})`,
+        'structure',
+      ),
+    ).toThrow('Exactly one default export')
+    expect(() =>
+      analyzeCadSource(
+        `import { structure } from '@caemble/core'
+export default class Model {}`,
+        'structure',
+      ),
+    ).toThrow('must resolve to structure({...})')
+    expect(() =>
+      analyzeCadSource(
+        `import { structure } from '@caemble/core'
+export default structure({})`,
+        'experiment',
+      ),
+    ).toThrow('experiment must be a named import')
   })
 
-  it('allows v3 kernel imports only for Experiment Programs', () => {
-    const program = `import { experiment } from '@caemble/core/v3'
-import { dcCurrentDensity } from '@caemble/kernels/v1'
-export default experiment({ kernel: dcCurrentDensity })`
+  it('allows an unversioned kernel import only for Experiment Sources', () => {
+    const program = `import { experiment } from '@caemble/core'
+import { dcCurrentDensity } from '@caemble/kernels'
+export default experiment({
+  varsSchema: {},
+  tasks: () => ({ electric: dcCurrentDensity({}) }),
+  recordedData: {},
+  simulate: ({ sim }) => sim.initialState,
+})`
 
-    expect(analyzeCadSourceV2(program, 'experiment').factoryName).toBe('experiment')
-    expect(() => analyzeCadSourceV2(program, 'structure')).toThrow(
-      'Structure Source can only use @caemble/core/v2',
+    expect(analyzeCadSource(program, 'experiment').factoryName).toBe('experiment')
+    expect(() => analyzeCadSource(program, 'structure')).toThrow('Structure Source cannot import @caemble/kernels')
+  })
+
+  it('rejects relative, versioned, external, URL, dynamic, and source-level require imports', () => {
+    expect(() => parseCadSource("import value from './value'")).toThrow('single-file')
+    expect(() => parseCadSource("import value from '@caemble/core/v2'")).toThrow('single-file')
+    expect(() => parseCadSource("import value from '@caemble/core/v3'")).toThrow('single-file')
+    expect(() => parseCadSource("import value from '@caemble/kernels/v1'")).toThrow('single-file')
+    expect(() => parseCadSource("import value from 'other-package'")).toThrow('single-file')
+    expect(() => parseCadSource("import value from 'https://example.com/value.ts'")).toThrow('single-file')
+    expect(() => parseCadSource("const value = import('@caemble/core')")).toThrow('Dynamic import is not supported')
+    expect(() => parseCadSource("const value = require('@caemble/core')")).toThrow(
+      'Source-level require() is not supported',
     )
-  })
-
-  it('rejects external, URL, dynamic, and source-level require imports', () => {
-    expect(() => parseCadSourceV2("import value from 'other-package'"))
-      .toThrow('Import is not allowed')
-    expect(() => parseCadSourceV2("import value from 'https://example.com/value.ts'"))
-      .toThrow('Import is not allowed')
-    expect(() => parseCadSourceV2("const value = import('./value')"))
-      .toThrow('Dynamic import is not supported')
-    expect(() => parseCadSourceV2("const value = require('./value')"))
-      .toThrow('Source-level require() is not supported')
   })
 })

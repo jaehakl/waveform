@@ -33,9 +33,7 @@ describe('CAD registry contracts', () => {
 
     expect(catalogTags).toEqual(registryTags)
     expect(jsxTags).toEqual(registryTags)
-    expect(new Set(cadElementCatalog.map((manifest) => manifest.category))).toEqual(
-      new Set(['primitive', 'operation']),
-    )
+    expect(new Set(cadElementCatalog.map((manifest) => manifest.category))).toEqual(new Set(['primitive', 'operation']))
   })
 
   it('uses shared declaration files for public core types and Monaco', () => {
@@ -68,8 +66,10 @@ describe('CAD registry contracts', () => {
     expect(shellDeclaration).not.toContain('depth')
     expect(jsxDeclarations).toContain('shell: ShellAttributes')
     expect(coreDeclarations).toMatch(/GeometryAttributes[\s\S]*?id: string/)
-    expect(coreDeclarations).toContain('initializations?: () => readonly ExperimentRule<TInitializationParameters>[]')
-    expect(coreDeclarations).not.toContain('initialConditions')
+    expect(coreDeclarations).toContain('tasks: (context: ModelContext<Schema>) => Tasks')
+    expect(coreDeclarations).toContain('recordedData: Recorded')
+    expect(coreDeclarations).toContain('simulate: (')
+    expect(coreDeclarations).not.toContain('ExperimentRule')
     expect(cadElementCatalog.find((element) => element.tag === 'shell')).toMatchObject({
       category: 'operation',
       syntax: '<shell offsets={[-inner, outer]}>Geometry</shell>',
@@ -80,8 +80,7 @@ describe('CAD registry contracts', () => {
     const declaration = coreDeclarations.match(
       /export type QuantityKindName =([\s\S]*?)export type QuantityKindDomain/,
     )?.[1]
-    const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])]
-      .map((match) => match[1])
+    const declarationNames = [...(declaration?.matchAll(/\| '([^']+)'/g) ?? [])].map((match) => match[1])
 
     expect(declarationNames).toHaveLength(1_216)
     expect(declarationNames.sort()).toEqual(Object.keys(QuantityKind).sort())
@@ -89,15 +88,13 @@ describe('CAD registry contracts', () => {
     const domainDeclaration = coreDeclarations.match(
       /export type QuantityKindDomain =([\s\S]*?)export type QuantityKindNameForDomain/,
     )?.[1]
-    const declarationDomains = [...(domainDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])]
-      .map((match) => match[1])
+    const declarationDomains = [...(domainDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])].map((match) => match[1])
     expect(declarationDomains).toEqual(quantityKindDomains)
 
     const tensorDeclaration = coreDeclarations.match(
       /export type TensorQuantityKindName =([\s\S]*?)export type ScalarQuantityKindName/,
     )?.[1]
-    const tensorDeclarationNames = [...(tensorDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])]
-      .map((match) => match[1])
+    const tensorDeclarationNames = [...(tensorDeclaration?.matchAll(/\| '([^']+)'/g) ?? [])].map((match) => match[1])
     const tensorQuantityKindNames = Object.values(QuantityKind)
       .filter((entry) => entry.tensorOrder() > 0)
       .map((entry) => entry.name)

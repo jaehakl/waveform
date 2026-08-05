@@ -8,10 +8,7 @@ import {
   type RecordedDataRule,
   type RecordedDataTensor,
 } from './core'
-import {
-  getQuantityKindComponentShape,
-  getQuantityKindTensorOrder,
-} from '../../quantitykind/runtime'
+import { getQuantityKindComponentShape, getQuantityKindTensorOrder } from '../../quantitykind/runtime'
 import type { UcumUnit } from './units'
 
 export type ResolvedRecordedTensor = Readonly<{
@@ -30,10 +27,12 @@ export type ResolvedRecordedTensor = Readonly<{
 }>
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value)
-    && [Object.prototype, null].includes(Object.getPrototypeOf(value))
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(value))
+  )
 }
 
 function describeTensorShape(value: unknown, ancestors = new Set<unknown>()): string {
@@ -77,21 +76,13 @@ function resolveActualShape(
     throw recordedShapeError(path, rootValue, expectedShape)
   }
   if (value.length === 0) {
-    return Object.freeze([
-      0,
-      ...expectedShape.slice(depth + 1).map((size) => size === -1 ? 0 : size),
-    ])
+    return Object.freeze([0, ...expectedShape.slice(depth + 1).map((size) => (size === -1 ? 0 : size))])
   }
 
   ancestors.add(value)
-  const childShapes = value.map((item) => resolveActualShape(
-    item,
-    expectedShape,
-    path,
-    rootValue,
-    depth + 1,
-    ancestors,
-  ))
+  const childShapes = value.map((item) =>
+    resolveActualShape(item, expectedShape, path, rootValue, depth + 1, ancestors),
+  )
   ancestors.delete(value)
   const firstShape = childShapes[0]
   if (childShapes.some((shape) => JSON.stringify(shape) !== JSON.stringify(firstShape))) {
@@ -106,24 +97,22 @@ function normalizeRecordedValue(
   dtype: DataDType,
   path: string,
   depth = 0,
+  copy = true,
 ): boolean | string | number | readonly unknown[] {
   if (depth === shape.length) return normalizeDataElement(value, dtype, path)
   const values = value as readonly unknown[]
-  return Object.freeze(values.map((item, index) => normalizeRecordedValue(
-    item,
-    shape,
-    dtype,
-    `${path}[${index}]`,
-    depth + 1,
-  )))
+  if (!copy) {
+    values.forEach((item, index) => {
+      normalizeRecordedValue(item, shape, dtype, `${path}[${index}]`, depth + 1, false)
+    })
+    return values
+  }
+  return Object.freeze(
+    values.map((item, index) => normalizeRecordedValue(item, shape, dtype, `${path}[${index}]`, depth + 1, true)),
+  )
 }
 
-function normalizePayloadAxes(
-  value: unknown,
-  rule: RecordedDataRule,
-  actualShape: readonly number[],
-  path: string,
-) {
+function normalizePayloadAxes(value: unknown, rule: RecordedDataRule, actualShape: readonly number[], path: string) {
   if (value !== undefined && !Array.isArray(value)) {
     throw new CadModelError(`${path}.axes must be an array.`)
   }
@@ -138,77 +127,77 @@ function normalizePayloadAxes(
     )
   }
 
-  return Object.freeze(Array.from(rawAxes as readonly unknown[], (rawAxis, axisIndex) => {
-    const axisPath = `${path}.axes[${axisIndex}]`
-    if (!isPlainObject(rawAxis)) throw new CadModelError(`${axisPath} must be a plain object.`)
-    const keys = Reflect.ownKeys(rawAxis)
-    if (keys.some((key) => key !== 'ticks')) {
-      throw new CadModelError(`${axisPath} may contain only ticks.`)
-    }
+  return Object.freeze(
+    Array.from(rawAxes as readonly unknown[], (rawAxis, axisIndex) => {
+      const axisPath = `${path}.axes[${axisIndex}]`
+      if (!isPlainObject(rawAxis)) throw new CadModelError(`${axisPath} must be a plain object.`)
+      const keys = Reflect.ownKeys(rawAxis)
+      if (keys.some((key) => key !== 'ticks')) {
+        throw new CadModelError(`${axisPath} may contain only ticks.`)
+      }
 
-    const schemaAxis = schemaAxes[axisIndex]
-    const schemaTicks = schemaAxis?.ticks
-      ?? (schemaAxis?.length === undefined
-        ? undefined
-        : Array.from({ length: actualShape[axisIndex] }, (_, index) => index))
-    const rawTicks = rawAxis.ticks ?? schemaTicks
-      ?? Array.from({ length: actualShape[axisIndex] }, (_, index) => index)
-    if (!Array.isArray(rawTicks)) throw new CadModelError(`${axisPath}.ticks must be an array.`)
-    if (rawTicks.length !== actualShape[axisIndex]) {
-      throw new CadModelError(
-        `${axisPath}.ticks has length ${rawTicks.length}; expected actual axis length ${actualShape[axisIndex]}.`,
+      const schemaAxis = schemaAxes[axisIndex]
+      const schemaTicks =
+        schemaAxis?.ticks ??
+        (schemaAxis?.length === undefined
+          ? undefined
+          : Array.from({ length: actualShape[axisIndex] }, (_, index) => index))
+      const rawTicks =
+        rawAxis.ticks ?? schemaTicks ?? Array.from({ length: actualShape[axisIndex] }, (_, index) => index)
+      if (!Array.isArray(rawTicks)) throw new CadModelError(`${axisPath}.ticks must be an array.`)
+      if (rawTicks.length !== actualShape[axisIndex]) {
+        throw new CadModelError(
+          `${axisPath}.ticks has length ${rawTicks.length}; expected actual axis length ${actualShape[axisIndex]}.`,
+        )
+      }
+      const ticks = Object.freeze(
+        Array.from(rawTicks, (tick, tickIndex) => {
+          if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
+          throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
+        }),
       )
-    }
-    const ticks = Object.freeze(Array.from(rawTicks, (tick, tickIndex) => {
-      if (typeof tick === 'string' || (typeof tick === 'number' && Number.isFinite(tick))) return tick
-      throw new CadModelError(`${axisPath}.ticks[${tickIndex}] must be a string or finite number.`)
-    }))
-    if (
-      schemaAxis?.length !== undefined
-      && rawAxis.ticks !== undefined
-      && JSON.stringify(ticks) !== JSON.stringify(schemaTicks)
-    ) {
-      throw new CadModelError(
-        `${axisPath}.ticks ${JSON.stringify(ticks)} does not match Experiment schema ticks ${JSON.stringify(schemaTicks)}.`,
-      )
-    }
+      if (
+        schemaAxis?.length !== undefined &&
+        rawAxis.ticks !== undefined &&
+        JSON.stringify(ticks) !== JSON.stringify(schemaTicks)
+      ) {
+        throw new CadModelError(
+          `${axisPath}.ticks ${JSON.stringify(ticks)} does not match Experiment schema ticks ${JSON.stringify(schemaTicks)}.`,
+        )
+      }
 
-    return Object.freeze({
-      length: actualShape[axisIndex],
-      name: schemaAxis?.name ?? `axis ${axisIndex}`,
-      ticks,
-    })
-  }))
+      return Object.freeze({
+        length: actualShape[axisIndex],
+        name: schemaAxis?.name ?? `axis ${axisIndex}`,
+        ticks,
+      })
+    }),
+  )
 }
 
-export function normalizeRecordedDataTensor(
-  rule: RecordedDataRule,
-  value: unknown,
-): ResolvedRecordedTensor {
+function resolveRecordedDataTensor(rule: RecordedDataRule, value: unknown, copyValue: boolean): ResolvedRecordedTensor {
   const path = `recordedData[${JSON.stringify(rule.label)}]`
   if (!isPlainObject(value)) throw new CadModelError(`${path} must be a plain object containing value.`)
-  const obsoleteField = ['type', 'shape', 'dimension', 'sampleDimension', 'sampleShape', 'sampleAxes']
-    .find((field) => Object.prototype.hasOwnProperty.call(value, field))
+  const obsoleteField = ['type', 'shape', 'dimension', 'sampleDimension', 'sampleShape', 'sampleAxes'].find((field) =>
+    Object.prototype.hasOwnProperty.call(value, field),
+  )
   if (obsoleteField) {
-    const replacement = obsoleteField === 'sampleAxes'
-      ? `use ${path}.axes`
-      : 'omit it; axis lengths are defined by the result schema or inferred from value'
+    const replacement =
+      obsoleteField === 'sampleAxes'
+        ? `use ${path}.axes`
+        : 'omit it; axis lengths are defined by the result schema or inferred from value'
     throw new CadModelError(`${path}.${obsoleteField} is obsolete in the dtype/axes contract; ${replacement}.`)
   }
   const keys = Reflect.ownKeys(value)
-  if (
-    !Object.prototype.hasOwnProperty.call(value, 'value')
-    || keys.some((key) => key !== 'value' && key !== 'axes')
-  ) {
+  if (!Object.prototype.hasOwnProperty.call(value, 'value') || keys.some((key) => key !== 'value' && key !== 'axes')) {
     throw new CadModelError(`${path} must contain value and optional axes only.`)
   }
 
-  const componentShape = rule.result.quantityKind === undefined
-    ? Object.freeze([]) as readonly 3[]
-    : getQuantityKindComponentShape(rule.result.quantityKind)
-  const tensorOrder = rule.result.quantityKind === undefined
-    ? 0
-    : getQuantityKindTensorOrder(rule.result.quantityKind)
+  const componentShape =
+    rule.result.quantityKind === undefined
+      ? (Object.freeze([]) as readonly 3[])
+      : getQuantityKindComponentShape(rule.result.quantityKind)
+  const tensorOrder = rule.result.quantityKind === undefined ? 0 : getQuantityKindTensorOrder(rule.result.quantityKind)
   const expectedOuterShape = Object.freeze((rule.result.axes ?? []).map((axis) => axis.length ?? -1))
   const storageShape = Object.freeze([...expectedOuterShape, ...componentShape])
   const actualStorageShape = resolveActualShape(value.value, storageShape, `${path}.value`)
@@ -221,14 +210,19 @@ export function normalizeRecordedDataTensor(
     ...(rule.result.unit === undefined ? {} : { unit: rule.result.unit }),
     ...(rule.result.quantityKind === undefined ? {} : { quantityKind: rule.result.quantityKind }),
     ...(rule.result.basis === undefined ? {} : { basis: rule.result.basis }),
-    value: normalizeRecordedValue(value.value, actualStorageShape, rule.result.dtype, `${path}.value`),
+    value: normalizeRecordedValue(value.value, actualStorageShape, rule.result.dtype, `${path}.value`, 0, copyValue),
   })
 }
 
-export function normalizeRecordedData(
-  rules: readonly RecordedDataRule[],
-  value: unknown,
-): RecordedData {
+export function normalizeRecordedDataTensor(rule: RecordedDataRule, value: unknown): ResolvedRecordedTensor {
+  return resolveRecordedDataTensor(rule, value, true)
+}
+
+export function assertRecordedDataTensor(rule: RecordedDataRule, value: unknown): asserts value is RecordedDataTensor {
+  resolveRecordedDataTensor(rule, value, false)
+}
+
+export function normalizeRecordedData(rules: readonly RecordedDataRule[], value: unknown): RecordedData {
   if (!isPlainObject(value)) {
     throw new CadModelError('recordedData must be a plain object keyed by recorded rule label.')
   }
@@ -243,15 +237,19 @@ export function normalizeRecordedData(
     throw new CadModelError(`recordedData is missing labels: ${missingLabels.map((rule) => rule.label).join(', ')}.`)
   }
 
-  const normalized: Record<string, RecordedDataTensor> = {}
-  rules.forEach((rule) => {
+  const normalized = rules.map((rule) => {
     const tensor = normalizeRecordedDataTensor(rule, value[rule.label])
-    normalized[rule.label] = Object.freeze({
-      value: tensor.value,
-      ...(tensor.axes.length === 0 ? {} : {
-        axes: Object.freeze(tensor.axes.map((axis) => Object.freeze({ ticks: axis.ticks }))),
+    return [
+      rule.label,
+      Object.freeze({
+        value: tensor.value,
+        ...(tensor.axes.length === 0
+          ? {}
+          : {
+              axes: Object.freeze(tensor.axes.map((axis) => Object.freeze({ ticks: axis.ticks }))),
+            }),
       }),
-    })
+    ] as const
   })
-  return Object.freeze(normalized)
+  return Object.freeze(Object.fromEntries(normalized))
 }

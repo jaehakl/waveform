@@ -2,7 +2,7 @@ export const curvedSurfaceSphereHcpArrayCode = `import {
   Material,
   structure,
   type Geometry,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const tau = Math.PI * 2
 const arrayShape = [4, 4, 3] as const

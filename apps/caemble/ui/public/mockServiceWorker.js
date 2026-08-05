@@ -93,10 +93,7 @@ addEventListener('fetch', function (event) {
     return
   }
 
-  if (
-    event.request.cache === 'only-if-cached' &&
-    event.request.mode !== 'same-origin'
-  ) {
+  if (event.request.cache === 'only-if-cached' && event.request.mode !== 'same-origin') {
     return
   }
 
@@ -116,19 +113,11 @@ addEventListener('fetch', function (event) {
 async function handleRequest(event, requestId, requestInterceptedAt) {
   const client = await resolveMainClient(event)
   const requestCloneForEvents = event.request.clone()
-  const response = await getResponse(
-    event,
-    client,
-    requestId,
-    requestInterceptedAt,
-  )
+  const response = await getResponse(event, client, requestId, requestInterceptedAt)
 
   if (client && activeClientIds.has(client.id)) {
     const serializedRequest = await serializeRequest(requestCloneForEvents)
-    const isEventStreamResponse = response.headers
-      .get('content-type')
-      ?.toLowerCase()
-      .startsWith('text/event-stream')
+    const isEventStreamResponse = response.headers.get('content-type')?.toLowerCase().startsWith('text/event-stream')
     const responseClone = isEventStreamResponse ? null : response.clone()
 
     sendToClient(
@@ -150,9 +139,7 @@ async function handleRequest(event, requestId, requestInterceptedAt) {
           },
         },
       },
-      responseClone && responseClone.body
-        ? [serializedRequest.body, responseClone.body]
-        : [],
+      responseClone && responseClone.body ? [serializedRequest.body, responseClone.body] : [],
     )
   }
 
@@ -201,9 +188,7 @@ async function getResponse(event, client, requestId, requestInterceptedAt) {
     const acceptHeader = headers.get('accept')
     if (acceptHeader) {
       const values = acceptHeader.split(',').map((value) => value.trim())
-      const filteredValues = values.filter(
-        (value) => value !== 'msw/passthrough',
-      )
+      const filteredValues = values.filter((value) => value !== 'msw/passthrough')
 
       if (filteredValues.length > 0) {
         headers.set('accept', filteredValues.join(', '))
@@ -267,10 +252,7 @@ function sendToClient(client, message, transferrables = []) {
       resolve(event.data)
     }
 
-    client.postMessage(message, [
-      channel.port2,
-      ...transferrables.filter(Boolean),
-    ])
+    client.postMessage(message, [channel.port2, ...transferrables.filter(Boolean)])
   })
 }
 

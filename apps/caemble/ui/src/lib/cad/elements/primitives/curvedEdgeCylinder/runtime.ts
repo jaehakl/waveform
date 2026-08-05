@@ -48,24 +48,18 @@ export function createCurvedEdgeCylinderGeometry(attributes: CurvedEdgeCylinderA
   }
   attributes.verticalCurve.coefficients.forEach((coefficient, index) => {
     if (typeof coefficient !== 'number' || !Number.isFinite(coefficient)) {
-      throw new CadModelError(
-        `<curvedEdgeCylinder> verticalCurve.coefficients[${index}] must be a finite number.`,
-      )
+      throw new CadModelError(`<curvedEdgeCylinder> verticalCurve.coefficients[${index}] must be a finite number.`)
     }
   })
   const verticalCurve = attributes.verticalCurve as CurvedEdgeCylinderTaylorCurve
 
   const azimuthalSegments = attributes.azimuthalSegments === undefined ? 64 : attributes.azimuthalSegments
   if (!Number.isSafeInteger(azimuthalSegments) || azimuthalSegments < 4) {
-    throw new CadModelError(
-      '<curvedEdgeCylinder> azimuthalSegments must be a safe integer greater than or equal to 4.',
-    )
+    throw new CadModelError('<curvedEdgeCylinder> azimuthalSegments must be a safe integer greater than or equal to 4.')
   }
   const verticalSegments = attributes.verticalSegments === undefined ? 32 : attributes.verticalSegments
   if (!Number.isSafeInteger(verticalSegments) || verticalSegments < 1) {
-    throw new CadModelError(
-      '<curvedEdgeCylinder> verticalSegments must be a safe integer greater than or equal to 1.',
-    )
+    throw new CadModelError('<curvedEdgeCylinder> verticalSegments must be a safe integer greater than or equal to 1.')
   }
 
   const slices = Array.from({ length: verticalSegments + 1 }, (_, verticalIndex) => {
@@ -93,13 +87,16 @@ export function createCurvedEdgeCylinderGeometry(attributes: CurvedEdgeCylinderA
     return extrusions.slice.fromPoints(points)
   })
 
-  return extrusions.extrudeFromSlices({
-    numberOfSlices: slices.length,
-    capStart: true,
-    capEnd: true,
-    close: false,
-    callback: (_progress, index, base) => (index === 0 ? base : slices[index]),
-  }, slices[0])
+  return extrusions.extrudeFromSlices(
+    {
+      numberOfSlices: slices.length,
+      capStart: true,
+      capEnd: true,
+      close: false,
+      callback: (_progress, index, base) => (index === 0 ? base : slices[index]),
+    },
+    slices[0],
+  )
 }
 
 export const curvedEdgeCylinderDefinition = {

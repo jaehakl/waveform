@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCadSourceDocumentV2 } from '@/lib/cad'
+import { createCadSourceDocument } from '@/lib/cad'
 import { saveCadDefinition } from './saveDefinition'
 
 const mocks = vi.hoisted(() => ({
@@ -33,7 +33,7 @@ beforeEach(() => {
 describe('saveCadDefinition', () => {
   it('updates an unchanged selected definition with its raw base hash', async () => {
     mocks.rawHash.mockResolvedValue('a'.repeat(64))
-    const document = createCadSourceDocumentV2('structure', 'unchanged source', 11)
+    const document = createCadSourceDocument('structure', 'unchanged source', 11)
 
     const result = await saveCadDefinition({
       document,
@@ -61,7 +61,7 @@ describe('saveCadDefinition', () => {
     mocks.rawHash.mockResolvedValue('b'.repeat(64))
     mocks.semanticHash.mockResolvedValue('c'.repeat(64))
     mocks.structureSave.mockResolvedValue({ id: 12, action: 'created', parentId: null })
-    const document = createCadSourceDocumentV2('structure', 'current source', 12)
+    const document = createCadSourceDocument('structure', 'current source', 12)
 
     await saveCadDefinition({
       document,
@@ -83,13 +83,9 @@ describe('saveCadDefinition', () => {
   })
 
   it('includes raw and semantic base hashes when a selected definition changes', async () => {
-    mocks.rawHash
-      .mockResolvedValueOnce('d'.repeat(64))
-      .mockResolvedValueOnce('e'.repeat(64))
-    mocks.semanticHash
-      .mockResolvedValueOnce('f'.repeat(64))
-      .mockResolvedValueOnce('1'.repeat(64))
-    const document = createCadSourceDocumentV2('structure', 'changed source', 13)
+    mocks.rawHash.mockResolvedValueOnce('d'.repeat(64)).mockResolvedValueOnce('e'.repeat(64))
+    mocks.semanticHash.mockResolvedValueOnce('f'.repeat(64)).mockResolvedValueOnce('1'.repeat(64))
+    const document = createCadSourceDocument('structure', 'changed source', 13)
 
     await saveCadDefinition({
       document,
@@ -99,12 +95,14 @@ describe('saveCadDefinition', () => {
       values: { name: 'Child', description: 'branch' },
     })
 
-    expect(mocks.structureSave).toHaveBeenCalledWith(expect.objectContaining({
-      id: 8,
-      rawCodeHash: 'd'.repeat(64),
-      semanticHash: 'f'.repeat(64),
-      baseRawCodeHash: 'e'.repeat(64),
-      baseSemanticHash: '1'.repeat(64),
-    }))
+    expect(mocks.structureSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 8,
+        rawCodeHash: 'd'.repeat(64),
+        semanticHash: 'f'.repeat(64),
+        baseRawCodeHash: 'e'.repeat(64),
+        baseSemanticHash: '1'.repeat(64),
+      }),
+    )
   })
 })

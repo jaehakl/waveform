@@ -27,21 +27,63 @@ const cadViewerSpy = vi.hoisted(() => vi.fn())
 const solverMocks = vi.hoisted(() => ({
   autoComplete: false,
   cancel: vi.fn(),
-  compatibilityStatus: 'compatible' as
-    | 'checking'
-    | 'compatible'
-    | 'incompatible',
+  compatibilityStatus: 'compatible' as 'checking' | 'compatible' | 'incompatible',
   failRunNumbers: [] as number[],
   rejectRunAttempts: 0,
   run: vi.fn(),
   runCount: 0,
-  setCompatibilityStatus: null as
-    | ((status: 'checking' | 'compatible' | 'incompatible') => void)
-    | null,
+  setCompatibilityStatus: null as ((status: 'checking' | 'compatible' | 'incompatible') => void) | null,
   staleSuccessBeforeRunNumbers: [] as number[],
 }))
 const toastMocks = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 const workspaceSpy = vi.hoisted(() => vi.fn())
+
+function mockSimulationResult(runId: string, value: number) {
+  return {
+    format: 'caemble-run' as const,
+    formatVersion: 1 as const,
+    runId,
+    finalStateRevision: 0,
+    recordedData: {
+      Current: {
+        spec: {
+          dtype: 'float64' as const,
+          quantityKind: 'electromagnetism.ElectricCurrent' as const,
+          unit: 'A',
+        },
+        data: { value },
+      },
+    },
+    trace: [
+      {
+        sequence: 1,
+        task: 'electric',
+        kernel: { name: 'dc-current-density', version: '0.0.0' },
+        inputStateRevision: 0,
+        outputStateRevision: 0,
+        inputArtifacts: {
+          source: {
+            id: 'intermediate-only-sentinel',
+            artifactType: 'test/intermediate@1' as const,
+          },
+        },
+        status: 'succeeded' as const,
+        startedAt: 1,
+        finishedAt: 2,
+      },
+    ],
+    provenance: {
+      programHash: 'test-program',
+      structureSourceHash: '1'.repeat(64),
+      experimentSourceHash: '2'.repeat(64),
+      structureSeed: 1,
+      experimentSeed: 2,
+      structureVars: {},
+      experimentVars: {},
+      kernels: [{ name: 'dc-current-density', version: '0.0.0' }],
+    },
+  }
+}
 
 vi.mock('@/features/auth/use-auth', () => ({
   useAuth: () => ({
@@ -91,7 +133,6 @@ const documentController = {
   draftSelection: null,
   error: null,
   evaluationTimeoutMs: 3000,
-  experimentRules: null,
   handleGroupsChange: vi.fn(),
   handleRenderEnd: vi.fn(),
   handleRenderError: vi.fn(),
@@ -112,8 +153,6 @@ const documentController = {
   setDraftSelection: vi.fn(),
   setEvaluationTimeoutMs: vi.fn(),
   setSelectedId: vi.fn(),
-  solver: null,
-  solverSpec: null,
   sourceReadOnly: false,
   status: 'Ready',
   structuredReadOnly: false,
@@ -131,15 +170,15 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
       const experimentVars = args[5] as Record<string, unknown> | undefined
       const [structureRevision, setStructureRevision] = useState(1)
       const [experimentRevision, setExperimentRevision] = useState(1)
-      const [compatibilityStatus, setCompatibilityStatus] = useState(
-        solverMocks.compatibilityStatus,
-      )
+      const [compatibilityStatus, setCompatibilityStatus] = useState(solverMocks.compatibilityStatus)
       const [recordedData, setRecordedData] = useState<Record<string, unknown> | null>(null)
+      const [programResult, setProgramResult] = useState<ReturnType<typeof mockSimulationResult> | null>(null)
       const previousStructureVars = useRef(structureVars)
       const [process, setProcess] = useState({
         runId: null as string | null,
         status: 'idle',
-        solver: null,
+        engine: null as { name: string; version: string } | null,
+        stage: null as string | null,
         error: null as string | null,
         startedAt: null as number | null,
         finishedAt: null as number | null,
@@ -170,7 +209,8 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
         setProcess({
           runId,
           status: 'preparing',
-          solver: null,
+          engine: { name: 'experiment-program', version: '1' },
+          stage: 'startup',
           error: null,
           startedAt: Date.now(),
           finishedAt: null,
@@ -178,20 +218,24 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
         if (!solverMocks.autoComplete) return runId
         if (solverMocks.staleSuccessBeforeRunNumbers.includes(runNumber)) {
           setRecordedData({ Current: { value: 999 } })
+          setProgramResult(mockSimulationResult('previous-run', 999))
           setProcess({
             runId: 'previous-run',
             status: 'succeeded',
-            solver: null,
+            engine: { name: 'experiment-program', version: '1' },
+            stage: null,
             error: null,
             startedAt: Date.now(),
             finishedAt: Date.now(),
           })
           setTimeout(() => {
             setRecordedData({ Current: { value: runNumber } })
+            setProgramResult(mockSimulationResult(runId, runNumber))
             setProcess({
               runId,
               status: 'succeeded',
-              solver: null,
+              engine: { name: 'experiment-program', version: '1' },
+              stage: null,
               error: null,
               startedAt: Date.now(),
               finishedAt: Date.now(),
@@ -204,7 +248,8 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
             setProcess({
               runId: `run-${runNumber}`,
               status: 'failed',
-              solver: null,
+              engine: { name: 'experiment-program', version: '1' },
+              stage: null,
               error: `run ${runNumber} failed`,
               startedAt: Date.now(),
               finishedAt: Date.now(),
@@ -212,10 +257,12 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
             return
           }
           setRecordedData({ Current: { value: runNumber } })
+          setProgramResult(mockSimulationResult(`run-${runNumber}`, runNumber))
           setProcess({
             runId: `run-${runNumber}`,
             status: 'succeeded',
-            solver: null,
+            engine: { name: 'experiment-program', version: '1' },
+            stage: null,
             error: null,
             startedAt: Date.now(),
             finishedAt: Date.now(),
@@ -252,33 +299,31 @@ vi.mock('@/features/viewer/workspace/useCadWorkspace', async () => {
           revision: experimentRevision,
           successfulRevision: experimentRevision,
           variables: experimentVars ?? {},
-          experimentRules: {
-            initializations: [],
-            boundaryConditions: [],
-            recordedData: [
-              {
-                label: 'Current',
-                methodId: 'dc.current',
-                target: [],
-                parameters: {},
-                result: {
-                  dtype: 'float64',
-                  quantityKind: 'electromagnetism.ElectricCurrent',
-                  unit: 'A',
-                },
+          simulationProgram: {
+            formatVersion: 1,
+            programHash: 'test-program',
+            tasks: {
+              electric: {
+                kernel: { name: 'dc-current-density', version: '0.0.0' },
+                configHash: 'test-config',
               },
-            ],
+            },
+            recordedData: {
+              Current: {
+                dtype: 'float64',
+                quantityKind: 'electromagnetism.ElectricCurrent',
+                unit: 'A',
+              },
+            },
           },
         },
         simulation: {
           canRun:
-            compatibilityStatus === 'compatible' &&
-            process.status !== 'preparing' &&
-            process.status !== 'running',
+            compatibilityStatus === 'compatible' && process.status !== 'preparing' && process.status !== 'running',
           cancel,
           compatibility: { status: compatibilityStatus, issues: [] },
           process,
-          provenance: null,
+          programResult,
           recordedData,
           run,
           stale: false,
@@ -377,30 +422,22 @@ function mockMeasurementCombinations() {
     { id: 31, sample_id: 11, setup_id: 20, updated_at: '2026-07-23T00:01:00Z' },
     { id: 32, sample_id: 11, setup_id: 21, updated_at: '2026-07-23T00:02:00Z' },
   ]
-  apiMocks.sampleList.mockImplementation(
-    async (request: { selected_ids?: number[] }) => ({
-      total: samples.length,
-      items: request.selected_ids?.length
-        ? samples.filter((sample) => request.selected_ids?.includes(sample.id))
-        : samples,
-    }),
-  )
-  apiMocks.setupList.mockImplementation(
-    async (request: { selected_ids?: number[] }) => ({
-      total: setups.length,
-      items: request.selected_ids?.length
-        ? setups.filter((setup) => request.selected_ids?.includes(setup.id))
-        : setups,
-    }),
-  )
-  apiMocks.measurementList.mockImplementation(
-    async (request: { selected_ids?: number[] }) => ({
-      total: measurements.length,
-      items: request.selected_ids?.length
-        ? measurements.filter((measurement) => request.selected_ids?.includes(measurement.id))
-        : measurements,
-    }),
-  )
+  apiMocks.sampleList.mockImplementation(async (request: { selected_ids?: number[] }) => ({
+    total: samples.length,
+    items: request.selected_ids?.length
+      ? samples.filter((sample) => request.selected_ids?.includes(sample.id))
+      : samples,
+  }))
+  apiMocks.setupList.mockImplementation(async (request: { selected_ids?: number[] }) => ({
+    total: setups.length,
+    items: request.selected_ids?.length ? setups.filter((setup) => request.selected_ids?.includes(setup.id)) : setups,
+  }))
+  apiMocks.measurementList.mockImplementation(async (request: { selected_ids?: number[] }) => ({
+    total: measurements.length,
+    items: request.selected_ids?.length
+      ? measurements.filter((measurement) => request.selected_ids?.includes(measurement.id))
+      : measurements,
+  }))
   apiMocks.structureList.mockResolvedValue({
     total: 1,
     items: [{ id: 1, name: 'Copper bar', code: 'export default structure({})' }],
@@ -413,27 +450,25 @@ function mockMeasurementCombinations() {
     total: measurements.length,
     items: measurements,
   })
-  apiMocks.recordedDataList.mockImplementation(
-    async (request: { filter?: { measurement_id?: number[] } }) => {
-      const measurementId = request.filter?.measurement_id?.[0]
-      return {
-        total: measurementId ? 1 : 0,
-        items: measurementId
-          ? [
-              {
-                id: measurementId + 100,
-                measurement_id: measurementId,
-                name: 'Current',
-                quantity_kind: 'ElectricCurrent',
-                tensor_order: 0,
-                dtype: 'float64',
-                data: { value: measurementId },
-              },
-            ]
-          : [],
-      }
-    },
-  )
+  apiMocks.recordedDataList.mockImplementation(async (request: { filter?: { measurement_id?: number[] } }) => {
+    const measurementId = request.filter?.measurement_id?.[0]
+    return {
+      total: measurementId ? 1 : 0,
+      items: measurementId
+        ? [
+            {
+              id: measurementId + 100,
+              measurement_id: measurementId,
+              name: 'Current',
+              quantity_kind: 'ElectricCurrent',
+              tensor_order: 0,
+              dtype: 'float64',
+              data: { value: measurementId },
+            },
+          ]
+        : [],
+    }
+  })
 }
 
 function mockRunWorkflow(
@@ -464,14 +499,12 @@ function mockRunWorkflow(
     total: 1,
     items: [{ id: 2, name: 'DC experiment', code: 'export default experiment({})' }],
   })
-  apiMocks.sampleList.mockImplementation(
-    async (request: { selected_ids?: number[] }) => ({
-      total: samples.length,
-      items: request.selected_ids?.length
-        ? samples.filter((sample) => request.selected_ids?.includes(sample.id))
-        : [...samples],
-    }),
-  )
+  apiMocks.sampleList.mockImplementation(async (request: { selected_ids?: number[] }) => ({
+    total: samples.length,
+    items: request.selected_ids?.length
+      ? samples.filter((sample) => request.selected_ids?.includes(sample.id))
+      : [...samples],
+  }))
   apiMocks.setupList.mockResolvedValue({
     total: 1,
     items: [{ id: 20, experiment_id: 2, vars: { voltage: 5 }, material_parameters: {} }],
@@ -493,24 +526,16 @@ function mockRunWorkflow(
     total: measurements.length,
     items: [...measurements],
   }))
-  apiMocks.measurementList.mockImplementation(
-    async (request: { selected_ids?: number[] }) => ({
-      total: measurements.length,
-      items: request.selected_ids?.length
-        ? measurements.filter((measurement) => request.selected_ids?.includes(measurement.id))
-        : [...measurements],
-    }),
-  )
+  apiMocks.measurementList.mockImplementation(async (request: { selected_ids?: number[] }) => ({
+    total: measurements.length,
+    items: request.selected_ids?.length
+      ? measurements.filter((measurement) => request.selected_ids?.includes(measurement.id))
+      : [...measurements],
+  }))
   apiMocks.measurementSave.mockImplementation(
-    async (request: {
-      recorded_data: Array<Record<string, unknown>>
-      sample_id: number
-      setup_id: number
-    }) => {
+    async (request: { recorded_data: Array<Record<string, unknown>>; sample_id: number; setup_id: number }) => {
       const existing = measurements.find(
-        (measurement) =>
-          measurement.sample_id === request.sample_id &&
-          measurement.setup_id === request.setup_id,
+        (measurement) => measurement.sample_id === request.sample_id && measurement.setup_id === request.setup_id,
       )
       const id = existing?.id ?? nextMeasurementId++
       const updated = {
@@ -526,20 +551,18 @@ function mockRunWorkflow(
       return { id }
     },
   )
-  apiMocks.recordedDataList.mockImplementation(
-    async (request: { filter?: { measurement_id?: number[] } }) => {
-      const measurementId = request.filter?.measurement_id?.[0]
-      const rows = measurementId ? (recordedData.get(measurementId) ?? []) : []
-      return {
-        total: rows.length,
-        items: rows.map((row, index) => ({
-          ...row,
-          id: (measurementId ?? 0) * 10 + index,
-          measurement_id: measurementId,
-        })),
-      }
-    },
-  )
+  apiMocks.recordedDataList.mockImplementation(async (request: { filter?: { measurement_id?: number[] } }) => {
+    const measurementId = request.filter?.measurement_id?.[0]
+    const rows = measurementId ? (recordedData.get(measurementId) ?? []) : []
+    return {
+      total: rows.length,
+      items: rows.map((row, index) => ({
+        ...row,
+        id: (measurementId ?? 0) * 10 + index,
+        measurement_id: measurementId,
+      })),
+    }
+  })
   apiMocks.sampleDelete.mockResolvedValue(undefined)
   apiMocks.setupDelete.mockResolvedValue(undefined)
   apiMocks.measurementDelete.mockResolvedValue(undefined)
@@ -569,9 +592,7 @@ describe('MeasurementPage', () => {
     await userEvent.click(analysisButton)
 
     expect(router.state.location.pathname).toBe('/analysis')
-    expect(new URLSearchParams(router.state.location.search)).toEqual(
-      new URLSearchParams('structure=1&experiment=2'),
-    )
+    expect(new URLSearchParams(router.state.location.search)).toEqual(new URLSearchParams('structure=1&experiment=2'))
   })
 
   it('requests the split Results layout only for the Measurement viewer', async () => {
@@ -579,9 +600,7 @@ describe('MeasurementPage', () => {
     renderPage('/measurements?structure=1&experiment=2')
 
     await waitFor(() =>
-      expect(cadViewerSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ resultsLayout: 'split' }),
-      ),
+      expect(cadViewerSpy).toHaveBeenLastCalledWith(expect.objectContaining({ resultsLayout: 'split' })),
     )
   })
 
@@ -706,7 +725,7 @@ describe('MeasurementPage', () => {
     renderPage('/measurements?sample=10')
 
     expect(await screen.findByRole('button', { name: 'Sample #10' })).toBeInTheDocument()
-    expect(workspaceSpy.mock.calls.every((call) => call[7] === 'prepared-vars')).toBe(true)
+    expect(workspaceSpy.mock.calls.every((call) => call[7] === 'fast-reroll')).toBe(true)
     expect(workspaceSpy.mock.calls.some((call) => call[4]?.width === 3)).toBe(true)
     await userEvent.click(screen.getByRole('button', { name: 'Sample 생성' }))
 
@@ -743,6 +762,10 @@ describe('MeasurementPage', () => {
         }),
       ),
     )
+    const measurementRequest = apiMocks.measurementSave.mock.calls[0][0]
+    expect(JSON.stringify(measurementRequest)).not.toContain('intermediate-only-sentinel')
+    expect(measurementRequest).not.toHaveProperty('trace')
+    expect(measurementRequest).not.toHaveProperty('provenance')
     await waitFor(() => {
       const params = new URLSearchParams(router.state.location.search)
       expect(params.get('sample')).toBe('10')
@@ -798,14 +821,9 @@ describe('MeasurementPage', () => {
     await userEvent.click(runAll)
 
     await waitFor(() => expect(solverMocks.run).toHaveBeenCalledTimes(2))
-    expect(solverMocks.run.mock.calls.map(([vars]) => vars)).toEqual([
-      { sampleId: 11 },
-      { sampleId: 10 },
-    ])
+    expect(solverMocks.run.mock.calls.map(([vars]) => vars)).toEqual([{ sampleId: 11 }, { sampleId: 10 }])
     await waitFor(() => expect(apiMocks.measurementSave).toHaveBeenCalledOnce())
-    expect(apiMocks.measurementSave).toHaveBeenCalledWith(
-      expect.objectContaining({ sample_id: 10, setup_id: 20 }),
-    )
+    expect(apiMocks.measurementSave).toHaveBeenCalledWith(expect.objectContaining({ sample_id: 10, setup_id: 20 }))
     expect(await screen.findByText(/일괄 실행 완료 · 성공 1 · 실패 1/)).toBeInTheDocument()
     expect(screen.getByText('실패 Sample: #11')).toBeInTheDocument()
     await waitFor(() => {
@@ -831,16 +849,14 @@ describe('MeasurementPage', () => {
     const sampleListImplementation = apiMocks.sampleList.getMockImplementation()
     if (!sampleListImplementation) throw new Error('Sample list mock is missing.')
     let releaseLoad: (() => void) | undefined
-    apiMocks.sampleList.mockImplementation(
-      async (request: { selected_ids?: number[] }) => {
-        if (request.selected_ids?.includes(11)) {
-          await new Promise<void>((resolve) => {
-            releaseLoad = resolve
-          })
-        }
-        return sampleListImplementation(request)
-      },
-    )
+    apiMocks.sampleList.mockImplementation(async (request: { selected_ids?: number[] }) => {
+      if (request.selected_ids?.includes(11)) {
+        await new Promise<void>((resolve) => {
+          releaseLoad = resolve
+        })
+      }
+      return sampleListImplementation(request)
+    })
     renderPage('/measurements?structure=1&setup=20&sample=10')
 
     const runAll = await screen.findByRole('button', {
@@ -852,9 +868,7 @@ describe('MeasurementPage', () => {
     expect(await screen.findByText('Sample 불러오는 중')).toBeInTheDocument()
     await waitFor(() => expect(releaseLoad).toBeDefined())
     act(() => releaseLoad?.())
-    expect(
-      await screen.findByText('CAD 평가·Solver 호환성 확인 중'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('CAD 평가·Solver 호환성 확인 중')).toBeInTheDocument()
 
     act(() => solverMocks.setCompatibilityStatus?.('compatible'))
     await waitFor(() => expect(solverMocks.run).toHaveBeenCalledOnce())
@@ -862,9 +876,7 @@ describe('MeasurementPage', () => {
   })
 
   it('keeps evaluating when an automatic run is rejected and retries with a real run ID', async () => {
-    mockRunWorkflow([
-      { id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} },
-    ])
+    mockRunWorkflow([{ id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} }])
     solverMocks.autoComplete = true
     solverMocks.rejectRunAttempts = 1
     renderPage('/measurements?structure=1&setup=20')
@@ -877,19 +889,13 @@ describe('MeasurementPage', () => {
 
     await waitFor(() => expect(solverMocks.run).toHaveBeenCalledTimes(2))
     await waitFor(() =>
-      expect(apiMocks.measurementSave).toHaveBeenCalledWith(
-        expect.objectContaining({ sample_id: 10, setup_id: 20 }),
-      ),
+      expect(apiMocks.measurementSave).toHaveBeenCalledWith(expect.objectContaining({ sample_id: 10, setup_id: 20 })),
     )
-    expect(
-      await screen.findByText(/일괄 실행 완료 · 성공 1 · 실패 0/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/일괄 실행 완료 · 성공 1 · 실패 0/)).toBeInTheDocument()
   })
 
   it('ignores Recorded Data from a previous Solver run ID', async () => {
-    mockRunWorkflow([
-      { id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} },
-    ])
+    mockRunWorkflow([{ id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} }])
     solverMocks.autoComplete = true
     solverMocks.staleSuccessBeforeRunNumbers = [1]
     renderPage('/measurements?structure=1&setup=20')
@@ -903,27 +909,19 @@ describe('MeasurementPage', () => {
     await waitFor(() => expect(apiMocks.measurementSave).toHaveBeenCalledOnce())
     expect(apiMocks.measurementSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        recorded_data: [
-          expect.objectContaining({ data: { value: 1 } }),
-        ],
+        recorded_data: [expect.objectContaining({ data: { value: 1 } })],
       }),
     )
   })
 
   it('shows the Measurement saving stage before advancing batch progress', async () => {
-    mockRunWorkflow([
-      { id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} },
-    ])
+    mockRunWorkflow([{ id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} }])
     solverMocks.autoComplete = true
     const saveImplementation = apiMocks.measurementSave.getMockImplementation()
     if (!saveImplementation) throw new Error('Measurement save mock is missing.')
     let releaseSave: (() => void) | undefined
     apiMocks.measurementSave.mockImplementation(
-      async (request: {
-        recorded_data: Array<Record<string, unknown>>
-        sample_id: number
-        setup_id: number
-      }) => {
+      async (request: { recorded_data: Array<Record<string, unknown>>; sample_id: number; setup_id: number }) => {
         await new Promise<void>((resolve) => {
           releaseSave = resolve
         })
@@ -942,9 +940,7 @@ describe('MeasurementPage', () => {
     expect(screen.getByText(/0\/1 완료/)).toBeInTheDocument()
     await waitFor(() => expect(releaseSave).toBeDefined())
     act(() => releaseSave?.())
-    expect(
-      await screen.findByText(/일괄 실행 완료 · 성공 1 · 실패 0/),
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/일괄 실행 완료 · 성공 1 · 실패 0/)).toBeInTheDocument()
   })
 
   it('cancels the active Solver and leaves remaining batch Samples untouched', async () => {
@@ -978,9 +974,7 @@ describe('MeasurementPage', () => {
         { id: 11, structure_id: 1, vars: { sampleId: 11 }, material_parameters: {} },
         { id: 10, structure_id: 1, vars: { sampleId: 10 }, material_parameters: {} },
       ],
-      [
-        { id: 30, sample_id: 12, setup_id: 20, updated_at: '2026-07-23T00:02:00Z' },
-      ],
+      [{ id: 30, sample_id: 12, setup_id: 20, updated_at: '2026-07-23T00:02:00Z' }],
     )
     workflow.recordedData.set(30, [
       {
@@ -993,9 +987,7 @@ describe('MeasurementPage', () => {
     ])
     solverMocks.autoComplete = true
     solverMocks.failRunNumbers = [1, 2]
-    const router = renderPage(
-      '/measurements?structure=1&experiment=2&sample=12&setup=20&measurement=30',
-    )
+    const router = renderPage('/measurements?structure=1&experiment=2&sample=12&setup=20&measurement=30')
 
     const runAll = await screen.findByRole('button', {
       name: '미측정 Sample 모두 실행 (2)',

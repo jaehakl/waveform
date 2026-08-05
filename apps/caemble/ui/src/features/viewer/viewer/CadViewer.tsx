@@ -3,15 +3,11 @@ import type { CadDocumentType, CadSceneSelection, RecordedDataResult, RecordedDa
 import { resolveCadViewerContent, type CadViewerDocument } from './cadViewerContent'
 import JscadViewer from './JscadViewer'
 import type { CadViewerRecordedData } from './recordedData'
-import type { SolverCompatibility, SolverProcess } from '@/lib/solver'
-import type { SimulationProgramManifestV3, SimulationResultV3 } from '@/lib/simulation'
+import type { SimulationProgramManifest, SimulationResult } from '@/lib/simulation'
+import type { SimulationCompatibility, SimulationProcess } from '../workspace/simulationUiTypes'
 
 export type { CadViewerDocument } from './cadViewerContent'
-export type {
-  CadViewerRecordedAxis,
-  CadViewerRecordedData,
-  CadViewerRecordedTensor,
-} from './recordedData'
+export type { CadViewerRecordedAxis, CadViewerRecordedData, CadViewerRecordedTensor } from './recordedData'
 
 export type CadViewerActiveSelection = Readonly<{
   documentType: CadDocumentType
@@ -33,13 +29,12 @@ export type CadViewerProps = {
 export type CadViewerSimulation = Readonly<{
   canRun: boolean
   cancel: () => void
-  compatibility: SolverCompatibility
-  process: SolverProcess
-  program?: SimulationProgramManifestV3 | null
-  programResult?: SimulationResultV3 | null
+  compatibility: SimulationCompatibility
+  process: SimulationProcess
+  program?: SimulationProgramManifest | null
+  programResult?: SimulationResult | null
   exportProgramResult?: () => string | null
   run: () => string | null
-  solver: Readonly<{ name: string; version: string }> | null
   stale: boolean
 }>
 
@@ -56,16 +51,14 @@ export function CadViewer({
 }: CadViewerProps) {
   const [structureVisible, setStructureVisible] = useState(true)
   const [experimentVisible, setExperimentVisible] = useState(true)
-  const content = useMemo(() => resolveCadViewerContent(
-    structure,
-    experiment,
-    structureVisible,
-    experimentVisible,
-  ), [experiment, experimentVisible, structure, structureVisible])
+  const content = useMemo(
+    () => resolveCadViewerContent(structure, experiment, structureVisible, experimentVisible),
+    [experiment, experimentVisible, structure, structureVisible],
+  )
   const programRecordedDataRules = useMemo<readonly RecordedDataRule[]>(
     () =>
       Object.freeze(
-        Object.entries(simulation?.program?.outputs ?? {}).map(([name, result]) =>
+        Object.entries(simulation?.program?.recordedData ?? {}).map(([name, result]) =>
           Object.freeze({
             target: Object.freeze([]),
             label: name,
@@ -77,28 +70,20 @@ export function CadViewer({
       ),
     [simulation?.program],
   )
-  const recordedDataRules = experiment?.experimentRules?.recordedData ?? programRecordedDataRules
-  const visibleSelection = selected && content.visibleSources.includes(selected.documentType)
-    ? selected
-    : null
+  const recordedDataRules = programRecordedDataRules
+  const visibleSelection = selected && content.visibleSources.includes(selected.documentType) ? selected : null
   const handleRenderStart = useCallback(
     () => onRenderStart(content.visibleSources),
     [content.visibleSources, onRenderStart],
   )
-  const handleRenderEnd = useCallback(
-    () => onRenderEnd(content.visibleSources),
-    [content.visibleSources, onRenderEnd],
-  )
+  const handleRenderEnd = useCallback(() => onRenderEnd(content.visibleSources), [content.visibleSources, onRenderEnd])
   const handleRenderError = useCallback(
     (message: string) => onRenderError(message, content.visibleSources),
     [content.visibleSources, onRenderError],
   )
 
   return (
-    <section
-      aria-label="3D CAD Viewer"
-      className="h-full min-h-[360px] min-w-0 lg:min-h-0 lg:overflow-hidden"
-    >
+    <section aria-label="3D CAD Viewer" className="h-full min-h-[360px] min-w-0 lg:min-h-0 lg:overflow-hidden">
       <JscadViewer
         availableSources={content.availableSources}
         emptyMessage={content.emptyMessage}

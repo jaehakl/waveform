@@ -27,11 +27,11 @@ import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
 import {
-  cadEntrySource,
-  createCadSourceDocumentV2,
+  cadSource,
+  createCadSourceDocument,
   type CadDocumentType,
-  type CadSourceDocumentV2,
-  type EvaluatedDocumentSnapshotV2,
+  type CadSourceDocument,
+  type EvaluatedDocumentSnapshot,
 } from '@/lib/cad'
 import { defaultExperimentCode } from '@/lib/defaultExperimentCode'
 import { readMeasurementReturnTo, updateMeasurementReturnTo } from '@/pages/measurements/measurement-return'
@@ -198,7 +198,7 @@ export function ExperimentPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
-  const [experiment, setExperiment] = useState<CadSourceDocumentV2 | null>(null)
+  const [experiment, setExperiment] = useState<CadSourceDocument | null>(null)
   const [savedExperimentCode, setSavedExperimentCode] = useState<string | null>(null)
   const [metadataTarget, setMetadataTarget] = useState<ExperimentRow | null>(null)
   const [metadataName, setMetadataName] = useState('')
@@ -236,14 +236,12 @@ export function ExperimentPage() {
   )
   const selectedExperiment = rows.find((row) => row.id === selectedExperimentId) ?? null
   const currentStructure = useMemo(
-    () => (currentStructureQuery.data ? createCadSourceDocumentV2('structure', currentStructureQuery.data.code) : null),
+    () => (currentStructureQuery.data ? createCadSourceDocument('structure', currentStructureQuery.data.code) : null),
     [currentStructureQuery.data],
   )
   const canManage = useCallback((row: ExperimentRow) => canManageExperiment(row, auth.user), [auth.user])
   const selectedManageable = Boolean(selectedExperiment && canManage(selectedExperiment))
-  const dirty = Boolean(
-    experiment && (savedExperimentCode === null || cadEntrySource(experiment) !== savedExperimentCode),
-  )
+  const dirty = Boolean(experiment && (savedExperimentCode === null || cadSource(experiment) !== savedExperimentCode))
 
   const leafRows = useMemo(() => {
     const visibleIds = new Set(rows.map((row) => row.id))
@@ -290,7 +288,7 @@ export function ExperimentPage() {
 
   const applyExperiment = useCallback(
     (row: ExperimentRow) => {
-      setExperiment(createCadSourceDocumentV2('experiment', row.code))
+      setExperiment(createCadSourceDocument('experiment', row.code))
       setSelectedExperimentId(row.id)
       setSavedExperimentCode(row.code)
       updateDeepLink(row.id)
@@ -307,7 +305,7 @@ export function ExperimentPage() {
   }, [setSelectedExperimentId, updateDeepLink, updateEditorOpen])
 
   const startNewExperiment = useCallback(() => {
-    setExperiment(createCadSourceDocumentV2('experiment', defaultExperimentCode))
+    setExperiment(createCadSourceDocument('experiment', defaultExperimentCode))
     setSelectedExperimentId(null)
     setSavedExperimentCode(null)
     updateEditorOpen(true)
@@ -364,10 +362,10 @@ export function ExperimentPage() {
   ])
 
   const resolveMaterials = useCallback(
-    (snapshot: EvaluatedDocumentSnapshotV2) => resolveDocumentMaterials(snapshot, null),
+    (snapshot: EvaluatedDocumentSnapshot) => resolveDocumentMaterials(snapshot, null),
     [],
   )
-  const handleExperimentChange = useCallback((document: CadSourceDocumentV2) => setExperiment(document), [])
+  const handleExperimentChange = useCallback((document: CadSourceDocument) => setExperiment(document), [])
   const { experimentDocument, simulation, structureDocument } = useCadWorkspace(
     currentStructure,
     experiment,
@@ -832,9 +830,6 @@ export function ExperimentPage() {
             program: experimentDocument.simulationProgram,
             programResult: simulation.programResult,
             run: simulation.run,
-            solver: experimentDocument.simulationProgram
-              ? { name: 'experiment-program', version: '3' }
-              : experimentDocument.solver,
             stale: simulation.stale,
           }}
           structure={structureViewerDocument}
@@ -950,8 +945,8 @@ export function ExperimentPage() {
               {pendingReturn
                 ? 'Measurement로 돌아가면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
                 : pendingCreate
-                ? '새 Experiment를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
-                : '다른 Experiment로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
+                  ? '새 Experiment를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                  : '다른 Experiment로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

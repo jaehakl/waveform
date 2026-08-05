@@ -19,10 +19,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
   {
@@ -31,64 +28,79 @@ export default tseslint.config(
       'src/lib/{defaultCode,defaultExperimentCode,metadata}.ts',
     ],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: [
-            '@/app/**',
-            '@/api/**',
-            '@/components/**',
-            '@/features/**',
-            '@/pages/**',
-            './**/app/**',
-            './**/components/**',
-            './**/features/**',
-            './**/pages/**',
-            '../**/app/**',
-            '../**/components/**',
-            '../**/features/**',
-            '../**/pages/**',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/app/**',
+                '@/api/**',
+                '@/components/**',
+                '@/features/**',
+                '@/pages/**',
+                './**/app/**',
+                './**/components/**',
+                './**/features/**',
+                './**/pages/**',
+                '../**/app/**',
+                '../**/components/**',
+                '../**/features/**',
+                '../**/pages/**',
+              ],
+              message: 'Code-to-CAD core modules cannot depend on application, page, feature, or UI layers.',
+            },
           ],
-          message: 'Code-to-CAD core modules cannot depend on application, page, feature, or UI layers.',
-        }],
-      }],
+        },
+      ],
     },
   },
   {
     files: ['src/api/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: ['@/app/**', '@/components/**', '@/features/**', '@/lib/**', '@/pages/**'],
-          message: 'API modules cannot depend on application, UI, feature, page, or Code-to-CAD layers.',
-        }],
-      }],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app/**', '@/components/**', '@/features/**', '@/lib/**', '@/pages/**'],
+              message: 'API modules cannot depend on application, UI, feature, page, or Code-to-CAD layers.',
+            },
+          ],
+        },
+      ],
     },
   },
   {
     files: ['src/{app,components,features,pages}/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [{
-          group: [
-            '@/lib/cad/api/**',
-            '@/lib/cad/compiler/**',
-            '@/lib/cad/elements/**',
-            '@/lib/cad/evaluation/**',
-            '@/lib/cad/execution/**',
-            '@/lib/cad/geometry/**',
-            '@/lib/cad/model/**',
-            '@/lib/cad/runner/**',
-            '@/lib/cad/source/**',
-            '@/lib/cad/worker/**',
-            '@/lib/material/data/**',
-            '@/lib/material/data',
-            '@/lib/quantitykind/data/**',
-            '@/lib/quantitykind/data',
-            '@/lib/solver/modules/**',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/lib/cad/api/**',
+                '@/lib/cad/compiler/**',
+                '@/lib/cad/elements/**',
+                '@/lib/cad/evaluation/**',
+                '@/lib/cad/execution/**',
+                '@/lib/cad/geometry/**',
+                '@/lib/cad/model/**',
+                '@/lib/cad/runner/**',
+                '@/lib/cad/source/**',
+                '@/lib/cad/worker/**',
+                '@/lib/material/data/**',
+                '@/lib/material/data',
+                '@/lib/quantitykind/data/**',
+                '@/lib/quantitykind/data',
+                '@/lib/solver/modules/**',
+              ],
+              message: 'Application code must use a Code-to-CAD public barrel.',
+            },
           ],
-          message: 'Application code must use a Code-to-CAD public barrel.',
-        }],
-      }],
+        },
+      ],
     },
   },
 )

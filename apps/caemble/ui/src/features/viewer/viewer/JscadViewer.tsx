@@ -416,9 +416,15 @@ export function ViewerToolbar({
         >
           <span
             className="max-w-52 truncate font-mono text-[11px] text-slate-600"
-            title={simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'}
+            title={
+              simulation.process.engine
+                ? `${simulation.process.engine.name}@${simulation.process.engine.version}`
+                : 'Simulation program'
+            }
           >
-            {simulation.solver ? `${simulation.solver.name}@${simulation.solver.version}` : 'Solver unavailable'}
+            {simulation.process.engine
+              ? `${simulation.process.engine.name}@${simulation.process.engine.version}`
+              : 'Simulation program'}
           </span>
           <span
             aria-label={`Solver compatibility: ${simulation.compatibility.status}`}
@@ -451,6 +457,7 @@ export function ViewerToolbar({
             }`}
           >
             {simulation.process.status}
+            {simulation.process.stage ? ` · ${simulation.process.stage}` : ''}
           </span>
           {simulation.stale ? (
             <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-orange-700 uppercase">
@@ -476,7 +483,7 @@ export function ViewerToolbar({
               disabled={!simulation.canRun}
               title={
                 simulation.compatibility.status === 'incompatible'
-                  ? `Resolve ${simulation.compatibility.issues.length} compatibility issue${simulation.compatibility.issues.length === 1 ? '' : 's'} in Solver Spec before running.`
+                  ? `Resolve ${simulation.compatibility.issues.length} compatibility issue${simulation.compatibility.issues.length === 1 ? '' : 's'} in Kernel Spec before running.`
                   : undefined
               }
               type="button"
@@ -496,7 +503,7 @@ export function ViewerToolbar({
               {firstCompatibilityIssue
                 ? ` · ${firstCompatibilityIssue.path}: ${firstCompatibilityIssue.message}`
                 : ''}{' '}
-              · See Solver Spec.
+              · See Kernel Spec.
             </div>
           ) : null}
           {simulation.process.error ? (
@@ -509,7 +516,7 @@ export function ViewerToolbar({
               <summary className="cursor-pointer font-medium">
                 Program trace · {simulation.programResult.trace.length} kernel call
                 {simulation.programResult.trace.length === 1 ? '' : 's'} · state r
-                {simulation.programResult.finalState.revision}
+                {simulation.programResult.finalStateRevision}
               </summary>
               <ol className="mt-1 max-h-28 overflow-auto rounded border border-slate-200 bg-white p-2 font-mono">
                 {simulation.programResult.trace.map((entry) => (

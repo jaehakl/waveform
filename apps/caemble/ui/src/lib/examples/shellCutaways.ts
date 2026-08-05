@@ -6,7 +6,7 @@ export const shellCutawaysCode = `import {
   type CurvedSurfaceSphereAttributes,
   type FiberAttributes,
   type Geometry,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const curvedCylinderAttributes = {
   height: 16,

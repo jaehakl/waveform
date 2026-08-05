@@ -80,7 +80,13 @@ export function sampleFiber(attributes: FiberAttributes): SampledFiber {
   }
 
   const pathSegments = validateSegments(attributes.pathSegments, '<fiber> pathSegments', defaultPathSegments, 8, 2048)
-  const radialSegments = validateSegments(attributes.radialSegments, '<fiber> radialSegments', defaultRadialSegments, 3, 64)
+  const radialSegments = validateSegments(
+    attributes.radialSegments,
+    '<fiber> radialSegments',
+    defaultRadialSegments,
+    3,
+    64,
+  )
   const envelopePower = attributes.envelopePower === undefined ? 2 : attributes.envelopePower
   if (typeof envelopePower !== 'number' || !Number.isFinite(envelopePower) || envelopePower < 1) {
     throw new CadModelError('<fiber> envelopePower must be a finite number greater than or equal to 1.')
@@ -108,7 +114,8 @@ export function sampleFiber(attributes: FiberAttributes): SampledFiber {
   const displacedPoints = basePoints.map((point, index) => {
     const u = index / constructionSegments
     const theta = tau * (helix?.turns ?? 0) * u + (helix?.phase ?? 0)
-    const helixRadius = helix === undefined ? 0 : typeof helix.radius === 'function' ? helix.radius(u, theta) : helix.radius
+    const helixRadius =
+      helix === undefined ? 0 : typeof helix.radius === 'function' ? helix.radius(u, theta) : helix.radius
     if (typeof helixRadius !== 'number' || !Number.isFinite(helixRadius) || helixRadius < 0) {
       throw new CadModelError(`<fiber> helix.radius returned an invalid value at u=${u}.`)
     }

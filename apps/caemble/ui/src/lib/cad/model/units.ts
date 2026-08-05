@@ -40,10 +40,6 @@ export function convertUcumValue(
   }
 }
 
-export function assertUcumUnitComparable(
-  unit: UcumUnit | undefined,
-  expectedUnit: UcumUnit | undefined,
-  path: string,
-) {
+export function assertUcumUnitComparable(unit: UcumUnit | undefined, expectedUnit: UcumUnit | undefined, path: string) {
   convertUcumValue(1, unit, expectedUnit, path)
 }

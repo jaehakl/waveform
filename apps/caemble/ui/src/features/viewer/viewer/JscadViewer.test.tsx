@@ -7,7 +7,8 @@ import { createLayerRenderParts, materialGridPartsFromLayers, scaleViewerLayers 
 const idleSolverProcess = {
   runId: null,
   status: 'idle',
-  solver: null,
+  engine: { name: 'dc-current-density', version: '1.0.0' },
+  stage: null,
   error: null,
   startedAt: null,
   finishedAt: null,
@@ -157,7 +158,6 @@ describe('JscadViewer modes', () => {
           compatibility: { status: 'compatible', issues: [] },
           process: idleSolverProcess,
           run: () => null,
-          solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: false,
         }}
         onApplySpacing={() => undefined}
@@ -192,7 +192,6 @@ describe('JscadViewer modes', () => {
             compatibility: { status, issues: [] },
             process: idleSolverProcess,
             run: () => null,
-            solver: status === 'checking' ? { name: 'dc-current-density', version: '0.0.0' } : null,
             stale: false,
           }}
           onApplySpacing={() => undefined}
@@ -232,7 +231,6 @@ describe('JscadViewer modes', () => {
           },
           process: idleSolverProcess,
           run: () => null,
-          solver: { name: 'dc-current-density', version: '0.0.0' },
           stale: false,
         }}
         onApplySpacing={() => undefined}
@@ -247,7 +245,7 @@ describe('JscadViewer modes', () => {
     expect(markup).toContain('id="simulation-compatibility-message" role="status"')
     expect(markup).toContain('max-h-16 w-full max-w-3xl overflow-auto')
     expect(markup).toContain('references missing structure.geometry.conductor.')
-    expect(markup).toContain('See Solver Spec.')
+    expect(markup).toContain('See Kernel Spec.')
     expect(markup.match(/<button[^>]*aria-label="Run simulation"[^>]*>/)?.[0]).toMatch(
       /aria-describedby="simulation-compatibility-message".*disabled/,
     )
@@ -270,13 +268,13 @@ describe('JscadViewer modes', () => {
           process: {
             runId: 'solver-1',
             status: 'running',
-            solver: { name: 'dc-current-density', version: '1.0.0' },
+            engine: { name: 'dc-current-density', version: '1.0.0' },
+            stage: 'solve',
             error: null,
             startedAt: 1,
             finishedAt: null,
           },
           run: () => null,
-          solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: true,
         }}
         onApplySpacing={() => undefined}
@@ -304,13 +302,13 @@ describe('JscadViewer modes', () => {
           process: {
             runId: 'solver-1',
             status: 'failed',
-            solver: { name: 'dc-current-density', version: '1.0.0' },
+            engine: { name: 'dc-current-density', version: '1.0.0' },
+            stage: null,
             error: 'Material conductivity is missing.',
             startedAt: 1,
             finishedAt: 2,
           },
           run: () => null,
-          solver: { name: 'dc-current-density', version: '1.0.0' },
           stale: true,
         }}
         onApplySpacing={() => undefined}

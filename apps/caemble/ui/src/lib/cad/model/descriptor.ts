@@ -122,18 +122,6 @@ export type ResolvedMaterialVariables = Readonly<
     [Key in MaterialModelKey]?: MaterialSampledRelation<Key>
   }
 >
-export type SolverParameterValue = ScalarValue | DataValueDescriptor
-export type SolverParameters = Readonly<Record<string, SolverParameterValue>>
-export type ExperimentSolver = Readonly<{
-  name: string
-  version: string
-  parameters: () => SolverParameters
-}>
-export type ResolvedExperimentSolver = Readonly<{
-  name: string
-  version: string
-  parameters: SolverParameters
-}>
 export type ExperimentParameter = ScalarValue | DataValueDescriptor
 export type ExperimentParameters = Readonly<Record<string, ExperimentParameter>>
 type RecordedDataResultAxisBase = Readonly<{
@@ -171,16 +159,6 @@ export type RecordedDataTensor = Readonly<{
   axes?: readonly RecordedDataAxis[]
 }>
 export type RecordedData = Readonly<Record<string, RecordedDataTensor>>
-export type EvaluatedExperimentRules<
-  TInitializationParameters extends ExperimentParameters = ExperimentParameters,
-  TBoundaryConditionParameters extends ExperimentParameters = ExperimentParameters,
-  TRecordedDataParameters extends ExperimentParameters = ExperimentParameters,
-> = Readonly<{
-  initializations: readonly ExperimentRule<TInitializationParameters>[]
-  boundaryConditions: readonly ExperimentRule<TBoundaryConditionParameters>[]
-  recordedData: readonly RecordedDataRule<TRecordedDataParameters>[]
-}>
-
 export function Mat(diagonal: number, offDiagonal = 0, size = 3): MatrixValue {
   if (typeof diagonal !== 'number' || !Number.isFinite(diagonal)) {
     throw new CadModelError('Mat diagonal must be a finite number.')

@@ -1,14 +1,9 @@
-import type {
-  CadSceneGroup,
-  CadSceneMaterial,
-  CadSceneSurface,
-  CadSceneTreeNode,
-} from '../evaluation/types'
+import type { CadSceneGroup, CadSceneMaterial, CadSceneSurface, CadSceneTreeNode } from '../evaluation/types'
 import { CadModelError } from '../model/errors'
 import type { UcumUnit } from '../model/units'
 
 export type SerializableCadMesh = Readonly<{
-  kind: 'mesh-v2'
+  kind: 'mesh'
   positions: Float64Array
   polygonOffsets: Uint32Array
 }>
@@ -30,27 +25,30 @@ export type SerializableCadScene = Readonly<{
 }>
 
 export function cadSceneHash(scene: Omit<SerializableCadScene, 'sceneHash'>) {
-  const states = [
-    0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35,
-    0x27d4eb2f, 0x165667b1, 0xd3a2646c, 0xfd7046c5,
-  ]
-  const metadata = new TextEncoder().encode(JSON.stringify({
-    lengthUnit: scene.lengthUnit,
-    tree: scene.tree,
-    geometryGroups: scene.geometryGroups,
-    surfaceGroups: scene.surfaceGroups,
-    parts: scene.parts.map((part) => ({
-      id: part.id,
-      material: part.material,
-      surfaces: part.surfaces,
-      positionLength: part.geometry.positions.length,
-      polygonOffsetLength: part.geometry.polygonOffsets.length,
-    })),
-  }))
+  const states = [0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35, 0x27d4eb2f, 0x165667b1, 0xd3a2646c, 0xfd7046c5]
+  const metadata = new TextEncoder().encode(
+    JSON.stringify({
+      lengthUnit: scene.lengthUnit,
+      tree: scene.tree,
+      geometryGroups: scene.geometryGroups,
+      surfaceGroups: scene.surfaceGroups,
+      parts: scene.parts.map((part) => ({
+        id: part.id,
+        material: part.material,
+        surfaces: part.surfaces,
+        positionLength: part.geometry.positions.length,
+        polygonOffsetLength: part.geometry.polygonOffsets.length,
+      })),
+    }),
+  )
   const chunks = [
     metadata,
     ...scene.parts.flatMap((part) => [
-      new Uint8Array(part.geometry.positions.buffer, part.geometry.positions.byteOffset, part.geometry.positions.byteLength),
+      new Uint8Array(
+        part.geometry.positions.buffer,
+        part.geometry.positions.byteOffset,
+        part.geometry.positions.byteLength,
+      ),
       new Uint8Array(
         part.geometry.polygonOffsets.buffer,
         part.geometry.polygonOffsets.byteOffset,
@@ -106,13 +104,13 @@ export function assertSerializableCadScene(value: unknown): asserts value is Ser
     }
     const mesh = part.geometry
     if (
-      typeof mesh !== 'object'
-      || mesh === null
-      || Array.isArray(mesh)
-      || mesh.kind !== 'mesh-v2'
-      || !(mesh.positions instanceof Float64Array)
-      || !(mesh.polygonOffsets instanceof Uint32Array)
-      || Object.keys(mesh).some((key) => !['kind', 'positions', 'polygonOffsets'].includes(key))
+      typeof mesh !== 'object' ||
+      mesh === null ||
+      Array.isArray(mesh) ||
+      mesh.kind !== 'mesh' ||
+      !(mesh.positions instanceof Float64Array) ||
+      !(mesh.polygonOffsets instanceof Uint32Array) ||
+      Object.keys(mesh).some((key) => !['kind', 'positions', 'polygonOffsets'].includes(key))
     ) {
       throw new CadModelError(`Snapshot scene part ${part.id} mesh is invalid.`)
     }
@@ -123,10 +121,7 @@ export function assertSerializableCadScene(value: unknown): asserts value is Ser
       throw new CadModelError(`Snapshot scene part ${part.id} mesh contains a non-finite coordinate.`)
     }
     const vertexCount = mesh.positions.length / 3
-    if (
-      mesh.polygonOffsets[0] !== 0
-      || mesh.polygonOffsets[mesh.polygonOffsets.length - 1] !== vertexCount
-    ) {
+    if (mesh.polygonOffsets[0] !== 0 || mesh.polygonOffsets[mesh.polygonOffsets.length - 1] !== vertexCount) {
       throw new CadModelError(`Snapshot scene part ${part.id} polygon offsets are invalid.`)
     }
     for (let offsetIndex = 1; offsetIndex < mesh.polygonOffsets.length; offsetIndex += 1) {
@@ -136,16 +131,16 @@ export function assertSerializableCadScene(value: unknown): asserts value is Ser
     }
     part.surfaces.forEach((surface) => {
       if (
-        typeof surface !== 'object'
-        || surface === null
-        || Array.isArray(surface)
-        || typeof surface.id !== 'string'
-        || typeof surface.name !== 'string'
-        || !Array.isArray(surface.polygonIndices)
-        || Object.keys(surface).some((key) => !['id', 'name', 'polygonIndices'].includes(key))
-        || surface.polygonIndices.some((index) => (
-          !Number.isSafeInteger(index) || index < 0 || index >= mesh.polygonOffsets.length - 1
-        ))
+        typeof surface !== 'object' ||
+        surface === null ||
+        Array.isArray(surface) ||
+        typeof surface.id !== 'string' ||
+        typeof surface.name !== 'string' ||
+        !Array.isArray(surface.polygonIndices) ||
+        Object.keys(surface).some((key) => !['id', 'name', 'polygonIndices'].includes(key)) ||
+        surface.polygonIndices.some(
+          (index) => !Number.isSafeInteger(index) || index < 0 || index >= mesh.polygonOffsets.length - 1,
+        )
       ) {
         throw new CadModelError(`Snapshot scene part ${part.id} contains an invalid surface.`)
       }
@@ -157,8 +152,5 @@ export function assertSerializableCadScene(value: unknown): asserts value is Ser
 }
 
 export function cadSnapshotTransferables(scene: SerializableCadScene) {
-  return scene.parts.flatMap((part) => [
-    part.geometry.positions.buffer,
-    part.geometry.polygonOffsets.buffer,
-  ])
+  return scene.parts.flatMap((part) => [part.geometry.positions.buffer, part.geometry.polygonOffsets.buffer])
 }

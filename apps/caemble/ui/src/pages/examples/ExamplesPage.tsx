@@ -16,18 +16,14 @@ import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
 import {
-  cadEntrySource,
-  createCadSourceDocumentV2,
+  cadSource,
+  createCadSourceDocument,
   deserializeCadScene,
   type CadDocumentType,
-  type CadSourceDocumentV2,
-  type EvaluatedDocumentSnapshotV2,
+  type CadSourceDocument,
+  type EvaluatedDocumentSnapshot,
 } from '@/lib/cad'
-import {
-  CAEMBLE_PROGRAM_EXAMPLE_SEED,
-  caembleProgramExamples,
-  type CaembleProgramExample,
-} from '@/lib/examples'
+import { CAEMBLE_PROGRAM_EXAMPLE_SEED, caembleProgramExamples, type CaembleProgramExample } from '@/lib/examples'
 import { resolveMaterialParameters } from '@/lib/material'
 
 const defaultExample = caembleProgramExamples[0]
@@ -35,24 +31,19 @@ const defaultExample = caembleProgramExamples[0]
 export function ExamplesPage() {
   const navigate = useNavigate()
   const { exampleId } = useParams()
-  const selectedExample =
-    caembleProgramExamples.find((example) => example.id === exampleId) ?? defaultExample
-  const [structure, setStructure] = useState<CadSourceDocumentV2>(() =>
-    createCadSourceDocumentV2('structure', selectedExample.structureCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
+  const selectedExample = caembleProgramExamples.find((example) => example.id === exampleId) ?? defaultExample
+  const [structure, setStructure] = useState<CadSourceDocument>(() =>
+    createCadSourceDocument('structure', selectedExample.structureCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
   )
-  const [experiment, setExperiment] = useState<CadSourceDocumentV2>(() =>
-    createCadSourceDocumentV2('experiment', selectedExample.experimentCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
+  const [experiment, setExperiment] = useState<CadSourceDocument>(() =>
+    createCadSourceDocument('experiment', selectedExample.experimentCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
   )
   const [activeDocumentType, setActiveDocumentType] = useState<CadDocumentType>('structure')
   const [pendingExample, setPendingExample] = useState<CaembleProgramExample | null>(null)
 
   const resetCurrentExample = useCallback(() => {
-    setStructure(
-      createCadSourceDocumentV2('structure', selectedExample.structureCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
-    )
-    setExperiment(
-      createCadSourceDocumentV2('experiment', selectedExample.experimentCode, CAEMBLE_PROGRAM_EXAMPLE_SEED),
-    )
+    setStructure(createCadSourceDocument('structure', selectedExample.structureCode, CAEMBLE_PROGRAM_EXAMPLE_SEED))
+    setExperiment(createCadSourceDocument('experiment', selectedExample.experimentCode, CAEMBLE_PROGRAM_EXAMPLE_SEED))
     setActiveDocumentType('structure')
     setPendingExample(null)
   }, [selectedExample])
@@ -67,7 +58,7 @@ export function ExamplesPage() {
     resetCurrentExample()
   }, [resetCurrentExample])
 
-  const resolveMaterials = useCallback(async (snapshot: EvaluatedDocumentSnapshotV2) => {
+  const resolveMaterials = useCallback(async (snapshot: EvaluatedDocumentSnapshot) => {
     const scene = deserializeCadScene(snapshot.scene)
     const materials = scene.parts.flatMap((part) => (part.material ? [part.material] : []))
     return resolveMaterialParameters(materials, [], [], { sourceOnly: true })
@@ -80,12 +71,11 @@ export function ExamplesPage() {
     undefined,
     undefined,
     resolveMaterials,
-    'prepared-vars',
+    'fast-reroll',
   )
 
   const dirty =
-    cadEntrySource(structure) !== selectedExample.structureCode ||
-    cadEntrySource(experiment) !== selectedExample.experimentCode
+    cadSource(structure) !== selectedExample.structureCode || cadSource(experiment) !== selectedExample.experimentCode
   const structureViewerDocument = useMemo(
     () => ({
       scene: structureDocument.scene,
@@ -96,21 +86,14 @@ export function ExamplesPage() {
   )
   const experimentViewerDocument = useMemo(
     () => ({
-      experimentRules: experimentDocument.experimentRules,
       scene: experimentDocument.scene,
       sceneHash: experimentDocument.sceneHash,
       variables: experimentDocument.variables,
     }),
-    [
-      experimentDocument.experimentRules,
-      experimentDocument.scene,
-      experimentDocument.sceneHash,
-      experimentDocument.variables,
-    ],
+    [experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
   const viewerSelection = useMemo(() => {
-    const selection =
-      activeDocumentType === 'structure' ? structureDocument.selection : experimentDocument.selection
+    const selection = activeDocumentType === 'structure' ? structureDocument.selection : experimentDocument.selection
     return selection ? { documentType: activeDocumentType, selection } : null
   }, [activeDocumentType, experimentDocument.selection, structureDocument.selection])
 
@@ -139,9 +122,7 @@ export function ExamplesPage() {
   const copySource = useCallback(
     async (documentType: CadDocumentType) => {
       try {
-        await navigator.clipboard.writeText(
-          cadEntrySource(documentType === 'structure' ? structure : experiment),
-        )
+        await navigator.clipboard.writeText(cadSource(documentType === 'structure' ? structure : experiment))
         toast.success(`${documentType === 'structure' ? 'Structure' : 'Experiment'} Source를 복사했습니다.`)
       } catch {
         toast.error('Source를 클립보드에 복사하지 못했습니다.')
@@ -203,7 +184,7 @@ export function ExamplesPage() {
               전체 예제 초기화
             </Button>
             <Button asChild size="sm" variant="ghost">
-              <Link to="/docs?section=v3">
+              <Link to="/docs?section=program">
                 <BookOpenText />
                 v3 가이드
               </Link>
@@ -254,9 +235,6 @@ export function ExamplesPage() {
               program: experimentDocument.simulationProgram,
               programResult: simulation.programResult,
               run: simulation.run,
-              solver: experimentDocument.simulationProgram
-                ? { name: 'experiment-program', version: '3' }
-                : experimentDocument.solver,
               stale: simulation.stale,
             }}
             structure={structureViewerDocument}

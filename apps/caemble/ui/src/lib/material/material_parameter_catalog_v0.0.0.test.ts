@@ -107,9 +107,11 @@ describe('material parameter catalog', () => {
       expect(propertyName).toMatch(/^[a-z][a-z0-9_]*$/)
       expect(extraSegments).toHaveLength(0)
       expect(Object.isFrozen(property)).toBe(true)
-      expect(Object.keys(property).every((field) => (
-        ['key', 'label_ko', 'quantity_kind', 'special_qualifiers'].includes(field)
-      ))).toBe(true)
+      expect(
+        Object.keys(property).every((field) =>
+          ['key', 'label_ko', 'quantity_kind', 'special_qualifiers'].includes(field),
+        ),
+      ).toBe(true)
       expect(property).not.toHaveProperty('tier')
       expect(property).not.toHaveProperty('scope')
       expect(property).not.toHaveProperty('value_form')
@@ -145,10 +147,7 @@ describe('material parameter catalog', () => {
       quantity_kind_data_version: '0.0.0',
     })
     expect(materialModelData).toHaveLength(2)
-    expect(Object.keys(materialModelByKey)).toEqual([
-      'model.magnetic_hysteresis.b_h_curve',
-      'model.sorption.isotherm',
-    ])
+    expect(Object.keys(materialModelByKey)).toEqual(['model.magnetic_hysteresis.b_h_curve', 'model.sorption.isotherm'])
     expect(materialModelByKey['model.magnetic_hysteresis.b_h_curve']).toMatchObject({
       input: { quantity_kind: 'electromagnetism.MagneticFieldStrength' },
       output: { quantity_kind: 'electromagnetism.MagneticFluxDensity' },
@@ -158,11 +157,9 @@ describe('material parameter catalog', () => {
   })
 
   it('reuses the definition by meaning instead of the material-property domain', () => {
-    const quantityKindFor = (key: string) => properties
-      .find((property) => property.key === key)?.quantity_kind
+    const quantityKindFor = (key: string) => properties.find((property) => property.key === key)?.quantity_kind
 
-    expect(quantityKindFor('interface.electrical_contact_resistance'))
-      .toBe('electromagnetism.Resistance')
+    expect(quantityKindFor('interface.electrical_contact_resistance')).toBe('electromagnetism.Resistance')
     expect(quantityKindFor('transport.longitudinal_dispersivity')).toBe('Length')
     expect(quantityKindFor('mechanical.lame_first_parameter')).toBe('mechanics.Stress')
     expect(quantityKindFor('mechanical.yield_strength')).toBe('mechanics.Stress')
@@ -170,8 +167,9 @@ describe('material parameter catalog', () => {
     expect(quantityKindFor('mechanical.compressive_strength')).toBe('mechanics.Stress')
     expect(quantityKindFor('fluid.yield_stress')).toBe('mechanics.Stress')
     expect(quantityKindFor('interface.cohesive_strength')).toBe('mechanics.Stress')
-    expect(quantityKindFor('electrochemical.double_layer_capacitance_per_area'))
-      .toBe('electromagnetism.CapacitancePerArea')
+    expect(quantityKindFor('electrochemical.double_layer_capacitance_per_area')).toBe(
+      'electromagnetism.CapacitancePerArea',
+    )
     expect(quantityKindFor('mechanical.loss_factor')).toBe('LossFactor')
     expect(quantityKindFor('electrical.loss_tangent')).toBe('LossFactor')
     expect(quantityKindFor('optical.absorptance')).toBe('Absorptance')

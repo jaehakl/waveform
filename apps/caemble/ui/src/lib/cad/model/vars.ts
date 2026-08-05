@@ -62,13 +62,7 @@ function boundAt(bound: Tensor, index: number): Tensor {
   return Array.isArray(bound) ? bound[index] : bound
 }
 
-function validateRange(
-  value: Tensor,
-  min: Tensor,
-  max: Tensor,
-  shape: readonly number[],
-  path: string,
-) {
+function validateRange(value: Tensor, min: Tensor, max: Tensor, shape: readonly number[], path: string) {
   if (shape.length === 0) {
     const scalar = value as number
     const minimum = min as number
@@ -78,13 +72,9 @@ function validateRange(
     if (scalar > maximum) throw new CadModelError(`${path} must be less than or equal to ${maximum}.`)
     return
   }
-  ;(value as readonly Tensor[]).forEach((item, index) => validateRange(
-    item,
-    boundAt(min, index),
-    boundAt(max, index),
-    shape.slice(1),
-    `${path}[${index}]`,
-  ))
+  ;(value as readonly Tensor[]).forEach((item, index) =>
+    validateRange(item, boundAt(min, index), boundAt(max, index), shape.slice(1), `${path}[${index}]`),
+  )
 }
 
 function validateBounds(min: Tensor, max: Tensor, shape: readonly number[], path: string) {
@@ -165,19 +155,14 @@ export function createRandom(seed?: number) {
   }
 }
 
-export function randomTensor(
-  shape: readonly number[],
-  min: Tensor,
-  max: Tensor,
-  random: () => number,
-): Tensor {
+export function randomTensor(shape: readonly number[], min: Tensor, max: Tensor, random: () => number): Tensor {
   if (shape.length === 0) {
     const minimum = min as number
     const maximum = max as number
     if (minimum === maximum) return minimum
     return minimum + random() * (maximum - minimum)
   }
-  return Array.from({ length: shape[0] }, (_, index) => (
-    randomTensor(shape.slice(1), boundAt(min, index), boundAt(max, index), random)
-  ))
+  return Array.from({ length: shape[0] }, (_, index) =>
+    randomTensor(shape.slice(1), boundAt(min, index), boundAt(max, index), random),
+  )
 }

@@ -1,56 +1,55 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { dcCurrentDensitySpec } from '@/lib/solver'
+import type { SimulationProgramManifest } from '@/lib/simulation'
 import SolverSpecSheet from './SolverSpecSheet'
 
-const solver = {
-  name: 'dc-current-density',
-  version: '0.0.0',
-  parameters: {},
+const simulationProgram: SimulationProgramManifest = {
+  formatVersion: 1,
+  programHash: 'program-hash',
+  tasks: {
+    electric: {
+      kernel: { name: 'dc-current-density', version: '0.0.0' },
+      configHash: 'dc-config',
+    },
+  },
+  recordedData: {
+    measuredCurrent: {
+      dtype: 'float64',
+      unit: 'A',
+      quantityKind: 'electromagnetism.ElectricCurrent',
+    },
+  },
 }
 
 describe('SolverSpecSheet', () => {
-  it('renders the registered solver contract without solver-specific UI code', () => {
+  it('renders the Experiment manifest and registered kernel descriptor without kernel-specific UI', () => {
     const markup = renderToStaticMarkup(
-      <SolverSpecSheet
-        compatibility={{ status: 'compatible', issues: [] }}
-        solver={solver}
-        spec={dcCurrentDensitySpec}
-      />,
+      <SolverSpecSheet compatibility={{ status: 'compatible', issues: [] }} simulationProgram={simulationProgram} />,
     )
 
     expect(markup).toContain('Simulation compatible')
+    expect(markup).toContain('Experiment Program')
+    expect(markup).toContain('electric')
     expect(markup).toContain('dc-current-density@0.0.0')
+    expect(markup).toContain('Global RecordedData')
+    expect(markup).toContain('measuredCurrent')
     expect(markup).toContain('relativeTolerance')
-    expect(markup).toContain('electrical.conductivity')
     expect(markup).toContain('dc.voxel-grid')
     expect(markup).toContain('dc.current-density')
-    expect(markup).toContain('electromagnetism.ElectricCurrentDensity')
-    expect(markup).toContain('applicable units')
-    expect(markup).toContain('Scene reference length')
-    expect(markup).toContain('undeclared parameter keys are accepted, preserved, and not transformed.')
+    expect(markup).toContain('caemble.dc/current-density@1')
+    expect(markup).toContain('relativeResidual')
   })
 
-  it('renders an unavailable state for an unregistered identity', () => {
+  it('shows an unavailable program state before Experiment evaluation', () => {
     const markup = renderToStaticMarkup(
-      <SolverSpecSheet
-        compatibility={{
-          status: 'incompatible',
-          issues: [{
-            documentType: 'experiment',
-            path: 'solver',
-            message: 'No solver module is registered for dc-current-density@1.0.0.',
-          }],
-        }}
-        solver={{ ...solver, version: '1.0.0' }}
-        spec={null}
-      />,
+      <SolverSpecSheet compatibility={{ status: 'unavailable', issues: [] }} simulationProgram={null} />,
     )
-    expect(markup).toContain('Solver specification unavailable')
-    expect(markup).toContain('dc-current-density@1.0.0')
+
+    expect(markup).toContain('Simulation unavailable')
+    expect(markup).toContain('Waiting for an Experiment simulation program.')
   })
 
-  it('groups every compatibility issue by document without presenting warnings as alerts', () => {
+  it('groups every preflight issue by document without presenting it as an alert', () => {
     const markup = renderToStaticMarkup(
       <SolverSpecSheet
         compatibility={{
@@ -58,26 +57,26 @@ describe('SolverSpecSheet', () => {
           issues: [
             {
               documentType: 'structure',
-              path: 'rules.initializations[0].target[0]',
+              path: 'tasks.electric.initializations[0].target[0]',
               message: 'references missing structure.geometry.conductor.',
             },
             {
               documentType: 'experiment',
-              path: 'rules.recordedData[0].methodId',
-              message: 'is not registered for this Solver.',
+              path: 'tasks.electric.outputs[0].methodId',
+              message: 'is not registered for this kernel.',
             },
           ],
         }}
-        solver={solver}
-        spec={dcCurrentDensitySpec}
+        simulationProgram={simulationProgram}
       />,
     )
 
-    expect(markup).toContain('Simulation incompatible · 2 issues')
+    expect(markup).toContain('Simulation incompatible')
+    expect(markup).toContain('2 issues')
     expect(markup).toContain('>Structure</h4>')
     expect(markup).toContain('>Experiment</h4>')
-    expect(markup).toContain('rules.initializations[0].target[0]')
-    expect(markup).toContain('rules.recordedData[0].methodId')
+    expect(markup).toContain('tasks.electric.initializations[0].target[0]')
+    expect(markup).toContain('tasks.electric.outputs[0].methodId')
     expect(markup).not.toContain('role="alert"')
   })
 })

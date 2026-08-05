@@ -58,9 +58,7 @@ function normalizeStructureGroup(
     const seenMemberIds = new Set<string>()
     rawMembers.forEach((rawMember, index) => {
       if (typeof rawMember !== 'string' || !rawMember.trim()) {
-        throw new CadModelError(
-          `${objectName} ${propertyName}.${name}[${index}] must be a non-empty string global ID.`,
-        )
+        throw new CadModelError(`${objectName} ${propertyName}.${name}[${index}] must be a non-empty string global ID.`)
       }
       const memberId = rawMember.trim()
       if (seenMemberIds.has(memberId)) return
@@ -106,11 +104,7 @@ export class Structure {
     return normalizeVars(schema, generated, objectName)
   }
 
-  resolveVars(
-    partialVars: Partial<Vars> = {},
-    seed?: number,
-    objectName = this.constructor.name || 'Structure',
-  ) {
+  resolveVars(partialVars: Partial<Vars> = {}, seed?: number, objectName = this.constructor.name || 'Structure') {
     if (!isRecord(partialVars)) throw new CadModelError(`${objectName} vars must be an object.`)
     const extraKey = Object.keys(partialVars).find((key) => !(key in this.varsSchema))
     if (extraKey) throw new CadModelError(`Unknown ${objectName} var: ${extraKey}.`)

@@ -6,10 +6,10 @@ import { DataTable } from '@/components/DataTable'
 import { Badge } from '@/components/ui/badge'
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { solverModules, type SolverSpec } from '@/lib/solver'
+import { kernelModules, type KernelDescriptor } from '@/lib/simulation'
 
-const solvers: SolverSpec[] = solverModules.map((module) => module.spec)
-const columns: ColumnDef<SolverSpec, unknown>[] = [
+const solvers: KernelDescriptor[] = kernelModules.map((kernel) => kernel.descriptor)
+const columns: ColumnDef<KernelDescriptor, unknown>[] = [
   {
     accessorKey: 'name',
     header: 'Solver',
@@ -37,7 +37,8 @@ export function SolverCatalogPage() {
       title="Simulations & Analysis"
       filters={
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Cpu className="size-4" />웹브라우저 구동
+          <Cpu className="size-4" />
+          웹브라우저 구동
         </div>
       }
       list={
@@ -75,7 +76,7 @@ export function SolverCatalogPage() {
                       <code className="text-xs font-semibold text-orange-700">{parameterName}</code>
                       <p className="mt-1 text-xs text-muted-foreground">{parameter.description}</p>
                       <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
-                        {JSON.stringify(parameter.value, null, 2)}
+                        {JSON.stringify(parameter.data, null, 2)}
                       </pre>
                     </div>
                   ))}
@@ -91,9 +92,11 @@ export function SolverCatalogPage() {
                       <p className="mt-2 text-[11px] text-muted-foreground">
                         Target · {method.target.source}.{method.target.kind}
                       </p>
-                      {method.result ? (
+                      {'artifactType' in method ? (
                         <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
-                          Result {JSON.stringify(method.result, null, 2)}
+                          Artifact {method.artifactType}
+                          {'\n'}
+                          {JSON.stringify(method.data, null, 2)}
                         </pre>
                       ) : null}
                     </div>
@@ -105,7 +108,7 @@ export function SolverCatalogPage() {
                       <code className="text-xs font-semibold text-orange-700">{material.role}</code>
                       <p className="mt-1 text-xs text-muted-foreground">{material.description}</p>
                       <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-[11px]">
-                        {JSON.stringify(material.parameters, null, 2)}
+                        {JSON.stringify(material.properties, null, 2)}
                       </pre>
                     </div>
                   ))}

@@ -42,10 +42,7 @@ export function createShellGeometries(geometry: unknown, offsets: unknown): CadG
   let triangulated
   try {
     // Triangulation also inserts missing T-junction vertices from JSCAD boolean results.
-    triangulated = cadGeneralize(
-      { triangulate: true },
-      geometries.geom3.clone(geometry),
-    )
+    triangulated = cadGeneralize({ triangulate: true }, geometries.geom3.clone(geometry))
     geometries.geom3.validate(triangulated)
     const volume = measurements.measureVolume(triangulated)
     if (!Number.isFinite(volume) || volume <= 0) throw new Error('invalid solid orientation')
@@ -93,9 +90,7 @@ export function createShellGeometries(geometry: unknown, offsets: unknown): CadG
       const afterZ = after[2] - point[2]
       const beforeLength = Math.hypot(beforeX, beforeY, beforeZ)
       const afterLength = Math.hypot(afterX, afterY, afterZ)
-      const cosine = (
-        beforeX * afterX + beforeY * afterY + beforeZ * afterZ
-      ) / (beforeLength * afterLength)
+      const cosine = (beforeX * afterX + beforeY * afterY + beforeZ * afterZ) / (beforeLength * afterLength)
       const weight = Math.acos(Math.max(-1, Math.min(1, cosine)))
 
       if (!Number.isFinite(weight) || weight <= 0) {
@@ -148,29 +143,17 @@ export function createShellGeometries(geometry: unknown, offsets: unknown): CadG
     b1 += regularization * averageNormalY
     b2 += regularization * averageNormalZ
 
-    const determinant =
-      a00 * (a11 * a22 - a12 * a12) -
-      a01 * (a01 * a22 - a12 * a02) +
-      a02 * (a01 * a12 - a11 * a02)
+    const determinant = a00 * (a11 * a22 - a12 * a12) - a01 * (a01 * a22 - a12 * a02) + a02 * (a01 * a12 - a11 * a02)
     if (!Number.isFinite(determinant) || determinant === 0) {
       throw new CadModelError(`<shell> could not calculate a stable offset at vertex ${pointIndex}.`)
     }
 
-    const displacementX = (
-      b0 * (a11 * a22 - a12 * a12) -
-      a01 * (b1 * a22 - a12 * b2) +
-      a02 * (b1 * a12 - a11 * b2)
-    ) / determinant
-    const displacementY = (
-      a00 * (b1 * a22 - a12 * b2) -
-      b0 * (a01 * a22 - a12 * a02) +
-      a02 * (a01 * b2 - b1 * a02)
-    ) / determinant
-    const displacementZ = (
-      a00 * (a11 * b2 - b1 * a12) -
-      a01 * (a01 * b2 - b1 * a02) +
-      b0 * (a01 * a12 - a11 * a02)
-    ) / determinant
+    const displacementX =
+      (b0 * (a11 * a22 - a12 * a12) - a01 * (b1 * a22 - a12 * b2) + a02 * (b1 * a12 - a11 * b2)) / determinant
+    const displacementY =
+      (a00 * (b1 * a22 - a12 * b2) - b0 * (a01 * a22 - a12 * a02) + a02 * (a01 * b2 - b1 * a02)) / determinant
+    const displacementZ =
+      (a00 * (a11 * b2 - b1 * a12) - a01 * (a01 * b2 - b1 * a02) + b0 * (a01 * a12 - a11 * a02)) / determinant
     const displacement = [displacementX, displacementY, displacementZ] as Point3
 
     if (!displacement.every(Number.isFinite)) {
@@ -183,11 +166,14 @@ export function createShellGeometries(geometry: unknown, offsets: unknown): CadG
   const minimumArea = measurements.measureEpsilon(triangulated) ** 2
   const boundaryPoints = new Map<number, Point3[]>([[0, points]])
   validOffsets.forEach((offset) => {
-    const offsetPoints = points.map((point, index) => [
-      point[0] + offset * unitDisplacements[index][0],
-      point[1] + offset * unitDisplacements[index][1],
-      point[2] + offset * unitDisplacements[index][2],
-    ] as Point3)
+    const offsetPoints = points.map(
+      (point, index) =>
+        [
+          point[0] + offset * unitDisplacements[index][0],
+          point[1] + offset * unitDisplacements[index][1],
+          point[2] + offset * unitDisplacements[index][2],
+        ] as Point3,
+    )
 
     triangles.forEach(({ indices, normal }, triangleIndex) => {
       const first = offsetPoints[indices[0]]
@@ -254,10 +240,7 @@ export const shellDefinition = {
     if (!Array.isArray(node.props.offsets) || node.props.offsets.length === 0) {
       throw new CadModelError('<shell> offsets must be a non-empty array.')
     }
-    if (
-      context.inheritedMaterials !== undefined
-      && context.inheritedMaterials.length !== node.props.offsets.length
-    ) {
+    if (context.inheritedMaterials !== undefined && context.inheritedMaterials.length !== node.props.offsets.length) {
       throw new CadModelError('<shell> requires exactly one inherited Material per offset.')
     }
 

@@ -137,7 +137,11 @@ describe('CAD evaluator', () => {
     ;[null, 1, [1, 2, 3], { axis: [0, 0, 1] }].forEach((rotate) => {
       expect(() => evaluateCad(h(Box, { id: 'box', rotate, materials: [core] }))).toThrow()
     })
-    ;[[0, 0, 0], [1, 2], [1, Number.NaN, 0]].forEach((axis) => {
+    ;[
+      [0, 0, 0],
+      [1, 2],
+      [1, Number.NaN, 0],
+    ].forEach((axis) => {
       expect(() => evaluateCad(h(Box, { id: 'box', rotate: { axis, angle: 1 }, materials: [core] }))).toThrow(
         'rotate.axis',
       )
@@ -147,7 +151,11 @@ describe('CAD evaluator', () => {
         'rotate.angle must be a finite number',
       )
     })
-    ;[[1, 2], [1, 2, 3, 4], [1, Number.NaN, 1]].forEach((scale) => {
+    ;[
+      [1, 2],
+      [1, 2, 3, 4],
+      [1, Number.NaN, 1],
+    ].forEach((scale) => {
       expect(() => evaluateCad(h(Box, { id: 'box', scale, materials: [core] }))).toThrow(
         'scale must be an array of exactly three finite numbers',
       )
@@ -164,4 +172,3 @@ describe('CAD evaluator', () => {
     )
   })
 })
-

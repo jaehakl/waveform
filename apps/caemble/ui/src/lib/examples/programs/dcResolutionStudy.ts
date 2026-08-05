@@ -1,14 +1,15 @@
 import { dcUniformBarStructureCode } from './dcUniformBar'
 import type { CaembleProgramExample } from './types'
 
-export const dcResolutionStudyExperimentCode = `import { defineTask, experiment } from '@caemble/core/v3'
-import { dcCurrentDensity } from '@caemble/kernels/v1'
+export const dcResolutionStudyExperimentCode = `import { experiment } from '@caemble/core'
+import { dcCurrentDensity } from '@caemble/kernels'
 
 function currentTask(
   gridShape: readonly [number, number, number],
   outputKey: string,
+  sourceVoltage: number,
 ) {
-  return defineTask(dcCurrentDensity, ({ vars }) => ({
+  return dcCurrentDensity({
     parameters: {
       relativeTolerance: {
         dtype: 'float64',
@@ -40,7 +41,7 @@ function currentTask(
         parameters: {
           voltage: {
             dtype: 'float64',
-            value: vars.sourceVoltage,
+            value: sourceVoltage,
             unit: 'mV',
             quantityKind: 'electromagnetism.Voltage',
           },
@@ -60,7 +61,7 @@ function currentTask(
       },
     ],
 
-    recordedData: [
+    outputs: [
       {
         key: outputKey,
         target: ['structure.geometry.conductor'],
@@ -75,11 +76,8 @@ function currentTask(
         },
       },
     ],
-  }))
+  })
 }
-
-const solveCoarse = currentTask([10, 7, 7], 'coarseTotalCurrent')
-const solveFine = currentTask([20, 11, 11], 'fineTotalCurrent')
 
 function ConvergenceProbe() {
   return <box size={[2, 2, 2]} />
@@ -94,12 +92,12 @@ export default experiment({
 
   geometry: () => <ConvergenceProbe id="convergence-probe" pos={[0, -10, 0]} />,
 
-  tasks: {
-    solveCoarse,
-    solveFine,
-  },
+  tasks: ({ vars }) => ({
+    solveCoarse: currentTask([10, 7, 7], 'coarseTotalCurrent', vars.sourceVoltage),
+    solveFine: currentTask([20, 11, 11], 'fineTotalCurrent', vars.sourceVoltage),
+  }),
 
-  outputs: {
+  recordedData: {
     coarseTotalCurrent: {
       dtype: 'float64',
       unit: 'A',
@@ -112,10 +110,8 @@ export default experiment({
     },
   },
 
-  simulate: async ({ sim, tasks, initialState }) => {
-    const coarse = await sim.run(tasks.solveCoarse, {
-      state: initialState,
-    })
+  simulate: async ({ sim, tasks }) => {
+    const coarse = await sim.run(tasks.solveCoarse)
     sim.record('coarseTotalCurrent', coarse.artifacts.coarseTotalCurrent)
 
     const fine = await sim.run(tasks.solveFine, {
@@ -135,16 +131,16 @@ export const dcResolutionStudyExample = Object.freeze({
   concepts: Object.freeze([
     '재사용 가능한 task factory',
     '이전 result.state를 다음 sim.run()에 전달',
-    '여러 task의 output과 trace 비교',
+    '여러 task의 RecordedData와 trace 비교',
   ]),
   structureCode: dcUniformBarStructureCode,
   experimentCode: dcResolutionStudyExperimentCode,
   verification: Object.freeze({
     kernelTasks: Object.freeze(['solveCoarse', 'solveFine']),
-    outputs: Object.freeze(['coarseTotalCurrent', 'fineTotalCurrent']),
+    recordedData: Object.freeze(['coarseTotalCurrent', 'fineTotalCurrent']),
     expectations: Object.freeze([
       'trace 순서 = solveCoarse → solveFine',
-      'state revision = 0 → 1 → 2',
+      'stateless DC task 사이에서 state revision 유지',
       '두 total current 모두 14.9 A ± 1e-6',
     ]),
   }),

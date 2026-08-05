@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { RecordedDataRule } from '@/lib/cad'
 import { identityCartesianBasis } from '@/lib/quantitykind'
 import RecordedDataResults from './RecordedDataResults'
-import {
-  componentIndexPaths,
-  componentLabel,
-  projectRecordedComponents,
-} from './recordedComponents'
+import { componentIndexPaths, componentLabel, projectRecordedComponents } from './recordedComponents'
 import { convertRecordedNumericValue } from './recordedData'
 
 function rule(
@@ -32,14 +28,16 @@ function rule(
     result: {
       dtype,
       ...quantityMetadata,
-      ...(shape.length === 0 ? {} : {
-        axes: shape.map((size, index) => ({
-          ...(size === -1 ? {} : { length: size }),
-          name: `axis ${index}`,
-          ...(axisUnit ? { unit: axisUnit, quantityKind: 'Length' as const } : {}),
-          ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
-        })),
-      }),
+      ...(shape.length === 0
+        ? {}
+        : {
+            axes: shape.map((size, index) => ({
+              ...(size === -1 ? {} : { length: size }),
+              name: `axis ${index}`,
+              ...(axisUnit ? { unit: axisUnit, quantityKind: 'Length' as const } : {}),
+              ...(size === -1 ? {} : { ticks: Array.from({ length: size }, (_, tick) => `${index}:${tick}`) }),
+            })),
+          }),
     } as RecordedDataRule['result'],
   }
 }
@@ -137,10 +135,18 @@ describe('RecordedDataResults', () => {
       <RecordedDataResults
         rules={[textRule]}
         recordedData={{
-          Labels: { value: [
-            [['a', 'b'], ['c', 'd']],
-            [['e', 'f'], ['g', 'h']],
-          ] },
+          Labels: {
+            value: [
+              [
+                ['a', 'b'],
+                ['c', 'd'],
+              ],
+              [
+                ['e', 'f'],
+                ['g', 'h'],
+              ],
+            ],
+          },
         }}
       />,
     )
@@ -158,7 +164,12 @@ describe('RecordedDataResults', () => {
         rules={rules.slice(1)}
         recordedData={{
           Profile: { value: [1, 2, 3] },
-          Field: { value: [[1, 2, 3], [4, 5, 6]] },
+          Field: {
+            value: [
+              [1, 2, 3],
+              [4, 5, 6],
+            ],
+          },
         }}
       />,
     )
@@ -173,7 +184,14 @@ describe('RecordedDataResults', () => {
     const markup = renderToStaticMarkup(
       <RecordedDataResults
         rules={[vectorRule]}
-        recordedData={{ 'Current density': { value: [[3, 4, 0], [0, 0, 5]] } }}
+        recordedData={{
+          'Current density': {
+            value: [
+              [3, 4, 0],
+              [0, 0, 5],
+            ],
+          },
+        }}
       />,
     )
 
@@ -190,18 +208,30 @@ describe('RecordedDataResults', () => {
     const converted = convertRecordedNumericValue([[3, 4, 0]], 'A', 'mA', 1)
     expect(projectRecordedComponents(converted, 1, 1, 'norm')).toEqual([5_000])
     expect(projectRecordedComponents(converted, 1, 1, 'component:1')).toEqual([4_000])
-    expect(projectRecordedComponents(
-      [[1, 2, 2], [0, 0, 0], [0, 0, 0]],
-      0,
-      2,
-      'norm',
-    )).toBe(3)
-    expect(projectRecordedComponents(
-      [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-      0,
-      2,
-      'component:2,1',
-    )).toBe(8)
+    expect(
+      projectRecordedComponents(
+        [
+          [1, 2, 2],
+          [0, 0, 0],
+          [0, 0, 0],
+        ],
+        0,
+        2,
+        'norm',
+      ),
+    ).toBe(3)
+    expect(
+      projectRecordedComponents(
+        [
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ],
+        0,
+        2,
+        'component:2,1',
+      ),
+    ).toBe(8)
   })
 
   it('enumerates high-order selectors and labels rotated-basis components', () => {
@@ -216,10 +246,7 @@ describe('RecordedDataResults', () => {
   it('renders a resolved empty wildcard tensor without attempting an invalid slice', () => {
     const emptyRule = rule('Dynamic empty', [-1, -1, -1], 'float32')
     const markup = renderToStaticMarkup(
-      <RecordedDataResults
-        rules={[emptyRule]}
-        recordedData={{ 'Dynamic empty': { value: [] } }}
-      />,
+      <RecordedDataResults rules={[emptyRule]} recordedData={{ 'Dynamic empty': { value: [] } }} />,
     )
 
     expect(markup).toContain('No recorded values')

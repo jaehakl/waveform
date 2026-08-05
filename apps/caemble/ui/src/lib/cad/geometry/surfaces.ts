@@ -16,18 +16,17 @@ export function deriveGeometrySurfaces(geometry: unknown) {
 
   const snapEpsilon = Math.max(measurements.measureEpsilon(geometry) * 1e-6, Number.EPSILON)
   const snappedPolygons = geometries.geom3.toPolygons(geometry as CadGeom3).map((polygon) => {
-    const snapped = geometries.poly3.create(polygon.vertices.map((vertex) => [
-      Math.round(vertex[0] / snapEpsilon) * snapEpsilon,
-      Math.round(vertex[1] / snapEpsilon) * snapEpsilon,
-      Math.round(vertex[2] / snapEpsilon) * snapEpsilon,
-    ]))
+    const snapped = geometries.poly3.create(
+      polygon.vertices.map((vertex) => [
+        Math.round(vertex[0] / snapEpsilon) * snapEpsilon,
+        Math.round(vertex[1] / snapEpsilon) * snapEpsilon,
+        Math.round(vertex[2] / snapEpsilon) * snapEpsilon,
+      ]),
+    )
     if (polygon.color) snapped.color = polygon.color
     return snapped
   })
-  const normalizedGeometry = cadGeneralize(
-    { triangulate: true },
-    geometries.geom3.create(snappedPolygons),
-  )
+  const normalizedGeometry = cadGeneralize({ triangulate: true }, geometries.geom3.create(snappedPolygons))
   const polygons = geometries.geom3.toPolygons(normalizedGeometry)
   const normals = polygons.map((polygon) => geometries.poly3.plane(polygon))
   const adjacentPolygons = polygons.map(() => new Set<number>())

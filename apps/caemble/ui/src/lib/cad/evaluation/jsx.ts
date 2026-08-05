@@ -1,13 +1,7 @@
 import type { CadElementType, CadNode } from './types'
 
 export function isCadNode(value: unknown): value is CadNode {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'type' in value &&
-    'props' in value &&
-    'children' in value
-  )
+  return typeof value === 'object' && value !== null && 'type' in value && 'props' in value && 'children' in value
 }
 
 export function flattenValues(values: unknown[]): unknown[] {
@@ -25,5 +19,3 @@ export function h(type: CadElementType, props: Record<string, unknown> | null, .
     children: flattenValues(children),
   }
 }
-
-

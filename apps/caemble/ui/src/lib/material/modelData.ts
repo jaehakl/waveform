@@ -1,7 +1,4 @@
-import {
-  defineMaterialModelRelations,
-  type MaterialModelCatalog,
-} from './types'
+import { defineMaterialModelRelations, type MaterialModelCatalog } from './types'
 
 export const materialModelData = defineMaterialModelRelations([
   {
@@ -43,9 +40,9 @@ export type MaterialModelDefinitionFor<Key extends MaterialModelKey> = Extract<
   { readonly key: Key }
 >
 
-export const materialModelByKey = Object.freeze(Object.fromEntries(
-  materialModelData.map((definition) => [definition.key, definition]),
-)) as Readonly<{
+export const materialModelByKey = Object.freeze(
+  Object.fromEntries(materialModelData.map((definition) => [definition.key, definition])),
+) as Readonly<{
   [Key in MaterialModelKey]: MaterialModelDefinitionFor<Key>
 }>
 

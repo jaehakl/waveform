@@ -23,6 +23,8 @@ export { transformQuantityValue } from './runtime'
 export { identityCartesianBasis } from './identityBasis'
 export { quantityKindData } from './runtimeData'
 
-export const QuantityKind = Object.freeze(Object.fromEntries(
-  (Object.keys(quantityKindData) as QuantityKindName[]).map((name) => [name, new QuantityKindEntry(name)]),
-)) as unknown as { readonly [Name in QuantityKindName]: QuantityKindDefinition<Name> }
+export const QuantityKind = Object.freeze(
+  Object.fromEntries(
+    (Object.keys(quantityKindData) as QuantityKindName[]).map((name) => [name, new QuantityKindEntry(name)]),
+  ),
+) as unknown as { readonly [Name in QuantityKindName]: QuantityKindDefinition<Name> }

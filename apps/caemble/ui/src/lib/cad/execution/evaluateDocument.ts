@@ -1,40 +1,39 @@
 import { compileCadDocument } from '../compiler/monacoCompiler'
 import { evaluateInIsolatedRunner } from '../runner/client'
-import { assertCadEvaluationRequestV2 } from '../runner/protocol'
-import { assertCadSourceDocumentV2, type CadEvaluationInputV2 } from '../source/document'
-import type { CadDiagnosticV2, CadEvaluationRequestV2 } from '../worker/protocol'
-import type { EvaluatedDocumentSnapshotV2 } from './snapshot'
+import { assertCadEvaluationRequest } from '../runner/protocol'
+import { assertCadSourceDocument, type CadEvaluationInput } from '../source/document'
+import type { CadDiagnostic, CadEvaluationRequest } from '../worker/protocol'
+import type { EvaluatedDocumentSnapshot } from './snapshot'
 
-export type EvaluateDocumentOptionsV2 = Readonly<{
+export type EvaluateDocumentOptions = Readonly<{
   signal?: AbortSignal
   timeoutMs?: 3000 | 10000 | 30000
 }>
 
-export class CadDocumentEvaluationErrorV2 extends Error {
-  readonly diagnostics: readonly CadDiagnosticV2[]
+export class CadDocumentEvaluationError extends Error {
+  readonly diagnostics: readonly CadDiagnostic[]
 
-  constructor(message: string, diagnostics: readonly CadDiagnosticV2[] = []) {
+  constructor(message: string, diagnostics: readonly CadDiagnostic[] = []) {
     super(message)
-    this.name = 'CadDocumentEvaluationErrorV2'
+    this.name = 'CadDocumentEvaluationError'
     this.diagnostics = diagnostics
   }
 }
 
 export async function evaluateDocument(
-  input: CadEvaluationInputV2,
-  options: EvaluateDocumentOptionsV2 = {},
-): Promise<EvaluatedDocumentSnapshotV2> {
-  assertCadSourceDocumentV2(input.document)
+  input: CadEvaluationInput,
+  options: EvaluateDocumentOptions = {},
+): Promise<EvaluatedDocumentSnapshot> {
+  assertCadSourceDocument(input.document)
   if (!Number.isSafeInteger(input.seed) || input.seed < 0) {
-    throw new CadDocumentEvaluationErrorV2('Evaluation seed must be a non-negative safe integer.')
+    throw new CadDocumentEvaluationError('Evaluation seed must be a non-negative safe integer.')
   }
   if (options.signal?.aborted) throw new DOMException('The CAD evaluation was aborted.', 'AbortError')
-  const compiledProject = await compileCadDocument(input.document)
-  const request: CadEvaluationRequestV2 = {
-    type: 'evaluate-document',
-    compiledProject,
+  const compiledSource = await compileCadDocument(input.document)
+  const request: CadEvaluationRequest = {
+    type: 'evaluate',
+    compiledSource,
     document: {
-      apiVersion: 2,
       kind: input.document.kind,
       realizationSeed: input.seed,
     },
@@ -42,9 +41,9 @@ export async function evaluateDocument(
     revision: 0,
     ...(input.vars ? { vars: input.vars } : {}),
   }
-  assertCadEvaluationRequestV2(request)
+  assertCadEvaluationRequest(request)
 
-  return new Promise<EvaluatedDocumentSnapshotV2>((resolve, reject) => {
+  return new Promise<EvaluatedDocumentSnapshot>((resolve, reject) => {
     const timeoutMs = options.timeoutMs ?? 3000
     let settled = false
     let cancel: () => void = () => undefined
@@ -56,27 +55,32 @@ export async function evaluateDocument(
       options.signal?.removeEventListener('abort', abort)
       callback()
     }
-    const abort = () => finish(() => {
-      cancel()
-      reject(new DOMException('The CAD evaluation was aborted.', 'AbortError'))
-    })
+    const abort = () =>
+      finish(() => {
+        cancel()
+        reject(new DOMException('The CAD evaluation was aborted.', 'AbortError'))
+      })
     options.signal?.addEventListener('abort', abort, { once: true })
     cancel = evaluateInIsolatedRunner(request, {
       onFailure(message) {
-        finish(() => reject(new CadDocumentEvaluationErrorV2(message)))
+        finish(() => reject(new CadDocumentEvaluationError(message)))
       },
       onStart() {
         if (settled) return
-        timeout = window.setTimeout(() => finish(() => {
-          cancel()
-          reject(new CadDocumentEvaluationErrorV2(`Model evaluation timed out after ${timeoutMs / 1000} seconds.`))
-        }), timeoutMs)
+        timeout = window.setTimeout(
+          () =>
+            finish(() => {
+              cancel()
+              reject(new CadDocumentEvaluationError(`Model evaluation timed out after ${timeoutMs / 1000} seconds.`))
+            }),
+          timeoutMs,
+        )
       },
       onResponse(response) {
-        if (response.type === 'document-success') {
+        if (response.type === 'evaluation-success') {
           finish(() => resolve(response.snapshot))
         } else {
-          finish(() => reject(new CadDocumentEvaluationErrorV2(response.message, response.diagnostics)))
+          finish(() => reject(new CadDocumentEvaluationError(response.message, response.diagnostics)))
         }
       },
     })

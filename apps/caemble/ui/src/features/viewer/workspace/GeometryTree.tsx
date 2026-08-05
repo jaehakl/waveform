@@ -42,8 +42,8 @@ function GeometryTreeNode({
   const isExpanded = expanded.has(node.key)
   const hasChildren = node.children.length > 0
   const isSelected = rowId !== undefined && selectedId === rowId
-  const isDraftSelected = rowId !== undefined && draftSelection?.kind === rowKind
-    && draftSelection.memberIds.includes(rowId)
+  const isDraftSelected =
+    rowId !== undefined && draftSelection?.kind === rowKind && draftSelection.memberIds.includes(rowId)
 
   return (
     <li role="treeitem" aria-expanded={hasChildren ? isExpanded : undefined}>
@@ -83,11 +83,7 @@ function GeometryTreeNode({
             <span className="block truncate font-mono text-[10px] text-slate-400">{displayId}</span>
           </button>
         ) : hasChildren ? (
-          <button
-            className="min-w-0 flex-1 py-1.5 pr-2 text-left"
-            type="button"
-            onClick={() => onToggle(node.key)}
-          >
+          <button className="min-w-0 flex-1 py-1.5 pr-2 text-left" type="button" onClick={() => onToggle(node.key)}>
             <span className="block truncate font-medium">{node.label}</span>
             {displayId ? (
               <span className="block truncate font-mono text-[10px] text-slate-400">{displayId}</span>
@@ -152,7 +148,7 @@ function NamedGroupSection({
 }) {
   return (
     <section aria-label={title} className="border-b border-slate-200 py-1">
-      <h2 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{title}</h2>
+      <h2 className="px-3 py-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{title}</h2>
       {groups.length === 0 ? (
         <div className="px-3 pb-2 text-[11px] text-slate-400">No groups</div>
       ) : (
@@ -160,19 +156,22 @@ function NamedGroupSection({
           {groups.map((group) => {
             const isExpanded = expandedGroups.has(group.id)
             const isSelected = selectedId === group.id
-            const isDraftSelected = draftSelection?.kind === group.kind
-              && group.memberIds.length > 0
-              && group.memberIds.every((id) => draftSelection.memberIds.includes(id))
+            const isDraftSelected =
+              draftSelection?.kind === group.kind &&
+              group.memberIds.length > 0 &&
+              group.memberIds.every((id) => draftSelection.memberIds.includes(id))
             const missing = new Set(group.missingMemberIds)
             return (
               <li key={group.id}>
-                <div className={`flex min-h-9 items-center border-l-2 text-xs ${
-                  isDraftSelected
-                    ? 'border-sky-500 bg-sky-50'
-                    : isSelected
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-transparent hover:bg-slate-50'
-                }`}>
+                <div
+                  className={`flex min-h-9 items-center border-l-2 text-xs ${
+                    isDraftSelected
+                      ? 'border-sky-500 bg-sky-50'
+                      : isSelected
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-transparent hover:bg-slate-50'
+                  }`}
+                >
                   <button
                     aria-label={`${isExpanded ? 'Collapse' : 'Expand'} group ${group.name}`}
                     className="grid h-8 w-7 shrink-0 place-items-center text-[10px] text-slate-500"
@@ -207,24 +206,26 @@ function NamedGroupSection({
                   <ul className="bg-slate-50/70 py-1">
                     {group.memberIds.length === 0 ? (
                       <li className="px-8 py-1 text-[10px] text-slate-400">Empty group</li>
-                    ) : group.memberIds.map((memberId) => (
-                      <li className="flex items-center gap-2 px-8 py-1 text-[10px]" key={memberId}>
-                        <span className="min-w-0 flex-1 truncate font-mono text-slate-600">{memberId}</span>
-                        {missing.has(memberId) ? (
-                          <span className="rounded bg-amber-100 px-1 text-amber-800">Missing</span>
-                        ) : null}
-                        {!readOnly ? (
-                          <button
-                            aria-label={`Remove ${memberId} from ${group.name}`}
-                            className="text-slate-400 hover:text-rose-700"
-                            type="button"
-                            onClick={() => onRemoveMember(group, memberId)}
-                          >
-                            Remove
-                          </button>
-                        ) : null}
-                      </li>
-                    ))}
+                    ) : (
+                      group.memberIds.map((memberId) => (
+                        <li className="flex items-center gap-2 px-8 py-1 text-[10px]" key={memberId}>
+                          <span className="min-w-0 flex-1 truncate font-mono text-slate-600">{memberId}</span>
+                          {missing.has(memberId) ? (
+                            <span className="rounded bg-amber-100 px-1 text-amber-800">Missing</span>
+                          ) : null}
+                          {!readOnly ? (
+                            <button
+                              aria-label={`Remove ${memberId} from ${group.name}`}
+                              className="text-slate-400 hover:text-rose-700"
+                              type="button"
+                              onClick={() => onRemoveMember(group, memberId)}
+                            >
+                              Remove
+                            </button>
+                          ) : null}
+                        </li>
+                      ))
+                    )}
                   </ul>
                 ) : null}
               </li>
@@ -248,10 +249,9 @@ function GeometryTree({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
   const [targetGroup, setTargetGroup] = useState('')
   const [newGroupName, setNewGroupName] = useState('')
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set([
-    'structure',
-    ...scene?.tree.children.map((child) => child.key) ?? [],
-  ]))
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(['structure', ...(scene?.tree.children.map((child) => child.key) ?? [])]),
+  )
   const initializedSceneRef = useRef(scene !== null)
 
   useEffect(() => {
@@ -270,11 +270,14 @@ function GeometryTree({
       availableKeys.add(node.key)
       pending.push(...node.children)
     }
-    setExpanded((current) => new Set([
-      'structure',
-      ...(shouldApplyDefaults ? scene.tree.children.map((child) => child.key) : []),
-      ...[...current].filter((key) => availableKeys.has(key)),
-    ]))
+    setExpanded(
+      (current) =>
+        new Set([
+          'structure',
+          ...(shouldApplyDefaults ? scene.tree.children.map((child) => child.key) : []),
+          ...[...current].filter((key) => availableKeys.has(key)),
+        ]),
+    )
   }, [scene])
 
   const toggle = (key: string) => {
@@ -297,11 +300,9 @@ function GeometryTree({
 
   const handleRowSelect = (kind: DraftSelection['kind'], id: string, modified: boolean) => {
     if (modified) {
-      onDraftSelectionChange(updateDraftSelection(
-        draftSelection,
-        { kind, memberIds: [id] },
-        findDraftTarget(scene, selectedId),
-      ))
+      onDraftSelectionChange(
+        updateDraftSelection(draftSelection, { kind, memberIds: [id] }, findDraftTarget(scene, selectedId)),
+      )
       return
     }
     onDraftSelectionChange(null)
@@ -310,11 +311,13 @@ function GeometryTree({
 
   const handleNamedGroupSelect = (group: CadSceneGroup, modified: boolean) => {
     if (modified) {
-      onDraftSelectionChange(updateDraftSelection(
-        draftSelection,
-        { kind: group.kind, memberIds: group.memberIds },
-        findDraftTarget(scene, selectedId),
-      ))
+      onDraftSelectionChange(
+        updateDraftSelection(
+          draftSelection,
+          { kind: group.kind, memberIds: group.memberIds },
+          findDraftTarget(scene, selectedId),
+        ),
+      )
       return
     }
     onDraftSelectionChange(null)
@@ -327,7 +330,7 @@ function GeometryTree({
   }
 
   const removeMember = (group: CadSceneGroup, memberId: string) => {
-    const groups = group.kind === 'geometry' ? scene?.geometryGroups ?? [] : scene?.surfaceGroups ?? []
+    const groups = group.kind === 'geometry' ? (scene?.geometryGroups ?? []) : (scene?.surfaceGroups ?? [])
     applyGroupMap(group.kind, {
       ...groupMap(groups),
       [group.name]: group.memberIds.filter((id) => id !== memberId),
@@ -335,14 +338,19 @@ function GeometryTree({
   }
 
   const deleteGroup = (group: CadSceneGroup) => {
-    const groups = group.kind === 'geometry' ? scene?.geometryGroups ?? [] : scene?.surfaceGroups ?? []
-    applyGroupMap(group.kind, Object.fromEntries(
-      groups.filter((candidate) => candidate.name !== group.name).map((candidate) => [candidate.name, candidate.memberIds]),
-    ))
+    const groups = group.kind === 'geometry' ? (scene?.geometryGroups ?? []) : (scene?.surfaceGroups ?? [])
+    applyGroupMap(
+      group.kind,
+      Object.fromEntries(
+        groups
+          .filter((candidate) => candidate.name !== group.name)
+          .map((candidate) => [candidate.name, candidate.memberIds]),
+      ),
+    )
     if (selectedId === group.id) onSelect(null)
   }
 
-  const draftGroups = draftSelection?.kind === 'geometry' ? scene?.geometryGroups ?? [] : scene?.surfaceGroups ?? []
+  const draftGroups = draftSelection?.kind === 'geometry' ? (scene?.geometryGroups ?? []) : (scene?.surfaceGroups ?? [])
   const normalizedNewGroupName = newGroupName.trim()
   const saveGroupName = targetGroup || normalizedNewGroupName
   const canSaveDraft = Boolean(draftSelection?.memberIds.length && saveGroupName)
@@ -394,7 +402,11 @@ function GeometryTree({
                   onChange={(event) => setTargetGroup(event.target.value)}
                 >
                   <option value="">New group</option>
-                  {draftGroups.map((group) => <option key={group.id} value={group.name}>{group.name}</option>)}
+                  {draftGroups.map((group) => (
+                    <option key={group.id} value={group.name}>
+                      {group.name}
+                    </option>
+                  ))}
                 </select>
                 {!targetGroup ? (
                   <input
@@ -453,7 +465,7 @@ function GeometryTree({
               title="Surface Groups"
             />
             <section aria-label="Geometry Hierarchy" className="py-1">
-              <h2 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <h2 className="px-3 py-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
                 Geometry Hierarchy
               </h2>
               <ul role="tree" aria-label="Evaluated Geometry Tree">

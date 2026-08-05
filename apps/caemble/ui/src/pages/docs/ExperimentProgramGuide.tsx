@@ -8,25 +8,25 @@ import { caembleProgramExamples } from '@/lib/examples'
 const ownership = [
   ['varsSchema', 'Structure/Experiment 최상위', 'run 전에 결정되는 immutable 설계·실험 변수'],
   ['geometry, groups, lengthUnit', 'Structure/Experiment 최상위', 'reference geometry, stable target, 저작 단위'],
-  ['initialState', 'Experiment 최상위', 'solver와 무관한 초기 pose와 velocity'],
-  ['kernel 설정', 'defineTask() 내부', '해당 kernel의 mesh, 경계, 하중, 결과 요청'],
-  ['outputs', 'Experiment 최상위', '최종 결과로 공개하고 보존할 schema'],
-  ['simulate()', 'Experiment 최상위', 'task 순서, 분기, fallback, 기록 정책'],
+  ['tasks()', 'Experiment 최상위', 'vars로 각 kernel task를 구성하는 factory'],
+  ['task.outputs', 'kernel task 내부', '다른 kernel에도 전달할 중간 artifact 요청'],
+  ['recordedData', 'Experiment 최상위', 'Measurement에 최종 저장할 데이터 schema'],
+  ['simulate()', 'Experiment 최상위', 'task 순서, 분기, artifact 전달·해제·기록 정책'],
 ] as const
 
 const dcMethods = [
   ['dc.voxel-grid', 'initializations', 'structure.geometry.<group>', 'gridShape'],
   ['dc.source-potential', 'boundaryConditions', 'structure.surface.<group>', 'voltage'],
   ['dc.reference-potential', 'boundaryConditions', 'structure.surface.<group>', 'voltage'],
-  ['dc.current-density', 'recordedData', 'structure.geometry.<group>', 'crossSectionPosition'],
-  ['dc.total-current', 'recordedData', 'structure.geometry.<group>', 'crossSectionPosition'],
+  ['dc.current-density', 'outputs', 'structure.geometry.<group>', 'crossSectionPosition'],
+  ['dc.total-current', 'outputs', 'structure.geometry.<group>', 'crossSectionPosition'],
 ] as const
 
 function Code({ children }: { children: string }) {
   return <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.82em] text-slate-800">{children}</code>
 }
 
-export function V3ExperimentGuide() {
+export function ExperimentProgramGuide() {
   const firstExample = caembleProgramExamples[0]
 
   return (
@@ -34,25 +34,24 @@ export function V3ExperimentGuide() {
       <div className="mx-auto max-w-6xl space-y-10 px-4 py-7 sm:px-6 sm:py-10">
         <header className="overflow-hidden rounded-2xl border bg-gradient-to-br from-orange-50 via-white to-slate-50 p-6 sm:p-9">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>Experiment Program v3</Badge>
-            <Badge className="border bg-white">@caemble/kernels/v1</Badge>
+            <Badge>Experiment Program</Badge>
+            <Badge className="border bg-white">@caemble/core · @caemble/kernels</Badge>
           </div>
           <h2 className="mt-5 max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
             kernel task를 조합해 문제에 맞는 CAE 프로그램을 작성합니다
           </h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            고정된 geometry와 설계 변수는 Experiment 최상위에 두고, 물리 분야별 수치 설정은 named task로
-            분리합니다. <Code>simulate()</Code>에는 task의 선택·순서·분기와 결과 기록만 남깁니다.
+            고정된 geometry와 설계 변수는 Experiment 최상위에 두고, 물리 분야별 수치 설정은 named task로 분리합니다.{' '}
+            <Code>simulate()</Code>에는 task의 선택·순서·분기와 결과 기록만 남깁니다.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Button asChild>
               <Link to={`/examples/${firstExample.id}`}>
-                <PlayCircle />
-                첫 예제 실행
+                <PlayCircle />첫 예제 실행
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <a href="#v3-minimal-pair">
+              <a href="#experiment-program-minimal-pair">
                 최소 코드 보기
                 <ArrowRight />
               </a>
@@ -60,13 +59,13 @@ export function V3ExperimentGuide() {
           </div>
         </header>
 
-        <section aria-labelledby="v3-mental-model">
+        <section aria-labelledby="experiment-program-mental-model">
           <div className="mb-4 flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-lg bg-orange-100 text-orange-800">
               <GitBranch className="size-4" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-950" id="v3-mental-model">
+              <h3 className="font-semibold text-slate-950" id="experiment-program-mental-model">
                 먼저 책임을 세 계층으로 나눕니다
               </h3>
               <p className="text-sm text-slate-600">definition, kernel task, orchestration의 경계를 유지하세요.</p>
@@ -93,18 +92,19 @@ export function V3ExperimentGuide() {
             </table>
           </div>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            시간, pose, velocity, displacement, temperature처럼 run 중 변하는 값은 <Code>varsSchema</Code>를 다시
-            평가해 표현하지 않습니다. <Code>SimulationStateRef</Code>와 <Code>ArtifactRef</Code>로 다음 task에
-            전달합니다.
+            run 중 계산된 물리량은 <Code>varsSchema</Code>를 다시 평가해 표현하지 않습니다. kernel의 opaque{' '}
+            <Code>StateRef</Code>와 typed <Code>ArtifactRef</Code>를 다음 task에 명시적으로 전달합니다.
           </p>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3" aria-label="v3 작성 순서">
+        <section className="grid gap-4 lg:grid-cols-3" aria-label="Experiment Program 작성 순서">
           <Card>
             <CardHeader>
               <Boxes className="size-5 text-orange-700" />
               <CardTitle className="text-base">1. 고정 세계 정의</CardTitle>
-              <CardDescription>Structure와 Experiment geometry, stable ID, group, lengthUnit을 작성합니다.</CardDescription>
+              <CardDescription>
+                Structure와 Experiment geometry, stable ID, group, lengthUnit을 작성합니다.
+              </CardDescription>
             </CardHeader>
           </Card>
           <Card>
@@ -112,7 +112,7 @@ export function V3ExperimentGuide() {
               <CircleDot className="size-5 text-orange-700" />
               <CardTitle className="text-base">2. named task 선언</CardTitle>
               <CardDescription>
-                <Code>defineTask(kernel, configure)</Code>에서 kernel 전용 설정과 결과 요청을 정의합니다.
+                <Code>{'tasks: ({ vars }) => ({ ... })'}</Code>에서 kernel 전용 설정과 중간 output을 정의합니다.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -121,13 +121,13 @@ export function V3ExperimentGuide() {
               <Braces className="size-5 text-orange-700" />
               <CardTitle className="text-base">3. 실행 정책 작성</CardTitle>
               <CardDescription>
-                <Code>sim.run()</Code>으로 state를 전개하고 <Code>sim.record()</Code>로 공개 결과를 보존합니다.
+                <Code>sim.run()</Code>으로 artifact를 교환하고 <Code>sim.record()</Code>로 RecordedData를 확정합니다.
               </CardDescription>
             </CardHeader>
           </Card>
         </section>
 
-        <section className="space-y-4" id="v3-minimal-pair">
+        <section className="space-y-4" id="experiment-program-minimal-pair">
           <div>
             <h3 className="font-semibold text-slate-950">동작 검증된 최소 Structure–Experiment pair</h3>
             <p className="mt-1 text-sm leading-6 text-slate-600">
@@ -158,31 +158,31 @@ export function V3ExperimentGuide() {
         <section className="grid gap-5 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">@caemble/core/v3 실행 규칙</CardTitle>
+              <CardTitle className="text-lg">@caemble/core 실행 규칙</CardTitle>
               <CardDescription>state와 artifact는 현재 run 안에서만 유효한 capability reference입니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-6 text-slate-600">
               <p>
-                task의 <Code>{'configure({ vars, world })'}</Code>는 <Code>simulate()</Code> 전에 한 번 평가됩니다.
+                <Code>{'tasks({ vars })'}</Code>는 <Code>simulate()</Code> 전에 한 번 평가됩니다.
               </p>
               <p>
-                성공한 kernel만 새 state revision을 commit합니다. 실패한 호출은 revision을 만들지 않으므로 같은
-                입력 state에서 fallback task를 실행할 수 있습니다.
+                kernel이 자기 opaque state를 변경했을 때만 revision이 증가합니다. 실패한 호출은 state와 artifact를 함께
+                rollback하므로 같은 입력 state에서 다른 branch를 실행할 수 있습니다.
               </p>
               <p>
-                body 생성·삭제, 다른 run의 ref, 잘못된 output schema, 취소·격리 위반은 fatal 오류이며 사용자 코드가
-                catch해도 run 전체가 실패합니다.
+                다른 run의 ref, release한 ref, 잘못된 artifact·observation schema, 취소·격리 위반은 fatal 오류이며
+                사용자 코드가 catch해도 run 전체가 실패합니다.
               </p>
               <p>
-                시계열 output은 <Code>seriesAxis</Code>를 선언하고 모든 <Code>sim.record()</Code>에 finite time을
-                제공해야 합니다.
+                <Code>sim.record()</Code>는 global RecordedData schema로 정규화해 staging합니다. 뒤 task가 실패하면
+                staging 전체를 폐기하며, 시계열은 시간축을 가진 하나의 tensor artifact로 기록합니다.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">DC bridge의 현재 한계</CardTitle>
+              <CardTitle className="text-lg">DC kernel의 현재 한계</CardTitle>
               <CardDescription>브라우저에서 검증할 수 있는 bounded reference kernel입니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm leading-6 text-slate-600">
@@ -192,15 +192,15 @@ export function V3ExperimentGuide() {
                 지원합니다.
               </p>
               <p>
-                voxel grid의 각 축은 3 이상이고 총 cell 수는 250,000 이하여야 합니다. 길이, 전압, 전도도, 결과는
-                kernel 경계에서 SI로 변환됩니다.
+                voxel grid의 각 축은 3 이상이고 총 cell 수는 250,000 이하여야 합니다. 길이, 전압, 전도도, 결과는 kernel
+                경계에서 SI로 변환됩니다.
               </p>
             </CardContent>
           </Card>
         </section>
 
         <section>
-          <h3 className="font-semibold text-slate-950">@caemble/kernels/v1 · dcCurrentDensity method</h3>
+          <h3 className="font-semibold text-slate-950">@caemble/kernels · dcCurrentDensity method</h3>
           <div className="mt-4 overflow-x-auto rounded-xl border">
             <table className="w-full min-w-[720px] border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs text-slate-500">
@@ -215,7 +215,10 @@ export function V3ExperimentGuide() {
                 {dcMethods.map((row) => (
                   <tr className="border-b last:border-0" key={row[0]}>
                     {row.map((cell, index) => (
-                      <td className={index === 0 ? 'px-4 py-3 font-mono text-xs' : 'px-4 py-3 text-slate-600'} key={cell}>
+                      <td
+                        className={index === 0 ? 'px-4 py-3 font-mono text-xs' : 'px-4 py-3 text-slate-600'}
+                        key={cell}
+                      >
                         {cell}
                       </td>
                     ))}
@@ -229,7 +232,9 @@ export function V3ExperimentGuide() {
         <section>
           <div className="mb-4">
             <h3 className="font-semibold text-slate-950">단계별 실행 예제</h3>
-            <p className="mt-1 text-sm text-slate-600">모든 예제는 실제 DC kernel과 현재 공개 declaration으로 검증됩니다.</p>
+            <p className="mt-1 text-sm text-slate-600">
+              모든 예제는 실제 DC kernel과 현재 공개 declaration으로 검증됩니다.
+            </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {caembleProgramExamples.map((example, index) => (
@@ -237,7 +242,9 @@ export function V3ExperimentGuide() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <Badge className="border bg-white">0{index + 1}</Badge>
-                    <span className="text-xs text-muted-foreground">{example.verification.kernelTasks.length} task</span>
+                    <span className="text-xs text-muted-foreground">
+                      {example.verification.kernelTasks.length} task
+                    </span>
                   </div>
                   <CardTitle className="text-lg">{example.title}</CardTitle>
                   <CardDescription className="leading-5">{example.description}</CardDescription>
@@ -267,13 +274,13 @@ export function V3ExperimentGuide() {
           <h3 className="font-semibold">문제가 생기면 이 순서로 확인하세요</h3>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Structure와 Experiment가 모두 Ready인지 확인합니다.</li>
-            <li>Solver Spec에서 kernel version과 target group 이름을 확인합니다.</li>
+            <li>Kernel descriptor에서 version과 target group 이름을 확인합니다.</li>
             <li>Material conductivity, grid cell 수, terminal surface와 voltage를 확인합니다.</li>
-            <li>task의 recordedData key, Experiment output 이름, sim.record 이름을 맞춥니다.</li>
+            <li>task output key, Experiment RecordedData 이름, sim.record 이름을 구분해 확인합니다.</li>
             <li>Source를 수정했다면 Stale 결과를 다시 실행합니다.</li>
           </ol>
           <p className="mt-3">
-            저장소의 상세 문서는 <Code>apps/caemble/ui/docs/experiment-program-v3.md</Code>에 있습니다.
+            저장소의 상세 문서는 <Code>apps/caemble/ui/docs/experiment-program.md</Code>에 있습니다.
           </p>
         </section>
       </div>

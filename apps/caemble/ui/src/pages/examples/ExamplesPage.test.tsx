@@ -6,11 +6,7 @@ import type { ReactNode } from 'react'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  cadEntrySource,
-  updateCadEntrySource,
-  type CadSourceDocumentV2,
-} from '@/lib/cad'
+import { cadSource, updateCadSource, type CadSourceDocument } from '@/lib/cad'
 import { caembleProgramExamples } from '@/lib/examples'
 import { ExamplesPage } from './ExamplesPage'
 
@@ -47,15 +43,15 @@ vi.mock('@/features/viewer/workspace/StructureExperimentViewer', () => ({
     structure,
     structureDocument,
   }: {
-    experiment: CadSourceDocumentV2
+    experiment: CadSourceDocument
     experimentDocument: { handleSourceChange: (source: string) => void }
     onActiveDocumentTypeChange: (documentType: 'structure' | 'experiment') => void
-    structure: CadSourceDocumentV2
+    structure: CadSourceDocument
     structureDocument: { handleSourceChange: (source: string) => void }
   }) => (
     <div>
-      <div data-testid="structure-source">{cadEntrySource(structure)}</div>
-      <div data-testid="experiment-source">{cadEntrySource(experiment)}</div>
+      <div data-testid="structure-source">{cadSource(structure)}</div>
+      <div data-testid="experiment-source">{cadSource(experiment)}</div>
       <button type="button" onClick={() => structureDocument.handleSourceChange('changed structure source')}>
         Structure 편집
       </button>
@@ -123,36 +119,39 @@ beforeEach(() => {
   workspace.run.mockReturnValue('example-run')
   workspace.useCadWorkspace.mockImplementation(
     (
-      structure: CadSourceDocumentV2,
-      experiment: CadSourceDocumentV2,
-      onStructureChange: (document: CadSourceDocumentV2) => void,
-      onExperimentChange: (document: CadSourceDocumentV2) => void,
+      structure: CadSourceDocument,
+      experiment: CadSourceDocument,
+      onStructureChange: (document: CadSourceDocument) => void,
+      onExperimentChange: (document: CadSourceDocument) => void,
     ) => ({
       structureDocument: {
         handleRenderEnd: workspace.structureRenderEnd,
         handleRenderError: workspace.structureRenderError,
         handleRenderStart: workspace.structureRenderStart,
-        handleSourceChange: (source: string) =>
-          onStructureChange(updateCadEntrySource(structure, source)),
+        handleSourceChange: (source: string) => onStructureChange(updateCadSource(structure, source)),
         scene: { lengthUnit: 'mm', parts: [] },
         sceneHash: 'structure-scene',
         selection: null,
         variables: {},
       },
       experimentDocument: {
-        experimentRules: null,
         handleRenderEnd: workspace.experimentRenderEnd,
         handleRenderError: workspace.experimentRenderError,
         handleRenderStart: workspace.experimentRenderStart,
-        handleSourceChange: (source: string) =>
-          onExperimentChange(updateCadEntrySource(experiment, source)),
+        handleSourceChange: (source: string) => onExperimentChange(updateCadSource(experiment, source)),
         scene: { lengthUnit: 'mm', parts: [] },
         sceneHash: 'experiment-scene',
         selection: null,
         simulationProgram: {
-          version: 3,
-          tasks: { solveCurrent: { name: 'dc-current-density', version: '0.0.0' } },
-          outputs: {
+          formatVersion: 1,
+          programHash: 'example-program',
+          tasks: {
+            solveCurrent: {
+              kernel: { name: 'dc-current-density', version: '0.0.0' },
+              configHash: 'example-config',
+            },
+          },
+          recordedData: {
             totalCurrent: {
               dtype: 'float64',
               unit: 'A',
@@ -160,7 +159,6 @@ beforeEach(() => {
             },
           },
         },
-        solver: null,
         variables: {},
       },
       simulation: {
@@ -171,7 +169,8 @@ beforeEach(() => {
         process: {
           runId: null,
           status: 'idle',
-          solver: null,
+          engine: null,
+          stage: null,
           error: null,
           startedAt: null,
           finishedAt: null,
@@ -198,8 +197,8 @@ describe('ExamplesPage', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/examples/${example.id}`))
     expect(screen.getByRole('heading', { name: example.title })).toBeInTheDocument()
-    expect(screen.getByTestId('structure-source')).toHaveTextContent("structure({")
-    expect(screen.getByTestId('experiment-source')).toHaveTextContent("defineTask(dcCurrentDensity")
+    expect(screen.getByTestId('structure-source')).toHaveTextContent('structure({')
+    expect(screen.getByTestId('experiment-source')).toHaveTextContent('dcCurrentDensity({')
     expect(screen.getByTestId('program-manifest')).toHaveTextContent('v3 program connected')
 
     await userEvent.click(screen.getByRole('button', { name: 'Mock Run Simulation' }))
@@ -219,7 +218,7 @@ describe('ExamplesPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '전체 예제 초기화' }))
     expect(screen.queryByText('수정됨')).not.toBeInTheDocument()
-    expect(screen.getByTestId('structure-source')).toHaveTextContent("structure({")
+    expect(screen.getByTestId('structure-source')).toHaveTextContent('structure({')
   })
 
   it('confirms before discarding edits when another example is selected', async () => {

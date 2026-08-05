@@ -1,10 +1,7 @@
 import { geometries, primitives } from '@jscad/modeling'
 import { CadModelError } from '../../../model/core'
 import type { PrimitiveElementDefinition } from '../../../evaluation/types'
-import {
-  curvedSurfaceSphereManifest,
-  type CurvedSurfaceSphereAttributes,
-} from './definition'
+import { curvedSurfaceSphereManifest, type CurvedSurfaceSphereAttributes } from './definition'
 
 const tau = Math.PI * 2
 
@@ -60,11 +57,11 @@ export function createCurvedSurfaceSphereGeometry(attributes: CurvedSurfaceSpher
     }
 
     const radialDistance = radius * Math.sin(phi)
-    return [
-      radialDistance * Math.cos(theta),
-      radialDistance * Math.sin(theta),
-      radius * Math.cos(phi),
-    ] as [number, number, number]
+    return [radialDistance * Math.cos(theta), radialDistance * Math.sin(theta), radius * Math.cos(phi)] as [
+      number,
+      number,
+      number,
+    ]
   }
 
   const points: [number, number, number][] = [pointAt(0, 0, 0, 0)]
@@ -102,11 +99,7 @@ export function createCurvedSurfaceSphereGeometry(attributes: CurvedSurfaceSpher
   const lastRingStart = 1 + (polarSegments - 2) * azimuthalSegments
   for (let azimuthalIndex = 0; azimuthalIndex < azimuthalSegments; azimuthalIndex += 1) {
     const nextAzimuthalIndex = (azimuthalIndex + 1) % azimuthalSegments
-    faces.push([
-      lastRingStart + azimuthalIndex,
-      southPoleIndex,
-      lastRingStart + nextAzimuthalIndex,
-    ])
+    faces.push([lastRingStart + azimuthalIndex, southPoleIndex, lastRingStart + nextAzimuthalIndex])
   }
 
   return primitives.polyhedron({ points, faces })

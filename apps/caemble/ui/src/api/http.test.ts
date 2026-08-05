@@ -48,9 +48,7 @@ describe('native fetch API client', () => {
         const resource = String(params.resource)
         const count = (calls.get(resource) ?? 0) + 1
         calls.set(resource, count)
-        return count === 1
-          ? HttpResponse.json({ detail: 'expired' }, { status: 401 })
-          : HttpResponse.json({ resource })
+        return count === 1 ? HttpResponse.json({ detail: 'expired' }, { status: 401 }) : HttpResponse.json({ resource })
       }),
       http.get('http://api.test/auth/refresh', async () => {
         refreshCalls += 1
@@ -60,10 +58,9 @@ describe('native fetch API client', () => {
     )
 
     const { request } = await loadClient()
-    await expect(Promise.all([
-      request<{ resource: string }>('get', '/first'),
-      request<{ resource: string }>('get', '/second'),
-    ])).resolves.toEqual([{ resource: 'first' }, { resource: 'second' }])
+    await expect(
+      Promise.all([request<{ resource: string }>('get', '/first'), request<{ resource: string }>('get', '/second')]),
+    ).resolves.toEqual([{ resource: 'first' }, { resource: 'second' }])
     expect(refreshCalls).toBe(1)
   })
 

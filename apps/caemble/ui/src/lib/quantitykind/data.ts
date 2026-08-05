@@ -39,24 +39,24 @@ export const quantityKindDomains = Object.freeze([
 ] as const)
 
 const quantityKindDataByDomain = [
-  ["general", generalQuantityKindData],
-  ["geometry", geometryQuantityKindData],
-  ["kinematics", kinematicsQuantityKindData],
-  ["mechanics", mechanicsQuantityKindData],
-  ["fluidDynamics", fluidDynamicsQuantityKindData],
-  ["thermodynamics", thermodynamicsQuantityKindData],
-  ["transport", transportQuantityKindData],
-  ["electromagnetism", electromagnetismQuantityKindData],
-  ["coupledPhenomena", coupledPhenomenaQuantityKindData],
-  ["optics", opticsQuantityKindData],
-  ["acoustics", acousticsQuantityKindData],
-  ["chemistry", chemistryQuantityKindData],
-  ["materials", materialsQuantityKindData],
-  ["atomicNuclear", atomicNuclearQuantityKindData],
-  ["lifeSciences", lifeSciencesQuantityKindData],
-  ["earthSpace", earthSpaceQuantityKindData],
-  ["informationComputing", informationComputingQuantityKindData],
-  ["economicsOperations", economicsOperationsQuantityKindData],
+  ['general', generalQuantityKindData],
+  ['geometry', geometryQuantityKindData],
+  ['kinematics', kinematicsQuantityKindData],
+  ['mechanics', mechanicsQuantityKindData],
+  ['fluidDynamics', fluidDynamicsQuantityKindData],
+  ['thermodynamics', thermodynamicsQuantityKindData],
+  ['transport', transportQuantityKindData],
+  ['electromagnetism', electromagnetismQuantityKindData],
+  ['coupledPhenomena', coupledPhenomenaQuantityKindData],
+  ['optics', opticsQuantityKindData],
+  ['acoustics', acousticsQuantityKindData],
+  ['chemistry', chemistryQuantityKindData],
+  ['materials', materialsQuantityKindData],
+  ['atomicNuclear', atomicNuclearQuantityKindData],
+  ['lifeSciences', lifeSciencesQuantityKindData],
+  ['earthSpace', earthSpaceQuantityKindData],
+  ['informationComputing', informationComputingQuantityKindData],
+  ['economicsOperations', economicsOperationsQuantityKindData],
 ] as const
 
 export const quantityKindData = {
@@ -80,10 +80,7 @@ export const quantityKindData = {
   ...economicsOperationsQuantityKindData,
 } as const
 
-const domainEntryCount = quantityKindDataByDomain.reduce(
-  (count, [, data]) => count + Object.keys(data).length,
-  0,
-)
+const domainEntryCount = quantityKindDataByDomain.reduce((count, [, data]) => count + Object.keys(data).length, 0)
 if (Object.keys(quantityKindData).length !== domainEntryCount) {
   throw new Error('QuantityKind names must be unique across physical domains.')
 }
@@ -97,10 +94,10 @@ for (const [domain, data] of quantityKindDataByDomain) {
     const expectedPrefix = domain === 'general' ? '' : `${domain}.`
     const baseName = expectedPrefix ? name.slice(expectedPrefix.length) : name
     if (
-      entry.domain !== domain
-      || (expectedPrefix ? !name.startsWith(expectedPrefix) : name.includes('.'))
-      || baseName.length === 0
-      || baseName.includes('.')
+      entry.domain !== domain ||
+      (expectedPrefix ? !name.startsWith(expectedPrefix) : name.includes('.')) ||
+      baseName.length === 0 ||
+      baseName.includes('.')
     ) {
       throw new Error(`QuantityKind ${name} does not match domain ${domain}.`)
     }

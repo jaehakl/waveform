@@ -27,13 +27,7 @@ import CadViewer from '@/features/viewer/viewer/CadViewer'
 import { StructureExperimentViewer } from '@/features/viewer/workspace/StructureExperimentViewer'
 import { useCadWorkspace } from '@/features/viewer/workspace/useCadWorkspace'
 import { VarsControls } from '@/features/viewer/workspace/VarsControls'
-import {
-  cadEntrySource,
-  createCadSourceDocumentV2,
-  type CadDocumentType,
-  type CadSourceDocumentV2,
-  type Vars,
-} from '@/lib/cad'
+import { cadSource, createCadSourceDocument, type CadDocumentType, type CadSourceDocument, type Vars } from '@/lib/cad'
 import { defaultCode } from '@/lib/defaultCode'
 import { readMeasurementReturnTo, updateMeasurementReturnTo } from '@/pages/measurements/measurement-return'
 
@@ -199,7 +193,7 @@ export function StructurePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
-  const [structure, setStructure] = useState<CadSourceDocumentV2 | null>(null)
+  const [structure, setStructure] = useState<CadSourceDocument | null>(null)
   const [structureVars, setStructureVars] = useState<Readonly<Vars> | undefined>()
   const [savedStructureCode, setSavedStructureCode] = useState<string | null>(null)
   const [metadataTarget, setMetadataTarget] = useState<StructureRow | null>(null)
@@ -239,12 +233,12 @@ export function StructurePage() {
   const selectedStructure = rows.find((row) => row.id === selectedStructureId) ?? null
   const currentExperiment = useMemo(
     () =>
-      currentExperimentQuery.data ? createCadSourceDocumentV2('experiment', currentExperimentQuery.data.code) : null,
+      currentExperimentQuery.data ? createCadSourceDocument('experiment', currentExperimentQuery.data.code) : null,
     [currentExperimentQuery.data],
   )
   const canManage = useCallback((row: StructureRow) => canManageStructure(row, auth.user), [auth.user])
   const selectedManageable = Boolean(selectedStructure && canManage(selectedStructure))
-  const dirty = Boolean(structure && (savedStructureCode === null || cadEntrySource(structure) !== savedStructureCode))
+  const dirty = Boolean(structure && (savedStructureCode === null || cadSource(structure) !== savedStructureCode))
 
   const leafRows = useMemo(() => {
     const visibleIds = new Set(rows.map((row) => row.id))
@@ -291,7 +285,7 @@ export function StructurePage() {
 
   const applyStructure = useCallback(
     (row: StructureRow) => {
-      setStructure(createCadSourceDocumentV2('structure', row.code))
+      setStructure(createCadSourceDocument('structure', row.code))
       setStructureVars(undefined)
       setSelectedStructureId(row.id)
       setSavedStructureCode(row.code)
@@ -310,7 +304,7 @@ export function StructurePage() {
   }, [setSelectedStructureId, updateDeepLink, updateEditorOpen])
 
   const startNewStructure = useCallback(() => {
-    setStructure(createCadSourceDocumentV2('structure', defaultCode))
+    setStructure(createCadSourceDocument('structure', defaultCode))
     setStructureVars(undefined)
     setSelectedStructureId(null)
     setSavedStructureCode(null)
@@ -376,9 +370,9 @@ export function StructurePage() {
     () => createDocumentMaterialResolver(null),
     // These values intentionally define the lifetime of the session-local Material lookup cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [auth.user, currentExperiment?.files, currentExperimentId, selectedStructureId, structure?.files],
+    [auth.user, currentExperiment?.source, currentExperimentId, selectedStructureId, structure?.source],
   )
-  const handleStructureChange = useCallback((document: CadSourceDocumentV2) => {
+  const handleStructureChange = useCallback((document: CadSourceDocument) => {
     setStructure(document)
     setStructureVars(undefined)
   }, [])
@@ -390,7 +384,7 @@ export function StructurePage() {
     structureVars,
     undefined,
     resolveMaterials,
-    'prepared-vars',
+    'fast-reroll',
   )
 
   const invalidateStructures = useCallback(async () => {
@@ -610,19 +604,12 @@ export function StructurePage() {
     () =>
       currentExperiment
         ? {
-            experimentRules: experimentDocument.experimentRules,
             scene: experimentDocument.scene,
             sceneHash: experimentDocument.sceneHash,
             variables: experimentDocument.variables,
           }
         : null,
-    [
-      currentExperiment,
-      experimentDocument.experimentRules,
-      experimentDocument.scene,
-      experimentDocument.sceneHash,
-      experimentDocument.variables,
-    ],
+    [currentExperiment, experimentDocument.scene, experimentDocument.sceneHash, experimentDocument.variables],
   )
   const viewerSelection = useMemo(
     () =>
@@ -868,9 +855,6 @@ export function StructurePage() {
             program: experimentDocument.simulationProgram,
             programResult: simulation.programResult,
             run: simulation.run,
-            solver: experimentDocument.simulationProgram
-              ? { name: 'experiment-program', version: '3' }
-              : experimentDocument.solver,
             stale: simulation.stale,
           }}
           structure={structureViewerDocument}
@@ -986,8 +970,8 @@ export function StructurePage() {
               {pendingReturn
                 ? 'Measurement로 돌아가면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
                 : pendingCreate
-                ? '새 Structure를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
-                : '다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
+                  ? '새 Structure를 시작하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'
+                  : '다른 Structure로 이동하면 현재 Editor의 코드 변경을 복구할 수 없습니다.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

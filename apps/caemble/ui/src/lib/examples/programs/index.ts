@@ -8,15 +8,8 @@ export {
   dcNotchedCurrentDensityExperimentCode,
   dcNotchedCurrentDensityStructureCode,
 } from './dcNotchedCurrentDensity'
-export {
-  dcResolutionStudyExample,
-  dcResolutionStudyExperimentCode,
-} from './dcResolutionStudy'
-export {
-  dcUniformBarExample,
-  dcUniformBarExperimentCode,
-  dcUniformBarStructureCode,
-} from './dcUniformBar'
+export { dcResolutionStudyExample, dcResolutionStudyExperimentCode } from './dcResolutionStudy'
+export { dcUniformBarExample, dcUniformBarExperimentCode, dcUniformBarStructureCode } from './dcUniformBar'
 
 export const CAEMBLE_PROGRAM_EXAMPLE_SEED = 20_260_803
 

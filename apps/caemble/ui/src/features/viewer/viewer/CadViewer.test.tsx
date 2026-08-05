@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { CadScene } from '@/lib/cad'
+import type { SimulationProgramManifest } from '@/lib/simulation'
 import CadViewer from './CadViewer'
 import { resolveCadViewerContent } from './cadViewerContent'
 
@@ -18,6 +19,24 @@ const experimentScene: CadScene = {
   tree: { key: 'experiment', label: 'Experiment', children: [] },
   geometryGroups: [],
   surfaceGroups: [],
+}
+
+const program: SimulationProgramManifest = {
+  formatVersion: 1,
+  programHash: 'program-hash',
+  tasks: {
+    electric: {
+      kernel: { name: 'dc-current-density', version: '0.0.0' },
+      configHash: 'dc-config',
+    },
+  },
+  recordedData: {
+    measuredCurrent: {
+      dtype: 'float64',
+      unit: 'A',
+      quantityKind: 'electromagnetism.ElectricCurrent',
+    },
+  },
 }
 
 describe('CadViewer', () => {
@@ -91,26 +110,11 @@ describe('CadViewer', () => {
     expect(meterExperimentScene.lengthUnit).toBe('m')
   })
 
-  it('shows Results only when the Experiment exposes recorded rules', () => {
-    const experimentRules = {
-      initializations: [],
-      boundaryConditions: [],
-      recordedData: [{
-        target: ['experiment.geometry.domain'] as const,
-        label: 'Domain average',
-        methodId: 'field.average',
-        parameters: {},
-        result: {
-          dtype: 'float64' as const,
-          unit: '{fraction}',
-          quantityKind: 'DimensionlessRatio' as const,
-        },
-      }],
-    }
+  it('does not expose task artifacts as Results without a global RecordedData manifest', () => {
     const markup = renderToStaticMarkup(
       <CadViewer
-        experiment={{ scene: experimentScene, variables: {}, experimentRules }}
-        recordedData={{ 'Domain average': { value: 0.5 } }}
+        experiment={{ scene: experimentScene, variables: {} }}
+        recordedData={{ currentDensity: { value: [1, 2, 3] } }}
         selected={null}
         structure={null}
         onRenderEnd={() => undefined}
@@ -119,15 +123,18 @@ describe('CadViewer', () => {
       />,
     )
 
-    expect(markup).toContain('id="viewer-results-tab"')
-    expect(markup).toContain('>Results</button>')
+    expect(markup).not.toContain('id="viewer-results-tab"')
+    expect(markup).not.toContain('currentDensity')
   })
 
-  it('uses a v3 program output manifest as the Results schema', () => {
+  it('uses only Experiment-level RecordedData as the Results schema', () => {
     const markup = renderToStaticMarkup(
       <CadViewer
         experiment={{ scene: experimentScene, variables: {} }}
-        recordedData={{ totalCurrent: { value: 14.9 } }}
+        recordedData={{
+          measuredCurrent: { value: 14.9 },
+          currentDensity: { value: [1, 2, 3] },
+        }}
         selected={null}
         simulation={{
           canRun: false,
@@ -136,26 +143,14 @@ describe('CadViewer', () => {
           process: {
             runId: null,
             status: 'idle',
-            solver: null,
+            engine: null,
+            stage: null,
             error: null,
             startedAt: null,
             finishedAt: null,
           },
-          program: {
-            version: 3,
-            tasks: {
-              solveCurrent: { name: 'dc-current-density', version: '0.0.0' },
-            },
-            outputs: {
-              totalCurrent: {
-                dtype: 'float64',
-                unit: 'A',
-                quantityKind: 'electromagnetism.ElectricCurrent',
-              },
-            },
-          },
+          program,
           run: () => null,
-          solver: { name: 'experiment-program', version: '3' },
           stale: false,
         }}
         structure={null}
@@ -167,5 +162,6 @@ describe('CadViewer', () => {
 
     expect(markup).toContain('id="viewer-results-tab"')
     expect(markup).toContain('>Results</button>')
+    expect(markup).not.toContain('currentDensity')
   })
 })

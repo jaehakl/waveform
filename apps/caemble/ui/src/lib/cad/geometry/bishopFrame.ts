@@ -23,7 +23,11 @@ function initialNormal(tangent: Vec3, up: unknown): MutableVec3 {
   if (up !== undefined) {
     candidate = parseVec3(up, '<fiber> up')
   } else {
-    const axes: MutableVec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    const axes: MutableVec3[] = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]
     candidate = axes.reduce((best, axis) => (Math.abs(dot(axis, tangent)) < Math.abs(dot(best, tangent)) ? axis : best))
   }
 
@@ -43,15 +47,18 @@ export function createBishopFrames(points: readonly Vec3[], up: unknown, path: s
   cumulativeLengths(points, path)
   const tangents = points.map((_point, index) => {
     if (index === 0) return normalizeVector(subtract(points[1], points[0]), `${path} initial tangent`)
-    if (index === points.length - 1) return normalizeVector(subtract(points[index], points[index - 1]), `${path} final tangent`)
+    if (index === points.length - 1)
+      return normalizeVector(subtract(points[index], points[index - 1]), `${path} final tangent`)
     return normalizeVector(subtract(points[index + 1], points[index - 1]), `${path} tangent at sample ${index}`)
   })
   const firstNormal = initialNormal(tangents[0], up)
-  const frames: BishopFrame[] = [{
-    tangent: tangents[0],
-    normal: firstNormal,
-    binormal: normalizeVector(cross(tangents[0], firstNormal), `${path} initial binormal`),
-  }]
+  const frames: BishopFrame[] = [
+    {
+      tangent: tangents[0],
+      normal: firstNormal,
+      binormal: normalizeVector(cross(tangents[0], firstNormal), `${path} initial binormal`),
+    },
+  ]
 
   for (let index = 1; index < points.length; index += 1) {
     const previous = frames[index - 1]
@@ -69,11 +76,14 @@ export function createBishopFrames(points: readonly Vec3[], up: unknown, path: s
     }
 
     const projection = dot(transportedNormal, tangent)
-    const normal = normalizeVector([
-      transportedNormal[0] - tangent[0] * projection,
-      transportedNormal[1] - tangent[1] * projection,
-      transportedNormal[2] - tangent[2] * projection,
-    ], `${path} normal at sample ${index}`)
+    const normal = normalizeVector(
+      [
+        transportedNormal[0] - tangent[0] * projection,
+        transportedNormal[1] - tangent[1] * projection,
+        transportedNormal[2] - tangent[2] * projection,
+      ],
+      `${path} normal at sample ${index}`,
+    )
     frames.push({
       tangent,
       normal,

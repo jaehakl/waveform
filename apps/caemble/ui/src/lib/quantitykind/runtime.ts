@@ -14,32 +14,26 @@ export type QuantityKindNameForDomain<Domain extends QuantityKindDomain> = {
   [Name in QuantityKindName]: QuantityKindData[Name]['domain'] extends Domain ? Name : never
 }[QuantityKindName]
 
-export type QuantityKindTensorOrder<Name extends QuantityKindName> =
-  QuantityKindData[Name]['tensorOrder']
+export type QuantityKindTensorOrder<Name extends QuantityKindName> = QuantityKindData[Name]['tensorOrder']
 
 type ComponentShapeForOrder<
   Order extends number,
   Result extends readonly 3[] = readonly [],
-> = Result['length'] extends Order
-  ? Result
-  : ComponentShapeForOrder<Order, readonly [...Result, 3]>
+> = Result['length'] extends Order ? Result : ComponentShapeForOrder<Order, readonly [...Result, 3]>
 
-export type QuantityKindComponentShape<Name extends QuantityKindName> =
-  ComponentShapeForOrder<QuantityKindTensorOrder<Name>>
+export type QuantityKindComponentShape<Name extends QuantityKindName> = ComponentShapeForOrder<
+  QuantityKindTensorOrder<Name>
+>
 
-type ComponentValueForShape<Shape extends readonly number[]> =
-  Shape extends readonly []
-    ? number
-    : Shape extends readonly [3, ...infer Rest extends readonly number[]]
-      ? readonly [
-        ComponentValueForShape<Rest>,
-        ComponentValueForShape<Rest>,
-        ComponentValueForShape<Rest>,
-      ]
-      : never
+type ComponentValueForShape<Shape extends readonly number[]> = Shape extends readonly []
+  ? number
+  : Shape extends readonly [3, ...infer Rest extends readonly number[]]
+    ? readonly [ComponentValueForShape<Rest>, ComponentValueForShape<Rest>, ComponentValueForShape<Rest>]
+    : never
 
-export type QuantityKindComponentValue<Name extends QuantityKindName> =
-  ComponentValueForShape<QuantityKindComponentShape<Name>>
+export type QuantityKindComponentValue<Name extends QuantityKindName> = ComponentValueForShape<
+  QuantityKindComponentShape<Name>
+>
 
 export type ScalarQuantityKindName = {
   [Name in QuantityKindName]: QuantityKindTensorOrder<Name> extends 0 ? Name : never
@@ -61,9 +55,7 @@ export function componentShapeForTensorOrder(order: number, path = 'Tensor order
   return Object.freeze(Array.from({ length: order }, () => 3 as const))
 }
 
-export function getQuantityKindTensorOrder<Name extends QuantityKindName>(
-  name: Name,
-): QuantityKindTensorOrder<Name> {
+export function getQuantityKindTensorOrder<Name extends QuantityKindName>(name: Name): QuantityKindTensorOrder<Name> {
   return quantityKindData[name].tensorOrder
 }
 
@@ -82,9 +74,9 @@ export function normalizeCartesianBasis(value: unknown, path: string): Cartesian
   }
   const basis = value.map((axis, axisIndex) => {
     if (
-      !Array.isArray(axis)
-      || axis.length !== 3
-      || axis.some((component) => typeof component !== 'number' || !Number.isFinite(component))
+      !Array.isArray(axis) ||
+      axis.length !== 3 ||
+      axis.some((component) => typeof component !== 'number' || !Number.isFinite(component))
     ) {
       throw new CadModelError(`${path}[${axisIndex}] must contain exactly three finite numbers.`)
     }
@@ -93,18 +85,17 @@ export function normalizeCartesianBasis(value: unknown, path: string): Cartesian
   const tolerance = 1e-9
   for (let left = 0; left < basis.length; left += 1) {
     for (let right = left; right < basis.length; right += 1) {
-      const dot = basis[left][0] * basis[right][0]
-        + basis[left][1] * basis[right][1]
-        + basis[left][2] * basis[right][2]
+      const dot = basis[left][0] * basis[right][0] + basis[left][1] * basis[right][1] + basis[left][2] * basis[right][2]
       const expected = left === right ? 1 : 0
       if (Math.abs(dot - expected) > tolerance) {
         throw new CadModelError(`${path} must be an orthonormal Cartesian basis.`)
       }
     }
   }
-  const determinant = basis[0][0] * (basis[1][1] * basis[2][2] - basis[1][2] * basis[2][1])
-    - basis[0][1] * (basis[1][0] * basis[2][2] - basis[1][2] * basis[2][0])
-    + basis[0][2] * (basis[1][0] * basis[2][1] - basis[1][1] * basis[2][0])
+  const determinant =
+    basis[0][0] * (basis[1][1] * basis[2][2] - basis[1][2] * basis[2][1]) -
+    basis[0][1] * (basis[1][0] * basis[2][2] - basis[1][2] * basis[2][0]) +
+    basis[0][2] * (basis[1][0] * basis[2][1] - basis[1][1] * basis[2][0])
   if (Math.abs(determinant - 1) > tolerance) {
     throw new CadModelError(`${path} must be a right-handed Cartesian basis.`)
   }
@@ -133,15 +124,11 @@ export function transformQuantityComponents(
       return convertUcumValue(input, fromUnit, toUnit, path)
     }
     if (!Array.isArray(input) || input.length !== 3) {
-      throw new CadModelError(
-        `${componentPath} must have component shape ${JSON.stringify(componentShape)}.`,
-      )
+      throw new CadModelError(`${componentPath} must have component shape ${JSON.stringify(componentShape)}.`)
     }
-    return Object.freeze(input.map((component, index) => transformComponent(
-      component,
-      depth + 1,
-      `${componentPath}[${index}]`,
-    )))
+    return Object.freeze(
+      input.map((component, index) => transformComponent(component, depth + 1, `${componentPath}[${index}]`)),
+    )
   }
 
   return transformComponent(value, 0, `${path} value`)
@@ -164,47 +151,31 @@ export function transformQuantityValue(
     return transformQuantityComponents(value, componentShape, source.unit, target.unit, path)
   }
 
-  const sourceBasis = source.basis === undefined
-    ? identityCartesianBasis
-    : normalizeCartesianBasis(source.basis, `${path} source basis`)
-  const targetBasis = target.basis === undefined
-    ? identityCartesianBasis
-    : normalizeCartesianBasis(target.basis, `${path} target basis`)
-  const converted = transformQuantityComponents(
-    value,
-    componentShape,
-    source.unit,
-    target.unit,
-    path,
+  const sourceBasis =
+    source.basis === undefined ? identityCartesianBasis : normalizeCartesianBasis(source.basis, `${path} source basis`)
+  const targetBasis =
+    target.basis === undefined ? identityCartesianBasis : normalizeCartesianBasis(target.basis, `${path} target basis`)
+  const converted = transformQuantityComponents(value, componentShape, source.unit, target.unit, path)
+  const rotation = targetBasis.map((targetAxis) =>
+    Object.freeze(
+      sourceBasis.map(
+        (sourceAxis) => targetAxis[0] * sourceAxis[0] + targetAxis[1] * sourceAxis[1] + targetAxis[2] * sourceAxis[2],
+      ),
+    ),
   )
-  const rotation = targetBasis.map((targetAxis) => Object.freeze(sourceBasis.map(
-    (sourceAxis) => targetAxis[0] * sourceAxis[0]
-      + targetAxis[1] * sourceAxis[1]
-      + targetAxis[2] * sourceAxis[2],
-  )))
 
   const componentAt = (indices: readonly number[]) => {
     let component = converted
     for (const index of indices) component = (component as readonly unknown[])[index]
     return component as number
   }
-  const buildTargetComponents = (
-    targetIndices: readonly number[],
-    depth: number,
-  ): unknown => {
+  const buildTargetComponents = (targetIndices: readonly number[], depth: number): unknown => {
     if (depth < componentShape.length) {
-      return Object.freeze([0, 1, 2].map((index) => buildTargetComponents(
-        [...targetIndices, index],
-        depth + 1,
-      )))
+      return Object.freeze([0, 1, 2].map((index) => buildTargetComponents([...targetIndices, index], depth + 1)))
     }
 
     let total = 0
-    const sumSourceComponents = (
-      sourceIndices: readonly number[],
-      sourceDepth: number,
-      weight: number,
-    ) => {
+    const sumSourceComponents = (sourceIndices: readonly number[], sourceDepth: number, weight: number) => {
       if (sourceDepth === componentShape.length) {
         total += weight * componentAt(sourceIndices)
         return
@@ -224,20 +195,19 @@ export function transformQuantityValue(
   return buildTargetComponents([], 0)
 }
 
-type QuantityBasisMetadata<Name extends QuantityKindName> =
-  [Name] extends [ScalarQuantityKindName]
-    ? Readonly<{ basis?: never }>
-    : [Name] extends [TensorQuantityKindName]
-      ? Readonly<{ basis?: CartesianBasis }>
-      : Readonly<{ basis?: CartesianBasis }>
+type QuantityBasisMetadata<Name extends QuantityKindName> = [Name] extends [ScalarQuantityKindName]
+  ? Readonly<{ basis?: never }>
+  : [Name] extends [TensorQuantityKindName]
+    ? Readonly<{ basis?: CartesianBasis }>
+    : Readonly<{ basis?: CartesianBasis }>
 
 export type QuantityMetadata<Name extends QuantityKindName = QuantityKindName> = Readonly<{
   unit: UcumUnit
   quantityKind: Name
-}> & QuantityBasisMetadata<Name>
+}> &
+  QuantityBasisMetadata<Name>
 
-export type ApplicableUnit<Name extends QuantityKindName> =
-  QuantityKindData[Name]['applicableUnits'][number]
+export type ApplicableUnit<Name extends QuantityKindName> = QuantityKindData[Name]['applicableUnits'][number]
 
 export interface QuantityKindDefinition<Name extends QuantityKindName> {
   readonly name: Name
@@ -269,15 +239,15 @@ export function normalizeQuantityMetadata(
   scalarOnly = false,
 ): QuantityMetadata {
   if (
-    !Object.prototype.hasOwnProperty.call(value, 'unit')
-    || !Object.prototype.hasOwnProperty.call(value, 'quantityKind')
+    !Object.prototype.hasOwnProperty.call(value, 'unit') ||
+    !Object.prototype.hasOwnProperty.call(value, 'quantityKind')
   ) {
     throw new CadModelError(`${path} must specify both unit and quantityKind.`)
   }
 
   if (
-    typeof value.quantityKind !== 'string'
-    || !Object.prototype.hasOwnProperty.call(quantityKindData, value.quantityKind)
+    typeof value.quantityKind !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(quantityKindData, value.quantityKind)
   ) {
     throw new CadModelError(`${path}.quantityKind must be a known Quantity Kind name.`)
   }
@@ -285,9 +255,7 @@ export function normalizeQuantityMetadata(
   const quantityKind = value.quantityKind as QuantityKindName
   const unit = normalizeUcumUnit(value.unit, `${path}.unit`)
   if (!(quantityKindData[quantityKind].applicableUnits as readonly string[]).includes(unit)) {
-    throw new CadModelError(
-      `${path}.unit ${unit} is not applicable to Quantity Kind ${quantityKind}.`,
-    )
+    throw new CadModelError(`${path}.unit ${unit} is not applicable to Quantity Kind ${quantityKind}.`)
   }
 
   const tensorOrder = quantityKindData[quantityKind].tensorOrder
@@ -300,18 +268,17 @@ export function normalizeQuantityMetadata(
   if (tensorOrder === 0 && hasBasis) {
     throw new CadModelError(`${path}.basis is not allowed for scalar Quantity Kind ${quantityKind}.`)
   }
-  const basis = tensorOrder > 0
-    ? hasBasis
-      ? normalizeCartesianBasis(value.basis, `${path}.basis`)
-      : identityCartesianBasis
-    : undefined
+  const basis =
+    tensorOrder > 0
+      ? hasBasis
+        ? normalizeCartesianBasis(value.basis, `${path}.basis`)
+        : identityCartesianBasis
+      : undefined
 
   return Object.freeze({ unit, quantityKind, ...(basis === undefined ? {} : { basis }) }) as QuantityMetadata
 }
 
-export class QuantityKindEntry<Name extends QuantityKindName>
-  implements QuantityKindDefinition<Name>
-{
+export class QuantityKindEntry<Name extends QuantityKindName> implements QuantityKindDefinition<Name> {
   readonly name: Name
   private readonly componentShapeValue: QuantityKindComponentShape<Name>
 

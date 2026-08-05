@@ -37,12 +37,7 @@ export function colorFromHex(hex: string): RenderColor {
 const wireframeColor = colorFromHex(unassignedGeometryColor)
 
 function dimmedColor(color: RenderColor): RenderColor {
-  return [
-    color[0] + (1 - color[0]) * 0.7,
-    color[1] + (1 - color[1]) * 0.7,
-    color[2] + (1 - color[2]) * 0.7,
-    1,
-  ]
+  return [color[0] + (1 - color[0]) * 0.7, color[1] + (1 - color[1]) * 0.7, color[2] + (1 - color[2]) * 0.7, 1]
 }
 
 export function createRenderParts(parts: CadScenePart[], selection: CadSceneSelection | null): RenderPart[] {
@@ -82,10 +77,10 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
       }
     }
     if (
-      typeof part.geometry !== 'object'
-      || part.geometry === null
-      || !('polygons' in part.geometry)
-      || !Array.isArray(part.geometry.polygons)
+      typeof part.geometry !== 'object' ||
+      part.geometry === null ||
+      !('polygons' in part.geometry) ||
+      !Array.isArray(part.geometry.polygons)
     ) {
       return {
         geometry: part.geometry,
@@ -113,12 +108,8 @@ export function createRenderParts(parts: CadScenePart[], selection: CadSceneSele
 }
 
 export function createWireframeGeometries(part: RenderPart): WireframeGeometry[] {
-  if (
-    !part.wireframe
-    || typeof part.geometry !== 'object'
-    || part.geometry === null
-    || !('polygons' in part.geometry)
-  ) return []
+  if (!part.wireframe || typeof part.geometry !== 'object' || part.geometry === null || !('polygons' in part.geometry))
+    return []
 
   const geometry = part.geometry as RenderSolid
   if (!Array.isArray(geometry.polygons) || geometry.transforms === undefined) return []
@@ -130,12 +121,7 @@ export function createWireframeGeometries(part: RenderPart): WireframeGeometry[]
 
     polygon.vertices.forEach((first, vertexIndex) => {
       const second = polygon.vertices![(vertexIndex + 1) % polygon.vertices!.length]
-      if (
-        !Array.isArray(first)
-        || !Array.isArray(second)
-        || first.length < 3
-        || second.length < 3
-      ) return
+      if (!Array.isArray(first) || !Array.isArray(second) || first.length < 3 || second.length < 3) return
 
       const firstKey = first.join(',')
       const secondKey = second.join(',')

@@ -2,7 +2,7 @@ export const curvedEdgeCylinderArrayCode = `import {
   Material,
   structure,
   type Geometry,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const tau = Math.PI * 2
 const arrayShape = [4, 4, 1] as const

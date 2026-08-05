@@ -1,18 +1,11 @@
 import { geometries, measurements } from '@jscad/modeling'
-import type { CadScene, CadScenePart, CadSceneSurface } from '../../../cad/evaluation/types'
+import type { CadScenePart, CadSceneSurface } from '../../../cad/evaluation/types'
 import { createSolidPointTester } from '../../../cad/geometry/solid'
-import {
-  CadModelError,
-  isFloatDType,
-  type DataDType,
-  type DataValueDescriptor,
-  type ExperimentRule,
-  type RecordedDataRule,
-} from '../../../cad/model/core'
+import { CadModelError } from '../../../cad/model/core'
 import type { Vec3 } from '../../../cad/model/types'
-import type { SolverModuleInput } from '../../types'
+import type { KernelExecutionContext, KernelExecutionResult } from '../../kernelContract'
+import type { PreparedDcInput } from './prepare'
 
-const maximumVoxelCount = 250_000
 const neighborOffsets = [
   [-1, 0, 0],
   [1, 0, 0],
@@ -68,38 +61,6 @@ function normalize(vector: Vec3, message: string): Vec3 {
   return scale(vector, 1 / length)
 }
 
-function ruleFor<T extends ExperimentRule>(rules: readonly T[], methodId: string): T {
-  return rules.find((rule) => rule.methodId === methodId)!
-}
-
-function singleTargetGroup(rule: ExperimentRule, source: 'structure', kind: 'geometry' | 'surface') {
-  const prefix = `${source}.${kind}.`
-  return rule.target[0].slice(prefix.length)
-}
-
-function geometryPart(scene: CadScene, groupName: string) {
-  const group = scene.geometryGroups.find((candidate) => candidate.name === groupName)
-  if (!group || group.geometryIds.length !== 1) {
-    throw new CadModelError(`DC conductor group "${groupName}" must resolve to exactly one Geometry part.`)
-  }
-  const part = scene.parts.find((candidate) => candidate.id === group.geometryIds[0])
-  if (!part) throw new CadModelError(`DC conductor Geometry ${group.geometryIds[0]} is missing.`)
-  return part
-}
-
-function surfaceForGroup(scene: CadScene, groupName: string) {
-  const group = scene.surfaceGroups.find((candidate) => candidate.name === groupName)
-  if (!group || group.surfaceIds.length !== 1) {
-    throw new CadModelError(`DC terminal group "${groupName}" must resolve to exactly one Surface.`)
-  }
-  const surfaceId = group.surfaceIds[0]
-  for (const part of scene.parts) {
-    const surface = part.surfaces.find((candidate) => candidate.id === surfaceId)
-    if (surface) return { part, surface }
-  }
-  throw new CadModelError(`DC terminal Surface ${surfaceId} is missing.`)
-}
-
 function planarSurface(part: CadScenePart, surface: CadSceneSurface) {
   if (!geometries.geom3.isA(part.geometry)) {
     throw new CadModelError(`DC conductor ${part.id} must be a 3D solid.`)
@@ -132,9 +93,11 @@ function planarSurface(part: CadScenePart, surface: CadSceneSurface) {
   if (points.length === 0 || !Number.isFinite(totalArea) || totalArea <= 0) {
     throw new CadModelError(`Surface ${surface.id} has no positive-area polygon points.`)
   }
-  if (points.some((point) => (
-    Math.abs(plane[0] * point[0] + plane[1] * point[1] + plane[2] * point[2] - plane[3]) > tolerance
-  ))) {
+  if (
+    points.some(
+      (point) => Math.abs(plane[0] * point[0] + plane[1] * point[1] + plane[2] * point[2] - plane[3]) > tolerance,
+    )
+  ) {
     throw new CadModelError(`DC terminal Surface ${surface.id} must be planar.`)
   }
   return {
@@ -145,108 +108,21 @@ function planarSurface(part: CadScenePart, surface: CadSceneSurface) {
   }
 }
 
-function voltage(rule: ExperimentRule) {
-  return floatParameter(rule.parameters.voltage, `${rule.methodId} parameters.voltage`)
-}
-
-function isFloatValue(value: unknown): value is DataValueDescriptor & { value: number } {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    && 'dtype' in value && typeof value.dtype === 'string'
-    && isFloatDType(value.dtype as DataDType)
-    && 'value' in value && typeof value.value === 'number'
-}
-
-function floatParameter(value: unknown, name: string) {
-  if (!isFloatValue(value) || !Number.isFinite(value.value)) {
-    throw new CadModelError(`${name} must be a finite float dtype descriptor.`)
-  }
-  return value.value
-}
-
-function gridShapeParameter(value: unknown) {
-  const shape = (value as { value: [number, number, number] }).value
-  if (shape[0] * shape[1] * shape[2] > maximumVoxelCount) {
-    throw new CadModelError(`dc.voxel-grid gridShape may contain at most ${maximumVoxelCount} voxels.`)
-  }
-  return shape
-}
-
-function crossSectionPosition(rule: RecordedDataRule) {
-  return floatParameter(
-    rule.parameters.crossSectionPosition,
-    `${rule.methodId} parameters.crossSectionPosition`,
-  )
-}
-
-function isotropicConductivity(value: unknown) {
-  const path = 'Conductor Material electrical.conductivity'
-  if (
-    typeof value !== 'object'
-    || value === null
-    || Array.isArray(value)
-    || !('dtype' in value)
-  ) {
-    throw new CadModelError(
-      `${path} must use dtype 'float64', omit axes, and provide component shape [3,3].`,
-    )
-  }
-  const descriptor = value as Readonly<Record<string, unknown>>
-  if (descriptor.type !== undefined || descriptor.shape !== undefined) {
-    throw new CadModelError(`${path} must migrate type/shape to dtype and axes.`)
-  }
-  if (descriptor.axes !== undefined) {
-    throw new CadModelError(`${path}.axes must be omitted for one conductivity tensor.`)
-  }
-  if (!Array.isArray(descriptor.value) || descriptor.value.length !== 3) {
-    throw new CadModelError(`${path}.value must have component shape [3,3].`)
-  }
-  const matrix = descriptor.value.map((row, rowIndex) => {
-    if (!Array.isArray(row) || row.length !== 3) {
-      throw new CadModelError(`${path}.value must have component shape [3,3].`)
-    }
-    return row.map((component, columnIndex) => {
-      if (typeof component !== 'number' || !Number.isFinite(component)) {
-        throw new CadModelError(`${path}.value[${rowIndex}][${columnIndex}] must be finite.`)
-      }
-      return component
-    })
-  })
-  const diagonal = [matrix[0][0], matrix[1][1], matrix[2][2]]
-  if (diagonal.some((component) => component <= 0)) {
-    throw new CadModelError(`${path} must have positive diagonal components.`)
-  }
-  const scaleValue = Math.max(...diagonal)
-  const relativeIsotropyTolerance = 1e-12 + Number.EPSILON
-  if (diagonal.some((component) => (
-    Math.abs(component - diagonal[0]) / scaleValue > relativeIsotropyTolerance
-  ))) {
-    throw new CadModelError(`${path} must be isotropic σI; diagonal components differ beyond relative tolerance 1e-12.`)
-  }
-  for (let row = 0; row < 3; row += 1) {
-    for (let column = 0; column < 3; column += 1) {
-      if (row !== column && Math.abs(matrix[row][column]) / scaleValue > relativeIsotropyTolerance) {
-        throw new CadModelError(`${path} must be isotropic σI; off-diagonal components exceed relative tolerance 1e-12.`)
-      }
-    }
-  }
-  return (diagonal[0] + diagonal[1] + diagonal[2]) / 3
-}
-
 function localPoint(origin: Vec3, axis: Vec3, uAxis: Vec3, vAxis: Vec3, s: number, u: number, v: number) {
   return add(add(add(origin, scale(axis, s)), scale(uAxis, u)), scale(vAxis, v))
 }
 
-function createFrame(part: CadScenePart, source: ReturnType<typeof planarSurface>, reference: ReturnType<typeof planarSurface>) {
+function createFrame(
+  part: CadScenePart,
+  source: ReturnType<typeof planarSurface>,
+  reference: ReturnType<typeof planarSurface>,
+) {
   if (!geometries.geom3.isA(part.geometry)) throw new CadModelError(`DC conductor ${part.id} must be a 3D solid.`)
   const displacement = subtract(reference.center, source.center)
   const axis = normalize(displacement, 'DC terminal centers must have a finite positive separation.')
   const length = Math.hypot(...displacement)
   const terminalNormalDot = dot(source.normal, reference.normal)
-  if (
-    terminalNormalDot > -1 + 1e-7
-    || dot(source.normal, axis) > -1 + 1e-7
-    || dot(reference.normal, axis) < 1 - 1e-7
-  ) {
+  if (terminalNormalDot > -1 + 1e-7 || dot(source.normal, axis) > -1 + 1e-7 || dot(reference.normal, axis) < 1 - 1e-7) {
     throw new CadModelError('DC terminal surfaces must be parallel, opposite, and normal to their center axis.')
   }
 
@@ -287,9 +163,9 @@ function createFrame(part: CadScenePart, source: ReturnType<typeof planarSurface
   ].forEach(({ terminal, label }) => {
     const selectedPolygons = new Set(terminal.polygonIndices)
     polygons.forEach((polygon, polygonIndex) => {
-      const liesOnTerminalPlane = geometries.poly3.toPoints(polygon).every((point) => (
-        Math.abs(dot(subtract(point as Vec3, terminal.center), terminal.normal)) <= axialTolerance
-      ))
+      const liesOnTerminalPlane = geometries.poly3
+        .toPoints(polygon)
+        .every((point) => Math.abs(dot(subtract(point as Vec3, terminal.center), terminal.normal)) <= axialTolerance)
       if (liesOnTerminalPlane && !selectedPolygons.has(polygonIndex)) {
         throw new CadModelError(
           `DC ${label} terminal Surface ${terminal.surfaceId} must cover the complete conductor end plane.`,
@@ -298,10 +174,10 @@ function createFrame(part: CadScenePart, source: ReturnType<typeof planarSurface
     })
   })
   if (
-    !Number.isFinite(maximumU - minimumU)
-    || !Number.isFinite(maximumV - minimumV)
-    || maximumU <= minimumU
-    || maximumV <= minimumV
+    !Number.isFinite(maximumU - minimumU) ||
+    !Number.isFinite(maximumV - minimumV) ||
+    maximumU <= minimumU ||
+    maximumV <= minimumV
   ) {
     throw new CadModelError('DC conductor cross-section bounds must be finite and positive.')
   }
@@ -317,7 +193,7 @@ async function buildOccupancy(
   part: CadScenePart,
   frame: ReturnType<typeof createFrame>,
   shape: readonly [number, number, number],
-  signal: AbortSignal,
+  context: KernelExecutionContext,
 ) {
   const tester = createSolidPointTester(part.geometry)
   if (!tester) throw new CadModelError(`DC conductor ${part.id} must be a valid 3D solid.`)
@@ -339,11 +215,19 @@ async function buildOccupancy(
           occupancy[index] = 1
           occupiedCount += 1
         }
-        if ((index + 1) % 4096 === 0) await yieldToWorker(signal)
+        if ((index + 1) % 4096 === 0) {
+          context.reportProgress({
+            stage: 'occupancy',
+            completed: index + 1,
+            total: occupancy.length,
+          })
+          await yieldToWorker(context.signal)
+        }
       }
     }
   }
   if (occupiedCount === 0) throw new CadModelError('DC conductor did not occupy any finite-volume cells.')
+  context.reportProgress({ stage: 'occupancy', completed: occupancy.length, total: occupancy.length })
   return { axialSpacing, occupancy, occupiedCount, uSpacing, vSpacing }
 }
 
@@ -351,7 +235,7 @@ async function validateConnectedDomain(
   occupancy: Uint8Array,
   occupiedCount: number,
   shape: readonly [number, number, number],
-  signal: AbortSignal,
+  context: KernelExecutionContext,
 ) {
   const [axialCount, uCount, vCount] = shape
   const sourceCells: number[] = []
@@ -393,11 +277,15 @@ async function validateConnectedDomain(
       tail += 1
       visitedCount += 1
     }
-    if (head % 8192 === 0) await yieldToWorker(signal)
+    if (head % 8192 === 0) {
+      context.reportProgress({ stage: 'connectivity', completed: head, total: occupiedCount })
+      await yieldToWorker(context.signal)
+    }
   }
   if (visitedCount !== occupiedCount || referenceCells.every((index) => !visited[index])) {
     throw new CadModelError('DC finite-volume cells must form one connected domain between both terminals.')
   }
+  context.reportProgress({ stage: 'connectivity', completed: occupiedCount, total: occupiedCount })
 }
 
 function createLinearSystem(
@@ -479,7 +367,7 @@ async function solvePcg(
   system: ReturnType<typeof createLinearSystem>,
   relativeTolerance: number,
   maxIterations: number,
-  signal: AbortSignal,
+  context: KernelExecutionContext,
 ) {
   const { diagonal, initial, neighbors, neighborWeights, rightHandSide } = system
   const solution = initial
@@ -501,10 +389,13 @@ async function solvePcg(
   }
   const rightHandSideNorm = Math.sqrt(rightHandSideNormSquared) || 1
   let relativeResidual = Math.sqrt(residualNormSquared) / rightHandSideNorm
-  if (relativeResidual <= relativeTolerance) return solution
+  if (relativeResidual <= relativeTolerance) {
+    context.reportProgress({ stage: 'solve', completed: 0, total: maxIterations })
+    return { iterations: 0, relativeResidual, solution }
+  }
 
   for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
-    throwIfAborted(signal)
+    throwIfAborted(context.signal)
     applyMatrix(direction, product, diagonal, neighbors, neighborWeights)
     let denominator = 0
     for (let index = 0; index < solution.length; index += 1) {
@@ -521,7 +412,10 @@ async function solvePcg(
       residualNormSquared += residual[index] ** 2
     }
     relativeResidual = Math.sqrt(residualNormSquared) / rightHandSideNorm
-    if (relativeResidual <= relativeTolerance) return solution
+    if (relativeResidual <= relativeTolerance) {
+      context.reportProgress({ stage: 'solve', completed: iteration, total: maxIterations })
+      return { iterations: iteration, relativeResidual, solution }
+    }
 
     let nextResidualPreconditioned = 0
     for (let index = 0; index < solution.length; index += 1) {
@@ -533,7 +427,10 @@ async function solvePcg(
       direction[index] = preconditioned[index] + beta * direction[index]
     }
     residualPreconditioned = nextResidualPreconditioned
-    if (iteration % 8 === 0) await yieldToWorker(signal)
+    if (iteration % 8 === 0) {
+      context.reportProgress({ stage: 'solve', completed: iteration, total: maxIterations })
+      await yieldToWorker(context.signal)
+    }
   }
 
   throw new CadModelError(
@@ -541,120 +438,102 @@ async function solvePcg(
   )
 }
 
-function crossSectionResult(
+function calculateCrossSection(
   solution: Float64Array,
   activeIndex: Int32Array,
   occupancy: Uint8Array,
   shape: readonly [number, number, number],
-  frame: ReturnType<typeof createFrame>,
   spacings: readonly [number, number, number],
   crossSectionPosition: number,
   conductivity: number,
   sourceVoltage: number,
   referenceVoltage: number,
+  includeValues: boolean,
 ) {
   const [axialCount, uCount, vCount] = shape
   const [axialSpacing, uSpacing, vSpacing] = spacings
   const faceIndex = Math.min(axialCount, Math.max(0, Math.round(crossSectionPosition * axialCount)))
-  const axialValues = Array.from({ length: vCount }, (_value, row) => {
+  const axialValues: number[][] | undefined = includeValues ? [] : undefined
+  let axialSum = 0
+  for (let row = 0; row < vCount; row += 1) {
     const k = vCount - row - 1
-    return Array.from({ length: uCount }, (_columnValue, j) => {
+    const rowValues: number[] | undefined = includeValues ? [] : undefined
+    for (let j = 0; j < uCount; j += 1) {
+      let currentDensity = 0
       if (faceIndex === 0) {
         const rightGlobal = globalIndex(0, j, k, shape)
-        if (!occupancy[rightGlobal]) return 0
-        const currentDensity = 2 * conductivity * (sourceVoltage - solution[activeIndex[rightGlobal]])
-          / axialSpacing
-        return Object.is(currentDensity, -0) ? 0 : currentDensity
-      }
-      if (faceIndex === axialCount) {
+        if (occupancy[rightGlobal]) {
+          currentDensity = (2 * conductivity * (sourceVoltage - solution[activeIndex[rightGlobal]])) / axialSpacing
+        }
+      } else if (faceIndex === axialCount) {
         const leftGlobal = globalIndex(axialCount - 1, j, k, shape)
-        if (!occupancy[leftGlobal]) return 0
-        const currentDensity = 2 * conductivity * (solution[activeIndex[leftGlobal]] - referenceVoltage)
-          / axialSpacing
-        return Object.is(currentDensity, -0) ? 0 : currentDensity
+        if (occupancy[leftGlobal]) {
+          currentDensity = (2 * conductivity * (solution[activeIndex[leftGlobal]] - referenceVoltage)) / axialSpacing
+        }
+      } else {
+        const leftGlobal = globalIndex(faceIndex - 1, j, k, shape)
+        const rightGlobal = globalIndex(faceIndex, j, k, shape)
+        if (occupancy[leftGlobal] && occupancy[rightGlobal]) {
+          const left = activeIndex[leftGlobal]
+          const right = activeIndex[rightGlobal]
+          currentDensity = (conductivity * (solution[left] - solution[right])) / axialSpacing
+        }
       }
-      const leftGlobal = globalIndex(faceIndex - 1, j, k, shape)
-      const rightGlobal = globalIndex(faceIndex, j, k, shape)
-      if (!occupancy[leftGlobal] || !occupancy[rightGlobal]) return 0
-      const left = activeIndex[leftGlobal]
-      const right = activeIndex[rightGlobal]
-      const currentDensity = conductivity * (solution[left] - solution[right])
-        / axialSpacing
-      return Object.is(currentDensity, -0) ? 0 : currentDensity
-    })
-  })
-  const totalCurrent = Math.abs(axialValues.reduce((sum, row) => (
-    sum + row.reduce((rowSum, value) => rowSum + value, 0)
-  ), 0) * uSpacing * vSpacing)
-  const uTicks = Array.from({ length: uCount }, (_value, j) => (
-    frame.minimumU + (j + 0.5) * uSpacing
-  ))
-  const vTicks = Array.from({ length: vCount }, (_value, row) => {
-    const k = vCount - row - 1
-    return frame.minimumV + (k + 0.5) * vSpacing
-  })
-  const values = axialValues.map((row) => row.map((value) => scale(frame.axis, value)))
-  return { totalCurrent, uTicks, values, vTicks }
+      currentDensity = Object.is(currentDensity, -0) ? 0 : currentDensity
+      axialSum += currentDensity
+      rowValues?.push(currentDensity)
+    }
+    if (rowValues) axialValues?.push(rowValues)
+  }
+  return {
+    axialValues,
+    totalCurrent: Math.abs(axialSum * uSpacing * vSpacing),
+    uSpacing,
+    vSpacing,
+  }
 }
 
-export async function solveDcCurrentDensity(input: SolverModuleInput, signal: AbortSignal) {
-  const { parameters } = input.experiment.solver
-  const relativeTolerance = floatParameter(parameters.relativeTolerance, 'dc-current-density relativeTolerance')
-  const maxIterations = parameters.maxIterations as number
-  const gridRule = ruleFor(input.experiment.rules.initializations, 'dc.voxel-grid')
-  const sourceRule = ruleFor(input.experiment.rules.boundaryConditions, 'dc.source-potential')
-  const referenceRule = ruleFor(input.experiment.rules.boundaryConditions, 'dc.reference-potential')
-  const densityRule = ruleFor(input.experiment.rules.recordedData, 'dc.current-density')
-  const totalCurrentRule = ruleFor(input.experiment.rules.recordedData, 'dc.total-current')
+function currentDensity(result: ReturnType<typeof calculateCrossSection>, frame: ReturnType<typeof createFrame>) {
+  if (!result.axialValues) {
+    throw new CadModelError('DC current-density output requires sampled cross-section values.')
+  }
+  const vCount = result.axialValues.length
+  const uCount = result.axialValues[0]?.length ?? 0
+  const uTicks = Array.from({ length: uCount }, (_value, j) => frame.minimumU + (j + 0.5) * result.uSpacing)
+  const vTicks = Array.from({ length: vCount }, (_value, row) => {
+    const k = vCount - row - 1
+    return frame.minimumV + (k + 0.5) * result.vSpacing
+  })
+  const values = result.axialValues.map((row) => row.map((value) => scale(frame.axis, value)))
+  return { uTicks, values, vTicks }
+}
 
-  const gridGroup = singleTargetGroup(gridRule, 'structure', 'geometry')
-  const densityGroup = singleTargetGroup(densityRule, 'structure', 'geometry')
-  const totalCurrentGroup = singleTargetGroup(totalCurrentRule, 'structure', 'geometry')
-  if (gridGroup !== densityGroup || densityGroup !== totalCurrentGroup) {
-    throw new CadModelError('DC voxel grid and both recorded-data rules must target the same conductor group.')
+export async function solvePreparedDcCurrentDensity(
+  prepared: PreparedDcInput,
+  inputs: Readonly<Record<string, unknown>>,
+  context: KernelExecutionContext,
+): Promise<KernelExecutionResult> {
+  if (Object.keys(inputs).length > 0) {
+    throw new CadModelError('dc-current-density does not declare artifact input ports.')
   }
-  const gridShape = gridShapeParameter(gridRule.parameters.gridShape)
-  const densityCrossSectionPosition = crossSectionPosition(densityRule)
-  const totalCurrentCrossSectionPosition = crossSectionPosition(totalCurrentRule)
-  const positionDifference = Math.abs(densityCrossSectionPosition - totalCurrentCrossSectionPosition)
-  const positionTolerance = 1e-12 * Math.max(
-    1,
-    Math.abs(densityCrossSectionPosition),
-    Math.abs(totalCurrentCrossSectionPosition),
-  )
-  if (positionDifference > positionTolerance) {
-    throw new CadModelError('DC recorded-data rules must use the same crossSectionPosition.')
-  }
-  if (input.structure.scene.parts.length !== 1) {
-    throw new CadModelError('dc-current-density@0.0.0 supports exactly one Structure Geometry part.')
-  }
-  const conductor = geometryPart(input.structure.scene, densityGroup)
-  const source = surfaceForGroup(
-    input.structure.scene,
-    singleTargetGroup(sourceRule, 'structure', 'surface'),
-  )
-  const reference = surfaceForGroup(
-    input.structure.scene,
-    singleTargetGroup(referenceRule, 'structure', 'surface'),
-  )
-  if (source.part.id !== conductor.id || reference.part.id !== conductor.id) {
-    throw new CadModelError('Both DC terminal surfaces must belong to the recorded conductor Geometry.')
-  }
-  if (source.surface.id === reference.surface.id) {
-    throw new CadModelError('DC source and reference potentials must target different terminal surfaces.')
-  }
-
-  const conductivity = isotropicConductivity(
-    conductor.material!.variables['electrical.conductivity'],
-  )
-
-  const sourceSurface = planarSurface(source.part, source.surface)
-  const referenceSurface = planarSurface(reference.part, reference.surface)
+  throwIfAborted(context.signal)
+  const {
+    conductor,
+    conductivity,
+    gridShape,
+    maxIterations,
+    outputs,
+    referenceTerminal,
+    referenceVoltage,
+    relativeTolerance,
+    sourceTerminal,
+    sourceVoltage,
+  } = prepared
+  const sourceSurface = planarSurface(sourceTerminal.part, sourceTerminal.surface)
+  const referenceSurface = planarSurface(referenceTerminal.part, referenceTerminal.surface)
   const frame = createFrame(conductor, sourceSurface, referenceSurface)
-  const grid = await buildOccupancy(conductor, frame, gridShape, signal)
-  await validateConnectedDomain(grid.occupancy, grid.occupiedCount, gridShape, signal)
-  const sourceVoltage = voltage(sourceRule)
-  const referenceVoltage = voltage(referenceRule)
+  const grid = await buildOccupancy(conductor, frame, gridShape, context)
+  await validateConnectedDomain(grid.occupancy, grid.occupiedCount, gridShape, context)
   const system = createLinearSystem(
     grid.occupancy,
     gridShape,
@@ -662,29 +541,54 @@ export async function solveDcCurrentDensity(input: SolverModuleInput, signal: Ab
     sourceVoltage,
     referenceVoltage,
   )
-  const solution = await solvePcg(system, relativeTolerance, maxIterations, signal)
-  const result = crossSectionResult(
-    solution,
-    system.activeIndex,
-    grid.occupancy,
-    gridShape,
-    frame,
-    [grid.axialSpacing, grid.uSpacing, grid.vSpacing],
-    densityCrossSectionPosition,
-    conductivity,
-    sourceVoltage,
-    referenceVoltage,
+  const solved = await solvePcg(system, relativeTolerance, maxIterations, context)
+  const densityPositions = new Set(
+    outputs.filter((output) => output.methodId === 'dc.current-density').map((output) => output.crossSectionPosition),
   )
-
-  return {
-    [densityRule.label]: {
-      value: result.values,
-      axes: [
-        { ticks: result.vTicks },
-        { ticks: result.uTicks },
-      ],
-    },
-    [totalCurrentRule.label]: { value: result.totalCurrent },
-  }
+  const crossSections = new Map<number, ReturnType<typeof calculateCrossSection>>()
+  const artifacts: Array<readonly [string, unknown]> = []
+  outputs.forEach((output, index) => {
+    throwIfAborted(context.signal)
+    let result = crossSections.get(output.crossSectionPosition)
+    if (!result) {
+      result = calculateCrossSection(
+        solved.solution,
+        system.activeIndex,
+        grid.occupancy,
+        gridShape,
+        [grid.axialSpacing, grid.uSpacing, grid.vSpacing],
+        output.crossSectionPosition,
+        conductivity,
+        sourceVoltage,
+        referenceVoltage,
+        densityPositions.has(output.crossSectionPosition),
+      )
+      crossSections.set(output.crossSectionPosition, result)
+    }
+    if (output.methodId === 'dc.current-density') {
+      const density = currentDensity(result, frame)
+      artifacts.push([
+        output.key,
+        Object.freeze({
+          value: Object.freeze(
+            density.values.map((row) => Object.freeze(row.map((component) => Object.freeze(component)))),
+          ),
+          axes: Object.freeze([
+            Object.freeze({ ticks: Object.freeze(density.vTicks) }),
+            Object.freeze({ ticks: Object.freeze(density.uTicks) }),
+          ]),
+        }),
+      ])
+    } else {
+      artifacts.push([output.key, Object.freeze({ value: result.totalCurrent })])
+    }
+    context.reportProgress({ stage: 'output', completed: index + 1, total: outputs.length })
+  })
+  return Object.freeze({
+    artifacts: Object.freeze(Object.fromEntries(artifacts)),
+    observations: Object.freeze({
+      iterations: solved.iterations,
+      relativeResidual: solved.relativeResidual,
+    }),
+  })
 }
-

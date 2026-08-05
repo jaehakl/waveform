@@ -1,50 +1,127 @@
 import type {
-  DefinedKernelTaskV3,
-  KernelRefV3,
-  SimulationObservationV3,
-  SimulationProgramManifestV3,
-  SimulationOutputSpecV3,
+  DefinedKernelTask,
+  KernelArtifactTypes,
+  KernelIdentity,
+  KernelInputTypes,
+  KernelObservationTypes,
+  RecordedDataSpec,
+  SimulationProgramManifest,
 } from './types'
 
-export function kernelRefV3<TConfig = unknown>(name: string, version: string): KernelRefV3<TConfig> {
-  if (!name.trim() || !version.trim()) throw new Error('Kernel name and version must be non-empty.')
+export function defineKernelTask<
+  Config,
+  Artifacts extends KernelArtifactTypes = KernelArtifactTypes,
+  Observations extends KernelObservationTypes = KernelObservationTypes,
+  Inputs extends KernelInputTypes = KernelInputTypes,
+>(kernel: KernelIdentity, config: NoInfer<Config>): DefinedKernelTask<Config, Artifacts, Observations, Inputs> {
+  if (
+    !kernel ||
+    typeof kernel !== 'object' ||
+    typeof kernel.name !== 'string' ||
+    !kernel.name.trim() ||
+    typeof kernel.version !== 'string' ||
+    !kernel.version.trim()
+  ) {
+    throw new Error('Kernel tasks require a non-empty kernel name and version.')
+  }
   return Object.freeze({
-    kind: 'caemble-kernel-ref-v3' as const,
-    name: name.trim(),
-    version: version.trim(),
-  }) as KernelRefV3<TConfig>
+    kind: 'caemble-kernel-task' as const,
+    kernel: Object.freeze({
+      name: kernel.name.trim(),
+      version: kernel.version.trim(),
+    }),
+    config,
+  }) as DefinedKernelTask<Config, Artifacts, Observations, Inputs>
 }
 
-export function defineTask<
-  TConfig,
-  TArtifacts extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
-  TObservations extends Readonly<Record<string, SimulationObservationV3>> = Readonly<
-    Record<string, SimulationObservationV3>
-  >,
->(
-  kernel: KernelRefV3<TConfig, TArtifacts, TObservations>,
-  configure: (context: Parameters<DefinedKernelTaskV3<TConfig, TArtifacts, TObservations>['configure']>[0]) =>
-    NoInfer<TConfig>,
-): DefinedKernelTaskV3<TConfig, TArtifacts, TObservations> {
-  if (kernel.kind !== 'caemble-kernel-ref-v3') throw new Error('defineTask requires a kernel capability reference.')
-  if (typeof configure !== 'function') throw new Error('defineTask configure must be a function.')
-  return Object.freeze({
-    kind: 'caemble-kernel-task-v3' as const,
-    kernel,
-    configure,
-  })
+function stableJson(value: unknown): string {
+  const ancestors = new Set<unknown>()
+  const normalize = (current: unknown): unknown => {
+    if (Array.isArray(current)) {
+      if (ancestors.has(current)) throw new Error('Kernel task configuration must not be circular.')
+      ancestors.add(current)
+      const normalized = current.map(normalize)
+      ancestors.delete(current)
+      return normalized
+    }
+    if (current && typeof current === 'object') {
+      if (ancestors.has(current)) throw new Error('Kernel task configuration must not be circular.')
+      ancestors.add(current)
+      const normalized = Object.fromEntries(
+        Object.entries(current)
+          .filter(([, item]) => item !== undefined)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, item]) => [key, normalize(item)]),
+      )
+      ancestors.delete(current)
+      return normalized
+    }
+    if (
+      current === null ||
+      typeof current === 'boolean' ||
+      typeof current === 'string' ||
+      (typeof current === 'number' && Number.isFinite(current))
+    ) {
+      return current
+    }
+    throw new Error('Kernel task configuration must contain only serializable finite values.')
+  }
+  return JSON.stringify(normalize(value))
 }
 
-export function simulationProgramManifestV3(
-  tasks: Readonly<Record<string, DefinedKernelTaskV3>>,
-  outputs: Readonly<Record<string, SimulationOutputSpecV3>>,
-): SimulationProgramManifestV3 {
+function configurationHash(value: unknown) {
+  const text = stableJson(value)
+  let hash = 0x811c9dc5
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+export function simulationProgramManifest(
+  tasks: Readonly<Record<string, DefinedKernelTask>>,
+  recordedData: Readonly<Record<string, RecordedDataSpec>>,
+  programHash: string,
+): SimulationProgramManifest {
   return Object.freeze({
-    version: 3 as const,
-    tasks: Object.freeze(Object.fromEntries(Object.entries(tasks).map(([name, task]) => [
-      name,
-      Object.freeze({ name: task.kernel.name, version: task.kernel.version }),
-    ]))),
-    outputs: Object.freeze({ ...outputs }),
+    formatVersion: 1 as const,
+    programHash,
+    tasks: Object.freeze(
+      Object.fromEntries(
+        Object.entries(tasks).map(([name, task]) => [
+          name,
+          Object.freeze({
+            kernel: Object.freeze({ ...task.kernel }),
+            configHash: configurationHash(task.config),
+          }),
+        ]),
+      ),
+    ),
+    recordedData: Object.freeze(
+      Object.fromEntries(
+        Object.entries(recordedData).map(([name, spec]) => [
+          name,
+          Object.freeze({
+            ...spec,
+            ...(spec.basis === undefined
+              ? {}
+              : { basis: Object.freeze(spec.basis.map((axis) => Object.freeze([...axis]))) }),
+            ...(spec.axes === undefined
+              ? {}
+              : {
+                  axes: Object.freeze(
+                    spec.axes.map((axis) =>
+                      Object.freeze({
+                        ...axis,
+                        ...(axis.ticks === undefined ? {} : { ticks: Object.freeze([...axis.ticks]) }),
+                      }),
+                    ),
+                  ),
+                }),
+          }),
+        ]),
+      ),
+    ) as Readonly<Record<string, RecordedDataSpec>>,
   })
 }

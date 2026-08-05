@@ -1,7 +1,6 @@
 export { evaluateCad, evaluateCadScene } from './evaluation/evaluator'
 export { cadElementCatalog } from './catalog'
-export { resolveCadSceneSelection } from './evaluation/selection'
-export { resolveCadSceneDraftSelection } from './evaluation/selection'
+export { resolveCadSceneDraftSelection, resolveCadSceneSelection } from './evaluation/selection'
 export { applyCadSceneGroups } from './evaluation/groups'
 export { Fragment, h } from './evaluation/jsx'
 export type {
@@ -13,27 +12,17 @@ export type {
   CadSceneSurface,
   CadSceneTreeNode,
 } from './evaluation/types'
-export { CadModelError, Mat, Material, isFloatDType } from './model/core'
-export { experiment, ExperimentDefinitionV2, structure, StructureDefinitionV2 } from './model/v2'
-export {
-  experiment as experimentV3,
-  ExperimentProgramDefinitionV3,
-} from './model/v3'
+export { CadModelError, isFloatDType, Mat, Material } from './model/core'
+export { experiment, ExperimentDefinition, structure, StructureDefinition } from './model/v3'
 export type {
-  ExperimentProgramOptionsV3,
-  InferVarsV3,
-  ModelContextV3,
-  VarsSchemaDefinitionV3,
-} from './model/v3'
-export type {
-  CadDefinitionV2,
+  CadDefinition,
   ExperimentDefinitionOptions,
   ExternalVars,
   InferVars,
   ModelContext,
   StructureDefinitionOptions,
   VarsSchemaDefinition,
-} from './model/v2'
+} from './model/v3'
 export { assertUcumUnitComparable, convertUcumValue, normalizeUcumUnit } from './model/units'
 export { normalizeDataValueDescriptor } from './model/core'
 export type {
@@ -41,12 +30,9 @@ export type {
   DataAxis,
   DataDType,
   DataValueDescriptor,
-  EvaluatedExperimentRules,
   FloatDataDType,
   ExperimentParameter,
   ExperimentParameters,
-  ExperimentRule,
-  ExperimentSolver,
   ExperimentTarget,
   Geometry,
   GeometryAttributes,
@@ -63,20 +49,17 @@ export type {
   QuantityKindName,
   QuantityKindNameForDomain,
   QuantityMetadata,
-  ScalarQuantityKindName,
-  TensorQuantityKindName,
   RecordedData,
   RecordedDataAxis,
   RecordedDataResult,
   RecordedDataResultAxis,
   RecordedDataRule,
   RecordedDataTensor,
-  ResolvedExperimentSolver,
   ResolvedMaterialVariables,
-  SolverParameters,
-  SolverParameterValue,
+  ScalarQuantityKindName,
   ScalarValue,
   StructureGroupMap,
+  TensorQuantityKindName,
   VarsSchemaEntry,
 } from './model/core'
 export type { UcumUnit } from './model/units'
@@ -97,53 +80,54 @@ export {
   CAD_SOURCE_API_VERSION,
   CAD_SOURCE_FORMAT_VERSION,
   MAX_CAD_SOURCE_BYTES,
-  MAX_CAD_SOURCE_FILES,
-  assertCadSourceDocumentV2,
-  cadEntrySource,
-  cadProjectHash,
-  createCadSourceDocumentV2,
+  assertCadSourceDocument,
+  cadSource,
+  cadSourceHash,
+  createCadSourceDocument,
   createRealizationSeed,
   rerollCadSourceDocument,
-  updateCadEntrySource,
+  updateCadSource,
 } from './source/document'
-export type { CadEvaluationInputV2, CadSourceDocumentV2 } from './source/document'
-export { CadDocumentEvaluationErrorV2, evaluateDocument } from './execution/evaluateDocument'
-export type { EvaluateDocumentOptionsV2 } from './execution/evaluateDocument'
-export { assertEvaluatedDocumentSnapshotV2 } from './execution/snapshot'
-export type { EvaluatedDocumentSnapshotV2 } from './execution/snapshot'
+export type { CadDocumentType, CadEvaluationInput, CadSourceDocument } from './source/document'
+export { CadDocumentEvaluationError, evaluateDocument } from './execution/evaluateDocument'
+export type { EvaluateDocumentOptions } from './execution/evaluateDocument'
+export { assertEvaluatedDocumentSnapshot, serializeEvaluatedDocumentSnapshot } from './execution/snapshot'
+export type {
+  EvaluatedDocumentSnapshot,
+  EvaluatedExperimentSnapshot,
+  EvaluatedRuntimeDocumentSnapshot,
+  EvaluatedStructureSnapshot,
+} from './execution/snapshot'
 export {
-  assertBuiltRealizationV2,
   applyFrozenMaterialParameters,
-  buildRealizationV2,
-  buildSourceOnlyRealizationV2,
-  type BuiltRealizationV2,
-  type BuiltSampleV2,
-  type BuiltSetupV2,
+  assertBuiltRealization,
+  buildRealization,
+  buildSourceOnlyRealization,
 } from './execution/realization'
+export type { BuiltRealization, BuiltSample, BuiltSetup } from './execution/realization'
 export { assertSerializableCadScene, deserializeCadScene, serializeCadScene } from './execution/mesh'
 export type { SerializableCadMesh, SerializableCadScene, SerializableCadScenePart } from './execution/mesh'
-export { StaleCadSourcePatchError, applyCadSourcePatchV2, createCadSourcePatchV2 } from './source/sourcePatch'
-export type { CadSourcePatchV2, CadSourceTextEditV2 } from './source/sourcePatch'
-export { migrateCadSourceV1ToV2 } from './source/codemodV2'
-export type { CadV1CodemodIssue, CadV1CodemodResult } from './source/codemodV2'
+export { StaleCadSourcePatchError, applyCadSourcePatch, createCadSourcePatch } from './source/sourcePatch'
+export type { CadSourcePatch, CadSourceTextEdit } from './source/sourcePatch'
 export { normalizeRecordedData, normalizeRecordedDataTensor } from './model/recordedData'
 export type { ResolvedRecordedTensor } from './model/recordedData'
 export { CadCompilationError, compileCadDocument } from './compiler/monacoCompiler'
+export type { CadDiagnostic as CompilerDiagnostic, CompiledCadSource } from './compiler/types'
 export { cadSemanticHash, compiledCadSemanticHash, rawCodeHash } from './compiler/semanticHash'
 export {
-  createPreparedEvaluationSession,
   evaluateInIsolatedRunner,
-  simulateInIsolatedRunnerV3,
+  preflightSimulationInIsolatedRunner,
+  runSimulationInIsolatedRunner,
 } from './runner/client'
-export type { PreparedEvaluationSession } from './runner/client'
 export type {
-  SimulationRunRequestV3,
-  SimulationRunResponseV3,
+  SimulationPreflightIssue,
+  SimulationPreflightRequest,
+  SimulationPreflightResponse,
+  SimulationRunRequest,
+  SimulationRunResponse,
 } from './runner/protocol'
 export { StructureGroupSyncError, updateModelGroupSource } from './source/structureGroups'
 export type { StructureGroupProperty } from './source/structureGroups'
-export { inspectExperimentTensorSource, updateExperimentTensorSource } from './source/experimentParameters'
-export type { ExperimentRuleCategory } from './source/experimentParameters'
 export type { ArrayAttributes } from './elements/operations/array/definition'
 export type { BooleanAttributes } from './elements/operations/booleans/definition'
 export type { ShellAttributes } from './elements/operations/shell/definition'
@@ -161,11 +145,9 @@ export type {
 export type { FiberAttributes, FiberFourierMode, FiberHelix } from './elements/primitives/fiber/definition'
 export type { SphereAttributes } from './elements/primitives/sphere/definition'
 export type {
-  CadDiagnosticV2,
-  CadDocumentType,
-  CadEvaluationRequestV2,
-  CadEvaluationResponseV2,
+  CadDiagnostic,
+  CadDiagnosticPhase,
+  CadEvaluationRequest,
+  CadEvaluationResponse,
   CadWorkerErrorType,
-  CadWorkerRequest,
-  CadWorkerResponse,
 } from './worker/protocol'

@@ -7,10 +7,7 @@ import type {
   UcumUnit,
 } from '@/lib/cad'
 import { convertUcumValue } from '@/lib/cad'
-import {
-  normalizeRecordedDataTensor,
-  type ResolvedRecordedTensor,
-} from '@/lib/cad'
+import { normalizeRecordedDataTensor, type ResolvedRecordedTensor } from '@/lib/cad'
 import { QuantityKind } from '@/lib/quantitykind'
 
 export type CadViewerRecordedAxis = RecordedDataAxis
@@ -18,10 +15,15 @@ export type CadViewerRecordedTensor = RecordedDataTensor
 export type CadViewerRecordedData = RecordedData
 export type { ResolvedRecordedTensor }
 
-export type RecordedDataDisplayUnits = Readonly<Record<string, Readonly<{
-  axes?: Readonly<Record<number, UcumUnit>>
-  result?: UcumUnit
-}>>>
+export type RecordedDataDisplayUnits = Readonly<
+  Record<
+    string,
+    Readonly<{
+      axes?: Readonly<Record<number, UcumUnit>>
+      result?: UcumUnit
+    }>
+  >
+>
 
 export type RecordedDataDisplayUnitTarget = 'result' | number
 
@@ -38,16 +40,15 @@ export type ResolvedRecordedData = Readonly<{
 export const normalizeCadViewerRecordedTensor = normalizeRecordedDataTensor
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value)
-    && [Object.prototype, null].includes(Object.getPrototypeOf(value))
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(value))
+  )
 }
 
-export function resolveCadViewerRecordedData(
-  rules: readonly RecordedDataRule[],
-  value: unknown,
-): ResolvedRecordedData {
+export function resolveCadViewerRecordedData(rules: readonly RecordedDataRule[], value: unknown): ResolvedRecordedData {
   if (value !== null && value !== undefined && !isPlainObject(value)) {
     return Object.freeze({
       entries: Object.freeze(rules.map((rule) => Object.freeze({ rule, tensor: null, error: null }))),
@@ -59,24 +60,26 @@ export function resolveCadViewerRecordedData(
   const data = value ?? {}
   const labels = new Set(rules.map((rule) => rule.label))
   const unknownLabels = Object.freeze(Object.keys(data).filter((label) => !labels.has(label)))
-  const entries = Object.freeze(rules.map((rule) => {
-    if (!Object.prototype.hasOwnProperty.call(data, rule.label)) {
-      return Object.freeze({ rule, tensor: null, error: null })
-    }
-    try {
-      return Object.freeze({
-        rule,
-        tensor: normalizeRecordedDataTensor(rule, data[rule.label]),
-        error: null,
-      })
-    } catch (error) {
-      return Object.freeze({
-        rule,
-        tensor: null,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
-  }))
+  const entries = Object.freeze(
+    rules.map((rule) => {
+      if (!Object.prototype.hasOwnProperty.call(data, rule.label)) {
+        return Object.freeze({ rule, tensor: null, error: null })
+      }
+      try {
+        return Object.freeze({
+          rule,
+          tensor: normalizeRecordedDataTensor(rule, data[rule.label]),
+          error: null,
+        })
+      } catch (error) {
+        return Object.freeze({
+          rule,
+          tensor: null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }),
+  )
 
   return Object.freeze({ entries, error: null, unknownLabels })
 }
@@ -85,24 +88,23 @@ export function isNumericRecordedDType(dtype: RecordedDataRule['result']['dtype'
   return dtype !== 'bool' && dtype !== 'string'
 }
 
-export function recordedDisplayUnitOptions(
-  quantityKind: QuantityKindName,
-  sourceUnit: UcumUnit,
-): readonly UcumUnit[] {
+export function recordedDisplayUnitOptions(quantityKind: QuantityKindName, sourceUnit: UcumUnit): readonly UcumUnit[] {
   const definition = QuantityKind[quantityKind]
   const units = definition.applicableUnits() as readonly UcumUnit[]
   const tensorOrder = definition.tensorOrder()
-  return Object.freeze([sourceUnit, ...units.filter((unit) => unit !== sourceUnit)].filter((unit) => {
-    try {
-      if (tensorOrder > 0 && convertUcumValue(0, sourceUnit, unit, `${quantityKind} display unit`) !== 0) {
+  return Object.freeze(
+    [sourceUnit, ...units.filter((unit) => unit !== sourceUnit)].filter((unit) => {
+      try {
+        if (tensorOrder > 0 && convertUcumValue(0, sourceUnit, unit, `${quantityKind} display unit`) !== 0) {
+          return false
+        }
+        convertUcumValue(1, sourceUnit, unit, `${quantityKind} display unit`)
+        return true
+      } catch {
         return false
       }
-      convertUcumValue(1, sourceUnit, unit, `${quantityKind} display unit`)
-      return true
-    } catch {
-      return false
-    }
-  }))
+    }),
+  )
 }
 
 export function convertRecordedNumericValue(
@@ -129,10 +131,7 @@ export function convertRecordedNumericTicks(
   displayUnit: UcumUnit,
 ): readonly number[] {
   if (sourceUnit === displayUnit) return ticks
-  return Object.freeze(ticks.map((tick) => convertUcumValue(
-    tick,
-    sourceUnit,
-    displayUnit,
-    'Recorded axis display unit',
-  )))
+  return Object.freeze(
+    ticks.map((tick) => convertUcumValue(tick, sourceUnit, displayUnit, 'Recorded axis display unit')),
+  )
 }

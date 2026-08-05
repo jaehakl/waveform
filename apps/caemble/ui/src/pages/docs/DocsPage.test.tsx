@@ -31,22 +31,22 @@ function renderDocs(path = '/docs') {
 }
 
 describe('DocsPage', () => {
-  it('opens the v3 authoring guide by default and links every verified example', () => {
+  it('opens the Experiment Program authoring guide by default and links every verified example', () => {
     renderDocs()
 
     expect(screen.getByRole('heading', { name: /kernel task를 조합해/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Experiment Program v3' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Experiment Program' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByRole('link', { name: /Playground에서 열기/ })).toHaveLength(3)
-    expect(screen.getByText('apps/caemble/ui/docs/experiment-program-v3.md')).toBeInTheDocument()
+    expect(screen.getByText('apps/caemble/ui/docs/experiment-program.md')).toBeInTheDocument()
   })
 
-  it('keeps the existing CAD and v2 reference behind a deep-linkable section', async () => {
-    const router = renderDocs('/docs?section=v3')
+  it('keeps the CAD reference behind a deep-linkable section', async () => {
+    const router = renderDocs('/docs?section=program')
 
-    await userEvent.click(screen.getByRole('button', { name: 'CAD·v2 Reference' }))
+    await userEvent.click(screen.getByRole('button', { name: 'CAD Reference' }))
 
     expect(router.state.location.search).toBe('?section=reference')
     expect(screen.getByRole('heading', { name: 'Caemble Help' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'CAD·v2 Reference' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'CAD Reference' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

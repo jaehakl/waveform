@@ -18,19 +18,21 @@ describe('CAD primitives', () => {
 
   it('applies radius and radius_2 to the local -Z and +Z ends', () => {
     const uniformGeometry = evaluate('cylinder', { radius: 2, height: 4, segments: 8 }).geometry
-    const uniformVertices = geometries.geom3.toPolygons(
-      uniformGeometry as Parameters<typeof geometries.geom3.toPolygons>[0],
-    ).flatMap((polygon) => polygon.vertices)
-    const uniformStartRadii = uniformVertices.filter((vertex) => vertex[2] === -2).map((vertex) => Math.hypot(vertex[0], vertex[1]))
-    const uniformEndRadii = uniformVertices.filter((vertex) => vertex[2] === 2).map((vertex) => Math.hypot(vertex[0], vertex[1]))
+    const uniformVertices = geometries.geom3
+      .toPolygons(uniformGeometry as Parameters<typeof geometries.geom3.toPolygons>[0])
+      .flatMap((polygon) => polygon.vertices)
+    const uniformStartRadii = uniformVertices
+      .filter((vertex) => vertex[2] === -2)
+      .map((vertex) => Math.hypot(vertex[0], vertex[1]))
+    const uniformEndRadii = uniformVertices
+      .filter((vertex) => vertex[2] === 2)
+      .map((vertex) => Math.hypot(vertex[0], vertex[1]))
 
     expect(Math.max(...uniformStartRadii)).toBeCloseTo(2)
     expect(Math.max(...uniformEndRadii)).toBeCloseTo(2)
 
     const geometry = evaluate('cylinder', { radius: 2, radius_2: 1, height: 4, segments: 8 }).geometry
-    const polygons = geometries.geom3.toPolygons(
-      geometry as Parameters<typeof geometries.geom3.toPolygons>[0],
-    )
+    const polygons = geometries.geom3.toPolygons(geometry as Parameters<typeof geometries.geom3.toPolygons>[0])
     const vertices = polygons.flatMap((polygon) => polygon.vertices)
     const startRadii = vertices.filter((vertex) => vertex[2] === -2).map((vertex) => Math.hypot(vertex[0], vertex[1]))
     const endRadii = vertices.filter((vertex) => vertex[2] === 2).map((vertex) => Math.hypot(vertex[0], vertex[1]))

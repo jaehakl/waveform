@@ -106,9 +106,7 @@ for (const domain of materialParameterDomains) {
     keys.add(definition.key)
 
     if (/^(?:mdb|qudt):/.test(definition.quantity_kind)) {
-      throw new TypeError(
-        `Material parameter ${definition.key} uses a source-prefixed QuantityKind`,
-      )
+      throw new TypeError(`Material parameter ${definition.key} uses a source-prefixed QuantityKind`)
     }
   }
 }
@@ -151,18 +149,22 @@ export type MaterialPropertyQuantityKind<Key extends MaterialPropertyKey> =
   MaterialPropertyDefinitionFor<Key>['quantity_kind']
 export type MaterialCatalogKey = MaterialPropertyKey | MaterialModelKey
 
-export const materialParameterByKey = Object.freeze(Object.fromEntries(
-  materialParameterData.map((definition) => [definition.key, definition]),
-)) as Readonly<{
+export const materialParameterByKey = Object.freeze(
+  Object.fromEntries(materialParameterData.map((definition) => [definition.key, definition])),
+) as Readonly<{
   [Key in MaterialPropertyKey]: MaterialPropertyDefinitionFor<Key>
 }>
 
 const designRules = Object.freeze({
-  canonical_key: 'domain.property; do not encode direction, component, temperature, pressure, frequency, wavelength, species, phase, or model branch in the key',
-  value_shape: 'A property is one physical quantity value with no axes; its exact Cartesian component shape is determined only by the referenced QuantityKind tensorOrder.',
-  model_parameters: 'Dependencies and constitutive relations must use a key enumerated in the separate Material model catalog; arbitrary model.* keys are forbidden.',
+  canonical_key:
+    'domain.property; do not encode direction, component, temperature, pressure, frequency, wavelength, species, phase, or model branch in the key',
+  value_shape:
+    'A property is one physical quantity value with no axes; its exact Cartesian component shape is determined only by the referenced QuantityKind tensorOrder.',
+  model_parameters:
+    'Dependencies and constitutive relations must use a key enumerated in the separate Material model catalog; arbitrary model.* keys are forbidden.',
   interface_properties: 'interface.* records belong to a material/phase pair, not to one bulk material.',
-  quantity_kind: "reference the single canonical QuantityKind name; domain prefixes identify physical meaning, not the catalog property's usage domain.",
+  quantity_kind:
+    "reference the single canonical QuantityKind name; domain prefixes identify physical meaning, not the catalog property's usage domain.",
 })
 
 const globalQualifiers = Object.freeze([

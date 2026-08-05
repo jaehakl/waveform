@@ -76,12 +76,7 @@ export interface MaterialModelCatalog {
   readonly relations: readonly MaterialModelRelationDefinition[]
 }
 
-const definitionFields = new Set([
-  'key',
-  'label_ko',
-  'quantity_kind',
-  'special_qualifiers',
-])
+const definitionFields = new Set(['key', 'label_ko', 'quantity_kind', 'special_qualifiers'])
 
 export function defineMaterialParameterDomain<
   const Domain extends MaterialParameterDomain,
@@ -91,16 +86,12 @@ export function defineMaterialParameterDomain<
 
   for (const definition of definitions) {
     if (!keyPattern.test(definition.key)) {
-      throw new TypeError(
-        `Material parameter key ${JSON.stringify(definition.key)} must match ${domain}.<property>`,
-      )
+      throw new TypeError(`Material parameter key ${JSON.stringify(definition.key)} must match ${domain}.<property>`)
     }
 
     for (const field of Object.keys(definition)) {
       if (!definitionFields.has(field)) {
-        throw new TypeError(
-          `Material parameter ${definition.key} has unsupported field ${JSON.stringify(field)}`,
-        )
+        throw new TypeError(`Material parameter ${definition.key} has unsupported field ${JSON.stringify(field)}`)
       }
     }
 
@@ -113,9 +104,9 @@ export function defineMaterialParameterDomain<
   return Object.freeze(definitions) as Definitions
 }
 
-export function defineMaterialModelRelations<
-  const Definitions extends readonly MaterialModelRelationDefinition[],
->(definitions: Definitions): Definitions {
+export function defineMaterialModelRelations<const Definitions extends readonly MaterialModelRelationDefinition[]>(
+  definitions: Definitions,
+): Definitions {
   const keys = new Set<string>()
   for (const definition of definitions) {
     if (!/^model\.[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(definition.key)) {

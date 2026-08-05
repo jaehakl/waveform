@@ -1,25 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import type * as Monaco from 'monaco-editor'
-import type { CadDiagnosticV2 } from '@/lib/cad'
+import type { CadDiagnostic } from '@/lib/cad'
 
 type CadEditorProps = {
-  diagnostics?: readonly CadDiagnosticV2[]
+  diagnostics?: readonly CadDiagnostic[]
   modelPath: string
   onChange: (value: string) => void
   readOnly?: boolean
   value: string
 }
 
-function markerData(monaco: typeof Monaco, diagnostics: readonly CadDiagnosticV2[]) {
+function markerData(monaco: typeof Monaco, diagnostics: readonly CadDiagnostic[]) {
   return diagnostics.map((diagnostic) => ({
     ...diagnostic.range,
     code: String(diagnostic.code),
     message: diagnostic.message,
-    severity: diagnostic.severity === 'error'
-      ? monaco.MarkerSeverity.Error
-      : diagnostic.severity === 'warning'
-        ? monaco.MarkerSeverity.Warning
-        : monaco.MarkerSeverity.Info,
+    severity:
+      diagnostic.severity === 'error'
+        ? monaco.MarkerSeverity.Error
+        : diagnostic.severity === 'warning'
+          ? monaco.MarkerSeverity.Warning
+          : monaco.MarkerSeverity.Info,
     source: `caemble-${diagnostic.phase}`,
   }))
 }
@@ -42,38 +43,40 @@ function CadEditor({ diagnostics = [], modelPath, onChange, readOnly = false, va
     let disposed = false
     let subscription: Monaco.IDisposable | null = null
 
-    void import('@/lib/cad/authoring').then(({ loadMonaco }) => loadMonaco()).then((monaco) => {
-      if (disposed || !containerRef.current) return
-      const uri = monaco.Uri.parse(modelPath)
-      const model = monaco.editor.getModel(uri)
-        ?? monaco.editor.createModel(valueRef.current, 'typescript', uri)
-      if (model.getValue() !== valueRef.current) model.setValue(valueRef.current)
-      const editor = monaco.editor.create(containerRef.current, {
-        automaticLayout: true,
-        fontFamily: 'JetBrains Mono, Consolas, Monaco, monospace',
-        fontSize: 13,
-        lineNumbersMinChars: 3,
-        minimap: { enabled: false },
-        model,
-        padding: { top: 14 },
-        readOnly: readOnlyRef.current,
-        scrollBeyondLastLine: false,
-        tabSize: 2,
-        theme: 'vs-light',
-        wordWrap: 'on',
+    void import('@/lib/cad/authoring')
+      .then(({ loadMonaco }) => loadMonaco())
+      .then((monaco) => {
+        if (disposed || !containerRef.current) return
+        const uri = monaco.Uri.parse(modelPath)
+        const model = monaco.editor.getModel(uri) ?? monaco.editor.createModel(valueRef.current, 'typescript', uri)
+        if (model.getValue() !== valueRef.current) model.setValue(valueRef.current)
+        const editor = monaco.editor.create(containerRef.current, {
+          automaticLayout: true,
+          fontFamily: 'JetBrains Mono, Consolas, Monaco, monospace',
+          fontSize: 13,
+          lineNumbersMinChars: 3,
+          minimap: { enabled: false },
+          model,
+          padding: { top: 14 },
+          readOnly: readOnlyRef.current,
+          scrollBeyondLastLine: false,
+          tabSize: 2,
+          theme: 'vs-light',
+          wordWrap: 'on',
+        })
+        monacoRef.current = monaco
+        editorRef.current = editor
+        monaco.editor.setModelMarkers(model, 'caemble-cad', markerData(monaco, diagnosticsRef.current))
+        subscription = model.onDidChangeContent(() => {
+          const nextValue = model.getValue()
+          if (nextValue === valueRef.current) return
+          valueRef.current = nextValue
+          onChangeRef.current(nextValue)
+        })
       })
-      monacoRef.current = monaco
-      editorRef.current = editor
-      monaco.editor.setModelMarkers(model, 'caemble-v2', markerData(monaco, diagnosticsRef.current))
-      subscription = model.onDidChangeContent(() => {
-        const nextValue = model.getValue()
-        if (nextValue === valueRef.current) return
-        valueRef.current = nextValue
-        onChangeRef.current(nextValue)
+      .catch((error: unknown) => {
+        if (!disposed) setLoadError(error instanceof Error ? error.message : String(error))
       })
-    }).catch((error: unknown) => {
-      if (!disposed) setLoadError(error instanceof Error ? error.message : String(error))
-    })
 
     return () => {
       disposed = true
@@ -98,7 +101,7 @@ function CadEditor({ diagnostics = [], modelPath, onChange, readOnly = false, va
     const monaco = monacoRef.current
     const model = editorRef.current?.getModel()
     if (!monaco || !model) return
-    monaco.editor.setModelMarkers(model, 'caemble-v2', markerData(monaco, diagnostics))
+    monaco.editor.setModelMarkers(model, 'caemble-cad', markerData(monaco, diagnostics))
   }, [diagnostics])
 
   return (

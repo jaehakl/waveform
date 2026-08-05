@@ -28,15 +28,15 @@ function createRule(
     parameters: {},
     result: {
       dtype,
-      ...(axes.length === 0 ? {} : {
-        axes: axes.map((axis, index) => ({
-          ...(shape[index] === -1 ? {} : { length: shape[index] }),
-          ...axis,
-        })),
-      }),
-      ...(dtype.startsWith('float')
-        ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' }
-        : {}),
+      ...(axes.length === 0
+        ? {}
+        : {
+            axes: axes.map((axis, index) => ({
+              ...(shape[index] === -1 ? {} : { length: shape[index] }),
+              ...axis,
+            })),
+          }),
+      ...(dtype.startsWith('float') ? { unit: '{fraction}', quantityKind: 'DimensionlessRatio' } : {}),
     } as RecordedDataRule['result'],
   }
 }
@@ -72,7 +72,10 @@ describe('CadViewer recordedData normalization', () => {
   })
 
   it('normalizes fixed tensors against the Experiment schema and freezes copies', () => {
-    const source = [[1, 2, 3], [4, 5, 6]]
+    const source = [
+      [1, 2, 3],
+      [4, 5, 6],
+    ]
     const rule = createRule('Layer field', [2, 3], 'float32', [
       { name: 'layer', ticks: ['lower', 'upper'] },
       { name: 'position', ticks: [0, 0.5, 1] },
@@ -114,7 +117,10 @@ describe('CadViewer recordedData normalization', () => {
       },
     }
     const tensor = normalizeCadViewerRecordedTensor(rule, {
-      value: [[1, 2, 3], [4, 5, 6]],
+      value: [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
       axes: [{ ticks: ['a', 'b'] }],
     })
 
@@ -122,28 +128,36 @@ describe('CadViewer recordedData normalization', () => {
       componentShape: [3],
       tensorOrder: 1,
       basis: identityCartesianBasis,
-      value: [[1, 2, 3], [4, 5, 6]],
+      value: [
+        [1, 2, 3],
+        [4, 5, 6],
+      ],
     })
-    expect(() => normalizeCadViewerRecordedTensor(rule, {
-      value: [[1, 2, 3], [4, 5]],
-    })).toThrow('expected shape [-1,3]')
-    expect(() => normalizeCadViewerRecordedTensor(rule, {
-      value: [[1, 2, 3]],
-      sampleAxes: [{ ticks: ['a'] }],
-    } as never)).toThrow('.sampleAxes is obsolete in the dtype/axes contract; use recordedData["Current density"].axes')
+    expect(() =>
+      normalizeCadViewerRecordedTensor(rule, {
+        value: [
+          [1, 2, 3],
+          [4, 5],
+        ],
+      }),
+    ).toThrow('expected shape [-1,3]')
+    expect(() =>
+      normalizeCadViewerRecordedTensor(rule, {
+        value: [[1, 2, 3]],
+        sampleAxes: [{ ticks: ['a'] }],
+      } as never),
+    ).toThrow('.sampleAxes is obsolete in the dtype/axes contract; use recordedData["Current density"].axes')
   })
 
   it('resolves multiple wildcard axes, empty tensors, and result-provided ticks', () => {
-    const rule = createRule('Dynamic field', [-1, -1], 'float64', [
-      { name: 'time' },
-      { name: 'position' },
-    ])
+    const rule = createRule('Dynamic field', [-1, -1], 'float64', [{ name: 'time' }, { name: 'position' }])
     const tensor = normalizeCadViewerRecordedTensor(rule, {
-      value: [[1, 2], [3, 4], [5, 6]],
-      axes: [
-        { ticks: ['t0', 't1', 't2'] },
-        { ticks: [10, 20] },
+      value: [
+        [1, 2],
+        [3, 4],
+        [5, 6],
       ],
+      axes: [{ ticks: ['t0', 't1', 't2'] }, { ticks: [10, 20] }],
     })
     const empty = normalizeCadViewerRecordedTensor(rule, { value: [] })
 
@@ -160,24 +174,32 @@ describe('CadViewer recordedData normalization', () => {
   it('uses 0-based wildcard ticks and validates fixed and dynamic payload axes', () => {
     const dynamic = createRule('Dynamic profile', [-1])
     expect(normalizeCadViewerRecordedTensor(dynamic, { value: [1, 2, 3] }).axes[0].ticks).toEqual([0, 1, 2])
-    expect(() => normalizeCadViewerRecordedTensor(dynamic, {
-      value: [1, 2, 3],
-      axes: [{ ticks: ['a', 'b'] }],
-    })).toThrow('ticks has length 2; expected actual axis length 3')
+    expect(() =>
+      normalizeCadViewerRecordedTensor(dynamic, {
+        value: [1, 2, 3],
+        axes: [{ ticks: ['a', 'b'] }],
+      }),
+    ).toThrow('ticks has length 2; expected actual axis length 3')
 
     const fixed = createRule('Fixed profile', [2], 'float32', [{ name: 'x', ticks: ['a', 'b'] }])
-    expect(normalizeCadViewerRecordedTensor(fixed, {
-      value: [1, 2],
-      axes: [{ ticks: ['a', 'b'] }],
-    }).axes[0].ticks).toEqual(['a', 'b'])
-    expect(() => normalizeCadViewerRecordedTensor(fixed, {
-      value: [1, 2],
-      axes: [{ ticks: ['b', 'a'] }],
-    })).toThrow('does not match Experiment schema ticks')
-    expect(() => normalizeCadViewerRecordedTensor(fixed, {
-      value: [1, 2],
-      axes: [{ name: 'x' }],
-    })).toThrow('may contain only ticks')
+    expect(
+      normalizeCadViewerRecordedTensor(fixed, {
+        value: [1, 2],
+        axes: [{ ticks: ['a', 'b'] }],
+      }).axes[0].ticks,
+    ).toEqual(['a', 'b'])
+    expect(() =>
+      normalizeCadViewerRecordedTensor(fixed, {
+        value: [1, 2],
+        axes: [{ ticks: ['b', 'a'] }],
+      }),
+    ).toThrow('does not match Experiment schema ticks')
+    expect(() =>
+      normalizeCadViewerRecordedTensor(fixed, {
+        value: [1, 2],
+        axes: [{ name: 'x' }],
+      }),
+    ).toThrow('may contain only ticks')
   })
 
   it('reports actual and expected shapes, ragged values, dtype errors, and invalid envelopes', () => {
@@ -189,9 +211,7 @@ describe('CadViewer recordedData normalization', () => {
     expect(() => normalizeCadViewerRecordedTensor(rule, { value: [[1, 40000]] })).toThrow(
       'must be a int16 safe integer',
     )
-    expect(() => normalizeCadViewerRecordedTensor(rule, [[1, 2]])).toThrow(
-      'must be a plain object containing value',
-    )
+    expect(() => normalizeCadViewerRecordedTensor(rule, [[1, 2]])).toThrow('must be a plain object containing value')
     expect(() => normalizeCadViewerRecordedTensor(rule, { value: [[1, 2]], shape: [1, 2] })).toThrow(
       '.shape is obsolete in the dtype/axes contract',
     )

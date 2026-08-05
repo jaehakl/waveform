@@ -6,7 +6,7 @@ export const dcNotchedCurrentDensityStructureCode = `import {
   structure,
   type Geometry,
   type Vec3,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 const NotchedConductor: Geometry<{
   notchPosition: Vec3
@@ -60,10 +60,11 @@ export default structure({
 })
 `
 
-export const dcNotchedCurrentDensityExperimentCode = `import { defineTask, experiment } from '@caemble/core/v3'
-import { dcCurrentDensity } from '@caemble/kernels/v1'
+export const dcNotchedCurrentDensityExperimentCode = `import { experiment } from '@caemble/core'
+import { dcCurrentDensity } from '@caemble/kernels'
 
-const solveField = defineTask(dcCurrentDensity, ({ vars }) => ({
+function fieldTask(sourceVoltage: number) {
+  return dcCurrentDensity({
   parameters: {
     relativeTolerance: {
       dtype: 'float64',
@@ -95,7 +96,7 @@ const solveField = defineTask(dcCurrentDensity, ({ vars }) => ({
       parameters: {
         voltage: {
           dtype: 'float64',
-          value: vars.sourceVoltage,
+          value: sourceVoltage,
           unit: 'mV',
           quantityKind: 'electromagnetism.Voltage',
         },
@@ -115,7 +116,7 @@ const solveField = defineTask(dcCurrentDensity, ({ vars }) => ({
     },
   ],
 
-  recordedData: [
+  outputs: [
     {
       key: 'currentDensity',
       target: ['structure.geometry.conductor'],
@@ -143,7 +144,8 @@ const solveField = defineTask(dcCurrentDensity, ({ vars }) => ({
       },
     },
   ],
-}))
+  })
+}
 
 function FieldProbe() {
   return <box size={[3, 3, 3]} />
@@ -158,19 +160,11 @@ export default experiment({
 
   geometry: () => <FieldProbe id="field-probe" pos={[0, -15, 0]} />,
 
-  initialState: ({ world }) => ({
-    bodies: world.bodies.map((body) => ({
-      body,
-      pose: body.referencePose,
-      velocity: [0, 0, 0],
-    })),
+  tasks: ({ vars }) => ({
+    solveField: fieldTask(vars.sourceVoltage),
   }),
 
-  tasks: {
-    solveField,
-  },
-
-  outputs: {
+  recordedData: {
     currentDensity: {
       dtype: 'float64',
       unit: 'A.m-2',
@@ -192,10 +186,8 @@ export default experiment({
     },
   },
 
-  simulate: async ({ sim, tasks, initialState }) => {
-    const result = await sim.run(tasks.solveField, {
-      state: initialState,
-    })
+  simulate: async ({ sim, tasks }) => {
+    const result = await sim.run(tasks.solveField)
 
     sim.record('currentDensity', result.artifacts.currentDensity)
     sim.record('totalCurrent', result.artifacts.totalCurrent)
@@ -209,15 +201,15 @@ export const dcNotchedCurrentDensityExample = Object.freeze({
   title: 'DC Notched Current Density',
   description: 'notch 주변 전류 집중을 2D vector field와 전체 전류로 함께 기록합니다.',
   concepts: Object.freeze([
-    '명시적인 initialState',
+    'simulation이 제공하는 initialState',
     '한 task에서 여러 ArtifactRef 요청',
-    '동적 2D axes와 vector Quantity output',
+    '동적 2D axes와 vector Quantity RecordedData',
   ]),
   structureCode: dcNotchedCurrentDensityStructureCode,
   experimentCode: dcNotchedCurrentDensityExperimentCode,
   verification: Object.freeze({
     kernelTasks: Object.freeze(['solveField']),
-    outputs: Object.freeze(['currentDensity', 'totalCurrent']),
+    recordedData: Object.freeze(['currentDensity', 'totalCurrent']),
     expectations: Object.freeze([
       'currentDensity value shape = [21, 21, 3]',
       '모든 field 성분과 axis tick이 유한값',

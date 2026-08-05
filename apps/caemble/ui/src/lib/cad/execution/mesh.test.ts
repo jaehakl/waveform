@@ -2,12 +2,7 @@ import { geometries } from '@jscad/modeling'
 import { describe, expect, it } from 'vitest'
 import { h } from '../evaluation/jsx'
 import { evaluateCadScene } from '../evaluation/evaluator'
-import {
-  assertSerializableCadScene,
-  cadSnapshotTransferables,
-  deserializeCadScene,
-  serializeCadScene,
-} from './mesh'
+import { assertSerializableCadScene, cadSnapshotTransferables, deserializeCadScene, serializeCadScene } from './mesh'
 
 function scene(size: readonly [number, number, number]) {
   function Box() {
@@ -28,9 +23,9 @@ describe('typed CAD scene snapshots', () => {
 
     const restored = deserializeCadScene(serialized)
     expect(geometries.geom3.isA(restored.parts[0].geometry)).toBe(true)
-    expect(geometries.geom3.toPolygons(
-      restored.parts[0].geometry as Parameters<typeof geometries.geom3.toPolygons>[0],
-    )).toHaveLength(6)
+    expect(
+      geometries.geom3.toPolygons(restored.parts[0].geometry as Parameters<typeof geometries.geom3.toPolygons>[0]),
+    ).toHaveLength(6)
     expect(deserializeCadScene(serialized)).toBe(restored)
   })
 

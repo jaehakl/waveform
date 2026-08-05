@@ -43,21 +43,25 @@ describe('CAD scene identity and evaluated tree', () => {
       'root.$part-1',
     ])
     expect(first.parts.map((part) => part.surfaces.length)).toEqual([6, 6, 7])
-    expect(new Set(first.parts.flatMap((part) => [part.id, ...part.surfaces.map((surface) => surface.id)])).size).toBe(22)
-    expect(nodes.map((node) => node.label)).toEqual(expect.arrayContaining([
-      'Structure',
-      'Root',
-      '<array>',
-      'Cell [0, 0, 0]',
-      'Cell [1, 0, 0]',
-      'Cell',
-      '<box>',
-      '<subtract>',
-      'Base',
-      'Cutter',
-      '<cylinder>',
-      'Part 1 · Scene material',
-    ]))
+    expect(new Set(first.parts.flatMap((part) => [part.id, ...part.surfaces.map((surface) => surface.id)])).size).toBe(
+      22,
+    )
+    expect(nodes.map((node) => node.label)).toEqual(
+      expect.arrayContaining([
+        'Structure',
+        'Root',
+        '<array>',
+        'Cell [0, 0, 0]',
+        'Cell [1, 0, 0]',
+        'Cell',
+        '<box>',
+        '<subtract>',
+        'Base',
+        'Cutter',
+        '<cylinder>',
+        'Part 1 · Scene material',
+      ]),
+    )
     expect(nodes.some((node) => node.label === 'Fragment')).toBe(false)
     expect(nodes.filter((node) => node.geometryId).map((node) => node.geometryId)).toEqual([
       'root.$cell-0-0-0.particle',
@@ -71,11 +75,7 @@ describe('CAD scene identity and evaluated tree', () => {
     const rootNode = nodes.find((node) => node.globalId === 'root')!
     expect(rootNode).toMatchObject({
       groupId: 'root',
-      geometryIds: [
-        'root.$cell-0-0-0.particle',
-        'root.$cell-1-0-0.particle',
-        'root.$part-1',
-      ],
+      geometryIds: ['root.$cell-0-0-0.particle', 'root.$cell-1-0-0.particle', 'root.$part-1'],
     })
 
     const arrayNode = nodes.find((node) => node.label === '<array>')!
@@ -93,13 +93,17 @@ describe('CAD scene identity and evaluated tree', () => {
     expect(flattenTree(cutterNode).some((node) => node.geometryId || node.groupId)).toBe(false)
     expect(subtractNode.groupId).toBeUndefined()
 
-    expect(second.parts.map((part) => ({
-      id: part.id,
-      surfaceIds: part.surfaces.map((surface) => surface.id),
-    }))).toEqual(first.parts.map((part) => ({
-      id: part.id,
-      surfaceIds: part.surfaces.map((surface) => surface.id),
-    })))
+    expect(
+      second.parts.map((part) => ({
+        id: part.id,
+        surfaceIds: part.surfaces.map((surface) => surface.id),
+      })),
+    ).toEqual(
+      first.parts.map((part) => ({
+        id: part.id,
+        surfaceIds: part.surfaces.map((surface) => surface.id),
+      })),
+    )
     expect(second.tree).toEqual(first.tree)
 
     expect(resolveCadSceneSelection(first, 'root')).toMatchObject({
@@ -121,12 +125,7 @@ describe('CAD scene identity and evaluated tree', () => {
 
   it('labels materialless scene parts and selections as Unassigned', () => {
     function Pair() {
-      return h(
-        Fragment,
-        null,
-        h('box', { size: [1, 1, 1] }),
-        h('box', { size: [1, 1, 1], pos: [2, 0, 0] }),
-      )
+      return h(Fragment, null, h('box', { size: [1, 1, 1] }), h('box', { size: [1, 1, 1], pos: [2, 0, 0] }))
     }
 
     const scene = evaluateCadScene(h(Pair, { id: 'pair' }))
@@ -134,10 +133,9 @@ describe('CAD scene identity and evaluated tree', () => {
 
     expect(scene.parts).toHaveLength(2)
     expect(scene.parts.every((part) => part.material === undefined)).toBe(true)
-    expect(nodes.map((node) => node.label)).toEqual(expect.arrayContaining([
-      'Part 1 · Unassigned',
-      'Part 2 · Unassigned',
-    ]))
+    expect(nodes.map((node) => node.label)).toEqual(
+      expect.arrayContaining(['Part 1 · Unassigned', 'Part 2 · Unassigned']),
+    )
     expect(resolveCadSceneSelection(scene, 'pair.$part-1')).toMatchObject({
       label: 'pair.$part-1 · Unassigned',
     })
@@ -169,22 +167,28 @@ describe('CAD scene identity and evaluated tree', () => {
       return h(Box, { id: 'leaf' })
     }
 
-    const separateParents = evaluateCadScene(h(
-      Fragment,
-      null,
-      h(Parent, { id: 'left', materials: [material] }),
-      h(Parent, { id: 'right', materials: [material] }),
-    ))
+    const separateParents = evaluateCadScene(
+      h(
+        Fragment,
+        null,
+        h(Parent, { id: 'left', materials: [material] }),
+        h(Parent, { id: 'right', materials: [material] }),
+      ),
+    )
     expect(separateParents.parts.map((part) => part.id)).toEqual(['left.leaf', 'right.leaf'])
     expect(() => evaluateCadScene(h('box', { size: [1, 1, 1], materials: [material] }))).toThrow(
       'must be created within a Geometry component',
     )
-    expect(() => evaluateCadScene(h(
-      'union',
-      null,
-      h(Box, { id: 'first', materials: [material] }),
-      h(Box, { id: 'second', materials: [material] }),
-    ))).toThrow('must be created within a Geometry component')
+    expect(() =>
+      evaluateCadScene(
+        h(
+          'union',
+          null,
+          h(Box, { id: 'first', materials: [material] }),
+          h(Box, { id: 'second', materials: [material] }),
+        ),
+      ),
+    ).toThrow('must be created within a Geometry component')
   })
 
   it('accumulates reserved cell segments for nested arrays', () => {
@@ -195,22 +199,16 @@ describe('CAD scene identity and evaluated tree', () => {
     }
 
     function Row() {
-      return h(
-        'array',
-        { shape: [1, 2, 1], period: [0, 2, 0] },
-        h(Particle, { id: 'particle' }),
-      )
+      return h('array', { shape: [1, 2, 1], period: [0, 2, 0] }, h(Particle, { id: 'particle' }))
     }
 
     function Assembly() {
-      return h(
-        'array',
-        { shape: [2, 1, 1], period: [2, 0, 0] },
-        h(Row, { id: 'row' }),
-      )
+      return h('array', { shape: [2, 1, 1], period: [2, 0, 0] }, h(Row, { id: 'row' }))
     }
 
-    expect(evaluateCadScene(h(Assembly, { id: 'assembly', materials: [material] })).parts.map((part) => part.id)).toEqual([
+    expect(
+      evaluateCadScene(h(Assembly, { id: 'assembly', materials: [material] })).parts.map((part) => part.id),
+    ).toEqual([
       'assembly.$cell-0-0-0.row.$cell-0-0-0.particle',
       'assembly.$cell-0-0-0.row.$cell-0-1-0.particle',
       'assembly.$cell-1-0-0.row.$cell-0-0-0.particle',
@@ -269,17 +267,21 @@ describe('CAD scene identity and evaluated tree', () => {
       kind: 'geometry-group',
       geometryIds: [],
     })
-    expect(resolveCadSceneDraftSelection(scene, {
-      kind: 'geometry',
-      memberIds: ['assembly', 'assembly.left', 'missing.geometry'],
-    })).toMatchObject({
+    expect(
+      resolveCadSceneDraftSelection(scene, {
+        kind: 'geometry',
+        memberIds: ['assembly', 'assembly.left', 'missing.geometry'],
+      }),
+    ).toMatchObject({
       kind: 'geometry-group',
       geometryIds: ['assembly.left', 'assembly.right'],
     })
-    expect(resolveCadSceneDraftSelection(scene, {
-      kind: 'surface',
-      memberIds: ['assembly.left/surface-1', 'assembly.right/surface-2', 'missing/surface-1'],
-    })).toMatchObject({
+    expect(
+      resolveCadSceneDraftSelection(scene, {
+        kind: 'surface',
+        memberIds: ['assembly.left/surface-1', 'assembly.right/surface-2', 'missing/surface-1'],
+      }),
+    ).toMatchObject({
       kind: 'surface-group',
       geometryIds: ['assembly.left', 'assembly.right'],
       surfaceIds: ['assembly.left/surface-1', 'assembly.right/surface-2'],

@@ -4,10 +4,10 @@ export const fiberBundleCode = `import {
   type FiberFourierMode,
   type Geometry,
   type Vec3,
-} from '@caemble/core/v2'
+} from '@caemble/core'
 
 class Polymer extends Material {
-  toSolverModel() {
+  toMaterialModel() {
     return this.variables
   }
 }

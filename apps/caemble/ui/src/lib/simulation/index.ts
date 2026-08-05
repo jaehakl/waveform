@@ -1,21 +1,14 @@
-export { defineTask, kernelRefV3, simulationProgramManifestV3 } from './authoring'
-export { SimulationFatalErrorV3, SimulationKernelErrorV3 } from './errors'
-export { KernelRegistryV3 } from './registry'
-export {
-  dcCurrentDensityKernel,
-  dcCurrentDensityKernelRef,
-  kernelModulesV3,
-} from './kernels'
-export {
-  exportSimulationResultV3,
-  runSimulationProgramV3,
-} from './runtime'
-export {
-  assertSimulationProgramManifestV3,
-  assertSimulationResultV3,
-} from './validation'
+export { defineKernelTask, simulationProgramManifest } from './authoring'
+export { SimulationFatalError, SimulationKernelError } from './errors'
+export { KernelRegistry } from './registry'
+export * from './kernelContract'
+export * from './kernels'
+export { exportSimulationResult, preflightSimulation, runSimulationProgram } from './runtime'
+export { assertSimulationProgramManifest, assertSimulationResult } from './validation'
 export type {
-  SimulationProgramRuntimeDefinitionV3,
-  SimulationScriptApiV3,
+  SimulationPreflightIssue,
+  SimulationPreflightResult,
+  SimulationProgramRuntimeDefinition,
+  SimulationScriptApi,
 } from './runtime'
 export type * from './types'
